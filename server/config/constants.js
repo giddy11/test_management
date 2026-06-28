@@ -1,0 +1,63 @@
+// config/constants.js
+// Shared enum values mirrored across entities, schemas, and DTOs.
+
+const UserRole = Object.freeze({
+  ADMIN: "admin",
+  LEAD: "lead",
+  TESTER: "tester",
+  VIEWER: "viewer",
+});
+
+const TestCasePriority = Object.freeze({
+  LOW: "Low",
+  MEDIUM: "Medium",
+  HIGH: "High",
+  CRITICAL: "Critical",
+});
+
+const TestCaseStatus = Object.freeze({
+  DRAFT: "Draft",
+  ACTIVE: "Active",
+  DEPRECATED: "Deprecated",
+});
+
+const RunStatus = Object.freeze({
+  IN_PROGRESS: "in_progress",
+  COMPLETED: "completed",
+});
+
+const ResultStatus = Object.freeze({
+  PASS: "pass",
+  FAIL: "fail",
+  BLOCKED: "blocked",
+  SKIPPED: "skipped",
+});
+
+const AuthProvider = Object.freeze({
+  LOCAL: "local",
+  GOOGLE: "google",
+});
+
+const OtpType = Object.freeze({
+  VERIFY_EMAIL: "verify_email",
+  RESET_PASSWORD: "reset_password",
+});
+
+module.exports = {
+  UserRole,
+  TestCasePriority,
+  TestCaseStatus,
+  RunStatus,
+  ResultStatus,
+  AuthProvider,
+  OtpType,
+  enums: {
+    userRole: Object.values(UserRole),
+    testCasePriority: Object.values(TestCasePriority),
+    testCaseStatus: Object.values(TestCaseStatus),
+    runStatus: Object.values(RunStatus),
+    resultStatus: Object.values(ResultStatus),
+    authProvider: Object.values(AuthProvider),
+    otpType: Object.values(OtpType),
+  },
+};

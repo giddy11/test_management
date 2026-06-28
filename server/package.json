@@ -1,0 +1,51 @@
+{
+  "name": "testmate-server",
+  "version": "1.0.0",
+  "description": "TestMate — Test Case Management API (PERN)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js",
+    "typeorm": "typeorm-ts-node-commonjs",
+    "migration:generate": "typeorm migration:generate -d infrastructure/database/dataSource.js",
+    "migration:run": "typeorm migration:run -d infrastructure/database/dataSource.js",
+    "migration:revert": "typeorm migration:revert -d infrastructure/database/dataSource.js",
+    "test": "jest --runInBand",
+    "test:watch": "jest --watch"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "testMatch": [
+      "**/modules/**/tests/**/*.spec.js"
+    ],
+    "clearMocks": true
+  },
+  "keywords": [
+    "testmate",
+    "test-management",
+    "pern"
+  ],
+  "author": "Gideon Azibaobuom Edoghotu",
+  "license": "MIT",
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cloudinary": "^2.10.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "express-rate-limit": "^7.4.0",
+    "google-auth-library": "^9.14.0",
+    "helmet": "^7.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "multer": "^2.2.0",
+    "nodemailer": "^9.0.1",
+    "pg": "^8.12.0",
+    "reflect-metadata": "^0.2.2",
+    "typeorm": "^0.3.20",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "nodemon": "^3.1.4"
+  }
+}
