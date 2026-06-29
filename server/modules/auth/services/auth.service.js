@@ -223,24 +223,20 @@ class AuthService {
       throw new AppError("Google account email is not verified", 401);
     }
 
+    // Google is login-only: the account must already exist (signup needs company
+    // details Google can't provide).
     let user = await this.authRepo.findUserByGoogleId(payload.sub);
     if (!user) user = await this.authRepo.findUserByEmail(payload.email);
 
     if (!user) {
-      user = await this.authRepo.createUser({
-        firstName: payload.given_name || payload.name || payload.email.split("@")[0],
-        lastName: payload.family_name || "",
-        companyName: null,
-        email: payload.email,
-        password: null,
-        role: UserRole.ADMIN,
-        provider: AuthProvider.GOOGLE,
-        googleId: payload.sub,
-        avatarUrl: payload.picture ?? null,
-        isEmailVerified: true, // Google already verified the address
-        organizationId: crypto.randomUUID(),
-      });
-    } else if (!user.googleId) {
+      throw new AppError(
+        "No TestMate account is linked to this Google account. Please sign up first.",
+        404
+      );
+    }
+
+    if (!user.googleId) {
+      // First Google login for an existing email account — link the identity.
       user = await this.authRepo.updateUser(user.id, {
         googleId: payload.sub,
         avatarUrl: user.avatarUrl ?? payload.picture ?? null,

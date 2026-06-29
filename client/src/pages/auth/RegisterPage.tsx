@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { FormField } from "@/components/shared/FormField"
+import { PasswordField } from "@/components/shared/PasswordField"
 import { ThemeToggle } from "@/components/shared/ThemeToggle"
 import { useRegister } from "@/hooks/useAuth"
 import { registerSchema, type RegisterForm } from "@/lib/validation"
@@ -87,10 +88,9 @@ export default function RegisterPage() {
               error={errors.email?.message}
               {...register("email")}
             />
-            <FormField
+            <PasswordField
               id="password"
               label="Password"
-              type="password"
               autoComplete="new-password"
               error={errors.password?.message}
               {...register("password")}

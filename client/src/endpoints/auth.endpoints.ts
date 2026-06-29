@@ -14,6 +14,9 @@ export const AuthEndpoints = {
   login: (payload: LoginPayload) =>
     wrapCall<AuthResult>("POST", "/api/v1/auth/login", payload as unknown as Record<string, unknown>),
 
+  google: (idToken: string) =>
+    wrapCall<AuthResult>("POST", "/api/v1/auth/google", { idToken }),
+
   logout: (refreshToken: string) =>
     wrapCall<null>("POST", "/api/v1/auth/logout", { refreshToken }),
 

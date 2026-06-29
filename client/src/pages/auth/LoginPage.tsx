@@ -11,6 +11,8 @@ import {
 } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { FormField } from "@/components/shared/FormField"
+import { PasswordField } from "@/components/shared/PasswordField"
+import { GoogleButton } from "@/components/auth/GoogleButton"
 import { ThemeToggle } from "@/components/shared/ThemeToggle"
 import { useLogin } from "@/hooks/useAuth"
 import { loginSchema, type LoginForm } from "@/lib/validation"
@@ -54,19 +56,29 @@ export default function LoginPage() {
               error={errors.email?.message}
               {...register("email")}
             />
-            <FormField
+            <PasswordField
               id="password"
               label="Password"
-              type="password"
               autoComplete="current-password"
               placeholder="••••••••"
               error={errors.password?.message}
               {...register("password")}
             />
+            <div className="-mt-1 flex justify-end">
+              <Link
+                to="/forgot-password"
+                className="text-xs text-muted-foreground hover:text-primary hover:underline"
+              >
+                Forgot password?
+              </Link>
+            </div>
             <Button type="submit" className="w-full" disabled={login.isPending}>
               {login.isPending ? "Signing in…" : "Sign in"}
             </Button>
           </form>
+          <div className="mt-4">
+            <GoogleButton />
+          </div>
           <p className="mt-4 text-center text-sm text-muted-foreground">
             No account?{" "}
             <Link to="/register" className="font-medium text-primary hover:underline">

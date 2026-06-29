@@ -39,6 +39,24 @@ export const editUserSchema = z.object({
   role: z.enum(["admin", "user"]),
 })
 
+export const otpCodeSchema = z.object({
+  code: z.string().regex(/^\d{6}$/, "Enter the 6-digit code"),
+})
+
+export const forgotPasswordSchema = z.object({
+  email: z.string().email("Enter a valid email"),
+})
+
+export const resetPasswordSchema = z.object({
+  email: z.string().email("Enter a valid email"),
+  code: z.string().regex(/^\d{6}$/, "Enter the 6-digit code"),
+  newPassword: z
+    .string()
+    .min(8, "At least 8 characters")
+    .regex(/[A-Z]/, "Must contain an uppercase letter")
+    .regex(/[0-9]/, "Must contain a number"),
+})
+
 export const projectSchema = z.object({
   name: z.string().min(1, "Project name is required").max(200),
   description: z.string().max(2000).optional().or(z.literal("")),
@@ -49,3 +67,6 @@ export type RegisterForm = z.infer<typeof registerSchema>
 export type CreateUserForm = z.infer<typeof createUserSchema>
 export type EditUserForm = z.infer<typeof editUserSchema>
 export type ProjectForm = z.infer<typeof projectSchema>
+export type OtpCodeForm = z.infer<typeof otpCodeSchema>
+export type ForgotPasswordForm = z.infer<typeof forgotPasswordSchema>
+export type ResetPasswordForm = z.infer<typeof resetPasswordSchema>

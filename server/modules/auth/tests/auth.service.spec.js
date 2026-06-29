@@ -265,27 +265,21 @@ describe("AuthService", () => {
       };
     }
 
-    it("creates a verified user from a Google token", async () => {
+    it("rejects a Google login when no account exists (login only)", async () => {
       stubGoogle({
         sub: "g-123",
         email: "new@example.com",
         email_verified: true,
         given_name: "New",
         family_name: "User",
-        picture: "http://pic",
       });
       repo.findUserByGoogleId.mockResolvedValue(null);
       repo.findUserByEmail.mockResolvedValue(null);
-      repo.createUser.mockImplementation(async (d) => ({ ...baseUser, ...d, id: "user-2" }));
 
-      await service.google({ idToken: "valid" });
-
-      const created = repo.createUser.mock.calls[0][0];
-      expect(created.provider).toBe(AuthProvider.GOOGLE);
-      expect(created.googleId).toBe("g-123");
-      expect(created.firstName).toBe("New");
-      expect(created.password).toBeNull();
-      expect(created.isEmailVerified).toBe(true);
+      await expect(service.google({ idToken: "valid" })).rejects.toMatchObject({
+        statusCode: 404,
+      });
+      expect(repo.createUser).not.toHaveBeenCalled();
     });
 
     it("links Google to an existing local account by email", async () => {

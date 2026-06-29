@@ -23,7 +23,10 @@
     "testMatch": [
       "**/modules/**/tests/**/*.spec.js"
     ],
-    "clearMocks": true
+    "clearMocks": true,
+    "moduleNameMapper": {
+      "infrastructure/database/dataSource$": "<rootDir>/test/dataSource.mock.js"
+    }
   },
   "keywords": [
     "testmate",

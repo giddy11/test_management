@@ -34,6 +34,24 @@ export function useRegister() {
       return res.data
     },
     onSuccess: (data) => {
+      // Signed in, but unverified — send them to verify their email first.
+      setSession(data)
+      navigate("/verify-email", { replace: true, state: { email: data.user.email } })
+    },
+  })
+}
+
+export function useGoogleLogin() {
+  const { setSession } = useAuth()
+  const navigate = useNavigate()
+
+  return useMutation({
+    mutationFn: async (idToken: string) => {
+      const res = await AuthEndpoints.google(idToken)
+      if (!res.success || !res.data) throw new ApiError(res.message, res.statusCode)
+      return res.data
+    },
+    onSuccess: (data) => {
       setSession(data)
       navigate("/dashboard", { replace: true })
     },
