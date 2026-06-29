@@ -5,12 +5,15 @@ import "./index.css"
 import App from "./App.tsx"
 import { queryClient } from "@/lib/queryClient"
 import { Toaster } from "@/components/ui/sonner"
+import { ThemeProvider } from "@/contexts/ThemeContext"
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <App />
-      <Toaster richColors position="top-right" />
-    </QueryClientProvider>
+    <ThemeProvider>
+      <QueryClientProvider client={queryClient}>
+        <App />
+        <Toaster richColors position="top-right" />
+      </QueryClientProvider>
+    </ThemeProvider>
   </StrictMode>,
 )

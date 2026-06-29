@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { FormField } from "@/components/shared/FormField"
+import { ThemeToggle } from "@/components/shared/ThemeToggle"
 import { useLogin } from "@/hooks/useAuth"
 import { loginSchema, type LoginForm } from "@/lib/validation"
 import { ApiError } from "@/transport/http"
@@ -31,7 +32,10 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/40 p-4">
+    <div className="relative flex min-h-screen items-center justify-center bg-muted/40 p-4">
+      <div className="absolute right-4 top-4">
+        <ThemeToggle />
+      </div>
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl">
