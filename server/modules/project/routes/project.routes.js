@@ -16,21 +16,21 @@ router.get("/:id", authMiddleware, validate(idParamSchema), ProjectController.fe
 router.post(
   "/",
   authMiddleware,
-  authorise("admin", "lead"),
+  authorise("superadmin", "admin"),
   validate(createProjectSchema),
   ProjectController.create
 );
 router.patch(
   "/:id",
   authMiddleware,
-  authorise("admin", "lead"),
+  authorise("superadmin", "admin"),
   validate(updateProjectSchema),
   ProjectController.update
 );
 router.delete(
   "/:id",
   authMiddleware,
-  authorise("admin", "lead"),
+  authorise("superadmin", "admin"),
   validate(idParamSchema),
   ProjectController.remove
 );

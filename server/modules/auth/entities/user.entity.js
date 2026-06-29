@@ -39,6 +39,13 @@ const User = new EntitySchema({
       type: "boolean",
       default: false,
     },
+    // Groups all members of one company. Set to a fresh id when an admin registers;
+    // members the admin creates inherit the admin's organizationId.
+    organizationId: {
+      name: "organization_id",
+      type: "uuid",
+      nullable: true,
+    },
     // ── Address ──────────────────────────────────────────────────────────────
     address: {
       type: "text",
@@ -103,6 +110,7 @@ const User = new EntitySchema({
   indices: [
     { name: "idx_users_email", columns: ["email"], unique: true },
     { name: "idx_users_google_id", columns: ["googleId"] },
+    { name: "idx_users_organization_id", columns: ["organizationId"] },
   ],
 });
 

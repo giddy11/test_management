@@ -16,21 +16,21 @@ router.get("/:id", authMiddleware, validate(idParamSchema), TestRunController.fe
 router.post(
   "/",
   authMiddleware,
-  authorise("admin", "lead", "tester"),
+  authorise("superadmin", "admin", "user"),
   validate(createTestRunSchema),
   TestRunController.create
 );
 router.patch(
   "/:id",
   authMiddleware,
-  authorise("admin", "lead", "tester"),
+  authorise("superadmin", "admin", "user"),
   validate(updateTestRunSchema),
   TestRunController.update
 );
 router.delete(
   "/:id",
   authMiddleware,
-  authorise("admin", "lead"),
+  authorise("superadmin", "admin"),
   validate(idParamSchema),
   TestRunController.remove
 );

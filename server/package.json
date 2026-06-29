@@ -12,7 +12,8 @@
     "migration:revert": "typeorm migration:revert -d infrastructure/database/dataSource.js",
     "test": "jest --runInBand",
     "test:watch": "jest --watch",
-    "env:apply": "gcloud run services update testmate-api --project testmate-f973c --region us-central1 --env-vars-file env.yaml"
+    "env:apply": "gcloud run services update testmate-api --project testmate-f973c --region us-central1 --env-vars-file env.yaml",
+    "seed:superadmin": "node scripts/seedSuperadmin.js"
   },
   "engines": {
     "node": ">=20"

@@ -2,10 +2,9 @@
 // Shared enum values mirrored across entities, schemas, and DTOs.
 
 const UserRole = Object.freeze({
-  ADMIN: "admin",
-  LEAD: "lead",
-  TESTER: "tester",
-  VIEWER: "viewer",
+  SUPERADMIN: "superadmin", // the developer/platform owner
+  ADMIN: "admin", // the company admin who registered the account
+  USER: "user", // a member added by the company admin
 });
 
 const TestCasePriority = Object.freeze({

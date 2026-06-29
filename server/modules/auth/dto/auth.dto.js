@@ -13,6 +13,7 @@ function toUserResponse(user) {
     isEmailVerified: user.isEmailVerified ?? false,
     role: user.role,
     provider: user.provider,
+    organizationId: user.organizationId ?? null,
     avatarUrl: user.avatarUrl ?? null,
     address: user.address ?? null,
     city: user.city ?? null,

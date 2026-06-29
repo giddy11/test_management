@@ -14,6 +14,7 @@ const {
 
 // Module routers
 const authRoutes = require("./modules/auth/routes/auth.routes");
+const userRoutes = require("./modules/user/routes/user.routes");
 const projectRoutes = require("./modules/project/routes/project.routes");
 const testSuiteRoutes = require("./modules/testSuite/routes/testSuite.routes");
 const testCaseRoutes = require("./modules/testCase/routes/testCase.routes");
@@ -43,6 +44,7 @@ function createApp() {
   const api = express.Router();
   api.use(apiRateLimiter);
   api.use("/auth", authRoutes);
+  api.use("/users", userRoutes);
   api.use("/projects", projectRoutes);
   api.use("/test-suites", testSuiteRoutes);
   api.use("/test-cases", testCaseAttachmentRoutes); // /:id/attachments — mounted first

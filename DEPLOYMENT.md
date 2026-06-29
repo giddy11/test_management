@@ -224,3 +224,9 @@ The current setup stores a long-lived JSON service-account key as a GitHub secre
 works, but Google's recommended approach is **Workload Identity Federation** (keyless),
 which avoids a downloadable key entirely. Consider migrating later using
 `google-github-actions/auth@v2` with WIF if security tightens up.
+
+
+Set-Location "C:\Users\DELL G7\Desktop\projects\test_management\server"
+gcloud builds submit --tag gcr.io/testmate-f973c/testmate-api:latest --project testmate-f973c . 2>&1 | Select-Object -Last 6
+
+gcloud run deploy testmate-api --image gcr.io/testmate-f973c/testmate-api:latest --project testmate-f973c --region us-central1 --quiet 2>&1 | Select-Object -Last 4

@@ -1,0 +1,101 @@
+// transport/http.ts — single HTTP client. All config lives here.
+import axios, {
+  AxiosError,
+  type AxiosInstance,
+  type InternalAxiosRequestConfig,
+} from "axios"
+import type { ApiResponse, ValidationError } from "@/types/api.types"
+import { tokenStorage } from "@/lib/storage"
+
+const BASE_URL = import.meta.env.VITE_API_URL ?? "http://localhost:4000"
+
+// Error thrown by wrapCall — carries the parsed ApiResponse fields.
+export class ApiError extends Error {
+  statusCode: number
+  errors: ValidationError[]
+  constructor(message: string, statusCode = 0, errors: ValidationError[] = []) {
+    super(message)
+    this.name = "ApiError"
+    this.statusCode = statusCode
+    this.errors = errors
+  }
+}
+
+const http: AxiosInstance = axios.create({
+  baseURL: BASE_URL,
+  timeout: 20000,
+  headers: { "Content-Type": "application/json" },
+})
+
+// Attach the access token on every request.
+http.interceptors.request.use((config: InternalAxiosRequestConfig) => {
+  const token = tokenStorage.getAccess()
+  if (token) config.headers.Authorization = `Bearer ${token}`
+  return config
+})
+
+// Refresh handling — a single in-flight refresh shared by concurrent 401s.
+let refreshing: Promise<boolean> | null = null
+
+async function refreshTokens(): Promise<boolean> {
+  const refreshToken = tokenStorage.getRefresh()
+  if (!refreshToken) return false
+  try {
+    const res = await axios.post<ApiResponse<{ tokens: { accessToken: string; refreshToken: string } }>>(
+      `${BASE_URL}/api/v1/auth/refresh`,
+      { refreshToken },
+      { headers: { "Content-Type": "application/json" } }
+    )
+    const tokens = res.data.data?.tokens
+    if (tokens) {
+      tokenStorage.set(tokens.accessToken, tokens.refreshToken)
+      return true
+    }
+    return false
+  } catch {
+    return false
+  }
+}
+
+http.interceptors.response.use(
+  (response) => response,
+  async (error: AxiosError) => {
+    const original = error.config as (InternalAxiosRequestConfig & { _retried?: boolean }) | undefined
+    const isAuthRoute = original?.url?.includes("/auth/")
+
+    if (error.response?.status === 401 && original && !original._retried && !isAuthRoute) {
+      original._retried = true
+      refreshing = refreshing ?? refreshTokens()
+      const ok = await refreshing
+      refreshing = null
+      if (ok) {
+        const token = tokenStorage.getAccess()
+        if (token) original.headers.Authorization = `Bearer ${token}`
+        return http.request(original)
+      }
+      tokenStorage.clear()
+    }
+    return Promise.reject(error)
+  }
+)
+
+export async function wrapCall<T>(
+  method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE",
+  path: string,
+  payload?: Record<string, unknown>
+): Promise<ApiResponse<T>> {
+  try {
+    const config = method === "GET" ? { params: payload } : { data: payload }
+    const response = await http.request<ApiResponse<T>>({ method, url: path, ...config })
+    return response.data
+  } catch (err) {
+    if (err instanceof AxiosError && err.response?.data) {
+      const body = err.response.data as ApiResponse
+      throw new ApiError(body.message ?? "Request failed", body.statusCode, body.errors ?? [])
+    }
+    throw new ApiError(
+      err instanceof Error ? err.message : "Network error — please try again",
+      0
+    )
+  }
+}

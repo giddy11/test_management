@@ -1,5 +1,6 @@
 // modules/auth/services/auth.service.js
 // All authentication business logic. Throws AppError for domain failures.
+const crypto = require("crypto");
 const { OAuth2Client } = require("google-auth-library");
 const { AuthRepository } = require("../repositories/auth.repository");
 const { AppError } = require("../../../shared/errors/AppError");
@@ -89,6 +90,7 @@ class AuthService {
       role: UserRole.ADMIN,
       provider: AuthProvider.LOCAL,
       isEmailVerified: false,
+      organizationId: crypto.randomUUID(), // this admin starts a new organisation
     });
 
     await this.issueOtp(user, OtpType.VERIFY_EMAIL);
@@ -236,6 +238,7 @@ class AuthService {
         googleId: payload.sub,
         avatarUrl: payload.picture ?? null,
         isEmailVerified: true, // Google already verified the address
+        organizationId: crypto.randomUUID(),
       });
     } else if (!user.googleId) {
       user = await this.authRepo.updateUser(user.id, {

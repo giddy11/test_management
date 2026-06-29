@@ -24,7 +24,7 @@ router.get(
 router.post(
   "/:id/attachments",
   authMiddleware,
-  authorise("admin", "lead", "tester"),
+  authorise("superadmin", "admin", "user"),
   uploadMany("images", 10), // ① parse + validate files
   validate(testCaseIdParamSchema), // ② validate params
   TestCaseAttachmentController.upload
@@ -34,7 +34,7 @@ router.post(
 router.delete(
   "/:id/attachments/:attachmentId",
   authMiddleware,
-  authorise("admin", "lead", "tester"),
+  authorise("superadmin", "admin", "user"),
   validate(attachmentParamsSchema),
   TestCaseAttachmentController.remove
 );
