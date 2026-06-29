@@ -2,7 +2,9 @@ node_modules/
 .env
 .env.*
 !.env.example
-deploy.env.yaml
+env.yaml
+sa-key.json
+*-sa-key.json
 *.log
 coverage/
 dist/

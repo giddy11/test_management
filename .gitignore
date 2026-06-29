@@ -25,9 +25,11 @@ node_modules
 *.pem
 
 # GCP service-account keys — NEVER commit these
+sa-key.json
 *-sa-key.json
 gcp-sa-key.json
 *service-account*.json
+server/env.yaml
 
 # debug
 npm-debug.log*

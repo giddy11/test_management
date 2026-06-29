@@ -1,0 +1,51 @@
+name: Deploy to Cloud Run
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "server/**"
+      - ".github/workflows/deploy.yml"
+  workflow_dispatch: {}
+
+env:
+  PROJECT_ID: testmate-f973c
+  REGION: us-central1
+  SERVICE: testmate-api
+  IMAGE: gcr.io/testmate-f973c/testmate-api
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Authenticate to Google Cloud
+        run: |
+          echo '${{ secrets.GCP_SA_KEY }}' > /tmp/sa-key.json
+          gcloud auth activate-service-account --key-file=/tmp/sa-key.json
+          gcloud config set project $PROJECT_ID
+
+      - name: Configure Docker for GCR
+        run: gcloud auth configure-docker --quiet
+
+      - name: Build and push image
+        working-directory: server # build context = the server/ folder
+        run: |
+          docker build -t $IMAGE:${{ github.sha }} -t $IMAGE:latest .
+          docker push $IMAGE:${{ github.sha }}
+          docker push $IMAGE:latest
+
+      - name: Deploy to Cloud Run
+        run: |
+          gcloud run deploy $SERVICE \
+            --image $IMAGE:${{ github.sha }} \
+            --platform managed \
+            --region $REGION \
+            --allow-unauthenticated

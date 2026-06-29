@@ -12,7 +12,7 @@
     "migration:revert": "typeorm migration:revert -d infrastructure/database/dataSource.js",
     "test": "jest --runInBand",
     "test:watch": "jest --watch",
-    "deploy": "gcloud run deploy testmate-api --project testmate-f973c --source . --region us-central1 --allow-unauthenticated --env-vars-file deploy.env.yaml"
+    "env:apply": "gcloud run services update testmate-api --project testmate-f973c --region us-central1 --env-vars-file env.yaml"
   },
   "engines": {
     "node": ">=20"

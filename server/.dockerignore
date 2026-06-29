@@ -3,7 +3,8 @@ npm-debug.log
 .env
 .env.*
 !.env.example
-deploy.env.yaml
+env.yaml
+sa-key.json
 .git
 .gitignore
 coverage

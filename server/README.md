@@ -97,57 +97,50 @@ All list endpoints are paginated (`?page&limit`) and return `meta`. Writes are g
 Creating a **test run** snapshots every case in the suite into pending `test_run_results`.
 `GET /test-runs/:id` returns a `summary` of pass/fail/blocked/skipped counts.
 
-## Deployment (Google Cloud Run)
+## Deployment (Google Cloud Run via GitHub Actions)
 
-Containerised via the `Dockerfile` (Node 22, prod deps only, listens on `$PORT`/8080).
+Auto-deploys on every push to `main` that touches `server/`. The pipeline
+(`.github/workflows/deploy.yml`) **builds the image on the GitHub runner**, pushes it to GCR
+(`gcr.io/testmate-f973c/testmate-api`), and `gcloud run deploy --image` swaps traffic — no
+Cloud Build source builds. Runtime env vars are managed **separately** on the service (not in the
+pipeline). See the root `DEPLOYMENT.md` for the general pattern.
 
-**One-time project setup** (run in your shell, authenticated as the project owner):
-```bash
-gcloud config set project testmate-f973c
-gcloud services enable run.googleapis.com cloudbuild.googleapis.com artifactregistry.googleapis.com
-# Cloud Run + Cloud Build require billing enabled on the project.
-```
-
-**Deploy** (from `server/`):
-```bash
-cp deploy.env.example.yaml deploy.env.yaml   # fill in real secrets (gitignored)
-npm run deploy
-# = gcloud run deploy testmate-api --source . --region us-central1 \
-#     --allow-unauthenticated --env-vars-file deploy.env.yaml
-```
-`--source .` builds the image with Cloud Build and deploys. Prefer **Secret Manager**
-(`--set-secrets`) over the env file for production secrets.
-
-Notes:
-- In production `NODE_ENV=production` ⇒ `synchronize` is **off**. The schema is already created
-  on the dedicated DB; for a fresh DB run migrations or set `DB_SYNCHRONIZE=true` for the first
-  deploy only.
-- Set `CORS_ORIGINS` to your deployed frontend origin(s).
-- `cloudbuild.yaml` is provided for a push-triggered pipeline (optional).
-
-## CI/CD — auto-deploy on push (Cloud Run continuous deployment)
-
-Cloud Run's built-in continuous deployment connects the GitHub repo and creates a Cloud Build
-trigger that builds `server/Dockerfile` and deploys on every push to `main`.
-
-**Prerequisite — grant Cloud Build's default SA the builder role** (PowerShell):
+### One-time GCP setup (PowerShell)
 ```powershell
-gcloud projects add-iam-policy-binding testmate-f973c --member="serviceAccount:456203711303-compute@developer.gserviceaccount.com" --role="roles/cloudbuild.builds.builder"
+$P="testmate-f973c"
+gcloud config set project $P
+gcloud services enable run.googleapis.com containerregistry.googleapis.com artifactregistry.googleapis.com --project $P
+
+gcloud iam service-accounts create github-deployer --display-name "GitHub Actions Deployer" --project $P
+$SA="github-deployer@$P.iam.gserviceaccount.com"
+foreach ($r in "roles/run.admin","roles/storage.admin","roles/artifactregistry.writer","roles/iam.serviceAccountUser") {
+  gcloud projects add-iam-policy-binding $P --member="serviceAccount:$SA" --role="$r"
+}
+gcloud iam service-accounts keys create sa-key.json --iam-account=$SA --project $P
+```
+Add the key to GitHub → **Settings → Secrets and variables → Actions → New repository secret**,
+name **`GCP_SA_KEY`**, value = full contents of `sa-key.json`, then delete the local file.
+
+### Runtime env vars (separate from the pipeline)
+`server/env.yaml` (gitignored) holds the live secrets. Apply / update them with:
+```bash
+npm run env:apply
+# = gcloud run services update testmate-api --region us-central1 --env-vars-file env.yaml
 ```
 
-**Set up (console):** Cloud Run → service `testmate-api` → **Set up continuous deployment**:
-1. **Repository provider:** GitHub → authorize → install the *Google Cloud Build* app on
-   `giddy11/test_management`.
-2. **Branch:** `^main$`
-3. **Build type:** Dockerfile · **Source location:** `/server/Dockerfile`
-   (build context becomes `/server`).
-4. Save — accept the prompt to grant the trigger's service account the required roles.
+### First deploy
+Push to `main` so the pipeline builds + pushes the image. To create the service **with** env in
+one shot (the app exits if it can't reach the DB, so env must be present on first boot):
+```powershell
+gcloud run deploy testmate-api --image gcr.io/testmate-f973c/testmate-api:latest `
+  --project testmate-f973c --region us-central1 --allow-unauthenticated --env-vars-file env.yaml
+```
+After that, every push auto-deploys and env vars are preserved across revisions.
 
 Notes:
-- Do one `npm run deploy` **first** so the service has a working revision + env vars; the trigger
-  preserves env vars across builds (it doesn't set them).
-- Manage production secrets with **Secret Manager** rather than plaintext env when you're ready.
-- This is mutually exclusive with a GitHub Actions deploy workflow — run only one.
+- App listens on `$PORT` (Cloud Run sets 8080) — handled in `config/env.js`.
+- In production `synchronize` is off; the schema is already on the DB (you manage migrations).
+- Set `CORS_ORIGINS` in `env.yaml` to your deployed frontend origin(s), then `npm run env:apply`.
 
 ## Not yet implemented (next steps)
 Attachments upload (multer + storage), the XLSX template download + 4-step import flow,
