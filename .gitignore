@@ -24,6 +24,11 @@ node_modules
 .DS_Store
 *.pem
 
+# GCP service-account keys — NEVER commit these
+*-sa-key.json
+gcp-sa-key.json
+*service-account*.json
+
 # debug
 npm-debug.log*
 yarn-debug.log*

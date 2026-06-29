@@ -1,0 +1,13 @@
+# Files NOT uploaded to Cloud Build. The Dockerfile re-installs deps, so node_modules
+# and local-only files are excluded to keep the upload small and secrets out of the build.
+.git
+.gitignore
+node_modules
+.env
+.env.*
+!.env.example
+deploy.env.yaml
+coverage
+*.log
+uploads
+**/tests

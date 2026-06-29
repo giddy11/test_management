@@ -1,0 +1,40 @@
+# Optional CI/CD pipeline (e.g. triggered on push). For a one-off deploy you can skip this
+# and just run:  gcloud run deploy testmate-api --source . --region us-central1
+#
+# Requires an Artifact Registry repo named "${_REPO}" in "${_REGION}":
+#   gcloud artifacts repositories create testmate --repository-format=docker --location=us-central1
+substitutions:
+  _REGION: us-central1
+  _SERVICE: testmate-api
+  _REPO: testmate
+
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - -t
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_SERVICE}:$SHORT_SHA
+      - .
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_SERVICE}:$SHORT_SHA
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - ${_SERVICE}
+      - --image
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_SERVICE}:$SHORT_SHA
+      - --region
+      - ${_REGION}
+      - --platform
+      - managed
+      - --allow-unauthenticated
+
+images:
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_SERVICE}:$SHORT_SHA
+
+options:
+  logging: CLOUD_LOGGING_ONLY
