@@ -12,34 +12,44 @@ import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { useUsers } from "@/hooks/useUsers"
-import { useAssignCase } from "@/hooks/useCases"
+import { useAssignCase, useBulkAssignCases } from "@/hooks/useCases"
 import { ApiError } from "@/transport/http"
 import type { TestCase } from "@/types/testMgmt.types"
 
+// Single-case mode: pass testCase. Bulk mode: pass caseIds (array of IDs).
 interface Props {
   open: boolean
   onOpenChange: (open: boolean) => void
-  testCase: TestCase | null
+  testCase?: TestCase | null   // single-case mode
+  caseIds?: string[]           // bulk mode — takes priority when provided
 }
 
-export function AssignDialog({ open, onOpenChange, testCase }: Props) {
+export function AssignDialog({ open, onOpenChange, testCase, caseIds }: Props) {
+  const isBulk = Boolean(caseIds && caseIds.length > 0)
   const { data } = useUsers({ limit: 100 })
   const users = data?.data ?? []
   const assign = useAssignCase()
+  const bulkAssign = useBulkAssignCases()
 
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [search, setSearch] = useState("")
   const [deadline, setDeadline] = useState<string>("")
 
   useEffect(() => {
-    if (open && testCase) {
+    if (!open) return
+    setSearch("")
+    if (isBulk) {
+      // In bulk mode start with no users pre-selected — each case may differ
+      setSelected(new Set())
+      setDeadline("")
+    } else if (testCase) {
       setSelected(new Set(testCase.assignees.map((a) => a.id)))
       setDeadline(testCase.deadline ?? "")
     }
-    if (open) setSearch("")
-  }, [open, testCase])
+  }, [open, testCase, isBulk])
 
   const toggle = (id: string) =>
     setSelected((prev) => {
@@ -52,33 +62,54 @@ export function AssignDialog({ open, onOpenChange, testCase }: Props) {
     `${u.name} ${u.email}`.toLowerCase().includes(search.toLowerCase())
   )
 
+  const isPending = assign.isPending || bulkAssign.isPending
+
   const save = () => {
-    if (!testCase) return
-    assign.mutate(
-      {
-        id: testCase.id,
-        userIds: [...selected],
-        deadline: deadline || null,
-      },
-      {
-        onError: (e) => toast.error(e instanceof ApiError ? e.message : "Failed"),
-        onSuccess: () => {
-          toast.success("Assignees updated")
-          onOpenChange(false)
-        },
-      }
-    )
+    if (isBulk) {
+      bulkAssign.mutate(
+        { caseIds: caseIds!, userIds: [...selected], deadline: deadline || null },
+        {
+          onError: (e) => toast.error(e instanceof ApiError ? e.message : "Failed"),
+          onSuccess: ({ assigned }) => {
+            toast.success(`Assigned users to ${assigned} test case${assigned === 1 ? "" : "s"}`)
+            onOpenChange(false)
+          },
+        }
+      )
+    } else {
+      if (!testCase) return
+      assign.mutate(
+        { id: testCase.id, userIds: [...selected], deadline: deadline || null },
+        {
+          onError: (e) => toast.error(e instanceof ApiError ? e.message : "Failed"),
+          onSuccess: () => {
+            toast.success("Assignees updated")
+            onOpenChange(false)
+          },
+        }
+      )
+    }
   }
+
+  const caseCount = isBulk ? caseIds!.length : 1
+  const title = isBulk ? `Assign users — ${caseCount} test cases` : "Assign users"
+  const description = isBulk
+    ? `The selected users will be set as assignees on all ${caseCount} test cases. Any existing assignments will be replaced.`
+    : `Pick who is responsible for "${testCase?.title}". They'll see it under their tests.`
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Assign users</DialogTitle>
-          <DialogDescription>
-            Pick who is responsible for "{testCase?.title}". They'll see it under their tests.
-          </DialogDescription>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
+
+        {isBulk && (
+          <div className="rounded-md border border-amber-300/60 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-300">
+            This will <strong>replace</strong> existing assignees on all {caseCount} selected cases.
+          </div>
+        )}
 
         <Input
           placeholder="Search users…"
@@ -110,6 +141,26 @@ export function AssignDialog({ open, onOpenChange, testCase }: Props) {
           })}
         </div>
 
+        {selected.size > 0 && (
+          <div className="flex flex-wrap gap-1">
+            {[...selected].map((id) => {
+              const u = users.find((u) => u.id === id)
+              if (!u) return null
+              return (
+                <Badge key={id} variant="secondary" className="gap-1 text-xs">
+                  {u.name}
+                  <button
+                    className="ml-0.5 rounded-full hover:text-destructive"
+                    onClick={() => toggle(id)}
+                  >
+                    ×
+                  </button>
+                </Badge>
+              )
+            })}
+          </div>
+        )}
+
         <div className="space-y-1.5">
           <Label htmlFor="deadline">Deadline (optional)</Label>
           <Input
@@ -123,8 +174,12 @@ export function AssignDialog({ open, onOpenChange, testCase }: Props) {
 
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={save} disabled={assign.isPending}>
-            {assign.isPending ? "Saving…" : `Assign ${selected.size}`}
+          <Button onClick={save} disabled={isPending || selected.size === 0}>
+            {isPending
+              ? "Saving…"
+              : isBulk
+              ? `Assign to ${caseCount} case${caseCount === 1 ? "" : "s"}`
+              : `Assign ${selected.size}`}
           </Button>
         </DialogFooter>
       </DialogContent>

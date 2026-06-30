@@ -6,6 +6,44 @@ const { ApiResponse } = require("../../../shared/response/apiResponse");
 const { toAttachmentResponse } = require("../dto/testCaseAttachment.dto");
 
 class TestCaseAttachmentController {
+  static async listForResult(req, res, next) {
+    try {
+      const items = await TestCaseAttachmentService.Instance.listRunResultAttachments(
+        req.user,
+        req.validated.params.id
+      );
+      res.status(200).json(ApiResponse.ok("Attachments fetched", items.map(toAttachmentResponse)));
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  static async uploadForResult(req, res, next) {
+    try {
+      const created = await TestCaseAttachmentService.Instance.uploadRunResultAttachments(
+        req.user,
+        req.validated.params.id,
+        req.files
+      );
+      res.status(201).json(ApiResponse.created("Attachments uploaded", created.map(toAttachmentResponse)));
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  static async removeFromResult(req, res, next) {
+    try {
+      await TestCaseAttachmentService.Instance.deleteRunResultAttachment(
+        req.user,
+        req.params.id,
+        req.params.attachmentId
+      );
+      res.status(200).json(ApiResponse.ok("Attachment deleted", null));
+    } catch (err) {
+      next(err);
+    }
+  }
+
   static async list(req, res, next) {
     try {
       const items = await TestCaseAttachmentService.Instance.listAttachments(

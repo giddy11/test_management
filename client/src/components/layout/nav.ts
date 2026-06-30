@@ -17,17 +17,26 @@ export interface NavItem {
   roles?: Role[] // omitted = visible to everyone
 }
 
+// Primary navigation — shown at the top of the sidebar.
 export const NAV_ITEMS: NavItem[] = [
   { title: "Dashboard", to: "/dashboard", icon: LayoutDashboard },
   { title: "Projects", to: "/projects", icon: FolderKanban },
   { title: "Team", to: "/team", icon: Users, roles: [UserRole.SUPERADMIN, UserRole.ADMIN] },
-  { title: "Activity", to: "/activity", icon: Activity, roles: [UserRole.SUPERADMIN, UserRole.ADMIN] },
   { title: "Organisations", to: "/platform", icon: Building2, roles: [UserRole.SUPERADMIN] },
+]
+
+// Secondary navigation — pinned to the bottom of the sidebar.
+export const NAV_BOTTOM_ITEMS: NavItem[] = [
+  { title: "Activity", to: "/activity", icon: Activity, roles: [UserRole.SUPERADMIN, UserRole.ADMIN] },
   { title: "Settings", to: "/settings", icon: Settings },
 ]
 
 export function navForRole(role: Role): NavItem[] {
   return NAV_ITEMS.filter((item) => !item.roles || item.roles.includes(role))
+}
+
+export function navBottomForRole(role: Role): NavItem[] {
+  return NAV_BOTTOM_ITEMS.filter((item) => !item.roles || item.roles.includes(role))
 }
 
 export const ROLE_LABEL: Record<Role, string> = {

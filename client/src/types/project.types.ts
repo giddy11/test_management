@@ -3,6 +3,7 @@ export interface Project {
   name: string
   description: string | null
   ownerId: string
+  suiteCount: number
   members?: { id: string; name: string; email: string }[]
   createdAt: string
 }

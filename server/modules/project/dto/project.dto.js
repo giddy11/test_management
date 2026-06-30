@@ -14,6 +14,7 @@ function toProjectResponse(project) {
           email: m.email,
         }))
       : undefined,
+    suiteCount: project.suiteCount ?? 0,
     createdAt: project.createdAt,
   };
 }

@@ -7,6 +7,7 @@ function toTestSuiteResponse(suite) {
     name: suite.name,
     description: suite.description ?? null,
     projectId: suite.projectId,
+    caseCount: suite.caseCount ?? 0,
     createdAt: suite.createdAt,
   };
 }

@@ -3,7 +3,15 @@ import { wrapCall } from "@/transport/http"
 import { ApiError } from "@/transport/http"
 import type { ActivityLog } from "@/types/activity.types"
 
-export function useActivity(params: { page?: number; limit?: number }) {
+interface ActivityParams {
+  page?: number
+  limit?: number
+  action?: string
+  entityType?: string
+  actorId?: string
+}
+
+export function useActivity(params: ActivityParams) {
   return useQuery({
     queryKey: ["activity", params],
     queryFn: async () => {

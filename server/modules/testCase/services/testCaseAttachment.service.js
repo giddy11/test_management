@@ -5,8 +5,10 @@ const {
 const { TestCaseService } = require("./testCase.service");
 const { StorageService } = require("../../../shared/services/storage.service");
 const { AppError } = require("../../../shared/errors/AppError");
+const { TestRunResultRepository } = require("../../testRunResult/repositories/testRunResult.repository");
 
 const MAX_ATTACHMENTS_PER_CASE = 10;
+const MAX_ATTACHMENTS_PER_RESULT = 10;
 const CLOUDINARY_FOLDER = "testmate/test-cases";
 
 class TestCaseAttachmentService {
@@ -15,11 +17,13 @@ class TestCaseAttachmentService {
   constructor(
     attachmentRepo = TestCaseAttachmentRepository.Instance,
     testCaseService = TestCaseService.Instance,
-    storage = StorageService.Instance
+    storage = StorageService.Instance,
+    resultRepo = TestRunResultRepository.Instance
   ) {
     this.attachmentRepo = attachmentRepo;
     this.testCaseService = testCaseService;
     this.storage = storage;
+    this.resultRepo = resultRepo;
   }
 
   async listAttachments(actor, testCaseId) {
@@ -60,6 +64,49 @@ class TestCaseAttachmentService {
     }
 
     return this.attachmentRepo.createMany(uploaded);
+  }
+
+  async listRunResultAttachments(actor, runResultId) {
+    const result = await this.resultRepo.findById(runResultId);
+    if (!result) throw new AppError("Test run result not found", 404);
+    return this.attachmentRepo.findByRunResult(runResultId);
+  }
+
+  async uploadRunResultAttachments(actor, runResultId, files) {
+    const result = await this.resultRepo.findById(runResultId);
+    if (!result) throw new AppError("Test run result not found", 404);
+
+    if (!files || files.length === 0) throw new AppError("No files provided", 400);
+
+    const existing = await this.attachmentRepo.countByRunResult(runResultId);
+    if (existing + files.length > MAX_ATTACHMENTS_PER_RESULT) {
+      throw new AppError(`A test run result can have at most ${MAX_ATTACHMENTS_PER_RESULT} attachments`, 422);
+    }
+
+    const uploaded = [];
+    for (const file of files) {
+      const res = await this.storage.uploadImage(file.buffer, { folder: CLOUDINARY_FOLDER });
+      uploaded.push({
+        testCaseId: result.testCaseId,
+        runResultId,
+        fileName: file.originalname,
+        fileUrl: res.url,
+        filePublicId: res.publicId,
+        mimeType: file.mimetype,
+        fileSizeBytes: file.size,
+        uploadedById: actor.id,
+      });
+    }
+    return this.attachmentRepo.createMany(uploaded);
+  }
+
+  async deleteRunResultAttachment(actor, runResultId, attachmentId) {
+    const attachment = await this.attachmentRepo.findById(attachmentId);
+    if (!attachment || attachment.runResultId !== runResultId) {
+      throw new AppError("Attachment not found", 404);
+    }
+    await this.storage.deleteImage(attachment.filePublicId).catch(() => {});
+    await this.attachmentRepo.delete(attachment.id);
   }
 
   async deleteAttachment(actor, testCaseId, attachmentId) {

@@ -26,6 +26,17 @@ class TestSuiteRepository {
 
     const total = page === 1 ? await qb.getCount() : 0;
     const data = await qb.getMany();
+
+    if (data.length > 0) {
+      const ds = this.repo.manager.connection;
+      const counts = await ds.query(
+        `SELECT suite_id, COUNT(*)::int AS count FROM test_cases WHERE suite_id = ANY($1::uuid[]) AND deleted_at IS NULL GROUP BY suite_id`,
+        [data.map((s) => s.id)]
+      );
+      const countMap = new Map(counts.map((r) => [r.suite_id, r.count]));
+      data.forEach((s) => { s.caseCount = countMap.get(s.id) ?? 0; });
+    }
+
     return { data, meta: buildMeta(page, limit, total, data.length) };
   }
 

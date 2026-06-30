@@ -29,6 +29,17 @@ class ProjectRepository {
 
     const total = page === 1 ? await qb.getCount() : 0;
     const data = await qb.getMany();
+
+    if (data.length > 0) {
+      const ds = this.repo.manager.connection;
+      const counts = await ds.query(
+        `SELECT project_id, COUNT(*)::int AS count FROM test_suites WHERE project_id = ANY($1::uuid[]) AND deleted_at IS NULL GROUP BY project_id`,
+        [data.map((p) => p.id)]
+      );
+      const countMap = new Map(counts.map((r) => [r.project_id, r.count]));
+      data.forEach((p) => { p.suiteCount = countMap.get(p.id) ?? 0; });
+    }
+
     return { data, meta: buildMeta(page, limit, total, data.length) };
   }
 

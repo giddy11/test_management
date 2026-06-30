@@ -23,7 +23,7 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { useAuth } from "@/contexts/AuthContext"
 import { useLogout } from "@/hooks/useAuth"
-import { navForRole, ROLE_LABEL } from "@/components/layout/nav"
+import { navForRole, navBottomForRole, ROLE_LABEL } from "@/components/layout/nav"
 
 export function AppSidebar() {
   const { user } = useAuth()
@@ -31,6 +31,7 @@ export function AppSidebar() {
   if (!user) return null
 
   const items = navForRole(user.role)
+  const bottomItems = navBottomForRole(user.role)
   const initials = `${user.firstName?.[0] ?? ""}${user.lastName?.[0] ?? ""}`.toUpperCase()
 
   return (
@@ -59,6 +60,25 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               {items.map((item) => (
+                <SidebarMenuItem key={item.to}>
+                  <NavLink to={item.to}>
+                    {({ isActive }) => (
+                      <SidebarMenuButton tooltip={item.title} isActive={isActive}>
+                        <item.icon />
+                        <span>{item.title}</span>
+                      </SidebarMenuButton>
+                    )}
+                  </NavLink>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup className="mt-auto">
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {bottomItems.map((item) => (
                 <SidebarMenuItem key={item.to}>
                   <NavLink to={item.to}>
                     {({ isActive }) => (

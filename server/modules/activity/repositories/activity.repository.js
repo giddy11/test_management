@@ -15,7 +15,7 @@ class ActivityRepository {
   }
 
   // organizationId omitted => unscoped (superadmin). Joins the actor for display.
-  async fetchPaginated({ organizationId, page = 1, limit = 20, action }) {
+  async fetchPaginated({ organizationId, page = 1, limit = 20, action, entityType, actorId }) {
     const offset = getOffset(page, limit);
     const qb = this.repo
       .createQueryBuilder("a")
@@ -29,7 +29,13 @@ class ActivityRepository {
       qb.where("a.organization_id = :organizationId", { organizationId });
     }
     if (action) {
-      qb.andWhere("a.action = :action", { action });
+      qb.andWhere("a.action ILIKE :action", { action: `${action}%` });
+    }
+    if (entityType) {
+      qb.andWhere("a.entity_type = :entityType", { entityType });
+    }
+    if (actorId) {
+      qb.andWhere("a.actor_id = :actorId", { actorId });
     }
 
     const total = page === 1 ? await qb.getCount() : 0;

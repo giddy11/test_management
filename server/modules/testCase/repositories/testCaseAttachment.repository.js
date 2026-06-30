@@ -19,6 +19,18 @@ class TestCaseAttachmentRepository {
       .getMany();
   }
 
+  async findByRunResult(runResultId) {
+    return this.repo
+      .createQueryBuilder("att")
+      .where("att.run_result_id = :runResultId", { runResultId })
+      .orderBy("att.createdAt", "DESC")
+      .getMany();
+  }
+
+  async countByRunResult(runResultId) {
+    return this.repo.count({ where: { runResultId } });
+  }
+
   async findById(id) {
     return this.repo.findOne({ where: { id } });
   }

@@ -75,6 +75,7 @@ export default function SuiteDetailPage() {
   const [deleting, setDeleting] = useState<TestCase | null>(null)
   const [assigning, setAssigning] = useState<TestCase | null>(null)
   const [bulkOpen, setBulkOpen] = useState(false)
+  const [bulkAssignOpen, setBulkAssignOpen] = useState(false)
 
   const initials = (name: string) =>
     name.split(" ").map((p) => p[0]).slice(0, 2).join("").toUpperCase()
@@ -140,9 +141,14 @@ export default function SuiteDetailPage() {
           </SelectContent>
         </Select>
         {canManage && selected.size > 0 && (
-          <Button variant="destructive" className="sm:ml-auto" onClick={() => setBulkOpen(true)}>
-            <Trash2 className="mr-1 size-4" /> Delete selected ({selected.size})
-          </Button>
+          <div className="flex gap-2 sm:ml-auto">
+            <Button variant="outline" onClick={() => setBulkAssignOpen(true)}>
+              <UserPlus className="mr-1 size-4" /> Assign selected ({selected.size})
+            </Button>
+            <Button variant="destructive" onClick={() => setBulkOpen(true)}>
+              <Trash2 className="mr-1 size-4" /> Delete selected ({selected.size})
+            </Button>
+          </div>
         )}
       </div>
 
@@ -191,7 +197,21 @@ export default function SuiteDetailPage() {
                     />
                   </TableCell>
                 )}
-                <TableCell className="font-medium">{tc.title}</TableCell>
+                <TableCell>
+                  <div className="space-y-0.5">
+                    <p className="font-medium leading-snug">{tc.title}</p>
+                    {tc.description && (
+                      <p className="text-xs text-muted-foreground line-clamp-1 max-w-xs">
+                        {tc.description}
+                      </p>
+                    )}
+                    {tc.steps?.length > 0 && (
+                      <p className="text-[11px] text-muted-foreground/70">
+                        {tc.steps.length} step{tc.steps.length === 1 ? "" : "s"}
+                      </p>
+                    )}
+                  </div>
+                </TableCell>
                 <TableCell><PriorityBadge value={tc.priority} /></TableCell>
                 <TableCell><CaseStatusBadge value={tc.status} /></TableCell>
                 <TableCell>
@@ -257,6 +277,14 @@ export default function SuiteDetailPage() {
       <CaseFormDialog open={formOpen} onOpenChange={setFormOpen} suiteId={suiteId} editing={editing} />
       <ImportCasesDialog open={importOpen} onOpenChange={setImportOpen} suiteId={suiteId} />
       <AssignDialog open={Boolean(assigning)} onOpenChange={(o) => !o && setAssigning(null)} testCase={assigning} />
+      <AssignDialog
+        open={bulkAssignOpen}
+        onOpenChange={(o) => {
+          setBulkAssignOpen(o)
+          if (!o) setSelected(new Set())
+        }}
+        caseIds={[...selected]}
+      />
 
       <ConfirmDialog
         open={Boolean(deleting)}

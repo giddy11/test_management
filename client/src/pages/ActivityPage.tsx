@@ -9,11 +9,20 @@ import {
   Users,
   FileUp,
   Activity as ActivityIcon,
+  Filter,
+  X,
   type LucideIcon,
 } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { PageLoader } from "@/components/shared/PageLoader"
 import { useActivity } from "@/hooks/useActivity"
 import type { ActivityLog } from "@/types/activity.types"
@@ -45,11 +54,46 @@ function iconFor(a: ActivityLog): LucideIcon {
 const initials = (name: string) =>
   name.split(" ").map((p) => p[0]).slice(0, 2).join("").toUpperCase()
 
+const ENTITY_TYPES = [
+  { value: "project", label: "Projects" },
+  { value: "suite", label: "Test Suites" },
+  { value: "test_case", label: "Test Cases" },
+  { value: "test_run", label: "Test Runs" },
+  { value: "test_run_result", label: "Test Results" },
+]
+
+const ACTION_PREFIXES = [
+  { value: "project", label: "Project actions" },
+  { value: "suite", label: "Suite actions" },
+  { value: "test_case", label: "Test case actions" },
+  { value: "test_run", label: "Run actions" },
+  { value: "result", label: "Result actions" },
+]
+
 export default function ActivityPage() {
   const [page, setPage] = useState(1)
-  const { data, isLoading } = useActivity({ page, limit: 30 })
+  const [entityType, setEntityType] = useState<string>("")
+  const [action, setAction] = useState<string>("")
+
+  const { data, isLoading } = useActivity({
+    page,
+    limit: 30,
+    entityType: entityType || undefined,
+    action: action || undefined,
+  })
   const items = data?.data ?? []
   const meta = data?.meta
+
+  const hasFilter = Boolean(entityType || action)
+
+  const clearFilters = () => {
+    setEntityType("")
+    setAction("")
+    setPage(1)
+  }
+
+  const onEntityChange = (v: string) => { setEntityType(v === "all" ? "" : v); setPage(1) }
+  const onActionChange = (v: string) => { setAction(v === "all" ? "" : v); setPage(1) }
 
   return (
     <div className="space-y-6">
@@ -58,13 +102,52 @@ export default function ActivityPage() {
         <p className="text-sm text-muted-foreground">Every action across your organisation.</p>
       </div>
 
+      {/* Filters */}
+      <div className="flex flex-wrap items-center gap-2">
+        <Filter className="size-4 text-muted-foreground" />
+        <Select value={entityType || "all"} onValueChange={onEntityChange}>
+          <SelectTrigger className="h-8 w-40 text-xs">
+            <SelectValue placeholder="All categories" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All categories</SelectItem>
+            {ENTITY_TYPES.map((e) => (
+              <SelectItem key={e.value} value={e.value}>{e.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Select value={action || "all"} onValueChange={onActionChange}>
+          <SelectTrigger className="h-8 w-44 text-xs">
+            <SelectValue placeholder="All actions" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All actions</SelectItem>
+            {ACTION_PREFIXES.map((a) => (
+              <SelectItem key={a.value} value={a.value}>{a.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        {hasFilter && (
+          <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={clearFilters}>
+            <X className="size-3 mr-1" /> Clear
+          </Button>
+        )}
+      </div>
+
       {isLoading ? (
         <PageLoader label="Loading activity" />
       ) : items.length === 0 ? (
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center gap-2 py-12 text-center">
             <ActivityIcon className="size-7 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">No activity yet.</p>
+            <p className="text-sm text-muted-foreground">
+              {hasFilter ? "No activity matches the selected filters." : "No activity yet."}
+            </p>
+            {hasFilter && (
+              <Button variant="outline" size="sm" onClick={clearFilters}>Clear filters</Button>
+            )}
           </CardContent>
         </Card>
       ) : (
@@ -73,6 +156,7 @@ export default function ActivityPage() {
             <ul className="divide-y">
               {items.map((a) => {
                 const Icon = iconFor(a)
+                const actorName = a.actor?.name || "System"
                 return (
                   <li key={a.id} className="flex items-center gap-3 px-4 py-3">
                     <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
@@ -81,13 +165,15 @@ export default function ActivityPage() {
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm">{a.summary}</p>
                       <p className="text-xs text-muted-foreground">
-                        {a.actor?.name || "Someone"} · {timeAgo(a.createdAt)}
+                        <span className="font-medium text-foreground">{actorName}</span>
+                        {" · "}
+                        {timeAgo(a.createdAt)}
                       </p>
                     </div>
                     {a.actor && (
                       <Avatar className="size-7 shrink-0">
                         <AvatarFallback className="text-[10px]">
-                          {initials(a.actor.name) || "U"}
+                          {initials(a.actor.name) || "?"}
                         </AvatarFallback>
                       </Avatar>
                     )}

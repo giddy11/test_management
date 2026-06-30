@@ -9,20 +9,13 @@ import { SummaryBar } from "@/components/shared/SummaryBar"
 import { ResultRow } from "@/components/testmgmt/ResultRow"
 import { PageLoader } from "@/components/shared/PageLoader"
 import { useRun, useResults, useUpdateRun } from "@/hooks/useRuns"
-import { useCases } from "@/hooks/useCases"
 import { ApiError } from "@/transport/http"
 
 export default function RunDetailPage() {
   const { projectId = "", runId = "" } = useParams()
   const { data: run, isLoading } = useRun(runId)
   const { data: results = [] } = useResults(runId)
-  const { data: casesData } = useCases(run?.suiteId ?? "", { limit: 100 })
   const updateRun = useUpdateRun()
-
-  const caseTitle = useMemo(() => {
-    const map = new Map((casesData?.data ?? []).map((c) => [c.id, c.title]))
-    return (id: string) => map.get(id) ?? "Test case"
-  }, [casesData])
 
   // Summary computed from the results this user can see (so it matches the list —
   // an assigned 'user' only sees their own cases).
@@ -83,7 +76,14 @@ export default function RunDetailPage() {
           <p className="text-sm text-muted-foreground">No test cases assigned to you in this run.</p>
         )}
         {results.map((r) => (
-          <ResultRow key={r.id} runId={runId} result={r} caseTitle={caseTitle(r.testCaseId)} />
+          <ResultRow
+            key={r.id}
+            runId={runId}
+            result={r}
+            caseTitle={r.caseTitle ?? r.testCaseId}
+            projectId={projectId}
+            suiteId={run.suiteId}
+          />
         ))}
       </div>
     </div>

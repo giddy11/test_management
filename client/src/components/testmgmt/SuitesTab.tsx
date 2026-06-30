@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { Plus, Pencil, Trash2, Layers, ChevronRight } from "lucide-react"
+import { Plus, Pencil, Trash2, Layers, ChevronRight, ClipboardList } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -52,6 +52,12 @@ export function SuitesTab({ projectId, canManage }: { projectId: string; canMana
                 <ChevronRight className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
               </div>
               <CardDescription className="line-clamp-2">{s.description || "No description"}</CardDescription>
+              <div className="flex items-center gap-1 pt-1 text-xs text-muted-foreground">
+                <ClipboardList className="size-3" />
+                {s.caseCount === 0
+                  ? <span className="text-amber-600">No test cases yet</span>
+                  : <span>{s.caseCount} test case{s.caseCount === 1 ? "" : "s"}</span>}
+              </div>
             </CardHeader>
             {canManage && (
               <CardContent className="flex justify-end gap-1 pt-0">

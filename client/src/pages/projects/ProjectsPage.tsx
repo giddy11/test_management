@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { Plus, Pencil, Trash2, FolderKanban, ChevronRight } from "lucide-react"
+import { Plus, Pencil, Trash2, FolderKanban, ChevronRight, Layers } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -100,6 +100,12 @@ export default function ProjectsPage() {
               <CardDescription className="line-clamp-2">
                 {p.description || "No description"}
               </CardDescription>
+              <div className="flex items-center gap-1 pt-1 text-xs text-muted-foreground">
+                <Layers className="size-3" />
+                {p.suiteCount === 0
+                  ? <span className="text-amber-600">No suites yet</span>
+                  : <span>{p.suiteCount} suite{p.suiteCount === 1 ? "" : "s"}</span>}
+              </div>
             </CardHeader>
             {canManage && (
               <CardContent className="flex justify-end gap-1 pt-0">

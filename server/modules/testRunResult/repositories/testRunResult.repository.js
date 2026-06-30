@@ -15,8 +15,11 @@ class TestRunResultRepository {
     const offset = getOffset(page, limit);
     const qb = this.repo
       .createQueryBuilder("result")
+      .leftJoin("result.testCase", "tc")
+      .addSelect(["tc.id", "tc.title", "tc.description", "tc.priority", "tc.steps", "tc.expectedResult"])
       .where("result.run_id = :runId", { runId }) // indexed FK
-      .orderBy("result.executed_at", "DESC", "NULLS LAST")
+      .orderBy("result.executedAt", "DESC", "NULLS LAST")
+      .addOrderBy("tc.title", "ASC")
       .skip(offset)
       .take(limit);
 

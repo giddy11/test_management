@@ -7,6 +7,7 @@ export interface TestSuite {
   name: string
   description: string | null
   projectId: string
+  caseCount: number
   createdAt: string
 }
 export interface CreateSuitePayload {
@@ -84,6 +85,11 @@ export interface TestRunResult {
   id: string
   runId: string
   testCaseId: string
+  caseTitle: string | null
+  caseDescription: string | null
+  casePriority: string | null
+  caseSteps: string[] | null
+  caseExpectedResult: string | null
   status: ResultStatus | null
   actualResult: string | null
   notes: string | null

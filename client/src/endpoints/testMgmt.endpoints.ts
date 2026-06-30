@@ -55,6 +55,15 @@ export const AttachmentEndpoints = {
     wrapCall<null>("DELETE", `/api/v1/test-cases/${caseId}/attachments/${attachmentId}`),
 }
 
+export const ResultAttachmentEndpoints = {
+  fetchAll: (resultId: string) =>
+    wrapCall<Attachment[]>("GET", `/api/v1/test-run-results/${resultId}/attachments`),
+  upload: (resultId: string, files: File[]) =>
+    uploadCall<Attachment[]>(`/api/v1/test-run-results/${resultId}/attachments`, files, "images"),
+  remove: (resultId: string, attachmentId: string) =>
+    wrapCall<null>("DELETE", `/api/v1/test-run-results/${resultId}/attachments/${attachmentId}`),
+}
+
 export const RunEndpoints = {
   fetchAll: (params: { projectId: string; page?: number; limit?: number }) =>
     wrapCall<TestRun[]>("GET", "/api/v1/test-runs", obj(params)),

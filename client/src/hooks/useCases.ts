@@ -86,6 +86,31 @@ export function useAssignCase() {
   })
 }
 
+export function useBulkAssignCases() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      caseIds,
+      userIds,
+      deadline,
+    }: {
+      caseIds: string[]
+      userIds: string[]
+      deadline?: string | null
+    }) => {
+      const results = await Promise.allSettled(
+        caseIds.map((id) => CaseEndpoints.assign(id, userIds, deadline))
+      )
+      const failed = results.filter(
+        (r) => r.status === "rejected" || (r.status === "fulfilled" && !r.value.success)
+      ).length
+      if (failed > 0) throw new ApiError(`${failed} of ${caseIds.length} could not be assigned`, 0)
+      return { assigned: caseIds.length }
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: [KEY] }),
+  })
+}
+
 export function useBulkDeleteCases() {
   const qc = useQueryClient()
   return useMutation({
