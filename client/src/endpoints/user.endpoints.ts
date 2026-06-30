@@ -1,4 +1,4 @@
-// endpoints/user.endpoints.ts — company member management API.
+// endpoints/user.endpoints.ts — company user management API.
 import { wrapCall } from "@/transport/http"
 import type { User } from "@/types/auth.types"
 import type {

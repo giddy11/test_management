@@ -44,6 +44,8 @@ const fetchTestCasesSchema = z.object({
     limit: z.coerce.number().int().min(1).max(100).default(20),
     suite: z.string().uuid(),
     search: z.string().optional(),
+    priority: z.enum(enums.testCasePriority).optional(),
+    status: z.enum(enums.testCaseStatus).optional(),
   }),
 });
 

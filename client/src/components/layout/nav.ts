@@ -31,5 +31,5 @@ export function navForRole(role: Role): NavItem[] {
 export const ROLE_LABEL: Record<Role, string> = {
   superadmin: "Super Admin",
   admin: "Company Admin",
-  user: "Member",
+  user: "User",
 }

@@ -10,7 +10,7 @@ class TestCaseRepository {
     this.repo = AppDataSource.getRepository(TestCase);
   }
 
-  async fetchPaginated({ suiteId, page = 1, limit = 20, search }) {
+  async fetchPaginated({ suiteId, page = 1, limit = 20, search, priority, status }) {
     const offset = getOffset(page, limit);
     const qb = this.repo
       .createQueryBuilder("tc")
@@ -22,6 +22,12 @@ class TestCaseRepository {
 
     if (search) {
       qb.andWhere("tc.title ILIKE :search", { search: `%${search}%` });
+    }
+    if (priority) {
+      qb.andWhere("tc.priority = :priority", { priority });
+    }
+    if (status) {
+      qb.andWhere("tc.status = :status", { status });
     }
 
     const total = page === 1 ? await qb.getCount() : 0;
@@ -46,6 +52,11 @@ class TestCaseRepository {
 
   async create(data) {
     return this.repo.save(this.repo.create(data));
+  }
+
+  async createMany(rows) {
+    if (!rows.length) return [];
+    return this.repo.save(this.repo.create(rows));
   }
 
   async update(id, data) {

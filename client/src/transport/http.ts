@@ -79,6 +79,17 @@ http.interceptors.response.use(
   }
 )
 
+function normaliseError(err: unknown): never {
+  if (err instanceof AxiosError && err.response?.data) {
+    const body = err.response.data as ApiResponse
+    throw new ApiError(body.message ?? "Request failed", body.statusCode, body.errors ?? [])
+  }
+  throw new ApiError(
+    err instanceof Error ? err.message : "Network error — please try again",
+    0
+  )
+}
+
 export async function wrapCall<T>(
   method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE",
   path: string,
@@ -89,13 +100,61 @@ export async function wrapCall<T>(
     const response = await http.request<ApiResponse<T>>({ method, url: path, ...config })
     return response.data
   } catch (err) {
-    if (err instanceof AxiosError && err.response?.data) {
-      const body = err.response.data as ApiResponse
-      throw new ApiError(body.message ?? "Request failed", body.statusCode, body.errors ?? [])
-    }
-    throw new ApiError(
-      err instanceof Error ? err.message : "Network error — please try again",
-      0
-    )
+    return normaliseError(err)
+  }
+}
+
+// Multipart upload (attachments). Files are appended under `field`.
+export async function uploadCall<T>(
+  path: string,
+  files: File[],
+  field = "images"
+): Promise<ApiResponse<T>> {
+  const form = new FormData()
+  files.forEach((f) => form.append(field, f))
+  try {
+    const response = await http.post<ApiResponse<T>>(path, form, {
+      headers: { "Content-Type": "multipart/form-data" },
+    })
+    return response.data
+  } catch (err) {
+    return normaliseError(err)
+  }
+}
+
+// Single file + extra text fields (e.g. import: file + suiteId).
+export async function uploadWithFields<T>(
+  path: string,
+  file: File,
+  fields: Record<string, string> = {},
+  fileField = "file"
+): Promise<ApiResponse<T>> {
+  const form = new FormData()
+  form.append(fileField, file)
+  Object.entries(fields).forEach(([k, v]) => form.append(k, v))
+  try {
+    const response = await http.post<ApiResponse<T>>(path, form, {
+      headers: { "Content-Type": "multipart/form-data" },
+    })
+    return response.data
+  } catch (err) {
+    return normaliseError(err)
+  }
+}
+
+// Downloads a binary response (e.g. the XLSX template) and triggers a save dialog.
+export async function downloadFile(path: string, filename: string): Promise<void> {
+  try {
+    const response = await http.get(path, { responseType: "blob" })
+    const url = URL.createObjectURL(response.data as Blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    URL.revokeObjectURL(url)
+  } catch {
+    throw new ApiError("Download failed — please try again", 0)
   }
 }

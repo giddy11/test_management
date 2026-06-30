@@ -77,7 +77,7 @@ export function UserFormDialog({ open, onOpenChange, editing }: Props) {
         {
           onError,
           onSuccess: () => {
-            toast.success("Member updated")
+            toast.success("User updated")
             onOpenChange(false)
           },
         }
@@ -86,7 +86,7 @@ export function UserFormDialog({ open, onOpenChange, editing }: Props) {
       create.mutate(values, {
         onError,
         onSuccess: () => {
-          toast.success("Member added")
+          toast.success("User added")
           onOpenChange(false)
         },
       })
@@ -99,9 +99,9 @@ export function UserFormDialog({ open, onOpenChange, editing }: Props) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>{isEdit ? "Edit member" : "Add member"}</DialogTitle>
+          <DialogTitle>{isEdit ? "Edit user" : "Add user"}</DialogTitle>
           <DialogDescription>
-            {isEdit ? "Update this member's details." : "Add a new member to your organisation."}
+            {isEdit ? "Update this user's details." : "Add a new user to your organisation."}
           </DialogDescription>
         </DialogHeader>
 
@@ -134,7 +134,7 @@ export function UserFormDialog({ open, onOpenChange, editing }: Props) {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="user">Member</SelectItem>
+                <SelectItem value="user">User</SelectItem>
                 <SelectItem value="admin">Company Admin</SelectItem>
               </SelectContent>
             </Select>
@@ -145,7 +145,7 @@ export function UserFormDialog({ open, onOpenChange, editing }: Props) {
               Cancel
             </Button>
             <Button type="submit" disabled={pending}>
-              {pending ? "Saving…" : isEdit ? "Save changes" : "Add member"}
+              {pending ? "Saving…" : isEdit ? "Save changes" : "Add user"}
             </Button>
           </DialogFooter>
         </form>

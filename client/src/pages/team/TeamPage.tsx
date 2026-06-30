@@ -44,7 +44,7 @@ export default function TeamPage() {
     deactivate.mutate(deactivating.id, {
       onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
       onSuccess: () => {
-        toast.success("Member deactivated")
+        toast.success("User deactivated")
         setDeactivating(null)
       },
     })
@@ -57,10 +57,10 @@ export default function TeamPage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Team</h1>
-          <p className="text-sm text-muted-foreground">Manage members of your organisation.</p>
+          <p className="text-sm text-muted-foreground">Manage users in your organisation.</p>
         </div>
         <Button onClick={openAdd} className="w-full sm:w-auto">
-          <Plus className="mr-1 size-4" /> Add member
+          <Plus className="mr-1 size-4" /> Add user
         </Button>
       </div>
 
@@ -95,14 +95,14 @@ export default function TeamPage() {
             {isError && (
               <TableRow>
                 <TableCell colSpan={4} className="h-24 text-center text-destructive">
-                  {error instanceof Error ? error.message : "Failed to load members"}
+                  {error instanceof Error ? error.message : "Failed to load users"}
                 </TableCell>
               </TableRow>
             )}
             {!isLoading && !isError && users.length === 0 && (
               <TableRow>
                 <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
-                  No members yet. Add your first one.
+                  No users yet. Add your first one.
                 </TableCell>
               </TableRow>
             )}
@@ -149,8 +149,8 @@ export default function TeamPage() {
       <ConfirmDialog
         open={Boolean(deactivating)}
         onOpenChange={(o) => !o && setDeactivating(null)}
-        title="Deactivate member"
-        description={`${deactivating?.name ?? "This member"} will lose access. This can be undone in the database.`}
+        title="Deactivate user"
+        description={`${deactivating?.name ?? "This user"} will lose access. This can be undone in the database.`}
         confirmLabel="Deactivate"
         loading={deactivate.isPending}
         onConfirm={confirmDeactivate}

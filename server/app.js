@@ -19,8 +19,10 @@ const projectRoutes = require("./modules/project/routes/project.routes");
 const testSuiteRoutes = require("./modules/testSuite/routes/testSuite.routes");
 const testCaseRoutes = require("./modules/testCase/routes/testCase.routes");
 const testCaseAttachmentRoutes = require("./modules/testCase/routes/testCaseAttachment.routes");
+const testCaseImportRoutes = require("./modules/testCase/routes/testCaseImport.routes");
 const testRunRoutes = require("./modules/testRun/routes/testRun.routes");
 const testRunResultRoutes = require("./modules/testRunResult/routes/testRunResult.routes");
+const dashboardRoutes = require("./modules/dashboard/routes/dashboard.routes");
 
 function createApp() {
   const app = express();
@@ -47,10 +49,12 @@ function createApp() {
   api.use("/users", userRoutes);
   api.use("/projects", projectRoutes);
   api.use("/test-suites", testSuiteRoutes);
+  api.use("/test-cases", testCaseImportRoutes); // /template, /import — before /:id
   api.use("/test-cases", testCaseAttachmentRoutes); // /:id/attachments — mounted first
   api.use("/test-cases", testCaseRoutes);
   api.use("/test-runs", testRunRoutes);
   api.use("/test-run-results", testRunResultRoutes);
+  api.use("/dashboard", dashboardRoutes);
   app.use("/api/v1", api);
 
   // 404 + centralised error handling

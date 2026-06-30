@@ -21,6 +21,18 @@ export function useProjects(params: FetchProjectsParams) {
   })
 }
 
+export function useProject(id: string) {
+  return useQuery({
+    queryKey: [PROJECTS_KEY, "detail", id],
+    queryFn: async () => {
+      const res = await ProjectEndpoints.fetchById(id)
+      if (!res.success || !res.data) throw new ApiError(res.message, res.statusCode)
+      return res.data
+    },
+    enabled: Boolean(id),
+  })
+}
+
 export function useCreateProject() {
   const qc = useQueryClient()
   return useMutation({

@@ -1,5 +1,6 @@
 import { useState } from "react"
-import { Plus, Pencil, Trash2, FolderKanban } from "lucide-react"
+import { useNavigate } from "react-router-dom"
+import { Plus, Pencil, Trash2, FolderKanban, ChevronRight } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -13,6 +14,7 @@ import type { Project } from "@/types/project.types"
 
 export default function ProjectsPage() {
   const { user } = useAuth()
+  const navigate = useNavigate()
   const canManage = user?.role === UserRole.ADMIN || user?.role === UserRole.SUPERADMIN
   const [search, setSearch] = useState("")
   const [page, setPage] = useState(1)
@@ -84,9 +86,16 @@ export default function ProjectsPage() {
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {projects.map((p) => (
-          <Card key={p.id}>
+          <Card
+            key={p.id}
+            className="group cursor-pointer transition-colors hover:border-primary/50"
+            onClick={() => navigate(`/projects/${p.id}`)}
+          >
             <CardHeader>
-              <CardTitle className="text-base">{p.name}</CardTitle>
+              <div className="flex items-start justify-between gap-2">
+                <CardTitle className="text-base">{p.name}</CardTitle>
+                <ChevronRight className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+              </div>
               <CardDescription className="line-clamp-2">
                 {p.description || "No description"}
               </CardDescription>
@@ -96,14 +105,22 @@ export default function ProjectsPage() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.stopPropagation()
                     setEditing(p)
                     setFormOpen(true)
                   }}
                 >
                   <Pencil className="size-4" />
                 </Button>
-                <Button variant="ghost" size="sm" onClick={() => setDeleting(p)}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setDeleting(p)
+                  }}
+                >
                   <Trash2 className="size-4 text-destructive" />
                 </Button>
               </CardContent>

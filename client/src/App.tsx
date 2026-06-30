@@ -11,6 +11,10 @@ import ResetPasswordPage from "@/pages/auth/ResetPasswordPage"
 import DashboardPage from "@/pages/DashboardPage"
 import TeamPage from "@/pages/team/TeamPage"
 import ProjectsPage from "@/pages/projects/ProjectsPage"
+import ProjectDetailPage from "@/pages/projects/ProjectDetailPage"
+import SuiteDetailPage from "@/pages/projects/SuiteDetailPage"
+import TestCaseDetailPage from "@/pages/projects/TestCaseDetailPage"
+import RunDetailPage from "@/pages/projects/RunDetailPage"
 import PlaceholderPage from "@/pages/PlaceholderPage"
 import { UserRole } from "@/types/auth.types"
 
@@ -35,6 +39,10 @@ export default function App() {
               <Route element={<DashboardLayout />}>
                 <Route path="/dashboard" element={<DashboardPage />} />
                 <Route path="/projects" element={<ProjectsPage />} />
+                <Route path="/projects/:projectId" element={<ProjectDetailPage />} />
+                <Route path="/projects/:projectId/suites/:suiteId" element={<SuiteDetailPage />} />
+                <Route path="/projects/:projectId/suites/:suiteId/cases/:caseId" element={<TestCaseDetailPage />} />
+                <Route path="/projects/:projectId/runs/:runId" element={<RunDetailPage />} />
                 <Route path="/settings" element={<PlaceholderPage title="Settings" />} />
               </Route>
 

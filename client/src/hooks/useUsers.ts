@@ -1,4 +1,4 @@
-// hooks/useUsers.ts — React Query bridge for company member management.
+// hooks/useUsers.ts — React Query bridge for company user management.
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { UserEndpoints } from "@/endpoints/user.endpoints"
 import { ApiError } from "@/transport/http"

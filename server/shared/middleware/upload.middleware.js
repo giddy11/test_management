@@ -30,4 +30,34 @@ function uploadMany(field, maxCount = 10, maxMb = 5) {
   }).array(field, maxCount);
 }
 
-module.exports = { uploadSingle, uploadMany, ALLOWED_IMAGE_TYPES };
+const ALLOWED_SHEET_TYPES = [
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", // .xlsx
+  "application/vnd.ms-excel", // .xls (some browsers send this for .xlsx)
+  "application/octet-stream",
+];
+
+function sheetFileFilter(_req, file, cb) {
+  const okType = ALLOWED_SHEET_TYPES.includes(file.mimetype);
+  const okExt = /\.xlsx?$/i.test(file.originalname || "");
+  if (okType || okExt) {
+    cb(null, true);
+  } else {
+    cb(new AppError("Only .xlsx spreadsheet files are allowed", 422));
+  }
+}
+
+function uploadSpreadsheet(field, maxMb = 5) {
+  return multer({
+    storage: memoryStorage,
+    limits: { fileSize: maxMb * 1024 * 1024, files: 1 },
+    fileFilter: sheetFileFilter,
+  }).single(field);
+}
+
+module.exports = {
+  uploadSingle,
+  uploadMany,
+  uploadSpreadsheet,
+  ALLOWED_IMAGE_TYPES,
+  ALLOWED_SHEET_TYPES,
+};
