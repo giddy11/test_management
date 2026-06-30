@@ -62,6 +62,12 @@ const TestCase = new EntitySchema({
       type: "uuid",
       nullable: true,
     },
+    externalId: {
+      name: "external_id",
+      type: "varchar",
+      length: 255,
+      nullable: true,
+    },
     deadline: {
       name: "deadline",
       type: "date",

@@ -55,18 +55,17 @@ class TestCaseRepository {
     return this.repo.save(testCase);
   }
 
-  // Returns a Set of IDs that exist as active cases in the suite.
-  // `ids` is an array of UUIDs to check; returns empty Set when the array is empty.
-  async findExistingIdSet(suiteId, ids) {
-    if (!ids || ids.length === 0) return new Set();
-    const rows = await this.repo
-      .createQueryBuilder("tc")
-      .where("tc.suite_id = :suiteId", { suiteId })
-      .andWhere("tc.deleted_at IS NULL")
-      .andWhere("tc.id IN (:...ids)", { ids })
-      .select(["tc.id"])
-      .getMany();
-    return new Set(rows.map((r) => r.id));
+  // Returns a Set of external_ids already present in the suite (for import dedup).
+  async findExistingExternalIdSet(suiteId, externalIds) {
+    if (!externalIds || externalIds.length === 0) return new Set();
+    const ds = this.repo.manager.connection;
+    const placeholders = externalIds.map((_, i) => `$${i + 2}`).join(", ");
+    const rows = await ds.query(
+      `SELECT external_id FROM test_cases
+       WHERE suite_id = $1 AND deleted_at IS NULL AND external_id IN (${placeholders})`,
+      [suiteId, ...externalIds]
+    );
+    return new Set(rows.map((r) => r.external_id));
   }
 
   // All non-deleted cases in a suite — used to snapshot a test run.

@@ -107,7 +107,7 @@ function assertTemplateColumns(headers) {
     const hasNoId = missing.includes("id");
     throw new AppError(
       hasNoId
-        ? "Your file is missing the required ID column. Please download the latest template — the ID column must be present and every row must have a valid UUID."
+        ? "Your file is missing the required ID column. Please download the latest template — the ID column must be present and every row must have an ID value."
         : `Your file is missing required columns: ${missing.join(", ")}. Please download the template and import that.`,
       422
     );
@@ -173,10 +173,9 @@ class TestCaseImportService {
       // Skip rows that carry no real content (blank spacer rows).
       if (!titleRaw && steps.length === 0 && !expectedResult) return;
 
-      // Extract ID — only accept valid UUIDs; blank or malformed → undefined (fails schema validation).
+      // Extract ID — any non-empty string is valid (numbers, slugs, UUIDs all accepted).
       const idRaw = col.id !== undefined ? cellText(get(row, "id")).trim() : "";
-      const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-      const rowId = uuidRe.test(idRaw) ? idRaw.toLowerCase() : undefined;
+      const rowId = idRaw || undefined;
 
       const parsed = {
         id: rowId,
@@ -205,7 +204,7 @@ class TestCaseImportService {
       const idSkipped = skipped.some((s) => s.issues.some((i) => i.field === "id"));
       throw new AppError(
         idSkipped
-          ? "No rows could be imported — every row must have a valid UUID in the ID column. Fill in the ID column (or download a fresh template) and try again."
+          ? "No rows could be imported — every row must have a value in the ID column. Fill in the ID column and try again."
           : skipped.length
           ? "No valid test case rows found — check the required columns and try again"
           : "The spreadsheet has no test case rows",
@@ -233,8 +232,8 @@ class TestCaseImportService {
       uniqueRows.push(row);
     }
 
-    // 2. Deduplicate against cases already in the suite by ID.
-    const existingIdSet = await this.tcRepo.findExistingIdSet(
+    // 2. Deduplicate against cases already in the suite by external_id.
+    const existingIdSet = await this.tcRepo.findExistingExternalIdSet(
       suiteId,
       uniqueRows.map((r) => r.id)
     );
@@ -295,7 +294,7 @@ class TestCaseImportService {
     await this.suiteService.getTestSuite(actor, session.suiteId);
 
     // Re-check at write time in case cases were added between upload and confirm.
-    const existingIdSet = await this.tcRepo.findExistingIdSet(
+    const existingIdSet = await this.tcRepo.findExistingExternalIdSet(
       session.suiteId,
       session.rows.map((r) => r.id)
     );
@@ -317,6 +316,7 @@ class TestCaseImportService {
         status: r.status ?? TestCaseStatus.ACTIVE,
         suiteId: session.suiteId,
         tags: r.tags ?? null,
+        externalId: r.id ?? null,
         createdById: actor.id,
       }))
     );
