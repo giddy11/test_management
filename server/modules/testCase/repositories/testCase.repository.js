@@ -42,6 +42,17 @@ class TestCaseRepository {
 
     const total = page === 1 ? await qb.getCount() : 0;
     const data = await qb.getMany();
+
+    if (data.length > 0) {
+      const ds = this.repo.manager.connection;
+      const counts = await ds.query(
+        `SELECT test_case_id, COUNT(*)::int AS count FROM test_case_attachments WHERE test_case_id = ANY($1::uuid[]) GROUP BY test_case_id`,
+        [data.map((tc) => tc.id)]
+      );
+      const countMap = new Map(counts.map((r) => [r.test_case_id, r.count]));
+      data.forEach((tc) => { tc.attachmentCount = countMap.get(tc.id) ?? 0; });
+    }
+
     return { data, meta: buildMeta(page, limit, total, data.length) };
   }
 

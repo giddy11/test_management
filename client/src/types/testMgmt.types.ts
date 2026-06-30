@@ -33,6 +33,7 @@ export interface TestCase {
   assignees: { id: string; name: string; email: string }[]
   tags: string[]
   deadline: string | null
+  attachmentCount: number
   createdAt: string
 }
 export interface CreateCasePayload {

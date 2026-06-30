@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 import { Link, useNavigate, useParams } from "react-router-dom"
-import { ChevronLeft, Plus, Pencil, Trash2, FileUp, UserPlus } from "lucide-react"
+import { ChevronLeft, Plus, Pencil, Trash2, FileUp, UserPlus, Paperclip } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -199,7 +199,18 @@ export default function SuiteDetailPage() {
                 )}
                 <TableCell>
                   <div className="space-y-0.5">
-                    <p className="font-medium leading-snug">{tc.title}</p>
+                    <div className="flex items-center gap-1.5">
+                      <p className="font-medium leading-snug">{tc.title}</p>
+                      {tc.attachmentCount > 0 && (
+                        <span
+                          className="inline-flex items-center gap-0.5 rounded bg-muted px-1 py-0.5 text-[10px] text-muted-foreground"
+                          title={`${tc.attachmentCount} attachment${tc.attachmentCount === 1 ? "" : "s"}`}
+                        >
+                          <Paperclip className="size-2.5" />
+                          {tc.attachmentCount}
+                        </span>
+                      )}
+                    </div>
                     {tc.description && (
                       <p className="text-xs text-muted-foreground line-clamp-1 max-w-xs">
                         {tc.description}

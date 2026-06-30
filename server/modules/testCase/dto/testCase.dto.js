@@ -20,6 +20,7 @@ function toTestCaseResponse(tc) {
       : [],
     tags: tc.tags ?? [],
     deadline: tc.deadline ?? null,
+    attachmentCount: tc.attachmentCount ?? 0,
     createdAt: tc.createdAt,
   };
 }
