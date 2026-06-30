@@ -79,6 +79,8 @@ export const ResultEndpoints = {
     wrapCall<TestRunResult[]>("GET", "/api/v1/test-run-results", obj(params)),
   record: (id: string, payload: RecordResultPayload) =>
     wrapCall<TestRunResult>("PATCH", `/api/v1/test-run-results/${id}`, obj(payload)),
+  bulkRecord: (payload: { runId: string; ids: string[]; status: string | null }) =>
+    wrapCall<null>("PATCH", "/api/v1/test-run-results/bulk", obj(payload)),
 }
 
 export const ImportEndpoints = {

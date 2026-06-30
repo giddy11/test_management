@@ -74,6 +74,18 @@ class TestRunResultController {
       next(err);
     }
   }
+
+  static async bulkUpdate(req, res, next) {
+    try {
+      await TestRunResultService.Instance.bulkRecordResults(
+        req.user,
+        req.validated.body
+      );
+      res.status(200).json(ApiResponse.ok("Results updated", null));
+    } catch (err) {
+      next(err);
+    }
+  }
 }
 
 module.exports = { TestRunResultController };

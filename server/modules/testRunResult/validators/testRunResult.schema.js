@@ -38,9 +38,18 @@ const fetchResultsSchema = z.object({
   }),
 });
 
+const bulkUpdateSchema = z.object({
+  body: z.object({
+    runId: z.string().uuid(),
+    ids: z.array(z.string().uuid()).min(1).max(200),
+    status: z.enum(enums.resultStatus).nullable(),
+  }),
+});
+
 module.exports = {
   createResultSchema,
   updateResultSchema,
   idParamSchema,
   fetchResultsSchema,
+  bulkUpdateSchema,
 };

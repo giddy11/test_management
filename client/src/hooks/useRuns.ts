@@ -81,6 +81,20 @@ export function useResults(runId: string) {
   })
 }
 
+export function useBulkRecordResults(runId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (payload: { ids: string[]; status: string | null }) => {
+      const res = await ResultEndpoints.bulkRecord({ runId, ...payload })
+      if (!res.success) throw new ApiError(res.message, res.statusCode)
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: [RESULTS, runId] })
+      qc.invalidateQueries({ queryKey: [RUNS, "detail", runId] })
+    },
+  })
+}
+
 export function useRecordResult(runId: string) {
   const qc = useQueryClient()
   return useMutation({

@@ -9,12 +9,21 @@ const {
   updateResultSchema,
   idParamSchema,
   fetchResultsSchema,
+  bulkUpdateSchema,
 } = require("../validators/testRunResult.schema");
 const { TestRunResultController } = require("../controllers/testRunResult.controller");
 const { TestCaseAttachmentController } = require("../../testCase/controllers/testCaseAttachment.controller");
 const { attachmentParamsSchema } = require("../../testCase/validators/testCaseAttachment.schema");
 
 router.get("/", authMiddleware, validate(fetchResultsSchema), TestRunResultController.fetchAll);
+// /bulk must be registered before /:id so Express doesn't treat "bulk" as a UUID param.
+router.patch(
+  "/bulk",
+  authMiddleware,
+  authorise("superadmin", "admin", "user"),
+  validate(bulkUpdateSchema),
+  TestRunResultController.bulkUpdate
+);
 router.get("/:id", authMiddleware, validate(idParamSchema), TestRunResultController.fetchById);
 router.post(
   "/",

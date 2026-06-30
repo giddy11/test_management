@@ -3,6 +3,7 @@ import { Link } from "react-router-dom"
 import { toast } from "sonner"
 import { Paperclip, X, Upload, ImageIcon, ChevronDown, ChevronUp, ExternalLink } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Textarea } from "@/components/ui/textarea"
 import { ResultBadge, PriorityBadge } from "@/components/shared/StatusBadge"
 import { cn } from "@/lib/utils"
@@ -20,9 +21,11 @@ interface Props {
   projectId: string
   suiteId: string
   disabled?: boolean
+  selected?: boolean
+  onToggle?: () => void
 }
 
-export function ResultRow({ runId, result, caseTitle, projectId, suiteId, disabled }: Props) {
+export function ResultRow({ runId, result, caseTitle, projectId, suiteId, disabled, selected, onToggle }: Props) {
   const record = useRecordResult(runId)
   const [notesOpen, setNotesOpen] = useState(false)
   const [detailsOpen, setDetailsOpen] = useState(false)
@@ -68,6 +71,15 @@ export function ResultRow({ runId, result, caseTitle, projectId, suiteId, disabl
     <div className="rounded-lg border">
       {/* Main row */}
       <div className="flex flex-col gap-3 p-3 sm:flex-row sm:items-start sm:justify-between">
+        {onToggle !== undefined && (
+          <Checkbox
+            checked={selected}
+            onCheckedChange={onToggle}
+            onClick={(e) => e.stopPropagation()}
+            className="mt-1 shrink-0"
+            aria-label={`Select ${caseTitle}`}
+          />
+        )}
         {/* Left: status + title + scenario */}
         <div className="flex items-start gap-2 min-w-0 flex-1">
           <ResultBadge value={result.status} />

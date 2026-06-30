@@ -91,6 +91,26 @@ class TestRunResultService {
     const result = await this.getResult(actor, id);
     await this.resultRepo.delete(result.id);
   }
+
+  async bulkRecordResults(actor, { runId, ids, status }) {
+    await this.runService.getTestRun(actor, runId); // access check
+
+    const now = new Date();
+    const patch =
+      status === null
+        ? { status: null, executedById: null, executedAt: null }
+        : { status, executedById: actor.id, executedAt: now };
+
+    await this.resultRepo.bulkUpdateForRun(runId, ids, patch);
+
+    ActivityService.Instance.log(actor, {
+      action: "result.bulk_recorded",
+      summary: `Set ${ids.length} result${ids.length === 1 ? "" : "s"} to "${status ?? "pending"}"`,
+      entityType: "test_run_result",
+      entityId: runId,
+      metadata: { runId, count: ids.length, status },
+    });
+  }
 }
 
 module.exports = { TestRunResultService };

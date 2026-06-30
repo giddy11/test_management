@@ -61,6 +61,18 @@ class TestRunResultRepository {
     await this.repo.delete(id);
   }
 
+  // Set the same status/executor fields on multiple results within one run.
+  async bulkUpdateForRun(runId, ids, patch) {
+    if (!ids.length) return;
+    await this.repo
+      .createQueryBuilder()
+      .update()
+      .set(patch)
+      .where("run_id = :runId", { runId })
+      .andWhere("id IN (:...ids)", { ids })
+      .execute();
+  }
+
   // Aggregated counts per status for a run — powers the dashboard summary.
   async statusSummary(runId) {
     const rows = await this.repo
