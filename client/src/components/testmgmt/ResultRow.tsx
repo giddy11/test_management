@@ -22,8 +22,10 @@ export function ResultRow({ runId, result, caseTitle, disabled }: Props) {
   const [notes, setNotes] = useState(result.notes ?? "")
 
   const setStatus = (status: ResultStatus) => {
+    // Clicking the active status clears it (back to pending).
+    const next = result.status === status ? null : status
     record.mutate(
-      { id: result.id, payload: { status } },
+      { id: result.id, payload: { status: next } },
       { onError: (e) => toast.error(e instanceof ApiError ? e.message : "Failed") }
     )
   }

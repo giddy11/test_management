@@ -4,6 +4,8 @@ const { UserRepository } = require("../repositories/user.repository");
 const { AppError } = require("../../../shared/errors/AppError");
 const { UserRole, AuthProvider } = require("../../../config/constants");
 const { hashPassword } = require("../../../shared/utils/password");
+const { sendWelcomeEmail } = require("../../../shared/utils/mailer");
+const { env } = require("../../../config/env");
 
 class UserService {
   static Instance = new UserService();
@@ -46,7 +48,7 @@ class UserService {
     const existing = await this.userRepo.findByEmail(data.email);
     if (existing) throw new AppError("An account with this email already exists", 409);
 
-    return this.userRepo.create({
+    const user = await this.userRepo.create({
       firstName: data.firstName,
       lastName: data.lastName,
       email: data.email,
@@ -57,6 +59,13 @@ class UserService {
       provider: AuthProvider.LOCAL,
       isEmailVerified: true, // created by an admin — no self-verification needed
     });
+
+    const loginUrl = `${env.appUrl}/login`;
+    sendWelcomeEmail(user.email, user.firstName, data.password, loginUrl).catch((err) =>
+      console.error("[mailer] welcome email failed:", err.message)
+    );
+
+    return user;
   }
 
   async updateUser(actorId, id, data) {

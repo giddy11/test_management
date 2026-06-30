@@ -70,6 +70,8 @@ const env = {
 
   // Used to build links in emails (e.g. password reset). Falls back to the API host.
   appBaseUrl: process.env.APP_BASE_URL || `http://localhost:${process.env.PORT || 4000}`,
+  // Frontend URL — used for email links that open the UI (e.g. login button).
+  appUrl: process.env.URL || `http://localhost:5173`,
 
   // Minutes an emailed OTP stays valid.
   otpTtlMinutes: Number(process.env.OTP_TTL_MINUTES || 15),

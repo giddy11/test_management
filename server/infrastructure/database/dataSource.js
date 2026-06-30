@@ -17,6 +17,9 @@ const { TestRun } = require("../../modules/testRun/entities/testRun.entity");
 const {
   TestRunResult,
 } = require("../../modules/testRunResult/entities/testRunResult.entity");
+const {
+  Notification,
+} = require("../../modules/notification/entities/notification.entity");
 
 const AppDataSource = new DataSource({
   type: "postgres",
@@ -39,6 +42,7 @@ const AppDataSource = new DataSource({
     TestCaseAttachment,
     TestRun,
     TestRunResult,
+    Notification,
   ],
   migrations: ["infrastructure/database/migrations/*.js"],
 });

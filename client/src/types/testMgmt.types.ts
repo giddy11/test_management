@@ -29,7 +29,7 @@ export interface TestCase {
   priority: TcPriority
   status: TcStatus
   suiteId: string
-  assignedToId: string | null
+  assignees: { id: string; name: string; email: string }[]
   tags: string[]
   createdAt: string
 }
@@ -90,7 +90,7 @@ export interface TestRunResult {
   executedAt: string | null
 }
 export interface RecordResultPayload {
-  status?: ResultStatus
+  status?: ResultStatus | null // null clears the result
   actualResult?: string | null
   notes?: string | null
 }

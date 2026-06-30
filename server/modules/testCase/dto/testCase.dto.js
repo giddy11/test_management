@@ -11,7 +11,13 @@ function toTestCaseResponse(tc) {
     priority: tc.priority,
     status: tc.status,
     suiteId: tc.suiteId,
-    assignedToId: tc.assignedToId ?? null,
+    assignees: Array.isArray(tc.assignees)
+      ? tc.assignees.map((u) => ({
+          id: u.id,
+          name: [u.firstName, u.lastName].filter(Boolean).join(" "),
+          email: u.email,
+        }))
+      : [],
     tags: tc.tags ?? [],
     createdAt: tc.createdAt,
   };

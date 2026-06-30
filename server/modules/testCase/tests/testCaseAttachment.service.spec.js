@@ -36,6 +36,7 @@ function file(name = "shot.png") {
   };
 }
 
+const actor = { id: "owner-1", role: "admin", organizationId: "org-1" };
 describe("TestCaseAttachmentService", () => {
   let repo;
   let tcService;
@@ -51,9 +52,9 @@ describe("TestCaseAttachmentService", () => {
 
   describe("uploadAttachments", () => {
     it("uploads each file to Cloudinary and persists metadata", async () => {
-      const result = await service.uploadAttachments("owner-1", "tc-1", [file("a.png"), file("b.png")]);
+      const result = await service.uploadAttachments(actor, "tc-1", [file("a.png"), file("b.png")]);
 
-      expect(tcService.getTestCase).toHaveBeenCalledWith("owner-1", "tc-1");
+      expect(tcService.getTestCase).toHaveBeenCalledWith(actor, "tc-1");
       expect(storage.uploadImage).toHaveBeenCalledTimes(2);
       const rows = repo.createMany.mock.calls[0][0];
       expect(rows[0]).toMatchObject({
@@ -67,7 +68,7 @@ describe("TestCaseAttachmentService", () => {
     });
 
     it("throws 400 when no files are provided", async () => {
-      await expect(service.uploadAttachments("owner-1", "tc-1", [])).rejects.toMatchObject({
+      await expect(service.uploadAttachments(actor, "tc-1", [])).rejects.toMatchObject({
         statusCode: 400,
       });
     });
@@ -75,7 +76,7 @@ describe("TestCaseAttachmentService", () => {
     it("throws 422 when the 10-attachment cap would be exceeded", async () => {
       repo.countByTestCase.mockResolvedValue(9);
       await expect(
-        service.uploadAttachments("owner-1", "tc-1", [file(), file()])
+        service.uploadAttachments(actor, "tc-1", [file(), file()])
       ).rejects.toMatchObject({ statusCode: 422 });
       expect(storage.uploadImage).not.toHaveBeenCalled();
     });
@@ -84,8 +85,8 @@ describe("TestCaseAttachmentService", () => {
   describe("listAttachments", () => {
     it("checks access then returns the rows", async () => {
       repo.findByTestCase.mockResolvedValue([{ id: "att-1" }]);
-      const items = await service.listAttachments("owner-1", "tc-1");
-      expect(tcService.getTestCase).toHaveBeenCalledWith("owner-1", "tc-1");
+      const items = await service.listAttachments(actor, "tc-1");
+      expect(tcService.getTestCase).toHaveBeenCalledWith(actor, "tc-1");
       expect(items).toHaveLength(1);
     });
   });
@@ -97,7 +98,7 @@ describe("TestCaseAttachmentService", () => {
         testCaseId: "tc-1",
         filePublicId: "testmate/test-cases/x",
       });
-      await service.deleteAttachment("owner-1", "tc-1", "att-1");
+      await service.deleteAttachment(actor, "tc-1", "att-1");
       expect(storage.deleteImage).toHaveBeenCalledWith("testmate/test-cases/x");
       expect(repo.delete).toHaveBeenCalledWith("att-1");
     });
@@ -105,7 +106,7 @@ describe("TestCaseAttachmentService", () => {
     it("throws 404 when the attachment belongs to a different test case", async () => {
       repo.findById.mockResolvedValue({ id: "att-1", testCaseId: "other" });
       await expect(
-        service.deleteAttachment("owner-1", "tc-1", "att-1")
+        service.deleteAttachment(actor, "tc-1", "att-1")
       ).rejects.toMatchObject({ statusCode: 404 });
       expect(repo.delete).not.toHaveBeenCalled();
     });

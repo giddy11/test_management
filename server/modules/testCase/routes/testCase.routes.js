@@ -6,6 +6,7 @@ const { authorise } = require("../../../shared/middleware/authorise.middleware")
 const {
   createTestCaseSchema,
   updateTestCaseSchema,
+  assignTestCaseSchema,
   idParamSchema,
   fetchTestCasesSchema,
 } = require("../validators/testCase.schema");
@@ -33,6 +34,15 @@ router.delete(
   authorise("superadmin", "admin"),
   validate(idParamSchema),
   TestCaseController.remove
+);
+
+// Assign (replace) the set of users on a test case.
+router.patch(
+  "/:id/assignees",
+  authMiddleware,
+  authorise("superadmin", "admin"),
+  validate(assignTestCaseSchema),
+  TestCaseController.assign
 );
 
 module.exports = router;

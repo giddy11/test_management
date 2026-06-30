@@ -2,9 +2,11 @@
 const { TestCaseRepository } = require("../repositories/testCase.repository");
 const { TestSuiteService } = require("../../testSuite/services/testSuite.service");
 const { AuthRepository } = require("../../auth/repositories/auth.repository");
+const { NotificationService } = require("../../notification/services/notification.service");
 const { AppError } = require("../../../shared/errors/AppError");
-const { TestCaseStatus } = require("../../../config/constants");
+const { TestCaseStatus, UserRole } = require("../../../config/constants");
 
+// `actor` = { id, role, organizationId }.
 class TestCaseService {
   static Instance = new TestCaseService();
 
@@ -18,24 +20,34 @@ class TestCaseService {
     this.authRepo = authRepo;
   }
 
-  async fetchTestCases(ownerId, params) {
-    await this.suiteService.getTestSuite(ownerId, params.suite); // access check
-    return this.tcRepo.fetchPaginated({ ...params, suiteId: params.suite });
+  // A plain "user" only sees cases assigned to them; admins/superadmin see all.
+  isRestricted(actor) {
+    return actor.role === UserRole.USER;
   }
 
-  async getTestCase(ownerId, id) {
+  async fetchTestCases(actor, params) {
+    await this.suiteService.getTestSuite(actor, params.suite); // org access check
+    return this.tcRepo.fetchPaginated({
+      ...params,
+      suiteId: params.suite,
+      assigneeId: this.isRestricted(actor) ? actor.id : undefined,
+    });
+  }
+
+  async getTestCase(actor, id) {
     const tc = await this.tcRepo.findById(id);
     if (!tc || tc.deletedAt) {
       throw new AppError("Test case not found", 404);
     }
-    await this.suiteService.getTestSuite(ownerId, tc.suiteId); // access check
+    await this.suiteService.getTestSuite(actor, tc.suiteId); // org access check
+    if (this.isRestricted(actor) && !(tc.assignees ?? []).some((u) => u.id === actor.id)) {
+      throw new AppError("Test case not found", 404); // hide unassigned cases
+    }
     return tc;
   }
 
-  async createTestCase(ownerId, data) {
-    await this.suiteService.getTestSuite(ownerId, data.suite);
-    if (data.assignedTo) await this.assertUserExists(data.assignedTo);
-
+  async createTestCase(actor, data) {
+    await this.suiteService.getTestSuite(actor, data.suite);
     return this.tcRepo.create({
       title: data.title,
       description: data.description ?? null,
@@ -44,15 +56,13 @@ class TestCaseService {
       priority: data.priority,
       status: data.status ?? TestCaseStatus.DRAFT,
       suiteId: data.suite,
-      assignedToId: data.assignedTo ?? null,
       tags: data.tags ?? null,
-      createdById: ownerId,
+      createdById: actor.id,
     });
   }
 
-  async updateTestCase(ownerId, id, data) {
-    const tc = await this.getTestCase(ownerId, id);
-    if (data.assignedTo) await this.assertUserExists(data.assignedTo);
+  async updateTestCase(actor, id, data) {
+    const tc = await this.getTestCase(actor, id);
 
     const patch = {};
     if (data.title !== undefined) patch.title = data.title;
@@ -61,20 +71,51 @@ class TestCaseService {
     if (data.expectedResult !== undefined) patch.expectedResult = data.expectedResult;
     if (data.priority !== undefined) patch.priority = data.priority;
     if (data.status !== undefined) patch.status = data.status;
-    if (data.assignedTo !== undefined) patch.assignedToId = data.assignedTo;
     if (data.tags !== undefined) patch.tags = data.tags;
 
     return this.tcRepo.update(tc.id, patch);
   }
 
-  async deleteTestCase(ownerId, id) {
-    const tc = await this.getTestCase(ownerId, id);
+  async deleteTestCase(actor, id) {
+    const tc = await this.getTestCase(actor, id);
     await this.tcRepo.softDelete(tc.id);
   }
 
-  async assertUserExists(userId) {
-    const user = await this.authRepo.findUserById(userId);
-    if (!user) throw new AppError("Assigned user not found", 404);
+  // Assign (replace) the set of users on a case. Returns { testCase, addedUsers }.
+  async assignUsers(actor, id, userIds) {
+    const tc = await this.getTestCase(actor, id);
+    const suite = await this.suiteService.getTestSuite(actor, tc.suiteId);
+
+    const before = new Set((tc.assignees ?? []).map((u) => u.id));
+    const users = [];
+    for (const uid of userIds) {
+      const user = await this.authRepo.findUserById(uid);
+      if (!user) throw new AppError(`User not found: ${uid}`, 404);
+      if (user.organizationId !== actor.organizationId && actor.role !== UserRole.SUPERADMIN) {
+        throw new AppError("You can only assign users from your organisation", 403);
+      }
+      users.push(user);
+    }
+
+    const saved = await this.tcRepo.setAssignees(tc, users.map((u) => ({ id: u.id })));
+    const addedUsers = users.filter((u) => !before.has(u.id)); // newly assigned
+
+    // Notify newly-assigned users (in-app + email), fire-and-forget.
+    if (addedUsers.length) {
+      const me = await this.authRepo.findUserById(actor.id);
+      const assignedByName = me
+        ? [me.firstName, me.lastName].filter(Boolean).join(" ")
+        : "An admin";
+      NotificationService.Instance.notifyAssignment(addedUsers, {
+        caseTitle: tc.title,
+        caseId: tc.id,
+        suiteId: tc.suiteId,
+        projectId: suite.projectId,
+        assignedByName,
+      }).catch((e) => console.error("[notify] assignment failed:", e.message));
+    }
+
+    return { testCase: saved, addedUsers };
   }
 }
 

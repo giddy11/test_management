@@ -10,13 +10,15 @@ class TestCaseRepository {
     this.repo = AppDataSource.getRepository(TestCase);
   }
 
-  async fetchPaginated({ suiteId, page = 1, limit = 20, search, priority, status }) {
+  // assigneeId set => only cases assigned to that user (used to scope 'user' role).
+  async fetchPaginated({ suiteId, page = 1, limit = 20, search, priority, status, assigneeId }) {
     const offset = getOffset(page, limit);
     const qb = this.repo
       .createQueryBuilder("tc")
+      .leftJoinAndSelect("tc.assignees", "assignee")
       .where("tc.suite_id = :suiteId", { suiteId }) // indexed FK
       .andWhere("tc.deleted_at IS NULL")
-      .orderBy("tc.created_at", "DESC")
+      .orderBy("tc.createdAt", "DESC")
       .skip(offset)
       .take(limit);
 
@@ -29,6 +31,14 @@ class TestCaseRepository {
     if (status) {
       qb.andWhere("tc.status = :status", { status });
     }
+    if (assigneeId) {
+      // Restrict to cases this user is assigned to (separate exists subquery so the
+      // selected assignee list still includes all assignees).
+      qb.andWhere(
+        `EXISTS (SELECT 1 FROM test_case_assignees tca WHERE tca.test_case_id = tc.id AND tca.user_id = :assigneeId)`,
+        { assigneeId }
+      );
+    }
 
     const total = page === 1 ? await qb.getCount() : 0;
     const data = await qb.getMany();
@@ -36,7 +46,13 @@ class TestCaseRepository {
   }
 
   async findById(id) {
-    return this.repo.findOne({ where: { id } });
+    return this.repo.findOne({ where: { id }, relations: { assignees: true } });
+  }
+
+  // Replaces the assignee set on a case. `users` is an array of `{ id }` refs.
+  async setAssignees(testCase, users) {
+    testCase.assignees = users;
+    return this.repo.save(testCase);
   }
 
   // All non-deleted cases in a suite — used to snapshot a test run.
@@ -45,7 +61,7 @@ class TestCaseRepository {
       .createQueryBuilder("tc")
       .where("tc.suite_id = :suiteId", { suiteId })
       .andWhere("tc.deleted_at IS NULL")
-      .orderBy("tc.created_at", "ASC")
+      .orderBy("tc.createdAt", "ASC")
       .select(["tc.id"])
       .getMany();
   }

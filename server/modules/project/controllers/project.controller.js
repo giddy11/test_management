@@ -6,10 +6,10 @@ const { toProjectResponse } = require("../dto/project.dto");
 class ProjectController {
   static async fetchAll(req, res, next) {
     try {
-      const result = await ProjectService.Instance.fetchProjects({
-        ownerId: req.user.id,
-        ...req.validated.query,
-      });
+      const result = await ProjectService.Instance.fetchProjects(
+        req.user,
+        req.validated.query
+      );
       res
         .status(200)
         .json(
@@ -27,7 +27,7 @@ class ProjectController {
   static async fetchById(req, res, next) {
     try {
       const project = await ProjectService.Instance.getProject(
-        req.user.id,
+        req.user,
         req.validated.params.id
       );
       res.status(200).json(ApiResponse.ok("Project fetched", toProjectResponse(project)));
@@ -39,7 +39,7 @@ class ProjectController {
   static async create(req, res, next) {
     try {
       const project = await ProjectService.Instance.createProject(
-        req.user.id,
+        req.user,
         req.validated.body
       );
       res
@@ -53,7 +53,7 @@ class ProjectController {
   static async update(req, res, next) {
     try {
       const project = await ProjectService.Instance.updateProject(
-        req.user.id,
+        req.user,
         req.validated.params.id,
         req.validated.body
       );
@@ -66,7 +66,7 @@ class ProjectController {
   static async remove(req, res, next) {
     try {
       await ProjectService.Instance.deleteProject(
-        req.user.id,
+        req.user,
         req.validated.params.id
       );
       res.status(200).json(ApiResponse.ok("Project deleted", null));

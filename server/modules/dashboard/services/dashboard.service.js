@@ -8,14 +8,14 @@ class DashboardService {
     this.repo = repo;
   }
 
-  async overview(ownerId, projectId) {
+  async overview(organizationId, projectId) {
     const [totals, caseStatus, casePriority, resultBreakdown, recentRuns] =
       await Promise.all([
-        this.repo.totals(ownerId, projectId),
-        this.repo.caseDistribution(ownerId, projectId, "status"),
-        this.repo.caseDistribution(ownerId, projectId, "priority"),
-        this.repo.resultBreakdown(ownerId, projectId),
-        this.repo.recentRuns(ownerId, projectId),
+        this.repo.totals(organizationId, projectId),
+        this.repo.caseDistribution(organizationId, projectId, "status"),
+        this.repo.caseDistribution(organizationId, projectId, "priority"),
+        this.repo.resultBreakdown(organizationId, projectId),
+        this.repo.recentRuns(organizationId, projectId),
       ]);
 
     const passRate =

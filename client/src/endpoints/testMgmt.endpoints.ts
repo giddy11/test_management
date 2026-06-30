@@ -42,6 +42,8 @@ export const CaseEndpoints = {
   update: (id: string, payload: UpdateCasePayload) =>
     wrapCall<TestCase>("PATCH", `/api/v1/test-cases/${id}`, obj(payload)),
   remove: (id: string) => wrapCall<null>("DELETE", `/api/v1/test-cases/${id}`),
+  assign: (id: string, userIds: string[]) =>
+    wrapCall<TestCase>("PATCH", `/api/v1/test-cases/${id}/assignees`, { userIds }),
 }
 
 export const AttachmentEndpoints = {

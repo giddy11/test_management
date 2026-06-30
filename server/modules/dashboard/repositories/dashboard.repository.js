@@ -11,9 +11,9 @@ class DashboardRepository {
   }
 
   // Returns [whereSql, params] applying owner scope (+ optional project filter).
-  scope(ownerId, projectId, alias = "p") {
-    const params = [ownerId];
-    let sql = `${alias}.owner_id = $1 AND ${alias}.deleted_at IS NULL`;
+  scope(organizationId, projectId, alias = "p") {
+    const params = [organizationId];
+    let sql = `${alias}.organization_id = $1 AND ${alias}.deleted_at IS NULL`;
     if (projectId) {
       params.push(projectId);
       sql += ` AND ${alias}.id = $${params.length}`;
@@ -21,8 +21,8 @@ class DashboardRepository {
     return [sql, params];
   }
 
-  async totals(ownerId, projectId) {
-    const [pScope, params] = this.scope(ownerId, projectId);
+  async totals(organizationId, projectId) {
+    const [pScope, params] = this.scope(organizationId, projectId);
     const [projects] = await this.ds.query(
       `SELECT count(*)::int n FROM projects p WHERE ${pScope}`,
       params
@@ -54,8 +54,8 @@ class DashboardRepository {
     };
   }
 
-  async caseDistribution(ownerId, projectId, column) {
-    const [pScope, params] = this.scope(ownerId, projectId);
+  async caseDistribution(organizationId, projectId, column) {
+    const [pScope, params] = this.scope(organizationId, projectId);
     return this.ds.query(
       `SELECT tc.${column} AS key, count(*)::int AS count FROM test_cases tc
        JOIN test_suites ts ON tc.suite_id = ts.id
@@ -66,8 +66,8 @@ class DashboardRepository {
     );
   }
 
-  async resultBreakdown(ownerId, projectId) {
-    const [pScope, params] = this.scope(ownerId, projectId);
+  async resultBreakdown(organizationId, projectId) {
+    const [pScope, params] = this.scope(organizationId, projectId);
     const rows = await this.ds.query(
       `SELECT COALESCE(res.status::text, 'pending') AS key, count(*)::int AS count
        FROM test_run_results res
@@ -85,8 +85,8 @@ class DashboardRepository {
     return base;
   }
 
-  async recentRuns(ownerId, projectId, limit = 6) {
-    const [pScope, params] = this.scope(ownerId, projectId);
+  async recentRuns(organizationId, projectId, limit = 6) {
+    const [pScope, params] = this.scope(organizationId, projectId);
     params.push(limit);
     return this.ds.query(
       `SELECT r.id, r.name, r.status, r.project_id AS "projectId", r.created_at AS "createdAt",

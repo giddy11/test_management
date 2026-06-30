@@ -11,9 +11,13 @@ const createTestCaseSchema = z.object({
     priority: z.enum(enums.testCasePriority),
     status: z.enum(enums.testCaseStatus).optional(),
     suite: z.string().uuid(),
-    assignedTo: z.string().uuid().optional(),
     tags: z.array(z.string()).optional(),
   }),
+});
+
+const assignTestCaseSchema = z.object({
+  params: z.object({ id: z.string().uuid() }),
+  body: z.object({ userIds: z.array(z.string().uuid()) }),
 });
 
 const updateTestCaseSchema = z.object({
@@ -26,7 +30,6 @@ const updateTestCaseSchema = z.object({
       expectedResult: z.string().min(1).optional(),
       priority: z.enum(enums.testCasePriority).optional(),
       status: z.enum(enums.testCaseStatus).optional(),
-      assignedTo: z.string().uuid().nullable().optional(),
       tags: z.array(z.string()).nullable().optional(),
     })
     .refine((b) => Object.keys(b).length > 0, {
@@ -52,6 +55,7 @@ const fetchTestCasesSchema = z.object({
 module.exports = {
   createTestCaseSchema,
   updateTestCaseSchema,
+  assignTestCaseSchema,
   idParamSchema,
   fetchTestCasesSchema,
 };

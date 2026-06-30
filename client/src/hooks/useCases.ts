@@ -74,6 +74,18 @@ export function useDeleteCase() {
   })
 }
 
+export function useAssignCase() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, userIds }: { id: string; userIds: string[] }) => {
+      const res = await CaseEndpoints.assign(id, userIds)
+      if (!res.success || !res.data) throw new ApiError(res.message, res.statusCode, res.errors)
+      return res.data
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: [KEY] }),
+  })
+}
+
 export function useBulkDeleteCases() {
   const qc = useQueryClient()
   return useMutation({

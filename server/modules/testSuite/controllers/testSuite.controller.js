@@ -7,7 +7,7 @@ class TestSuiteController {
   static async fetchAll(req, res, next) {
     try {
       const result = await TestSuiteService.Instance.fetchTestSuites(
-        req.user.id,
+        req.user,
         req.validated.query
       );
       res
@@ -27,7 +27,7 @@ class TestSuiteController {
   static async fetchById(req, res, next) {
     try {
       const suite = await TestSuiteService.Instance.getTestSuite(
-        req.user.id,
+        req.user,
         req.validated.params.id
       );
       res
@@ -41,7 +41,7 @@ class TestSuiteController {
   static async create(req, res, next) {
     try {
       const suite = await TestSuiteService.Instance.createTestSuite(
-        req.user.id,
+        req.user,
         req.validated.body
       );
       res
@@ -55,7 +55,7 @@ class TestSuiteController {
   static async update(req, res, next) {
     try {
       const suite = await TestSuiteService.Instance.updateTestSuite(
-        req.user.id,
+        req.user,
         req.validated.params.id,
         req.validated.body
       );
@@ -70,7 +70,7 @@ class TestSuiteController {
   static async remove(req, res, next) {
     try {
       await TestSuiteService.Instance.deleteTestSuite(
-        req.user.id,
+        req.user,
         req.validated.params.id
       );
       res.status(200).json(ApiResponse.ok("Test suite deleted", null));

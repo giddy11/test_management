@@ -7,6 +7,7 @@ import {
 import { Separator } from "@/components/ui/separator"
 import { AppSidebar } from "@/components/layout/AppSidebar"
 import { ThemeToggle } from "@/components/shared/ThemeToggle"
+import { NotificationBell } from "@/components/layout/NotificationBell"
 
 export function DashboardLayout() {
   return (
@@ -17,7 +18,8 @@ export function DashboardLayout() {
           <SidebarTrigger className="-ml-1" />
           <Separator orientation="vertical" className="mr-2 h-4" />
           <span className="text-sm font-medium">TestMate</span>
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-1">
+            <NotificationBell />
             <ThemeToggle />
           </div>
         </header>

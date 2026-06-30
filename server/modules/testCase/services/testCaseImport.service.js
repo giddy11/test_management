@@ -59,19 +59,54 @@ function normalizeStatus(raw) {
   return enums.testCaseStatus.includes(v) ? v : TestCaseStatus.ACTIVE;
 }
 
-// ── Header mapping (handles both our template and the MVP "Feature/Severity" one) ─
+// ── Header mapping — strictly the columns from the downloaded template ───────────
 const normHeader = (h) =>
   cellText(h).replace(/\(.*?\)/g, "").replace(/\*/g, "").trim().toLowerCase();
 
 const FIELD_SYNONYMS = {
-  title: ["title", "feature"],
-  description: ["description", "test scenario", "scenario"],
-  steps: ["steps to execute", "steps", "test steps", "step"],
-  expectedResult: ["expected result", "expected"],
-  priority: ["priority", "severity"],
-  status: ["status"],
-  tags: ["tags", "labels", "notes"],
+  title: ["feature"],
+  description: ["test scenario"],
+  steps: ["steps to execute"],
+  expectedResult: ["expected result"],
+  priority: ["severity"],
+  tags: ["tags"],
 };
+const TEMPLATE_HEADERS = [
+  "feature",
+  "test scenario",
+  "steps to execute",
+  "expected result",
+  "severity",
+  "tags",
+];
+const REQUIRED_HEADERS = ["feature", "steps to execute", "expected result", "severity"];
+
+function readHeaders(ws) {
+  const headers = [];
+  for (let c = 1; c <= ws.columnCount; c++) {
+    const norm = normHeader(ws.getRow(1).getCell(c).value);
+    if (norm) headers.push(norm);
+  }
+  return headers;
+}
+
+// Rejects any sheet whose columns aren't exactly the template's columns.
+function assertTemplateColumns(headers) {
+  const unexpected = [...new Set(headers.filter((h) => !TEMPLATE_HEADERS.includes(h)))];
+  if (unexpected.length) {
+    throw new AppError(
+      `These columns aren't part of the TestMate template: ${unexpected.join(", ")}. Please download the template and import that.`,
+      422
+    );
+  }
+  const missing = REQUIRED_HEADERS.filter((h) => !headers.includes(h));
+  if (missing.length) {
+    throw new AppError(
+      `Your file is missing required columns: ${missing.join(", ")}. Please download the template and import that.`,
+      422
+    );
+  }
+}
 
 function buildColumnMap(ws) {
   const headerRow = ws.getRow(1);
@@ -110,13 +145,9 @@ class TestCaseImportService {
     const ws = wb.worksheets[0];
     if (!ws) throw new AppError("The spreadsheet has no sheets", 422);
 
+    // Protection: only accept files that use the downloaded template's columns.
+    assertTemplateColumns(readHeaders(ws));
     const col = buildColumnMap(ws);
-    if (col.title === undefined || col.steps === undefined) {
-      throw new AppError(
-        "Couldn't find the expected columns. Need at least a 'Feature'/'Title' and a 'Steps' column.",
-        422
-      );
-    }
 
     const rows = [];
     const skipped = []; // invalid rows are skipped (not fatal) and reported back
@@ -170,16 +201,16 @@ class TestCaseImportService {
     return { rows, skipped };
   }
 
-  async upload(ownerId, suiteId, buffer) {
-    await this.suiteService.getTestSuite(ownerId, suiteId);
+  async upload(actor, suiteId, buffer) {
+    await this.suiteService.getTestSuite(actor, suiteId);
     const { rows, skipped } = await this.parseBuffer(buffer);
-    const importId = importStore.create({ ownerId, suiteId, rows, skipped });
+    const importId = importStore.create({ ownerId: actor.id, suiteId, rows, skipped });
     return { importId, totalRows: rows.length, skippedCount: skipped.length, rows, skipped };
   }
 
-  getPreview(ownerId, importId) {
+  getPreview(actor, importId) {
     const session = importStore.get(importId);
-    if (!session || session.ownerId !== ownerId) {
+    if (!session || session.ownerId !== actor.id) {
       throw new AppError("Import session not found or expired", 404);
     }
     return {
@@ -192,12 +223,12 @@ class TestCaseImportService {
     };
   }
 
-  async confirm(ownerId, importId) {
+  async confirm(actor, importId) {
     const session = importStore.get(importId);
-    if (!session || session.ownerId !== ownerId) {
+    if (!session || session.ownerId !== actor.id) {
       throw new AppError("Import session not found or expired", 404);
     }
-    await this.suiteService.getTestSuite(ownerId, session.suiteId);
+    await this.suiteService.getTestSuite(actor, session.suiteId);
 
     const created = await this.tcRepo.createMany(
       session.rows.map((r) => ({
@@ -209,7 +240,7 @@ class TestCaseImportService {
         status: r.status ?? TestCaseStatus.ACTIVE,
         suiteId: session.suiteId,
         tags: r.tags ?? null,
-        createdById: ownerId,
+        createdById: actor.id,
       }))
     );
 

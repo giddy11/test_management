@@ -87,6 +87,16 @@ const TestCase = new EntitySchema({
       joinColumn: { name: "assigned_to_id" },
       nullable: true,
     },
+    // A test case can be assigned to many users.
+    assignees: {
+      type: "many-to-many",
+      target: "User",
+      joinTable: {
+        name: "test_case_assignees",
+        joinColumn: { name: "test_case_id", referencedColumnName: "id" },
+        inverseJoinColumn: { name: "user_id", referencedColumnName: "id" },
+      },
+    },
   },
   indices: [
     { name: "idx_test_cases_suite_id", columns: ["suiteId"] },

@@ -15,7 +15,15 @@ function makeAuthRepo() {
   return { findUserById: jest.fn() };
 }
 
-const project = { id: "proj-1", name: "Checkout", ownerId: "owner-1", deletedAt: null };
+// actor = authenticated user; project belongs to the same organisation.
+const actor = { id: "owner-1", role: "admin", organizationId: "org-1" };
+const project = {
+  id: "proj-1",
+  name: "Checkout",
+  ownerId: "owner-1",
+  organizationId: "org-1",
+  deletedAt: null,
+};
 
 describe("ProjectService", () => {
   let projectRepo;
@@ -29,48 +37,56 @@ describe("ProjectService", () => {
   });
 
   describe("fetchProjects", () => {
-    it("delegates to the repository", async () => {
+    it("scopes the query to the actor's organisation", async () => {
       projectRepo.fetchPaginated.mockResolvedValue({ data: [project], meta: {} });
-      const result = await service.fetchProjects({ ownerId: "owner-1", page: 1, limit: 20 });
-      expect(projectRepo.fetchPaginated).toHaveBeenCalledWith({
-        ownerId: "owner-1",
-        page: 1,
-        limit: 20,
-      });
+      const result = await service.fetchProjects(actor, { page: 1, limit: 20 });
+      expect(projectRepo.fetchPaginated).toHaveBeenCalledWith(
+        expect.objectContaining({ organizationId: "org-1", page: 1, limit: 20 })
+      );
       expect(result.data).toHaveLength(1);
+    });
+
+    it("does not scope a superadmin", async () => {
+      projectRepo.fetchPaginated.mockResolvedValue({ data: [], meta: {} });
+      await service.fetchProjects({ id: "s", role: "superadmin" }, { page: 1, limit: 20 });
+      expect(projectRepo.fetchPaginated).toHaveBeenCalledWith(
+        expect.objectContaining({ organizationId: undefined })
+      );
     });
   });
 
   describe("getProject", () => {
-    it("returns the project for its owner", async () => {
+    it("returns the project for a member of its organisation", async () => {
       projectRepo.findById.mockResolvedValue(project);
-      await expect(service.getProject("owner-1", "proj-1")).resolves.toBe(project);
+      await expect(service.getProject(actor, "proj-1")).resolves.toBe(project);
     });
 
     it("throws 404 when missing or soft-deleted", async () => {
       projectRepo.findById.mockResolvedValue(null);
-      await expect(service.getProject("owner-1", "proj-1")).rejects.toMatchObject({
+      await expect(service.getProject(actor, "proj-1")).rejects.toMatchObject({
         statusCode: 404,
       });
     });
 
-    it("throws 403 when the caller is not the owner", async () => {
+    it("throws 403 for a caller in a different organisation", async () => {
       projectRepo.findById.mockResolvedValue(project);
-      await expect(service.getProject("intruder", "proj-1")).rejects.toMatchObject({
-        statusCode: 403,
-      });
+      await expect(
+        service.getProject({ id: "x", role: "admin", organizationId: "org-2" }, "proj-1")
+      ).rejects.toMatchObject({ statusCode: 403 });
     });
   });
 
   describe("createProject", () => {
-    it("creates with the owner id and no members", async () => {
+    it("creates with the actor's id and organisation", async () => {
       projectRepo.create.mockImplementation(async (d) => ({ id: "proj-2", ...d }));
-      const created = await service.createProject("owner-1", {
-        name: "New",
-        description: "d",
-      });
+      const created = await service.createProject(actor, { name: "New", description: "d" });
       expect(projectRepo.create).toHaveBeenCalledWith(
-        expect.objectContaining({ name: "New", ownerId: "owner-1", description: "d" })
+        expect.objectContaining({
+          name: "New",
+          ownerId: "owner-1",
+          organizationId: "org-1",
+          description: "d",
+        })
       );
       expect(created.id).toBe("proj-2");
     });
@@ -78,17 +94,14 @@ describe("ProjectService", () => {
     it("resolves member ids and throws 404 for an unknown member", async () => {
       authRepo.findUserById.mockResolvedValue(null);
       await expect(
-        service.createProject("owner-1", { name: "x", memberIds: ["missing"] })
+        service.createProject(actor, { name: "x", memberIds: ["missing"] })
       ).rejects.toMatchObject({ statusCode: 404 });
     });
 
     it("attaches resolved members when valid", async () => {
       authRepo.findUserById.mockResolvedValue({ id: "m-1" });
       projectRepo.create.mockImplementation(async (d) => d);
-      const created = await service.createProject("owner-1", {
-        name: "x",
-        memberIds: ["m-1"],
-      });
+      const created = await service.createProject(actor, { name: "x", memberIds: ["m-1"] });
       expect(created.members).toEqual([{ id: "m-1" }]);
     });
   });
@@ -97,18 +110,16 @@ describe("ProjectService", () => {
     it("patches provided fields and saves", async () => {
       projectRepo.findById.mockResolvedValue({ ...project });
       projectRepo.save.mockImplementation(async (e) => e);
-      const updated = await service.updateProject("owner-1", "proj-1", {
-        name: "Renamed",
-      });
+      const updated = await service.updateProject(actor, "proj-1", { name: "Renamed" });
       expect(updated.name).toBe("Renamed");
       expect(projectRepo.save).toHaveBeenCalled();
     });
   });
 
   describe("deleteProject", () => {
-    it("soft-deletes after the ownership check", async () => {
+    it("soft-deletes after the access check", async () => {
       projectRepo.findById.mockResolvedValue(project);
-      await service.deleteProject("owner-1", "proj-1");
+      await service.deleteProject(actor, "proj-1");
       expect(projectRepo.softDelete).toHaveBeenCalledWith("proj-1");
     });
   });

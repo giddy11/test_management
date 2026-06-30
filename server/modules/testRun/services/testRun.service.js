@@ -5,7 +5,9 @@ const {
 } = require("../../testRunResult/repositories/testRunResult.repository");
 const { TestCaseRepository } = require("../../testCase/repositories/testCase.repository");
 const { TestSuiteService } = require("../../testSuite/services/testSuite.service");
+const { NotificationService } = require("../../notification/services/notification.service");
 const { AppError } = require("../../../shared/errors/AppError");
+const { RunStatus } = require("../../../config/constants");
 
 class TestRunService {
   static Instance = new TestRunService();
@@ -22,22 +24,22 @@ class TestRunService {
     this.suiteService = suiteService;
   }
 
-  async fetchTestRuns(ownerId, params) {
-    await this.suiteService.projectService.getProject(ownerId, params.projectId);
+  async fetchTestRuns(actor, params) {
+    await this.suiteService.projectService.getProject(actor, params.projectId);
     return this.runRepo.fetchPaginated(params);
   }
 
-  async getTestRun(ownerId, id) {
+  async getTestRun(actor, id) {
     const run = await this.runRepo.findById(id);
     if (!run) throw new AppError("Test run not found", 404);
-    await this.suiteService.projectService.getProject(ownerId, run.projectId);
+    await this.suiteService.projectService.getProject(actor, run.projectId);
     const summary = await this.resultRepo.statusSummary(run.id);
     return { run, summary };
   }
 
-  async createTestRun(ownerId, data) {
+  async createTestRun(actor, data) {
     // Suite must belong to the project, and the project to the caller.
-    const suite = await this.suiteService.getTestSuite(ownerId, data.suiteId);
+    const suite = await this.suiteService.getTestSuite(actor, data.suiteId);
     if (suite.projectId !== data.projectId) {
       throw new AppError("Suite does not belong to the given project", 400);
     }
@@ -46,7 +48,7 @@ class TestRunService {
       name: data.name,
       projectId: data.projectId,
       suiteId: data.suiteId,
-      createdById: ownerId,
+      createdById: actor.id,
     });
 
     // Snapshot: one pending result row per test case in the suite.
@@ -59,18 +61,37 @@ class TestRunService {
     return { run, summary };
   }
 
-  async updateTestRun(ownerId, id, data) {
-    const { run } = await this.getTestRun(ownerId, id);
+  async updateTestRun(actor, id, data) {
+    const { run } = await this.getTestRun(actor, id);
+    const wasCompleted = run.status === RunStatus.COMPLETED;
+
     const patch = {};
     if (data.name !== undefined) patch.name = data.name;
     if (data.status !== undefined) patch.status = data.status;
     const updated = await this.runRepo.update(run.id, patch);
     const summary = await this.resultRepo.statusSummary(run.id);
+
+    // Notify the run's creator when someone else completes it.
+    if (
+      data.status === RunStatus.COMPLETED &&
+      !wasCompleted &&
+      run.createdById &&
+      run.createdById !== actor.id
+    ) {
+      NotificationService.Instance.notifyRunCompleted(run.createdById, {
+        runName: updated.name,
+        runId: run.id,
+        projectId: run.projectId,
+        summary,
+        byUserId: actor.id,
+      }).catch((e) => console.error("[notify] run-completed failed:", e.message));
+    }
+
     return { run: updated, summary };
   }
 
-  async deleteTestRun(ownerId, id) {
-    const { run } = await this.getTestRun(ownerId, id);
+  async deleteTestRun(actor, id) {
+    const { run } = await this.getTestRun(actor, id);
     await this.runRepo.delete(run.id);
   }
 }

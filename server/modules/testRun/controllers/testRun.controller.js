@@ -7,7 +7,7 @@ class TestRunController {
   static async fetchAll(req, res, next) {
     try {
       const result = await TestRunService.Instance.fetchTestRuns(
-        req.user.id,
+        req.user,
         req.validated.query
       );
       res
@@ -27,7 +27,7 @@ class TestRunController {
   static async fetchById(req, res, next) {
     try {
       const { run, summary } = await TestRunService.Instance.getTestRun(
-        req.user.id,
+        req.user,
         req.validated.params.id
       );
       res
@@ -41,7 +41,7 @@ class TestRunController {
   static async create(req, res, next) {
     try {
       const { run, summary } = await TestRunService.Instance.createTestRun(
-        req.user.id,
+        req.user,
         req.validated.body
       );
       res
@@ -55,7 +55,7 @@ class TestRunController {
   static async update(req, res, next) {
     try {
       const { run, summary } = await TestRunService.Instance.updateTestRun(
-        req.user.id,
+        req.user,
         req.validated.params.id,
         req.validated.body
       );
@@ -70,7 +70,7 @@ class TestRunController {
   static async remove(req, res, next) {
     try {
       await TestRunService.Instance.deleteTestRun(
-        req.user.id,
+        req.user,
         req.validated.params.id
       );
       res.status(200).json(ApiResponse.ok("Test run deleted", null));

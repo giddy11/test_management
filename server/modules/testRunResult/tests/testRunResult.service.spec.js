@@ -26,6 +26,7 @@ const result = {
   status: null,
 };
 
+const actor = { id: "owner-1", role: "admin", organizationId: "org-1" };
 describe("TestRunResultService", () => {
   let resultRepo;
   let runService;
@@ -42,8 +43,8 @@ describe("TestRunResultService", () => {
   describe("fetchResults", () => {
     it("verifies run access then delegates to the repo", async () => {
       resultRepo.fetchPaginated.mockResolvedValue({ data: [result], meta: {} });
-      await service.fetchResults("owner-1", { runId: "run-1", page: 1, limit: 20 });
-      expect(runService.getTestRun).toHaveBeenCalledWith("owner-1", "run-1");
+      await service.fetchResults(actor, { runId: "run-1", page: 1, limit: 20 });
+      expect(runService.getTestRun).toHaveBeenCalledWith(actor, "run-1");
       expect(resultRepo.fetchPaginated).toHaveBeenCalled();
     });
   });
@@ -51,7 +52,7 @@ describe("TestRunResultService", () => {
   describe("getResult", () => {
     it("throws 404 when the result is missing", async () => {
       resultRepo.findById.mockResolvedValue(null);
-      await expect(service.getResult("owner-1", "res-1")).rejects.toMatchObject({
+      await expect(service.getResult(actor, "res-1")).rejects.toMatchObject({
         statusCode: 404,
       });
     });
@@ -61,7 +62,7 @@ describe("TestRunResultService", () => {
     it("validates the run and the test case before creating", async () => {
       tcRepo.findById.mockResolvedValue({ id: "tc-1", deletedAt: null });
       resultRepo.create.mockImplementation(async (d) => ({ id: "res-2", ...d }));
-      const created = await service.createResult("owner-1", {
+      const created = await service.createResult(actor, {
         runId: "run-1",
         testCaseId: "tc-1",
       });
@@ -71,7 +72,7 @@ describe("TestRunResultService", () => {
     it("throws 404 when the test case does not exist", async () => {
       tcRepo.findById.mockResolvedValue(null);
       await expect(
-        service.createResult("owner-1", { runId: "run-1", testCaseId: "ghost" })
+        service.createResult(actor, { runId: "run-1", testCaseId: "ghost" })
       ).rejects.toMatchObject({ statusCode: 404 });
     });
   });
@@ -81,7 +82,7 @@ describe("TestRunResultService", () => {
       resultRepo.findById.mockResolvedValue(result);
       resultRepo.update.mockImplementation(async (_id, patch) => ({ ...result, ...patch }));
 
-      await service.recordResult("owner-1", "res-1", { status: "pass", notes: "ok" });
+      await service.recordResult(actor, "res-1", { status: "pass", notes: "ok" });
 
       const patch = resultRepo.update.mock.calls[0][1];
       expect(patch.status).toBe("pass");
@@ -94,7 +95,7 @@ describe("TestRunResultService", () => {
       resultRepo.findById.mockResolvedValue(result);
       resultRepo.update.mockImplementation(async (_id, patch) => ({ ...result, ...patch }));
 
-      await service.recordResult("owner-1", "res-1", { notes: "later" });
+      await service.recordResult(actor, "res-1", { notes: "later" });
 
       const patch = resultRepo.update.mock.calls[0][1];
       expect(patch.executedById).toBeUndefined();
@@ -105,7 +106,7 @@ describe("TestRunResultService", () => {
   describe("deleteResult", () => {
     it("deletes after access checks", async () => {
       resultRepo.findById.mockResolvedValue(result);
-      await service.deleteResult("owner-1", "res-1");
+      await service.deleteResult(actor, "res-1");
       expect(resultRepo.delete).toHaveBeenCalledWith("res-1");
     });
   });

@@ -23,6 +23,7 @@ const testCaseImportRoutes = require("./modules/testCase/routes/testCaseImport.r
 const testRunRoutes = require("./modules/testRun/routes/testRun.routes");
 const testRunResultRoutes = require("./modules/testRunResult/routes/testRunResult.routes");
 const dashboardRoutes = require("./modules/dashboard/routes/dashboard.routes");
+const notificationRoutes = require("./modules/notification/routes/notification.routes");
 
 function createApp() {
   const app = express();
@@ -55,6 +56,7 @@ function createApp() {
   api.use("/test-runs", testRunRoutes);
   api.use("/test-run-results", testRunResultRoutes);
   api.use("/dashboard", dashboardRoutes);
+  api.use("/notifications", notificationRoutes);
   app.use("/api/v1", api);
 
   // 404 + centralised error handling

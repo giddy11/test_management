@@ -10,7 +10,8 @@ class TestRunResultRepository {
     this.repo = AppDataSource.getRepository(TestRunResult);
   }
 
-  async fetchPaginated({ runId, page = 1, limit = 20, status }) {
+  // assigneeId set => only results whose test case is assigned to that user.
+  async fetchPaginated({ runId, page = 1, limit = 20, status, assigneeId }) {
     const offset = getOffset(page, limit);
     const qb = this.repo
       .createQueryBuilder("result")
@@ -21,6 +22,12 @@ class TestRunResultRepository {
 
     if (status) {
       qb.andWhere("result.status = :status", { status });
+    }
+    if (assigneeId) {
+      qb.andWhere(
+        `EXISTS (SELECT 1 FROM test_case_assignees tca WHERE tca.test_case_id = result.test_case_id AND tca.user_id = :assigneeId)`,
+        { assigneeId }
+      );
     }
 
     const total = page === 1 ? await qb.getCount() : 0;

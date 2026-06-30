@@ -22,14 +22,14 @@ class TestCaseAttachmentService {
     this.storage = storage;
   }
 
-  async listAttachments(ownerId, testCaseId) {
-    await this.testCaseService.getTestCase(ownerId, testCaseId); // access check
+  async listAttachments(actor, testCaseId) {
+    await this.testCaseService.getTestCase(actor, testCaseId); // access check
     return this.attachmentRepo.findByTestCase(testCaseId);
   }
 
   // files: array of { buffer, originalname, mimetype, size } (multer memory files)
-  async uploadAttachments(ownerId, testCaseId, files) {
-    await this.testCaseService.getTestCase(ownerId, testCaseId);
+  async uploadAttachments(actor, testCaseId, files) {
+    await this.testCaseService.getTestCase(actor, testCaseId);
 
     if (!files || files.length === 0) {
       throw new AppError("No files provided", 400);
@@ -55,15 +55,15 @@ class TestCaseAttachmentService {
         filePublicId: result.publicId,
         mimeType: file.mimetype,
         fileSizeBytes: file.size,
-        uploadedById: ownerId,
+        uploadedById: actor.id,
       });
     }
 
     return this.attachmentRepo.createMany(uploaded);
   }
 
-  async deleteAttachment(ownerId, testCaseId, attachmentId) {
-    await this.testCaseService.getTestCase(ownerId, testCaseId);
+  async deleteAttachment(actor, testCaseId, attachmentId) {
+    await this.testCaseService.getTestCase(actor, testCaseId);
 
     const attachment = await this.attachmentRepo.findById(attachmentId);
     if (!attachment || attachment.testCaseId !== testCaseId) {

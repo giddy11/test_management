@@ -25,7 +25,7 @@ class TestCaseImportController {
     try {
       if (!req.file) throw new AppError("No spreadsheet uploaded", 400);
       const result = await TestCaseImportService.Instance.upload(
-        req.user.id,
+        req.user,
         req.validated.body.suiteId,
         req.file.buffer
       );
@@ -39,7 +39,7 @@ class TestCaseImportController {
   static async preview(req, res, next) {
     try {
       const result = TestCaseImportService.Instance.getPreview(
-        req.user.id,
+        req.user,
         req.validated.params.importId
       );
       res.status(200).json(ApiResponse.ok("Import preview", result));
@@ -52,7 +52,7 @@ class TestCaseImportController {
   static async confirm(req, res, next) {
     try {
       const result = await TestCaseImportService.Instance.confirm(
-        req.user.id,
+        req.user,
         req.validated.params.importId
       );
       res.status(201).json(ApiResponse.created("Test cases imported", result));

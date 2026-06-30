@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react"
 import { Link, useNavigate, useParams } from "react-router-dom"
-import { ChevronLeft, Plus, Pencil, Trash2, FileUp } from "lucide-react"
+import { ChevronLeft, Plus, Pencil, Trash2, FileUp, UserPlus } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import {
   Select,
   SelectContent,
@@ -22,6 +23,7 @@ import {
 } from "@/components/ui/table"
 import { CaseFormDialog } from "@/components/testmgmt/CaseFormDialog"
 import { ImportCasesDialog } from "@/components/testmgmt/ImportCasesDialog"
+import { AssignDialog } from "@/components/testmgmt/AssignDialog"
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog"
 import { PriorityBadge, CaseStatusBadge } from "@/components/shared/StatusBadge"
 import { useSuite } from "@/hooks/useSuites"
@@ -70,7 +72,11 @@ export default function SuiteDetailPage() {
   const [importOpen, setImportOpen] = useState(false)
   const [editing, setEditing] = useState<TestCase | null>(null)
   const [deleting, setDeleting] = useState<TestCase | null>(null)
+  const [assigning, setAssigning] = useState<TestCase | null>(null)
   const [bulkOpen, setBulkOpen] = useState(false)
+
+  const initials = (name: string) =>
+    name.split(" ").map((p) => p[0]).slice(0, 2).join("").toUpperCase()
 
   const allOnPageSelected = cases.length > 0 && cases.every((c) => selected.has(c.id))
   const toggleAll = () =>
@@ -155,16 +161,17 @@ export default function SuiteDetailPage() {
               <TableHead>Title</TableHead>
               <TableHead>Priority</TableHead>
               <TableHead>Status</TableHead>
+              <TableHead>Assigned</TableHead>
               <TableHead>Tags</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading && (
-              <TableRow><TableCell colSpan={canManage ? 6 : 5} className="h-24 text-center text-muted-foreground">Loading…</TableCell></TableRow>
+              <TableRow><TableCell colSpan={canManage ? 7 : 6} className="h-24 text-center text-muted-foreground">Loading…</TableCell></TableRow>
             )}
             {!isLoading && cases.length === 0 && (
-              <TableRow><TableCell colSpan={canManage ? 6 : 5} className="h-24 text-center text-muted-foreground">No test cases match.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={canManage ? 7 : 6} className="h-24 text-center text-muted-foreground">No test cases match.</TableCell></TableRow>
             )}
             {cases.map((tc) => (
               <TableRow
@@ -185,12 +192,33 @@ export default function SuiteDetailPage() {
                 <TableCell className="font-medium">{tc.title}</TableCell>
                 <TableCell><PriorityBadge value={tc.priority} /></TableCell>
                 <TableCell><CaseStatusBadge value={tc.status} /></TableCell>
+                <TableCell>
+                  {tc.assignees.length === 0 ? (
+                    <span className="text-muted-foreground">—</span>
+                  ) : (
+                    <div className="flex -space-x-2">
+                      {tc.assignees.slice(0, 3).map((a) => (
+                        <Avatar key={a.id} className="size-6 border-2 border-background" title={a.name}>
+                          <AvatarFallback className="text-[10px]">{initials(a.name)}</AvatarFallback>
+                        </Avatar>
+                      ))}
+                      {tc.assignees.length > 3 && (
+                        <span className="flex size-6 items-center justify-center rounded-full border-2 border-background bg-muted text-[10px]">
+                          +{tc.assignees.length - 3}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </TableCell>
                 <TableCell className="max-w-[200px] truncate text-muted-foreground">
                   {tc.tags?.length ? tc.tags.join(", ") : "—"}
                 </TableCell>
                 <TableCell className="text-right">
                   {canManage && (
                     <>
+                      <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); setAssigning(tc) }}>
+                        <UserPlus className="size-4" />
+                      </Button>
                       <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); setEditing(tc); setFormOpen(true) }}>
                         <Pencil className="size-4" />
                       </Button>
@@ -221,6 +249,7 @@ export default function SuiteDetailPage() {
 
       <CaseFormDialog open={formOpen} onOpenChange={setFormOpen} suiteId={suiteId} editing={editing} />
       <ImportCasesDialog open={importOpen} onOpenChange={setImportOpen} suiteId={suiteId} />
+      <AssignDialog open={Boolean(assigning)} onOpenChange={(o) => !o && setAssigning(null)} testCase={assigning} />
 
       <ConfirmDialog
         open={Boolean(deleting)}

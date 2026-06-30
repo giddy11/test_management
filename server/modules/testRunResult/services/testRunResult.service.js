@@ -5,6 +5,7 @@ const {
 const { TestRunService } = require("../../testRun/services/testRun.service");
 const { TestCaseRepository } = require("../../testCase/repositories/testCase.repository");
 const { AppError } = require("../../../shared/errors/AppError");
+const { UserRole } = require("../../../config/constants");
 
 class TestRunResultService {
   static Instance = new TestRunResultService();
@@ -19,20 +20,31 @@ class TestRunResultService {
     this.tcRepo = tcRepo;
   }
 
-  async fetchResults(ownerId, params) {
-    await this.runService.getTestRun(ownerId, params.runId); // access check
-    return this.resultRepo.fetchPaginated(params);
+  async fetchResults(actor, params) {
+    await this.runService.getTestRun(actor, params.runId); // access check
+    return this.resultRepo.fetchPaginated({
+      ...params,
+      // A plain user only sees results for test cases assigned to them.
+      assigneeId: actor.role === UserRole.USER ? actor.id : undefined,
+    });
   }
 
-  async getResult(ownerId, id) {
+  async getResult(actor, id) {
     const result = await this.resultRepo.findById(id);
     if (!result) throw new AppError("Run result not found", 404);
-    await this.runService.getTestRun(ownerId, result.runId); // access check
+    await this.runService.getTestRun(actor, result.runId); // org access check
+    // A plain user may only touch results for cases assigned to them.
+    if (actor.role === UserRole.USER) {
+      const tc = await this.tcRepo.findById(result.testCaseId);
+      if (!tc || !(tc.assignees ?? []).some((u) => u.id === actor.id)) {
+        throw new AppError("Run result not found", 404);
+      }
+    }
     return result;
   }
 
-  async createResult(ownerId, data) {
-    await this.runService.getTestRun(ownerId, data.runId);
+  async createResult(actor, data) {
+    await this.runService.getTestRun(actor, data.runId);
     const tc = await this.tcRepo.findById(data.testCaseId);
     if (!tc || tc.deletedAt) throw new AppError("Test case not found", 404);
 
@@ -43,23 +55,29 @@ class TestRunResultService {
     });
   }
 
-  async recordResult(ownerId, id, data) {
-    const result = await this.getResult(ownerId, id);
+  async recordResult(actor, id, data) {
+    const result = await this.getResult(actor, id);
 
     const patch = {};
     if (data.actualResult !== undefined) patch.actualResult = data.actualResult;
     if (data.notes !== undefined) patch.notes = data.notes;
     if (data.status !== undefined) {
       patch.status = data.status;
-      patch.executedById = ownerId;
-      patch.executedAt = new Date();
+      if (data.status === null) {
+        // Cleared back to pending — drop the executor stamp.
+        patch.executedById = null;
+        patch.executedAt = null;
+      } else {
+        patch.executedById = actor.id;
+        patch.executedAt = new Date();
+      }
     }
 
     return this.resultRepo.update(result.id, patch);
   }
 
-  async deleteResult(ownerId, id) {
-    const result = await this.getResult(ownerId, id);
+  async deleteResult(actor, id) {
+    const result = await this.getResult(actor, id);
     await this.resultRepo.delete(result.id);
   }
 }

@@ -14,23 +14,23 @@ class TestSuiteService {
     this.projectService = projectService;
   }
 
-  async fetchTestSuites(ownerId, params) {
+  async fetchTestSuites(actor, params) {
     // Ensure the caller owns the project before listing its suites.
-    await this.projectService.getProject(ownerId, params.projectId);
+    await this.projectService.getProject(actor, params.projectId);
     return this.suiteRepo.fetchPaginated(params);
   }
 
-  async getTestSuite(ownerId, id) {
+  async getTestSuite(actor, id) {
     const suite = await this.suiteRepo.findById(id);
     if (!suite || suite.deletedAt) {
       throw new AppError("Test suite not found", 404);
     }
-    await this.projectService.getProject(ownerId, suite.projectId); // access check
+    await this.projectService.getProject(actor, suite.projectId); // access check
     return suite;
   }
 
-  async createTestSuite(ownerId, data) {
-    await this.projectService.getProject(ownerId, data.projectId);
+  async createTestSuite(actor, data) {
+    await this.projectService.getProject(actor, data.projectId);
     return this.suiteRepo.create({
       name: data.name,
       description: data.description ?? null,
@@ -38,16 +38,16 @@ class TestSuiteService {
     });
   }
 
-  async updateTestSuite(ownerId, id, data) {
-    const suite = await this.getTestSuite(ownerId, id);
+  async updateTestSuite(actor, id, data) {
+    const suite = await this.getTestSuite(actor, id);
     const patch = {};
     if (data.name !== undefined) patch.name = data.name;
     if (data.description !== undefined) patch.description = data.description;
     return this.suiteRepo.update(suite.id, patch);
   }
 
-  async deleteTestSuite(ownerId, id) {
-    const suite = await this.getTestSuite(ownerId, id);
+  async deleteTestSuite(actor, id) {
+    const suite = await this.getTestSuite(actor, id);
     await this.suiteRepo.softDelete(suite.id);
   }
 }

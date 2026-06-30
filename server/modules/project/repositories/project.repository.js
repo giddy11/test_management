@@ -10,16 +10,19 @@ class ProjectRepository {
     this.repo = AppDataSource.getRepository(Project);
   }
 
-  async fetchPaginated({ ownerId, page = 1, limit = 20, search }) {
+  // organizationId omitted => unscoped (superadmin view across all companies).
+  async fetchPaginated({ organizationId, page = 1, limit = 20, search }) {
     const offset = getOffset(page, limit);
     const qb = this.repo
       .createQueryBuilder("project")
-      .where("project.owner_id = :ownerId", { ownerId }) // indexed
-      .andWhere("project.deleted_at IS NULL")
+      .where("project.deleted_at IS NULL")
       .orderBy("project.created_at", "DESC")
       .skip(offset)
       .take(limit);
 
+    if (organizationId) {
+      qb.andWhere("project.organization_id = :organizationId", { organizationId }); // indexed
+    }
     if (search) {
       qb.andWhere("project.name ILIKE :search", { search: `%${search}%` });
     }

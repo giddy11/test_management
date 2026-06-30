@@ -35,7 +35,12 @@ class AuthService {
 
   // ── Token helpers ────────────────────────────────────────────────────────────
   async issueTokens(user) {
-    const payload = { id: user.id, email: user.email, role: user.role };
+    const payload = {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      organizationId: user.organizationId ?? null,
+    };
     const accessToken = signAccessToken(payload);
     const refreshToken = signRefreshToken({ id: user.id });
 

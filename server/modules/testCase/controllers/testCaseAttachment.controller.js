@@ -9,7 +9,7 @@ class TestCaseAttachmentController {
   static async list(req, res, next) {
     try {
       const items = await TestCaseAttachmentService.Instance.listAttachments(
-        req.user.id,
+        req.user,
         req.validated.params.id
       );
       res
@@ -24,7 +24,7 @@ class TestCaseAttachmentController {
     try {
       // req.files is guaranteed by uploadMany — raw buffers, never disk paths.
       const created = await TestCaseAttachmentService.Instance.uploadAttachments(
-        req.user.id,
+        req.user,
         req.validated.params.id,
         req.files
       );
@@ -39,7 +39,7 @@ class TestCaseAttachmentController {
   static async remove(req, res, next) {
     try {
       await TestCaseAttachmentService.Instance.deleteAttachment(
-        req.user.id,
+        req.user,
         req.validated.params.id,
         req.validated.params.attachmentId
       );

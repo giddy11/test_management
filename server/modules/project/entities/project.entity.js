@@ -22,6 +22,12 @@ const Project = new EntitySchema({
       name: "owner_id",
       type: "uuid",
     },
+    // Company that owns this project — all its members share access.
+    organizationId: {
+      name: "organization_id",
+      type: "uuid",
+      nullable: true,
+    },
     createdAt: {
       name: "created_at",
       type: "timestamptz",
@@ -53,7 +59,7 @@ const Project = new EntitySchema({
   indices: [
     { name: "idx_projects_name", columns: ["name"] },
     { name: "idx_projects_owner_id", columns: ["ownerId"] },
-    { name: "idx_projects_owner_created", columns: ["ownerId", "createdAt"] },
+    { name: "idx_projects_org_created", columns: ["organizationId", "createdAt"] },
   ],
 });
 

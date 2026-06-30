@@ -10,6 +10,7 @@ function makeTcRepo() {
     create: jest.fn(),
     update: jest.fn(),
     softDelete: jest.fn(),
+    setAssignees: jest.fn(),
   };
 }
 
@@ -21,12 +22,16 @@ function makeAuthRepo() {
   return { findUserById: jest.fn() };
 }
 
+const admin = { id: "owner-1", role: "admin", organizationId: "org-1" };
+const member = { id: "u-9", role: "user", organizationId: "org-1" };
+
 const testCase = {
   id: "tc-1",
   title: "Login works",
   suiteId: "suite-1",
   status: TestCaseStatus.DRAFT,
   deletedAt: null,
+  assignees: [],
 };
 
 describe("TestCaseService", () => {
@@ -43,20 +48,28 @@ describe("TestCaseService", () => {
   });
 
   describe("fetchTestCases", () => {
-    it("checks suite access and maps `suite` to `suiteId`", async () => {
+    it("checks suite access and maps `suite` to `suiteId` (admin sees all)", async () => {
       tcRepo.fetchPaginated.mockResolvedValue({ data: [testCase], meta: {} });
-      await service.fetchTestCases("owner-1", { suite: "suite-1", page: 1, limit: 20 });
-      expect(suiteService.getTestSuite).toHaveBeenCalledWith("owner-1", "suite-1");
+      await service.fetchTestCases(admin, { suite: "suite-1", page: 1, limit: 20 });
+      expect(suiteService.getTestSuite).toHaveBeenCalledWith(admin, "suite-1");
       expect(tcRepo.fetchPaginated).toHaveBeenCalledWith(
-        expect.objectContaining({ suiteId: "suite-1" })
+        expect.objectContaining({ suiteId: "suite-1", assigneeId: undefined })
+      );
+    });
+
+    it("scopes a 'user' to cases assigned to them", async () => {
+      tcRepo.fetchPaginated.mockResolvedValue({ data: [], meta: {} });
+      await service.fetchTestCases(member, { suite: "suite-1", page: 1, limit: 20 });
+      expect(tcRepo.fetchPaginated).toHaveBeenCalledWith(
+        expect.objectContaining({ assigneeId: "u-9" })
       );
     });
   });
 
   describe("createTestCase", () => {
-    it("creates with defaults and maps fields from the DTO", async () => {
+    it("creates with defaults and the actor as creator", async () => {
       tcRepo.create.mockImplementation(async (d) => ({ id: "tc-2", ...d }));
-      const created = await service.createTestCase("owner-1", {
+      const created = await service.createTestCase(admin, {
         title: "T",
         steps: ["a", "b"],
         expectedResult: "ok",
@@ -66,55 +79,69 @@ describe("TestCaseService", () => {
       });
       const payload = tcRepo.create.mock.calls[0][0];
       expect(payload.suiteId).toBe("suite-1");
-      expect(payload.status).toBe(TestCaseStatus.DRAFT); // default applied
+      expect(payload.status).toBe(TestCaseStatus.DRAFT);
       expect(payload.createdById).toBe("owner-1");
       expect(created.id).toBe("tc-2");
-    });
-
-    it("throws 404 when the assigned user does not exist", async () => {
-      authRepo.findUserById.mockResolvedValue(null);
-      await expect(
-        service.createTestCase("owner-1", {
-          title: "T",
-          steps: ["a"],
-          expectedResult: "ok",
-          priority: "Low",
-          suite: "suite-1",
-          assignedTo: "ghost",
-        })
-      ).rejects.toMatchObject({ statusCode: 404 });
-      expect(tcRepo.create).not.toHaveBeenCalled();
     });
   });
 
   describe("getTestCase", () => {
     it("throws 404 when missing", async () => {
       tcRepo.findById.mockResolvedValue(null);
-      await expect(service.getTestCase("owner-1", "tc-1")).rejects.toMatchObject({
+      await expect(service.getTestCase(admin, "tc-1")).rejects.toMatchObject({
         statusCode: 404,
       });
     });
+
+    it("hides an unassigned case from a 'user' (404)", async () => {
+      tcRepo.findById.mockResolvedValue({ ...testCase, assignees: [{ id: "someone-else" }] });
+      await expect(service.getTestCase(member, "tc-1")).rejects.toMatchObject({
+        statusCode: 404,
+      });
+    });
+
+    it("lets a 'user' see a case assigned to them", async () => {
+      tcRepo.findById.mockResolvedValue({ ...testCase, assignees: [{ id: "u-9" }] });
+      await expect(service.getTestCase(member, "tc-1")).resolves.toBeTruthy();
+    });
   });
 
-  describe("updateTestCase", () => {
-    it("maps assignedTo to assignedToId and patches", async () => {
-      tcRepo.findById.mockResolvedValue(testCase);
-      authRepo.findUserById.mockResolvedValue({ id: "u-9" });
-      tcRepo.update.mockResolvedValue({ ...testCase, assignedToId: "u-9" });
+  describe("assignUsers", () => {
+    it("replaces the assignee set with org users", async () => {
+      tcRepo.findById.mockResolvedValue({ ...testCase, assignees: [] });
+      authRepo.findUserById.mockResolvedValue({ id: "u-9", organizationId: "org-1" });
+      tcRepo.setAssignees.mockImplementation(async (tc, users) => ({ ...tc, assignees: users }));
 
-      await service.updateTestCase("owner-1", "tc-1", { assignedTo: "u-9", priority: "Critical" });
+      const { addedUsers } = await service.assignUsers(admin, "tc-1", ["u-9"]);
 
-      expect(tcRepo.update).toHaveBeenCalledWith(
-        "tc-1",
-        expect.objectContaining({ assignedToId: "u-9", priority: "Critical" })
+      expect(tcRepo.setAssignees).toHaveBeenCalledWith(
+        expect.anything(),
+        [{ id: "u-9" }]
       );
+      expect(addedUsers).toHaveLength(1);
+    });
+
+    it("rejects assigning a user from another organisation", async () => {
+      tcRepo.findById.mockResolvedValue({ ...testCase, assignees: [] });
+      authRepo.findUserById.mockResolvedValue({ id: "u-x", organizationId: "org-2" });
+      await expect(service.assignUsers(admin, "tc-1", ["u-x"])).rejects.toMatchObject({
+        statusCode: 403,
+      });
+    });
+
+    it("throws 404 for an unknown user", async () => {
+      tcRepo.findById.mockResolvedValue({ ...testCase, assignees: [] });
+      authRepo.findUserById.mockResolvedValue(null);
+      await expect(service.assignUsers(admin, "tc-1", ["ghost"])).rejects.toMatchObject({
+        statusCode: 404,
+      });
     });
   });
 
   describe("deleteTestCase", () => {
     it("soft-deletes after access checks", async () => {
       tcRepo.findById.mockResolvedValue(testCase);
-      await service.deleteTestCase("owner-1", "tc-1");
+      await service.deleteTestCase(admin, "tc-1");
       expect(tcRepo.softDelete).toHaveBeenCalledWith("tc-1");
     });
   });

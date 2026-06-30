@@ -15,7 +15,8 @@ const updateResultSchema = z.object({
   params: z.object({ id: z.string().uuid() }),
   body: z
     .object({
-      status: z.enum(enums.resultStatus).optional(),
+      // null clears the result (back to pending).
+      status: z.enum(enums.resultStatus).nullable().optional(),
       actualResult: z.string().max(5000).nullable().optional(),
       notes: z.string().max(5000).nullable().optional(),
     })

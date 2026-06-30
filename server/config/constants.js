@@ -42,6 +42,11 @@ const OtpType = Object.freeze({
   RESET_PASSWORD: "reset_password",
 });
 
+const NotificationType = Object.freeze({
+  TEST_ASSIGNED: "test_assigned",
+  RUN_COMPLETED: "run_completed",
+});
+
 module.exports = {
   UserRole,
   TestCasePriority,
@@ -50,6 +55,7 @@ module.exports = {
   ResultStatus,
   AuthProvider,
   OtpType,
+  NotificationType,
   enums: {
     userRole: Object.values(UserRole),
     testCasePriority: Object.values(TestCasePriority),
@@ -58,5 +64,6 @@ module.exports = {
     resultStatus: Object.values(ResultStatus),
     authProvider: Object.values(AuthProvider),
     otpType: Object.values(OtpType),
+    notificationType: Object.values(NotificationType),
   },
 };

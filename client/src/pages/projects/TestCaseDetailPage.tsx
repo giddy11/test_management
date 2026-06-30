@@ -6,13 +6,8 @@ import { Separator } from "@/components/ui/separator"
 import { PriorityBadge, CaseStatusBadge } from "@/components/shared/StatusBadge"
 import { AttachmentsSection } from "@/components/testmgmt/AttachmentsSection"
 import { useCase } from "@/hooks/useCases"
-import { useAuth } from "@/contexts/AuthContext"
-import { UserRole } from "@/types/auth.types"
-
 export default function TestCaseDetailPage() {
   const { projectId = "", suiteId = "", caseId = "" } = useParams()
-  const { user } = useAuth()
-  const canManage = user?.role === UserRole.ADMIN || user?.role === UserRole.SUPERADMIN
   const { data: tc, isLoading } = useCase(caseId)
 
   if (isLoading) return <p className="text-sm text-muted-foreground">Loading…</p>
@@ -64,7 +59,8 @@ export default function TestCaseDetailPage() {
 
       <Card>
         <CardContent className="pt-6">
-          <AttachmentsSection caseId={tc.id} canManage={canManage} />
+          {/* Anyone who can view this case (assigned users included) can attach screenshots. */}
+          <AttachmentsSection caseId={tc.id} canManage={true} />
         </CardContent>
       </Card>
     </div>

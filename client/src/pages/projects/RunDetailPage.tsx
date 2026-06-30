@@ -23,6 +23,17 @@ export default function RunDetailPage() {
     return (id: string) => map.get(id) ?? "Test case"
   }, [casesData])
 
+  // Summary computed from the results this user can see (so it matches the list —
+  // an assigned 'user' only sees their own cases).
+  const summary = useMemo(() => {
+    const s = { total: results.length, pass: 0, fail: 0, blocked: 0, skipped: 0, pending: 0 }
+    for (const r of results) {
+      const k = (r.status ?? "pending") as keyof typeof s
+      s[k]++
+    }
+    return s
+  }, [results])
+
   if (isLoading) return <p className="text-sm text-muted-foreground">Loading…</p>
   if (!run) return <p className="text-sm text-destructive">Run not found.</p>
 
@@ -55,20 +66,20 @@ export default function RunDetailPage() {
         </Button>
       </div>
 
-      {run.summary && (
+      {summary.total > 0 && (
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base">
-              Results — {run.summary.pass ?? 0}/{run.summary.total} passed
+              Results — {summary.pass}/{summary.total} passed
             </CardTitle>
           </CardHeader>
-          <CardContent><SummaryBar summary={run.summary} /></CardContent>
+          <CardContent><SummaryBar summary={summary} /></CardContent>
         </Card>
       )}
 
       <div className="space-y-2">
         {results.length === 0 && (
-          <p className="text-sm text-muted-foreground">This run has no test cases.</p>
+          <p className="text-sm text-muted-foreground">No test cases assigned to you in this run.</p>
         )}
         {results.map((r) => (
           <ResultRow key={r.id} runId={runId} result={r} caseTitle={caseTitle(r.testCaseId)} />
