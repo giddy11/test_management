@@ -19,6 +19,7 @@ function toTestCaseResponse(tc) {
         }))
       : [],
     tags: tc.tags ?? [],
+    deadline: tc.deadline ?? null,
     createdAt: tc.createdAt,
   };
 }

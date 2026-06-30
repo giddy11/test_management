@@ -1,6 +1,7 @@
 // modules/testSuite/services/testSuite.service.js
 const { TestSuiteRepository } = require("../repositories/testSuite.repository");
 const { ProjectService } = require("../../project/services/project.service");
+const { ActivityService } = require("../../activity/services/activity.service");
 const { AppError } = require("../../../shared/errors/AppError");
 
 class TestSuiteService {
@@ -31,11 +32,18 @@ class TestSuiteService {
 
   async createTestSuite(actor, data) {
     await this.projectService.getProject(actor, data.projectId);
-    return this.suiteRepo.create({
+    const suite = await this.suiteRepo.create({
       name: data.name,
       description: data.description ?? null,
       projectId: data.projectId,
     });
+    ActivityService.Instance.log(actor, {
+      action: "suite.created",
+      summary: `Created test suite "${suite.name}"`,
+      entityType: "suite",
+      entityId: suite.id,
+    });
+    return suite;
   }
 
   async updateTestSuite(actor, id, data) {
@@ -49,6 +57,12 @@ class TestSuiteService {
   async deleteTestSuite(actor, id) {
     const suite = await this.getTestSuite(actor, id);
     await this.suiteRepo.softDelete(suite.id);
+    ActivityService.Instance.log(actor, {
+      action: "suite.deleted",
+      summary: `Deleted test suite "${suite.name}"`,
+      entityType: "suite",
+      entityId: suite.id,
+    });
   }
 }
 

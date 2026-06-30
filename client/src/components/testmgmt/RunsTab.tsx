@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { SummaryBar } from "@/components/shared/SummaryBar"
 import { CreateRunDialog } from "@/components/testmgmt/CreateRunDialog"
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog"
+import { InlineLoader } from "@/components/shared/PageLoader"
 import { useRuns, useDeleteRun } from "@/hooks/useRuns"
 import type { TestRun } from "@/types/testMgmt.types"
 
@@ -26,7 +27,7 @@ export function RunsTab({ projectId, canManage }: { projectId: string; canManage
         </Button>
       </div>
 
-      {isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
+      {isLoading && <InlineLoader className="py-8" />}
       {!isLoading && runs.length === 0 && (
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center gap-2 py-10 text-center">

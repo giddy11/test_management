@@ -20,6 +20,9 @@ const {
 const {
   Notification,
 } = require("../../modules/notification/entities/notification.entity");
+const {
+  ActivityLog,
+} = require("../../modules/activity/entities/activityLog.entity");
 
 const AppDataSource = new DataSource({
   type: "postgres",
@@ -43,6 +46,7 @@ const AppDataSource = new DataSource({
     TestRun,
     TestRunResult,
     Notification,
+    ActivityLog,
   ],
   migrations: ["infrastructure/database/migrations/*.js"],
 });

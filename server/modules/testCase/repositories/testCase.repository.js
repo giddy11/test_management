@@ -55,6 +55,20 @@ class TestCaseRepository {
     return this.repo.save(testCase);
   }
 
+  // Returns a Set of IDs that exist as active cases in the suite.
+  // `ids` is an array of UUIDs to check; returns empty Set when the array is empty.
+  async findExistingIdSet(suiteId, ids) {
+    if (!ids || ids.length === 0) return new Set();
+    const rows = await this.repo
+      .createQueryBuilder("tc")
+      .where("tc.suite_id = :suiteId", { suiteId })
+      .andWhere("tc.deleted_at IS NULL")
+      .andWhere("tc.id IN (:...ids)", { ids })
+      .select(["tc.id"])
+      .getMany();
+    return new Set(rows.map((r) => r.id));
+  }
+
   // All non-deleted cases in a suite — used to snapshot a test run.
   async findAllBySuite(suiteId) {
     return this.repo

@@ -207,6 +207,43 @@ class AuthService {
     await this.authRepo.revokeAllForUser(user.id);
   }
 
+  // ── Change password (authenticated user) ────────────────────────────────────────
+  async changePassword(actorId, { currentPassword, newPassword }) {
+    const user = await this.authRepo.findUserById(actorId);
+    if (!user) throw new AppError("Account not found", 404);
+    if (!user.password) {
+      throw new AppError("Password change is not available for accounts using Google Sign In", 400);
+    }
+    const userWithPw = await this.authRepo.findUserByEmailWithPassword(user.email);
+    const valid = await comparePassword(currentPassword, userWithPw.password);
+    if (!valid) throw new AppError("Current password is incorrect", 400);
+    await this.authRepo.updateUser(actorId, { password: await hashPassword(newPassword) });
+    // Revoke all refresh tokens to force re-login everywhere.
+    await this.authRepo.revokeAllForUser(actorId);
+  }
+
+  // ── Update own profile (authenticated user) ──────────────────────────────────────
+  async updateProfile(actorId, data) {
+    const user = await this.authRepo.findUserById(actorId);
+    if (!user) throw new AppError("Account not found", 404);
+
+    if (data.email && data.email !== user.email) {
+      const existing = await this.authRepo.findUserByEmail(data.email);
+      if (existing) throw new AppError("This email is already in use", 409);
+    }
+
+    const patch = {};
+    if (data.firstName !== undefined) patch.firstName = data.firstName;
+    if (data.lastName !== undefined) patch.lastName = data.lastName;
+    if (data.email !== undefined) patch.email = data.email;
+    if (data.address !== undefined) patch.address = data.address;
+    if (data.city !== undefined) patch.city = data.city;
+    if (data.state !== undefined) patch.state = data.state;
+    if (data.country !== undefined) patch.country = data.country;
+
+    return this.authRepo.updateUser(actorId, patch);
+  }
+
   // ── Google Sign In ─────────────────────────────────────────────────────────────
   async google({ idToken }) {
     if (!this.googleClient) {

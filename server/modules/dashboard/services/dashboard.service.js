@@ -9,14 +9,25 @@ class DashboardService {
   }
 
   async overview(organizationId, projectId) {
-    const [totals, caseStatus, casePriority, resultBreakdown, recentRuns] =
-      await Promise.all([
-        this.repo.totals(organizationId, projectId),
-        this.repo.caseDistribution(organizationId, projectId, "status"),
-        this.repo.caseDistribution(organizationId, projectId, "priority"),
-        this.repo.resultBreakdown(organizationId, projectId),
-        this.repo.recentRuns(organizationId, projectId),
-      ]);
+    const [
+      totals,
+      caseStatus,
+      casePriority,
+      resultBreakdown,
+      recentRuns,
+      projectsBreakdown,
+      suitesBreakdown,
+      topPerformers,
+    ] = await Promise.all([
+      this.repo.totals(organizationId, projectId),
+      this.repo.caseDistribution(organizationId, projectId, "status"),
+      this.repo.caseDistribution(organizationId, projectId, "priority"),
+      this.repo.resultBreakdown(organizationId, projectId),
+      this.repo.recentRuns(organizationId, projectId),
+      this.repo.projectsBreakdown(organizationId, projectId),
+      this.repo.suitesBreakdown(organizationId, projectId),
+      this.repo.topPerformers(organizationId, projectId),
+    ]);
 
     const passRate =
       resultBreakdown.total > 0
@@ -42,6 +53,16 @@ class DashboardService {
           blocked: r.blocked,
           skipped: r.skipped,
         },
+      })),
+      projectsBreakdown,
+      suitesBreakdown,
+      topPerformers: topPerformers.map((p) => ({
+        id: p.id,
+        name: [p.firstName, p.lastName].filter(Boolean).join(" "),
+        total: p.total,
+        passes: p.passes,
+        failures: p.failures,
+        passRate: p.passRate,
       })),
     };
   }

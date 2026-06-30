@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/table"
 import { UserFormDialog } from "@/components/team/UserFormDialog"
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog"
+import { InlineLoader } from "@/components/shared/PageLoader"
 import { useUsers, useDeactivateUser } from "@/hooks/useUsers"
 import { useAuth } from "@/contexts/AuthContext"
 import { ROLE_LABEL } from "@/components/layout/nav"
@@ -87,8 +88,8 @@ export default function TeamPage() {
           <TableBody>
             {isLoading && (
               <TableRow>
-                <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
-                  Loading…
+                <TableCell colSpan={4} className="h-24">
+                  <InlineLoader />
                 </TableCell>
               </TableRow>
             )}

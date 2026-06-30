@@ -8,6 +8,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
+import { InlineLoader } from "@/components/shared/PageLoader"
 import {
   useUnreadCount,
   useNotifications,
@@ -68,7 +69,7 @@ export function NotificationBell() {
           )}
         </div>
         <div className="max-h-96 overflow-y-auto">
-          {isLoading && <p className="px-3 py-6 text-center text-sm text-muted-foreground">Loading…</p>}
+          {isLoading && <InlineLoader className="py-6" />}
           {!isLoading && items.length === 0 && (
             <p className="px-3 py-8 text-center text-sm text-muted-foreground">You're all caught up.</p>
           )}

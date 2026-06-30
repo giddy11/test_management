@@ -4,6 +4,7 @@ const {
 } = require("../repositories/testRunResult.repository");
 const { TestRunService } = require("../../testRun/services/testRun.service");
 const { TestCaseRepository } = require("../../testCase/repositories/testCase.repository");
+const { ActivityService } = require("../../activity/services/activity.service");
 const { AppError } = require("../../../shared/errors/AppError");
 const { UserRole } = require("../../../config/constants");
 
@@ -73,7 +74,17 @@ class TestRunResultService {
       }
     }
 
-    return this.resultRepo.update(result.id, patch);
+    const updated = await this.resultRepo.update(result.id, patch);
+    if (data.status) {
+      ActivityService.Instance.log(actor, {
+        action: "result.recorded",
+        summary: `Recorded "${data.status}" on a test case`,
+        entityType: "test_run_result",
+        entityId: result.id,
+        metadata: { runId: result.runId, testCaseId: result.testCaseId },
+      });
+    }
+    return updated;
   }
 
   async deleteResult(actor, id) {

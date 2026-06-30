@@ -15,7 +15,7 @@ class TestCaseAttachmentRepository {
     return this.repo
       .createQueryBuilder("att")
       .where("att.test_case_id = :testCaseId", { testCaseId }) // indexed FK
-      .orderBy("att.created_at", "DESC")
+      .orderBy("att.createdAt", "DESC")
       .getMany();
   }
 

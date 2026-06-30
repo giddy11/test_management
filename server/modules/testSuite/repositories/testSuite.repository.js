@@ -16,7 +16,7 @@ class TestSuiteRepository {
       .createQueryBuilder("suite")
       .where("suite.project_id = :projectId", { projectId }) // indexed
       .andWhere("suite.deleted_at IS NULL")
-      .orderBy("suite.created_at", "DESC")
+      .orderBy("suite.createdAt", "DESC")
       .skip(offset)
       .take(limit);
 

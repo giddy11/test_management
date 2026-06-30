@@ -17,6 +17,7 @@ const importConfirmSchema = z.object({
 
 // Validates one parsed spreadsheet row.
 const importRowSchema = z.object({
+  id: z.string({ required_error: "ID is required" }).uuid("ID must be a valid UUID"),
   title: z.string().min(1).max(200),
   description: z.string().max(5000).optional(),
   steps: z.array(z.string().min(1)).min(1),

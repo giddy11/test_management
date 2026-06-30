@@ -3,6 +3,7 @@ const ExcelJS = require("exceljs");
 const { TestCaseRepository } = require("../repositories/testCase.repository");
 const { TestSuiteService } = require("../../testSuite/services/testSuite.service");
 const { importStore } = require("../../../shared/utils/importStore");
+const { ActivityService } = require("../../activity/services/activity.service");
 const { AppError } = require("../../../shared/errors/AppError");
 const { importRowSchema } = require("../validators/testCaseImport.schema");
 const {
@@ -64,6 +65,7 @@ const normHeader = (h) =>
   cellText(h).replace(/\(.*?\)/g, "").replace(/\*/g, "").trim().toLowerCase();
 
 const FIELD_SYNONYMS = {
+  id: ["id"],
   title: ["feature"],
   description: ["test scenario"],
   steps: ["steps to execute"],
@@ -78,8 +80,9 @@ const TEMPLATE_HEADERS = [
   "expected result",
   "severity",
   "tags",
+  "id",
 ];
-const REQUIRED_HEADERS = ["feature", "steps to execute", "expected result", "severity"];
+const REQUIRED_HEADERS = ["id", "feature", "steps to execute", "expected result", "severity"];
 
 function readHeaders(ws) {
   const headers = [];
@@ -101,8 +104,11 @@ function assertTemplateColumns(headers) {
   }
   const missing = REQUIRED_HEADERS.filter((h) => !headers.includes(h));
   if (missing.length) {
+    const hasNoId = missing.includes("id");
     throw new AppError(
-      `Your file is missing required columns: ${missing.join(", ")}. Please download the template and import that.`,
+      hasNoId
+        ? "Your file is missing the required ID column. Please download the latest template — the ID column must be present and every row must have a valid UUID."
+        : `Your file is missing required columns: ${missing.join(", ")}. Please download the template and import that.`,
       422
     );
   }
@@ -167,7 +173,13 @@ class TestCaseImportService {
       // Skip rows that carry no real content (blank spacer rows).
       if (!titleRaw && steps.length === 0 && !expectedResult) return;
 
+      // Extract ID — only accept valid UUIDs; blank or malformed → undefined (fails schema validation).
+      const idRaw = col.id !== undefined ? cellText(get(row, "id")).trim() : "";
+      const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      const rowId = uuidRe.test(idRaw) ? idRaw.toLowerCase() : undefined;
+
       const parsed = {
+        id: rowId,
         title: (titleRaw || lastTitle).slice(0, 200),
         description: cellText(get(row, "description")).trim() || undefined,
         steps,
@@ -190,8 +202,11 @@ class TestCaseImportService {
     });
 
     if (rows.length === 0) {
+      const idSkipped = skipped.some((s) => s.issues.some((i) => i.field === "id"));
       throw new AppError(
-        skipped.length
+        idSkipped
+          ? "No rows could be imported — every row must have a valid UUID in the ID column. Fill in the ID column (or download a fresh template) and try again."
+          : skipped.length
           ? "No valid test case rows found — check the required columns and try again"
           : "The spreadsheet has no test case rows",
         422,
@@ -204,8 +219,55 @@ class TestCaseImportService {
   async upload(actor, suiteId, buffer) {
     await this.suiteService.getTestSuite(actor, suiteId);
     const { rows, skipped } = await this.parseBuffer(buffer);
-    const importId = importStore.create({ ownerId: actor.id, suiteId, rows, skipped });
-    return { importId, totalRows: rows.length, skippedCount: skipped.length, rows, skipped };
+
+    // 1. Deduplicate within the file by ID.
+    const seenIds = new Set();
+    const inFileDuplicates = [];
+    const uniqueRows = [];
+    for (const row of rows) {
+      if (seenIds.has(row.id)) {
+        inFileDuplicates.push({ title: row.title, id: row.id, reason: "duplicate in file" });
+        continue;
+      }
+      seenIds.add(row.id);
+      uniqueRows.push(row);
+    }
+
+    // 2. Deduplicate against cases already in the suite by ID.
+    const existingIdSet = await this.tcRepo.findExistingIdSet(
+      suiteId,
+      uniqueRows.map((r) => r.id)
+    );
+
+    const toCreate = [];
+    const existingDuplicates = [];
+    for (const row of uniqueRows) {
+      if (existingIdSet.has(row.id)) {
+        existingDuplicates.push({ title: row.title, id: row.id, reason: "already exists in suite" });
+      } else {
+        toCreate.push(row);
+      }
+    }
+
+    const duplicates = [...inFileDuplicates, ...existingDuplicates];
+
+    const importId = importStore.create({
+      ownerId: actor.id,
+      suiteId,
+      rows: toCreate,
+      skipped,
+      duplicates,
+    });
+
+    return {
+      importId,
+      totalRows: toCreate.length,
+      skippedCount: skipped.length,
+      duplicatesCount: duplicates.length,
+      rows: toCreate,
+      skipped,
+      duplicates,
+    };
   }
 
   getPreview(actor, importId) {
@@ -218,8 +280,10 @@ class TestCaseImportService {
       suiteId: session.suiteId,
       totalRows: session.rows.length,
       skippedCount: session.skipped?.length ?? 0,
+      duplicatesCount: session.duplicates?.length ?? 0,
       rows: session.rows,
       skipped: session.skipped ?? [],
+      duplicates: session.duplicates ?? [],
     };
   }
 
@@ -230,8 +294,21 @@ class TestCaseImportService {
     }
     await this.suiteService.getTestSuite(actor, session.suiteId);
 
+    // Re-check at write time in case cases were added between upload and confirm.
+    const existingIdSet = await this.tcRepo.findExistingIdSet(
+      session.suiteId,
+      session.rows.map((r) => r.id)
+    );
+    const toCreate = session.rows.filter((r) => !existingIdSet.has(r.id));
+    const duplicatesSkipped = session.rows.length - toCreate.length;
+
+    if (toCreate.length === 0) {
+      importStore.delete(importId);
+      return { created: 0, duplicatesSkipped };
+    }
+
     const created = await this.tcRepo.createMany(
-      session.rows.map((r) => ({
+      toCreate.map((r) => ({
         title: r.title,
         description: r.description ?? null,
         steps: r.steps,
@@ -245,7 +322,18 @@ class TestCaseImportService {
     );
 
     importStore.delete(importId);
-    return { created: created.length };
+
+    const summary = duplicatesSkipped > 0
+      ? `Imported ${created.length} test case${created.length === 1 ? "" : "s"}, skipped ${duplicatesSkipped} duplicate${duplicatesSkipped === 1 ? "" : "s"}`
+      : `Imported ${created.length} test case${created.length === 1 ? "" : "s"}`;
+
+    ActivityService.Instance.log(actor, {
+      action: "test_case.imported",
+      summary,
+      entityType: "suite",
+      entityId: session.suiteId,
+    });
+    return { created: created.length, duplicatesSkipped };
   }
 }
 

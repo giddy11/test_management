@@ -53,3 +53,18 @@ export interface LoginPayload {
   email: string
   password: string
 }
+
+export interface UpdateProfilePayload {
+  firstName?: string
+  lastName?: string
+  email?: string
+  address?: string | null
+  city?: string | null
+  state?: string | null
+  country?: string | null
+}
+
+export interface ChangePasswordPayload {
+  currentPassword: string
+  newPassword: string
+}

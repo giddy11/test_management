@@ -78,7 +78,7 @@ class TestCaseController {
       const { testCase } = await TestCaseService.Instance.assignUsers(
         req.user,
         req.validated.params.id,
-        req.validated.body.userIds
+        req.validated.body
       );
       res.status(200).json(ApiResponse.ok("Assignees updated", toTestCaseResponse(testCase)));
     } catch (err) {

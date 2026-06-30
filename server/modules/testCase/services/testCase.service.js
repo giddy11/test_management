@@ -3,6 +3,7 @@ const { TestCaseRepository } = require("../repositories/testCase.repository");
 const { TestSuiteService } = require("../../testSuite/services/testSuite.service");
 const { AuthRepository } = require("../../auth/repositories/auth.repository");
 const { NotificationService } = require("../../notification/services/notification.service");
+const { ActivityService } = require("../../activity/services/activity.service");
 const { AppError } = require("../../../shared/errors/AppError");
 const { TestCaseStatus, UserRole } = require("../../../config/constants");
 
@@ -46,9 +47,18 @@ class TestCaseService {
     return tc;
   }
 
+  logCaseEvent(actor, action, tc, verb) {
+    ActivityService.Instance.log(actor, {
+      action,
+      summary: `${verb} test case "${tc.title}"`,
+      entityType: "test_case",
+      entityId: tc.id,
+    });
+  }
+
   async createTestCase(actor, data) {
     await this.suiteService.getTestSuite(actor, data.suite);
-    return this.tcRepo.create({
+    const tc = await this.tcRepo.create({
       title: data.title,
       description: data.description ?? null,
       steps: data.steps,
@@ -59,6 +69,8 @@ class TestCaseService {
       tags: data.tags ?? null,
       createdById: actor.id,
     });
+    this.logCaseEvent(actor, "test_case.created", tc, "Created");
+    return tc;
   }
 
   async updateTestCase(actor, id, data) {
@@ -73,16 +85,19 @@ class TestCaseService {
     if (data.status !== undefined) patch.status = data.status;
     if (data.tags !== undefined) patch.tags = data.tags;
 
-    return this.tcRepo.update(tc.id, patch);
+    const updated = await this.tcRepo.update(tc.id, patch);
+    this.logCaseEvent(actor, "test_case.updated", tc, "Updated");
+    return updated;
   }
 
   async deleteTestCase(actor, id) {
     const tc = await this.getTestCase(actor, id);
     await this.tcRepo.softDelete(tc.id);
+    this.logCaseEvent(actor, "test_case.deleted", tc, "Deleted");
   }
 
-  // Assign (replace) the set of users on a case. Returns { testCase, addedUsers }.
-  async assignUsers(actor, id, userIds) {
+  // Assign (replace) the set of users on a case + optional deadline. Returns { testCase, addedUsers }.
+  async assignUsers(actor, id, { userIds, deadline }) {
     const tc = await this.getTestCase(actor, id);
     const suite = await this.suiteService.getTestSuite(actor, tc.suiteId);
 
@@ -97,8 +112,20 @@ class TestCaseService {
       users.push(user);
     }
 
-    const saved = await this.tcRepo.setAssignees(tc, users.map((u) => ({ id: u.id })));
+    let saved = await this.tcRepo.setAssignees(tc, users.map((u) => ({ id: u.id })));
+
+    if (deadline !== undefined) {
+      saved = await this.tcRepo.update(saved.id, { deadline: deadline ?? null });
+    }
+
     const addedUsers = users.filter((u) => !before.has(u.id)); // newly assigned
+
+    ActivityService.Instance.log(actor, {
+      action: "test_case.assigned",
+      summary: `Assigned ${users.length} user${users.length === 1 ? "" : "s"} to "${tc.title}"`,
+      entityType: "test_case",
+      entityId: tc.id,
+    });
 
     // Notify newly-assigned users (in-app + email), fire-and-forget.
     if (addedUsers.length) {

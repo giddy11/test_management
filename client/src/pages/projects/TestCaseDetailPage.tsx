@@ -5,12 +5,13 @@ import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { PriorityBadge, CaseStatusBadge } from "@/components/shared/StatusBadge"
 import { AttachmentsSection } from "@/components/testmgmt/AttachmentsSection"
+import { PageLoader } from "@/components/shared/PageLoader"
 import { useCase } from "@/hooks/useCases"
 export default function TestCaseDetailPage() {
   const { projectId = "", suiteId = "", caseId = "" } = useParams()
   const { data: tc, isLoading } = useCase(caseId)
 
-  if (isLoading) return <p className="text-sm text-muted-foreground">Loading…</p>
+  if (isLoading) return <PageLoader />
   if (!tc) return <p className="text-sm text-destructive">Test case not found.</p>
 
   return (

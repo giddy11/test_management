@@ -21,7 +21,7 @@ class NotificationRepository {
     const qb = this.repo
       .createQueryBuilder("n")
       .where("n.user_id = :userId", { userId }) // indexed
-      .orderBy("n.created_at", "DESC")
+      .orderBy("n.createdAt", "DESC")
       .skip(offset)
       .take(limit);
 

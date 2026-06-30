@@ -77,8 +77,8 @@ export function useDeleteCase() {
 export function useAssignCase() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async ({ id, userIds }: { id: string; userIds: string[] }) => {
-      const res = await CaseEndpoints.assign(id, userIds)
+    mutationFn: async ({ id, userIds, deadline }: { id: string; userIds: string[]; deadline?: string | null }) => {
+      const res = await CaseEndpoints.assign(id, userIds, deadline)
       if (!res.success || !res.data) throw new ApiError(res.message, res.statusCode, res.errors)
       return res.data
     },

@@ -42,8 +42,8 @@ export const CaseEndpoints = {
   update: (id: string, payload: UpdateCasePayload) =>
     wrapCall<TestCase>("PATCH", `/api/v1/test-cases/${id}`, obj(payload)),
   remove: (id: string) => wrapCall<null>("DELETE", `/api/v1/test-cases/${id}`),
-  assign: (id: string, userIds: string[]) =>
-    wrapCall<TestCase>("PATCH", `/api/v1/test-cases/${id}/assignees`, { userIds }),
+  assign: (id: string, userIds: string[], deadline?: string | null) =>
+    wrapCall<TestCase>("PATCH", `/api/v1/test-cases/${id}/assignees`, { userIds, deadline }),
 }
 
 export const AttachmentEndpoints = {
@@ -80,7 +80,7 @@ export const ImportEndpoints = {
   preview: (importId: string) =>
     wrapCall<ImportPreview>("GET", `/api/v1/test-cases/import/${importId}`),
   confirm: (importId: string) =>
-    wrapCall<{ created: number }>("POST", `/api/v1/test-cases/import/${importId}/confirm`),
+    wrapCall<{ created: number; duplicatesSkipped: number }>("POST", `/api/v1/test-cases/import/${importId}/confirm`),
 }
 
 export const DashboardEndpoints = {

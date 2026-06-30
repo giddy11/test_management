@@ -76,11 +76,18 @@ export function ImportCasesDialog({ open, onOpenChange, suiteId }: Props) {
     confirm.mutate(preview.importId, {
       onError: (err) => toast.error(err instanceof ApiError ? err.message : "Import failed"),
       onSuccess: (res) => {
-        toast.success(`Imported ${res.created} test case${res.created === 1 ? "" : "s"}`)
+        const parts = [`Imported ${res.created} test case${res.created === 1 ? "" : "s"}`]
+        if (res.duplicatesSkipped && res.duplicatesSkipped > 0) {
+          parts.push(`${res.duplicatesSkipped} duplicate${res.duplicatesSkipped === 1 ? "" : "s"} skipped`)
+        }
+        toast.success(parts.join(" · "))
         close(false)
       },
     })
   }
+
+  const duplicates = preview?.duplicates ?? []
+  const skipped = preview?.skipped ?? []
 
   return (
     <Dialog open={open} onOpenChange={close}>
@@ -133,18 +140,25 @@ export function ImportCasesDialog({ open, onOpenChange, suiteId }: Props) {
           </div>
         ) : (
           <div className="space-y-3">
+            {/* Summary line */}
             <p className="text-sm text-muted-foreground">
-              {preview.totalRows} test case{preview.totalRows === 1 ? "" : "s"} ready to import
-              {preview.skippedCount ? ` · ${preview.skippedCount} row${preview.skippedCount === 1 ? "" : "s"} skipped` : ""}.
+              <span className="font-medium text-foreground">{preview.totalRows}</span> test case{preview.totalRows === 1 ? "" : "s"} ready to import
+              {skipped.length > 0 && (
+                <> · <span className="text-amber-600">{skipped.length} row{skipped.length === 1 ? "" : "s"} skipped</span> (incomplete)</>
+              )}
+              {duplicates.length > 0 && (
+                <> · <span className="text-blue-600">{duplicates.length} duplicate{duplicates.length === 1 ? "" : "s"} skipped</span></>
+              )}
             </p>
 
-            {preview.skipped && preview.skipped.length > 0 && (
+            {/* Validation errors */}
+            {skipped.length > 0 && (
               <details className="rounded-lg border border-amber-300/50 bg-amber-50 p-3 text-sm dark:border-amber-900/50 dark:bg-amber-950/30">
                 <summary className="cursor-pointer font-medium text-amber-800 dark:text-amber-300">
-                  {preview.skipped.length} row{preview.skipped.length === 1 ? "" : "s"} skipped (incomplete)
+                  {skipped.length} row{skipped.length === 1 ? "" : "s"} skipped — incomplete data
                 </summary>
                 <ul className="mt-2 space-y-1 text-muted-foreground">
-                  {preview.skipped.slice(0, 30).map((e) => (
+                  {skipped.slice(0, 30).map((e) => (
                     <li key={e.row}>
                       <span className="font-medium text-foreground">Row {e.row}</span>
                       {e.title ? ` — ${e.title}` : ""}: {e.issues.map((i) => i.message).join("; ")}
@@ -153,28 +167,55 @@ export function ImportCasesDialog({ open, onOpenChange, suiteId }: Props) {
                 </ul>
               </details>
             )}
-            <div className="max-h-80 overflow-auto rounded-lg border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Title</TableHead>
-                    <TableHead>Priority</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Steps</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {preview.rows.map((r, i) => (
-                    <TableRow key={i}>
-                      <TableCell className="font-medium">{r.title}</TableCell>
-                      <TableCell><PriorityBadge value={r.priority} /></TableCell>
-                      <TableCell><CaseStatusBadge value={r.status} /></TableCell>
-                      <TableCell className="text-muted-foreground">{r.steps.length}</TableCell>
-                    </TableRow>
+
+            {/* Duplicates */}
+            {duplicates.length > 0 && (
+              <details className="rounded-lg border border-blue-300/50 bg-blue-50 p-3 text-sm dark:border-blue-900/50 dark:bg-blue-950/30">
+                <summary className="cursor-pointer font-medium text-blue-800 dark:text-blue-300">
+                  {duplicates.length} duplicate{duplicates.length === 1 ? "" : "s"} skipped — will not be imported
+                </summary>
+                <ul className="mt-2 space-y-1 text-muted-foreground">
+                  {duplicates.map((d, i) => (
+                    <li key={i} className="flex items-start gap-2">
+                      <span className="shrink-0 rounded bg-blue-100 px-1.5 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-900 dark:text-blue-300">
+                        {d.reason === "duplicate in file" ? "In file" : "Exists"}
+                      </span>
+                      <span className="font-medium text-foreground">{d.title}</span>
+                    </li>
                   ))}
-                </TableBody>
-              </Table>
-            </div>
+                </ul>
+              </details>
+            )}
+
+            {/* Preview table */}
+            {preview.totalRows > 0 ? (
+              <div className="max-h-80 overflow-auto rounded-lg border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Title</TableHead>
+                      <TableHead>Priority</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Steps</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {preview.rows.map((r, i) => (
+                      <TableRow key={i}>
+                        <TableCell className="font-medium">{r.title}</TableCell>
+                        <TableCell><PriorityBadge value={r.priority} /></TableCell>
+                        <TableCell><CaseStatusBadge value={r.status} /></TableCell>
+                        <TableCell className="text-muted-foreground">{r.steps.length}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            ) : (
+              <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
+                All rows in this file already exist in the suite — nothing to import.
+              </div>
+            )}
           </div>
         )}
 
@@ -182,8 +223,12 @@ export function ImportCasesDialog({ open, onOpenChange, suiteId }: Props) {
           {preview ? (
             <>
               <Button variant="ghost" onClick={reset}>Back</Button>
-              <Button onClick={onConfirm} disabled={confirm.isPending}>
-                {confirm.isPending ? "Importing…" : `Import ${preview.totalRows} test case${preview.totalRows === 1 ? "" : "s"}`}
+              <Button onClick={onConfirm} disabled={confirm.isPending || preview.totalRows === 0}>
+                {confirm.isPending
+                  ? "Importing…"
+                  : preview.totalRows === 0
+                  ? "Nothing to import"
+                  : `Import ${preview.totalRows} test case${preview.totalRows === 1 ? "" : "s"}`}
               </Button>
             </>
           ) : (

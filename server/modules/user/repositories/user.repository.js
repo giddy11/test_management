@@ -17,7 +17,7 @@ class UserRepository {
     const qb = this.repo
       .createQueryBuilder("u")
       .where("u.deleted_at IS NULL")
-      .orderBy("u.created_at", "DESC")
+      .orderBy("u.createdAt", "DESC")
       .skip(offset)
       .take(limit);
 

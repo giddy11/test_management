@@ -16,7 +16,7 @@ class ProjectRepository {
     const qb = this.repo
       .createQueryBuilder("project")
       .where("project.deleted_at IS NULL")
-      .orderBy("project.created_at", "DESC")
+      .orderBy("project.createdAt", "DESC")
       .skip(offset)
       .take(limit);
 

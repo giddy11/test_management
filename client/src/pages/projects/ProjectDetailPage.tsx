@@ -5,6 +5,7 @@ import { SuitesTab } from "@/components/testmgmt/SuitesTab"
 import { RunsTab } from "@/components/testmgmt/RunsTab"
 import { useProject } from "@/hooks/useProjects"
 import { useAuth } from "@/contexts/AuthContext"
+import { PageLoader } from "@/components/shared/PageLoader"
 import { UserRole } from "@/types/auth.types"
 
 export default function ProjectDetailPage() {
@@ -13,6 +14,8 @@ export default function ProjectDetailPage() {
   const canManage = user?.role === UserRole.ADMIN || user?.role === UserRole.SUPERADMIN
   const { data: project, isLoading } = useProject(projectId)
 
+  if (isLoading) return <PageLoader />
+
   return (
     <div className="space-y-6">
       <div>
@@ -20,7 +23,7 @@ export default function ProjectDetailPage() {
           <ChevronLeft className="size-4" /> Projects
         </Link>
         <h1 className="text-2xl font-semibold tracking-tight">
-          {isLoading ? "Loading…" : project?.name}
+          {project?.name}
         </h1>
         {project?.description && (
           <p className="text-sm text-muted-foreground">{project.description}</p>

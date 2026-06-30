@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { SuiteFormDialog } from "@/components/testmgmt/SuiteFormDialog"
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog"
+import { InlineLoader } from "@/components/shared/PageLoader"
 import { useSuites, useDeleteSuite } from "@/hooks/useSuites"
 import type { TestSuite } from "@/types/testMgmt.types"
 
@@ -27,7 +28,7 @@ export function SuitesTab({ projectId, canManage }: { projectId: string; canMana
         )}
       </div>
 
-      {isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
+      {isLoading && <InlineLoader className="py-8" />}
       {!isLoading && suites.length === 0 && (
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center gap-2 py-10 text-center">

@@ -102,6 +102,24 @@ class AuthController {
     }
   }
 
+  static async changePassword(req, res, next) {
+    try {
+      await AuthService.Instance.changePassword(req.user.id, req.validated.body);
+      res.status(200).json(ApiResponse.ok("Password changed successfully. Please log in again.", null));
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  static async updateProfile(req, res, next) {
+    try {
+      const user = await AuthService.Instance.updateProfile(req.user.id, req.validated.body);
+      res.status(200).json(ApiResponse.ok("Profile updated", toUserResponse(user)));
+    } catch (err) {
+      next(err);
+    }
+  }
+
   static async me(req, res, next) {
     try {
       const user = await AuthService.Instance.authRepo.findUserById(req.user.id);

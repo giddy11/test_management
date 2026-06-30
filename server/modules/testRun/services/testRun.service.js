@@ -6,6 +6,7 @@ const {
 const { TestCaseRepository } = require("../../testCase/repositories/testCase.repository");
 const { TestSuiteService } = require("../../testSuite/services/testSuite.service");
 const { NotificationService } = require("../../notification/services/notification.service");
+const { ActivityService } = require("../../activity/services/activity.service");
 const { AppError } = require("../../../shared/errors/AppError");
 const { RunStatus } = require("../../../config/constants");
 
@@ -58,6 +59,12 @@ class TestRunService {
     );
 
     const summary = await this.resultRepo.statusSummary(run.id);
+    ActivityService.Instance.log(actor, {
+      action: "run.created",
+      summary: `Started test run "${run.name}"`,
+      entityType: "test_run",
+      entityId: run.id,
+    });
     return { run, summary };
   }
 
@@ -85,6 +92,15 @@ class TestRunService {
         summary,
         byUserId: actor.id,
       }).catch((e) => console.error("[notify] run-completed failed:", e.message));
+    }
+
+    if (data.status === RunStatus.COMPLETED && !wasCompleted) {
+      ActivityService.Instance.log(actor, {
+        action: "run.completed",
+        summary: `Completed test run "${updated.name}"`,
+        entityType: "test_run",
+        entityId: run.id,
+      });
     }
 
     return { run: updated, summary };

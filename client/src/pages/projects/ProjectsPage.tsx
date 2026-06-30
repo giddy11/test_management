@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { ProjectFormDialog } from "@/components/projects/ProjectFormDialog"
+import { PageLoader } from "@/components/shared/PageLoader"
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog"
 import { useProjects, useDeleteProject } from "@/hooks/useProjects"
 import { useAuth } from "@/contexts/AuthContext"
@@ -67,7 +68,7 @@ export default function ProjectsPage() {
         className="max-w-xs"
       />
 
-      {isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
+      {isLoading && <PageLoader />}
       {isError && (
         <p className="text-sm text-destructive">
           {error instanceof Error ? error.message : "Failed to load projects"}

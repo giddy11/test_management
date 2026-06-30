@@ -1,6 +1,7 @@
 // components/ProtectedRoute.tsx — gates routes by auth state and optional role.
 import { Navigate, Outlet } from "react-router-dom"
 import { useAuth } from "@/contexts/AuthContext"
+import { PageLoader } from "@/components/shared/PageLoader"
 import type { UserRole } from "@/types/auth.types"
 
 interface ProtectedRouteProps {
@@ -12,8 +13,8 @@ export function ProtectedRoute({ roles }: ProtectedRouteProps) {
 
   if (isLoading) {
     return (
-      <div className="flex h-screen items-center justify-center text-muted-foreground">
-        Loading…
+      <div className="flex h-screen items-center justify-center">
+        <PageLoader />
       </div>
     )
   }

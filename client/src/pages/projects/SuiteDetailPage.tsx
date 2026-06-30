@@ -25,6 +25,7 @@ import { CaseFormDialog } from "@/components/testmgmt/CaseFormDialog"
 import { ImportCasesDialog } from "@/components/testmgmt/ImportCasesDialog"
 import { AssignDialog } from "@/components/testmgmt/AssignDialog"
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog"
+import { InlineLoader } from "@/components/shared/PageLoader"
 import { PriorityBadge, CaseStatusBadge } from "@/components/shared/StatusBadge"
 import { useSuite } from "@/hooks/useSuites"
 import { useCases, useDeleteCase, useBulkDeleteCases } from "@/hooks/useCases"
@@ -162,16 +163,17 @@ export default function SuiteDetailPage() {
               <TableHead>Priority</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Assigned</TableHead>
+              <TableHead>Deadline</TableHead>
               <TableHead>Tags</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading && (
-              <TableRow><TableCell colSpan={canManage ? 7 : 6} className="h-24 text-center text-muted-foreground">Loading…</TableCell></TableRow>
+              <TableRow><TableCell colSpan={canManage ? 8 : 7} className="h-24"><InlineLoader /></TableCell></TableRow>
             )}
             {!isLoading && cases.length === 0 && (
-              <TableRow><TableCell colSpan={canManage ? 7 : 6} className="h-24 text-center text-muted-foreground">No test cases match.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={canManage ? 8 : 7} className="h-24 text-center text-muted-foreground">No test cases match.</TableCell></TableRow>
             )}
             {cases.map((tc) => (
               <TableRow
@@ -209,6 +211,11 @@ export default function SuiteDetailPage() {
                       )}
                     </div>
                   )}
+                </TableCell>
+                <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
+                  {tc.deadline
+                    ? new Date(tc.deadline).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })
+                    : "—"}
                 </TableCell>
                 <TableCell className="max-w-[200px] truncate text-muted-foreground">
                   {tc.tags?.length ? tc.tags.join(", ") : "—"}

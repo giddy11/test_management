@@ -15,7 +15,7 @@ class TestRunRepository {
     const qb = this.repo
       .createQueryBuilder("run")
       .where("run.project_id = :projectId", { projectId }) // indexed FK
-      .orderBy("run.created_at", "DESC")
+      .orderBy("run.createdAt", "DESC")
       .skip(offset)
       .take(limit);
 

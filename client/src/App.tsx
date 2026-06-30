@@ -10,12 +10,14 @@ import ForgotPasswordPage from "@/pages/auth/ForgotPasswordPage"
 import ResetPasswordPage from "@/pages/auth/ResetPasswordPage"
 import DashboardPage from "@/pages/DashboardPage"
 import TeamPage from "@/pages/team/TeamPage"
+import ActivityPage from "@/pages/ActivityPage"
 import ProjectsPage from "@/pages/projects/ProjectsPage"
 import ProjectDetailPage from "@/pages/projects/ProjectDetailPage"
 import SuiteDetailPage from "@/pages/projects/SuiteDetailPage"
 import TestCaseDetailPage from "@/pages/projects/TestCaseDetailPage"
 import RunDetailPage from "@/pages/projects/RunDetailPage"
 import PlaceholderPage from "@/pages/PlaceholderPage"
+import SettingsPage from "@/pages/SettingsPage"
 import { UserRole } from "@/types/auth.types"
 
 export default function App() {
@@ -43,12 +45,13 @@ export default function App() {
                 <Route path="/projects/:projectId/suites/:suiteId" element={<SuiteDetailPage />} />
                 <Route path="/projects/:projectId/suites/:suiteId/cases/:caseId" element={<TestCaseDetailPage />} />
                 <Route path="/projects/:projectId/runs/:runId" element={<RunDetailPage />} />
-                <Route path="/settings" element={<PlaceholderPage title="Settings" />} />
+                <Route path="/settings" element={<SettingsPage />} />
               </Route>
 
               <Route element={<ProtectedRoute roles={[UserRole.SUPERADMIN, UserRole.ADMIN]} />}>
                 <Route element={<DashboardLayout />}>
                   <Route path="/team" element={<TeamPage />} />
+                  <Route path="/activity" element={<ActivityPage />} />
                 </Route>
               </Route>
 

@@ -5,6 +5,7 @@ import {
   Users,
   Building2,
   Settings,
+  Activity,
   type LucideIcon,
 } from "lucide-react"
 import { UserRole, type UserRole as Role } from "@/types/auth.types"
@@ -20,6 +21,7 @@ export const NAV_ITEMS: NavItem[] = [
   { title: "Dashboard", to: "/dashboard", icon: LayoutDashboard },
   { title: "Projects", to: "/projects", icon: FolderKanban },
   { title: "Team", to: "/team", icon: Users, roles: [UserRole.SUPERADMIN, UserRole.ADMIN] },
+  { title: "Activity", to: "/activity", icon: Activity, roles: [UserRole.SUPERADMIN, UserRole.ADMIN] },
   { title: "Organisations", to: "/platform", icon: Building2, roles: [UserRole.SUPERADMIN] },
   { title: "Settings", to: "/settings", icon: Settings },
 ]

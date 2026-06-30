@@ -2,8 +2,10 @@
 import { wrapCall } from "@/transport/http"
 import type {
   AuthResult,
+  ChangePasswordPayload,
   LoginPayload,
   RegisterPayload,
+  UpdateProfilePayload,
   User,
 } from "@/types/auth.types"
 
@@ -33,4 +35,10 @@ export const AuthEndpoints = {
 
   resetPassword: (email: string, code: string, newPassword: string) =>
     wrapCall<null>("POST", "/api/v1/auth/reset-password", { email, code, newPassword }),
+
+  changePassword: (payload: ChangePasswordPayload) =>
+    wrapCall<null>("PATCH", "/api/v1/auth/change-password", payload as unknown as Record<string, unknown>),
+
+  updateProfile: (payload: UpdateProfilePayload) =>
+    wrapCall<User>("PATCH", "/api/v1/auth/profile", payload as unknown as Record<string, unknown>),
 }

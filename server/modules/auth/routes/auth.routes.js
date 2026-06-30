@@ -13,6 +13,8 @@ const {
   resendVerificationSchema,
   forgotPasswordSchema,
   resetPasswordSchema,
+  changePasswordSchema,
+  updateProfileSchema,
 } = require("../validators/auth.schema");
 const { AuthController } = require("../controllers/auth.controller");
 
@@ -31,5 +33,7 @@ router.post("/reset-password", authRateLimiter, validate(resetPasswordSchema), A
 
 router.post("/logout", authMiddleware, validate(logoutSchema), AuthController.logout);
 router.get("/me", authMiddleware, AuthController.me);
+router.patch("/change-password", authMiddleware, validate(changePasswordSchema), AuthController.changePassword);
+router.patch("/profile", authMiddleware, validate(updateProfileSchema), AuthController.updateProfile);
 
 module.exports = router;

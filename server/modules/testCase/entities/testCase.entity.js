@@ -62,6 +62,11 @@ const TestCase = new EntitySchema({
       type: "uuid",
       nullable: true,
     },
+    deadline: {
+      name: "deadline",
+      type: "date",
+      nullable: true,
+    },
     createdAt: {
       name: "created_at",
       type: "timestamptz",

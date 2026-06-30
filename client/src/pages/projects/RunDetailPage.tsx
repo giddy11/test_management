@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { SummaryBar } from "@/components/shared/SummaryBar"
 import { ResultRow } from "@/components/testmgmt/ResultRow"
+import { PageLoader } from "@/components/shared/PageLoader"
 import { useRun, useResults, useUpdateRun } from "@/hooks/useRuns"
 import { useCases } from "@/hooks/useCases"
 import { ApiError } from "@/transport/http"
@@ -34,7 +35,7 @@ export default function RunDetailPage() {
     return s
   }, [results])
 
-  if (isLoading) return <p className="text-sm text-muted-foreground">Loading…</p>
+  if (isLoading) return <PageLoader />
   if (!run) return <p className="text-sm text-destructive">Run not found.</p>
 
   const completed = run.status === "completed"

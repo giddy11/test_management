@@ -31,6 +31,7 @@ export interface TestCase {
   suiteId: string
   assignees: { id: string; name: string; email: string }[]
   tags: string[]
+  deadline: string | null
   createdAt: string
 }
 export interface CreateCasePayload {
@@ -121,19 +122,46 @@ export interface ImportRowError {
   title?: string
   issues: { field: string; message: string }[]
 }
+export interface ImportDuplicate {
+  title: string
+  id: string  // always a valid UUID — rows without IDs are rejected, not listed here
+  reason: "duplicate in file" | "already exists in suite"
+}
 export interface ImportPreview {
   importId: string
   suiteId?: string
   totalRows: number
   skippedCount?: number
+  duplicatesCount?: number
   rows: ImportRow[]
   skipped?: ImportRowError[]
+  duplicates?: ImportDuplicate[]
 }
 
 // ── Dashboard ──────────────────────────────────────────────────────────────────
 export interface Distribution {
   key: string
   count: number
+}
+export interface ProjectBreakdown {
+  id: string
+  name: string
+  suiteCount: number
+  caseCount: number
+}
+export interface SuiteBreakdown {
+  id: string
+  name: string
+  projectId: string
+  caseCount: number
+}
+export interface TopPerformer {
+  id: string
+  name: string
+  total: number
+  passes: number
+  failures: number
+  passRate: number
 }
 export interface DashboardOverview {
   totals: { projects: number; suites: number; cases: number; runs: number }
@@ -156,4 +184,7 @@ export interface DashboardOverview {
     createdAt: string
     summary: RunSummary
   }[]
+  projectsBreakdown: ProjectBreakdown[]
+  suitesBreakdown: SuiteBreakdown[]
+  topPerformers: TopPerformer[]
 }

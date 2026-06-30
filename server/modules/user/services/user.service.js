@@ -5,6 +5,7 @@ const { AppError } = require("../../../shared/errors/AppError");
 const { UserRole, AuthProvider } = require("../../../config/constants");
 const { hashPassword } = require("../../../shared/utils/password");
 const { sendWelcomeEmail } = require("../../../shared/utils/mailer");
+const { ActivityService } = require("../../activity/services/activity.service");
 const { env } = require("../../../config/env");
 
 class UserService {
@@ -64,6 +65,13 @@ class UserService {
     sendWelcomeEmail(user.email, user.firstName, data.password, loginUrl).catch((err) =>
       console.error("[mailer] welcome email failed:", err.message)
     );
+
+    ActivityService.Instance.log(actor, {
+      action: "user.created",
+      summary: `Added ${user.firstName} ${user.lastName} (${user.role})`,
+      entityType: "user",
+      entityId: user.id,
+    });
 
     return user;
   }

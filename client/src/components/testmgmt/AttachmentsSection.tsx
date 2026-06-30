@@ -3,6 +3,7 @@ import { Upload, Trash2, ImageIcon } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog"
+import { InlineLoader } from "@/components/shared/PageLoader"
 import {
   useAttachments,
   useUploadAttachments,
@@ -55,7 +56,7 @@ export function AttachmentsSection({ caseId, canManage }: { caseId: string; canM
         )}
       </div>
 
-      {isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
+      {isLoading && <InlineLoader className="py-8" />}
       {!isLoading && items.length === 0 && (
         <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed py-8 text-center">
           <ImageIcon className="size-6 text-muted-foreground" />

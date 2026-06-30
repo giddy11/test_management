@@ -17,7 +17,10 @@ const createTestCaseSchema = z.object({
 
 const assignTestCaseSchema = z.object({
   params: z.object({ id: z.string().uuid() }),
-  body: z.object({ userIds: z.array(z.string().uuid()) }),
+  body: z.object({
+    userIds: z.array(z.string().uuid()),
+    deadline: z.string().date().nullable().optional(),
+  }),
 });
 
 const updateTestCaseSchema = z.object({

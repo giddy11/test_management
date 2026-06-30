@@ -1,6 +1,7 @@
 // modules/project/services/project.service.js
 const { ProjectRepository } = require("../repositories/project.repository");
 const { AuthRepository } = require("../../auth/repositories/auth.repository");
+const { ActivityService } = require("../../activity/services/activity.service");
 const { AppError } = require("../../../shared/errors/AppError");
 const { UserRole } = require("../../../config/constants");
 
@@ -46,13 +47,20 @@ class ProjectService {
 
   async createProject(actor, data) {
     const members = await this.resolveMembers(data.memberIds);
-    return this.projectRepo.create({
+    const project = await this.projectRepo.create({
       name: data.name,
       description: data.description ?? null,
       ownerId: actor.id,
       organizationId: actor.organizationId,
       ...(members ? { members } : {}),
     });
+    ActivityService.Instance.log(actor, {
+      action: "project.created",
+      summary: `Created project "${project.name}"`,
+      entityType: "project",
+      entityId: project.id,
+    });
+    return project;
   }
 
   async updateProject(actor, id, data) {
@@ -64,12 +72,25 @@ class ProjectService {
       project.members = (await this.resolveMembers(data.memberIds)) ?? [];
     }
 
-    return this.projectRepo.save(project);
+    const saved = await this.projectRepo.save(project);
+    ActivityService.Instance.log(actor, {
+      action: "project.updated",
+      summary: `Updated project "${saved.name}"`,
+      entityType: "project",
+      entityId: saved.id,
+    });
+    return saved;
   }
 
   async deleteProject(actor, id) {
     const project = await this.getProject(actor, id);
     await this.projectRepo.softDelete(project.id);
+    ActivityService.Instance.log(actor, {
+      action: "project.deleted",
+      summary: `Deleted project "${project.name}"`,
+      entityType: "project",
+      entityId: project.id,
+    });
   }
 
   async resolveMembers(memberIds) {

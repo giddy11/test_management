@@ -11,6 +11,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { useUsers } from "@/hooks/useUsers"
 import { useAssignCase } from "@/hooks/useCases"
@@ -30,9 +31,13 @@ export function AssignDialog({ open, onOpenChange, testCase }: Props) {
 
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [search, setSearch] = useState("")
+  const [deadline, setDeadline] = useState<string>("")
 
   useEffect(() => {
-    if (open && testCase) setSelected(new Set(testCase.assignees.map((a) => a.id)))
+    if (open && testCase) {
+      setSelected(new Set(testCase.assignees.map((a) => a.id)))
+      setDeadline(testCase.deadline ?? "")
+    }
     if (open) setSearch("")
   }, [open, testCase])
 
@@ -50,7 +55,11 @@ export function AssignDialog({ open, onOpenChange, testCase }: Props) {
   const save = () => {
     if (!testCase) return
     assign.mutate(
-      { id: testCase.id, userIds: [...selected] },
+      {
+        id: testCase.id,
+        userIds: [...selected],
+        deadline: deadline || null,
+      },
       {
         onError: (e) => toast.error(e instanceof ApiError ? e.message : "Failed"),
         onSuccess: () => {
@@ -77,7 +86,7 @@ export function AssignDialog({ open, onOpenChange, testCase }: Props) {
           onChange={(e) => setSearch(e.target.value)}
         />
 
-        <div className="max-h-72 space-y-1 overflow-y-auto">
+        <div className="max-h-60 space-y-1 overflow-y-auto">
           {filtered.length === 0 && (
             <p className="py-6 text-center text-sm text-muted-foreground">No users found.</p>
           )}
@@ -99,6 +108,17 @@ export function AssignDialog({ open, onOpenChange, testCase }: Props) {
               </label>
             )
           })}
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="deadline">Deadline (optional)</Label>
+          <Input
+            id="deadline"
+            type="date"
+            value={deadline}
+            onChange={(e) => setDeadline(e.target.value)}
+            min={new Date().toISOString().split("T")[0]}
+          />
         </div>
 
         <DialogFooter>
