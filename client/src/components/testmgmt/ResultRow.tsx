@@ -2,6 +2,7 @@ import { useRef, useState } from "react"
 import { Link } from "react-router-dom"
 import { toast } from "sonner"
 import { Paperclip, X, Upload, ImageIcon, ChevronDown, ChevronUp, ExternalLink } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Textarea } from "@/components/ui/textarea"
@@ -163,6 +164,13 @@ export function ResultRow({ runId, result, caseTitle, projectId, suiteId, disabl
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">Expected Result</p>
               <p className="text-sm">{result.caseExpectedResult}</p>
+            </div>
+          )}
+          {result.caseTags && result.caseTags.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {result.caseTags.map((t) => (
+                <Badge key={t} variant="outline">{t}</Badge>
+              ))}
             </div>
           )}
           <Link

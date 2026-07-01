@@ -94,6 +94,7 @@ export interface TestRunResult {
   casePriority: string | null
   caseSteps: string[] | null
   caseExpectedResult: string | null
+  caseTags: string[] | null
   status: ResultStatus | null
   actualResult: string | null
   notes: string | null

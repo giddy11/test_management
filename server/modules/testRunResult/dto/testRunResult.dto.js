@@ -11,6 +11,7 @@ function toResultResponse(result) {
     casePriority: result.testCase?.priority ?? null,
     caseSteps: result.testCase?.steps ?? null,
     caseExpectedResult: result.testCase?.expectedResult ?? null,
+    caseTags: result.testCase?.tags ?? null,
     status: result.status ?? null,
     actualResult: result.actualResult ?? null,
     notes: result.notes ?? null,

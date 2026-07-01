@@ -16,7 +16,7 @@ class TestRunResultRepository {
     const qb = this.repo
       .createQueryBuilder("result")
       .leftJoin("result.testCase", "tc")
-      .addSelect(["tc.id", "tc.title", "tc.description", "tc.priority", "tc.steps", "tc.expectedResult"])
+      .addSelect(["tc.id", "tc.title", "tc.description", "tc.priority", "tc.steps", "tc.expectedResult", "tc.tags"])
       .where("result.run_id = :runId", { runId }) // indexed FK
       .orderBy("result.executedAt", "DESC", "NULLS LAST")
       .addOrderBy("tc.title", "ASC")
