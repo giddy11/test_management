@@ -34,5 +34,5 @@ export const RESULT_META: Record<
   fail: { label: "Fail", color: "#ef4444", badge: "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300" },
   blocked: { label: "Blocked", color: "#f59e0b", badge: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300" },
   skipped: { label: "Skipped", color: "#94a3b8", badge: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300" },
-  pending: { label: "Pending", color: "#cbd5e1", badge: "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400" },
+  pending: { label: "Not Run", color: "#64748b", badge: "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400" },
 }

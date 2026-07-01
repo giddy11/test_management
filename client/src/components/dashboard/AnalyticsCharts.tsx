@@ -22,10 +22,12 @@ const tooltipStyle = {
 
 const BAR_PALETTE = ["#6366f1", "#0ea5e9", "#22c55e", "#f59e0b", "#ef4444", "#a855f7"]
 
-// Donut of run result outcomes.
+const RESULT_KEYS = ["pass", "fail", "blocked", "skipped", "pending"] as const
+
+// Donut of run result outcomes with a legend showing counts.
 export function ResultDonut({ breakdown }: { breakdown: DashboardOverview["resultBreakdown"] }) {
-  const data = (["pass", "fail", "blocked", "skipped", "pending"] as const)
-    .map((k) => ({ name: RESULT_META[k].label, value: breakdown[k], color: RESULT_META[k].color }))
+  const segments = RESULT_KEYS
+    .map((k) => ({ key: k, name: RESULT_META[k].label, value: breakdown[k], color: RESULT_META[k].color }))
     .filter((d) => d.value > 0)
 
   if (breakdown.total === 0) {
@@ -33,14 +35,50 @@ export function ResultDonut({ breakdown }: { breakdown: DashboardOverview["resul
   }
 
   return (
-    <ResponsiveContainer width="100%" height={240}>
-      <PieChart>
-        <Pie data={data} dataKey="value" nameKey="name" innerRadius={55} outerRadius={90} paddingAngle={2} strokeWidth={0}>
-          {data.map((d) => <Cell key={d.name} fill={d.color} />)}
-        </Pie>
-        <Tooltip contentStyle={tooltipStyle} />
-      </PieChart>
-    </ResponsiveContainer>
+    <div className="space-y-4">
+      <ResponsiveContainer width="100%" height={200}>
+        <PieChart>
+          <Pie
+            data={segments}
+            dataKey="value"
+            nameKey="name"
+            innerRadius={52}
+            outerRadius={84}
+            paddingAngle={2}
+            strokeWidth={0}
+          >
+            {segments.map((d) => <Cell key={d.key} fill={d.color} />)}
+          </Pie>
+          <Tooltip
+            contentStyle={tooltipStyle}
+            formatter={(value: number, name: string) => [
+              `${value} (${Math.round((value / breakdown.total) * 100)}%)`,
+              name,
+            ]}
+          />
+        </PieChart>
+      </ResponsiveContainer>
+
+      {/* Legend */}
+      <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 px-1 sm:grid-cols-3">
+        {RESULT_KEYS.map((k) => {
+          const count = breakdown[k]
+          const pct = breakdown.total > 0 ? Math.round((count / breakdown.total) * 100) : 0
+          return (
+            <div key={k} className="flex items-center gap-1.5 text-xs">
+              <span
+                className="size-2.5 shrink-0 rounded-full"
+                style={{ backgroundColor: RESULT_META[k].color }}
+              />
+              <span className="text-muted-foreground">{RESULT_META[k].label}</span>
+              <span className="ml-auto font-medium tabular-nums">
+                {count > 0 ? `${count} (${pct}%)` : "—"}
+              </span>
+            </div>
+          )
+        })}
+      </div>
+    </div>
   )
 }
 

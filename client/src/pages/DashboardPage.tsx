@@ -80,10 +80,14 @@ export default function DashboardPage() {
           <div className="grid gap-4 lg:grid-cols-3">
             <Card className="lg:col-span-1">
               <CardHeader className="pb-0">
-                <CardDescription>Overall pass rate</CardDescription>
-                <CardTitle className="text-3xl">{data.passRate}%</CardTitle>
+                <CardTitle className="text-base">Execution summary</CardTitle>
+                <CardDescription>
+                  <span className="text-3xl font-bold text-foreground">{data.passRate}%</span>
+                  {" "}
+                  <span className="text-xs">pass rate · {data.resultBreakdown.total} results total</span>
+                </CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="pt-3">
                 <ResultDonut breakdown={data.resultBreakdown} />
               </CardContent>
             </Card>
