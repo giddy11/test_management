@@ -15,6 +15,7 @@ function toActivityResponse(a) {
     summary: a.summary,
     entityType: a.entityType ?? null,
     entityId: a.entityId ?? null,
+    metadata: a.metadata ?? null,
     actor,
     createdAt: a.createdAt,
   };

@@ -47,17 +47,18 @@ class TestCaseService {
     return tc;
   }
 
-  logCaseEvent(actor, action, tc, verb) {
+  logCaseEvent(actor, action, tc, verb, metadata = {}) {
     ActivityService.Instance.log(actor, {
       action,
       summary: `${verb} test case "${tc.title}"`,
       entityType: "test_case",
       entityId: tc.id,
+      metadata: { suiteId: tc.suiteId, ...metadata },
     });
   }
 
   async createTestCase(actor, data) {
-    await this.suiteService.getTestSuite(actor, data.suite);
+    const suite = await this.suiteService.getTestSuite(actor, data.suite);
     const tc = await this.tcRepo.create({
       title: data.title,
       description: data.description ?? null,
@@ -69,7 +70,7 @@ class TestCaseService {
       tags: data.tags ?? null,
       createdById: actor.id,
     });
-    this.logCaseEvent(actor, "test_case.created", tc, "Created");
+    this.logCaseEvent(actor, "test_case.created", tc, "Created", { projectId: suite.projectId });
     return tc;
   }
 
@@ -125,6 +126,7 @@ class TestCaseService {
       summary: `Assigned ${users.length} user${users.length === 1 ? "" : "s"} to "${tc.title}"`,
       entityType: "test_case",
       entityId: tc.id,
+      metadata: { suiteId: tc.suiteId, projectId: suite.projectId },
     });
 
     // Notify newly-assigned users (in-app + email), fire-and-forget.

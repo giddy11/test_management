@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { Link } from "react-router-dom"
 import {
   FolderKanban,
   Layers,
@@ -11,6 +12,7 @@ import {
   Activity as ActivityIcon,
   Filter,
   X,
+  ChevronRight,
   type LucideIcon,
 } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
@@ -54,6 +56,19 @@ function iconFor(a: ActivityLog): LucideIcon {
 
 const initials = (name: string) =>
   name.split(" ").map((p) => p[0]).slice(0, 2).join("").toUpperCase()
+
+function buildLink(a: ActivityLog): string | null {
+  const m = a.metadata ?? {}
+  const et = a.entityType
+  const eid = a.entityId
+  if (!eid) return null
+  if (et === "project") return `/projects/${eid}`
+  if (et === "test_run" && m.projectId) return `/projects/${m.projectId}/runs/${eid}`
+  if (et === "test_run_result" && m.projectId && m.runId) return `/projects/${m.projectId}/runs/${m.runId}`
+  if (et === "test_case" && m.projectId && m.suiteId) return `/projects/${m.projectId}/suites/${m.suiteId}/cases/${eid}`
+  if (et === "suite" && m.projectId) return `/projects/${m.projectId}/suites/${eid}`
+  return null
+}
 
 const ENTITY_TYPES = [
   { value: "project", label: "Projects" },
@@ -177,8 +192,9 @@ export default function ActivityPage() {
               {items.map((a) => {
                 const Icon = iconFor(a)
                 const actorName = a.actor?.name || "System"
-                return (
-                  <li key={a.id} className="flex items-center gap-3 px-4 py-3">
+                const link = buildLink(a)
+                const inner = (
+                  <>
                     <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
                       <Icon className="size-4" />
                     </div>
@@ -197,6 +213,21 @@ export default function ActivityPage() {
                         </AvatarFallback>
                       </Avatar>
                     )}
+                    {link && <ChevronRight className="size-4 shrink-0 text-muted-foreground" />}
+                  </>
+                )
+                return link ? (
+                  <li key={a.id}>
+                    <Link
+                      to={link}
+                      className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/50"
+                    >
+                      {inner}
+                    </Link>
+                  </li>
+                ) : (
+                  <li key={a.id} className="flex items-center gap-3 px-4 py-3">
+                    {inner}
                   </li>
                 )
               })}

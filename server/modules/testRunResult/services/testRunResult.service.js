@@ -80,12 +80,18 @@ class TestRunResultService {
 
     const updated = await this.resultRepo.update(result.id, patch);
     if (data.status) {
+      const tc = await this.tcRepo.findById(result.testCaseId);
       ActivityService.Instance.log(actor, {
         action: "result.recorded",
-        summary: `Recorded "${data.status}" on a test case`,
+        summary: `Recorded "${data.status}" on "${tc?.title ?? "a test case"}"`,
         entityType: "test_run_result",
         entityId: result.id,
-        metadata: { runId: result.runId, testCaseId: result.testCaseId },
+        metadata: {
+          runId: result.runId,
+          testCaseId: result.testCaseId,
+          projectId: run.projectId,
+          suiteId: tc?.suiteId ?? null,
+        },
       });
     }
     return updated;

@@ -64,6 +64,7 @@ class TestRunService {
       summary: `Started test run "${run.name}"`,
       entityType: "test_run",
       entityId: run.id,
+      metadata: { projectId: run.projectId },
     });
     return { run, summary };
   }
@@ -109,6 +110,7 @@ class TestRunService {
         summary: `Completed test run "${updated.name}"`,
         entityType: "test_run",
         entityId: run.id,
+        metadata: { projectId: run.projectId },
       });
     }
 
