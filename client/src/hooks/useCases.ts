@@ -91,22 +91,26 @@ export function useBulkAssignCases() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async ({
-      caseIds,
+      cases,
       userIds,
       deadline,
     }: {
-      caseIds: string[]
+      cases: { id: string; existingAssigneeIds: string[] }[]
       userIds: string[]
       deadline?: string | null
     }) => {
       const results = await Promise.allSettled(
-        caseIds.map((id) => CaseEndpoints.assign(id, userIds, deadline))
+        cases.map(({ id, existingAssigneeIds }) => {
+          // merge: keep existing assignees + add new ones
+          const merged = [...new Set([...existingAssigneeIds, ...userIds])]
+          return CaseEndpoints.assign(id, merged, deadline)
+        })
       )
       const failed = results.filter(
         (r) => r.status === "rejected" || (r.status === "fulfilled" && !r.value.success)
       ).length
-      if (failed > 0) throw new ApiError(`${failed} of ${caseIds.length} could not be assigned`, 0)
-      return { assigned: caseIds.length }
+      if (failed > 0) throw new ApiError(`${failed} of ${cases.length} could not be assigned`, 0)
+      return { assigned: cases.length }
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: [KEY] }),
   })

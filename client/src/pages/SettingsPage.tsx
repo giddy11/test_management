@@ -82,12 +82,16 @@ function ProfileTab() {
 
           <div className="space-y-1.5">
             <Label htmlFor="email">Email address</Label>
-            <Input id="email" type="email" {...register("email")} />
-            {user?.provider !== "local" && (
-              <p className="text-xs text-muted-foreground">
-                Email changes may affect your Google Sign-In link.
-              </p>
-            )}
+            <Input
+              id="email"
+              type="email"
+              value={user?.email ?? ""}
+              readOnly
+              className="cursor-default bg-muted text-muted-foreground select-none"
+            />
+            <p className="text-xs text-muted-foreground">
+              Email address cannot be changed. Contact your administrator.
+            </p>
           </div>
 
           <Separator />

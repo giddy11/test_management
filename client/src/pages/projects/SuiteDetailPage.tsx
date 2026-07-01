@@ -314,7 +314,9 @@ export default function SuiteDetailPage() {
           setBulkAssignOpen(o)
           if (!o) setSelected(new Set())
         }}
-        caseIds={[...selected]}
+        bulkCases={cases
+          .filter((c) => selected.has(c.id))
+          .map((c) => ({ id: c.id, existingAssigneeIds: c.assignees.map((a) => a.id) }))}
       />
 
       <ConfirmDialog

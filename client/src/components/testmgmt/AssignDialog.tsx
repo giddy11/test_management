@@ -19,16 +19,20 @@ import { useAssignCase, useBulkAssignCases } from "@/hooks/useCases"
 import { ApiError } from "@/transport/http"
 import type { TestCase } from "@/types/testMgmt.types"
 
-// Single-case mode: pass testCase. Bulk mode: pass caseIds (array of IDs).
+// Single-case mode: pass testCase. Bulk mode: pass bulkCases (with existing assignees for merge).
+interface BulkCase {
+  id: string
+  existingAssigneeIds: string[]
+}
 interface Props {
   open: boolean
   onOpenChange: (open: boolean) => void
   testCase?: TestCase | null   // single-case mode
-  caseIds?: string[]           // bulk mode — takes priority when provided
+  bulkCases?: BulkCase[]       // bulk mode — takes priority when provided
 }
 
-export function AssignDialog({ open, onOpenChange, testCase, caseIds }: Props) {
-  const isBulk = Boolean(caseIds && caseIds.length > 0)
+export function AssignDialog({ open, onOpenChange, testCase, bulkCases }: Props) {
+  const isBulk = Boolean(bulkCases && bulkCases.length > 0)
   const { data } = useUsers({ limit: 100 })
   const users = data?.data ?? []
   const assign = useAssignCase()
@@ -67,7 +71,7 @@ export function AssignDialog({ open, onOpenChange, testCase, caseIds }: Props) {
   const save = () => {
     if (isBulk) {
       bulkAssign.mutate(
-        { caseIds: caseIds!, userIds: [...selected], deadline: deadline || null },
+        { cases: bulkCases!, userIds: [...selected], deadline: deadline || null },
         {
           onError: (e) => toast.error(e instanceof ApiError ? e.message : "Failed"),
           onSuccess: ({ assigned }) => {
@@ -91,10 +95,10 @@ export function AssignDialog({ open, onOpenChange, testCase, caseIds }: Props) {
     }
   }
 
-  const caseCount = isBulk ? caseIds!.length : 1
-  const title = isBulk ? `Assign users — ${caseCount} test cases` : "Assign users"
+  const caseCount = isBulk ? bulkCases!.length : 1
+  const title = isBulk ? `Add assignees — ${caseCount} test cases` : "Assign users"
   const description = isBulk
-    ? `The selected users will be set as assignees on all ${caseCount} test cases. Any existing assignments will be replaced.`
+    ? `The selected users will be added as assignees on all ${caseCount} test cases. Existing assignees are kept.`
     : `Pick who is responsible for "${testCase?.title}". They'll see it under their tests.`
 
   return (
@@ -106,8 +110,8 @@ export function AssignDialog({ open, onOpenChange, testCase, caseIds }: Props) {
         </DialogHeader>
 
         {isBulk && (
-          <div className="rounded-md border border-amber-300/60 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-300">
-            This will <strong>replace</strong> existing assignees on all {caseCount} selected cases.
+          <div className="rounded-md border border-blue-300/60 bg-blue-50 px-3 py-2 text-xs text-blue-800 dark:border-blue-900/60 dark:bg-blue-950/30 dark:text-blue-300">
+            Selected users will be <strong>added</strong> to each case. Anyone already assigned stays assigned.
           </div>
         )}
 
@@ -178,7 +182,7 @@ export function AssignDialog({ open, onOpenChange, testCase, caseIds }: Props) {
             {isPending
               ? "Saving…"
               : isBulk
-              ? `Assign to ${caseCount} case${caseCount === 1 ? "" : "s"}`
+              ? `Add to ${caseCount} case${caseCount === 1 ? "" : "s"}`
               : `Assign ${selected.size}`}
           </Button>
         </DialogFooter>
