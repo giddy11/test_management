@@ -69,13 +69,13 @@ export function useDeleteRun() {
   })
 }
 
-export function useResults(runId: string) {
+export function useResults(runId: string, page = 1) {
   return useQuery({
-    queryKey: [RESULTS, runId],
+    queryKey: [RESULTS, runId, page],
     queryFn: async () => {
-      const res = await ResultEndpoints.fetchAll({ runId, limit: 100 })
+      const res = await ResultEndpoints.fetchAll({ runId, limit: 100, page })
       if (!res.success) throw new ApiError(res.message, res.statusCode)
-      return res.data ?? []
+      return { data: res.data ?? [], meta: res.meta }
     },
     enabled: Boolean(runId),
   })

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react"
+import { useEffect, useState } from "react"
 import { Link, useParams } from "react-router-dom"
 import { ChevronLeft, CheckCircle2, RotateCcw, X } from "lucide-react"
 import { toast } from "sonner"
@@ -17,11 +17,17 @@ import { ApiError } from "@/transport/http"
 export default function RunDetailPage() {
   const { projectId = "", runId = "" } = useParams()
   const { data: run, isLoading } = useRun(runId)
-  const { data: results = [] } = useResults(runId)
+  const [page, setPage] = useState(1)
+  const { data: runResults } = useResults(runId, page)
+  const results = runResults?.data ?? []
+  const meta = runResults?.meta
   const updateRun = useUpdateRun()
   const bulkRecord = useBulkRecordResults(runId)
 
   const [selected, setSelected] = useState<Set<string>>(new Set())
+
+  // Clear selection when navigating pages
+  useEffect(() => { setSelected(new Set()) }, [page])
 
   const allSelected = results.length > 0 && results.every((r) => selected.has(r.id))
   const someSelected = selected.size > 0
@@ -56,17 +62,6 @@ export default function RunDetailPage() {
     )
   }
 
-  // Summary computed from the results this user can see (so it matches the list —
-  // an assigned 'user' only sees their own cases).
-  const summary = useMemo(() => {
-    const s = { total: results.length, pass: 0, fail: 0, blocked: 0, skipped: 0, pending: 0 }
-    for (const r of results) {
-      const k = (r.status ?? "pending") as keyof typeof s
-      s[k]++
-    }
-    return s
-  }, [results])
-
   if (isLoading) return <PageLoader />
   if (!run) return <p className="text-sm text-destructive">Run not found.</p>
 
@@ -99,16 +94,16 @@ export default function RunDetailPage() {
         </Button>
       </div>
 
-      {summary.total > 0 && (
+      {run.summary?.total ? (
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base">
-              Results — {summary.pass}/{summary.total} passed
+              Results — {run.summary.pass ?? 0}/{run.summary.total} passed
             </CardTitle>
           </CardHeader>
-          <CardContent><SummaryBar summary={summary} /></CardContent>
+          <CardContent><SummaryBar summary={run.summary} /></CardContent>
         </Card>
-      )}
+      ) : null}
 
       <div className="space-y-2">
         {results.length === 0 && (
@@ -181,6 +176,18 @@ export default function RunDetailPage() {
           </>
         )}
       </div>
+
+      {(meta?.hasPrev || meta?.hasNext) && (
+        <div className="flex items-center justify-end gap-2">
+          <Button variant="outline" size="sm" disabled={!meta?.hasPrev} onClick={() => setPage((p) => p - 1)}>
+            Previous
+          </Button>
+          <span className="text-sm text-muted-foreground">Page {page}</span>
+          <Button variant="outline" size="sm" disabled={!meta?.hasNext} onClick={() => setPage((p) => p + 1)}>
+            Next
+          </Button>
+        </div>
+      )}
     </div>
   )
 }

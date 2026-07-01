@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/select"
 import { PageLoader } from "@/components/shared/PageLoader"
 import { useActivity } from "@/hooks/useActivity"
+import { useUsers } from "@/hooks/useUsers"
 import type { ActivityLog } from "@/types/activity.types"
 
 function timeAgo(iso: string) {
@@ -74,26 +75,33 @@ export default function ActivityPage() {
   const [page, setPage] = useState(1)
   const [entityType, setEntityType] = useState<string>("")
   const [action, setAction] = useState<string>("")
+  const [actorId, setActorId] = useState<string>("")
+
+  const { data: usersData } = useUsers({ limit: 100 })
+  const users = usersData?.data ?? []
 
   const { data, isLoading } = useActivity({
     page,
     limit: 30,
     entityType: entityType || undefined,
     action: action || undefined,
+    actorId: actorId || undefined,
   })
   const items = data?.data ?? []
   const meta = data?.meta
 
-  const hasFilter = Boolean(entityType || action)
+  const hasFilter = Boolean(entityType || action || actorId)
 
   const clearFilters = () => {
     setEntityType("")
     setAction("")
+    setActorId("")
     setPage(1)
   }
 
   const onEntityChange = (v: string) => { setEntityType(v === "all" ? "" : v); setPage(1) }
   const onActionChange = (v: string) => { setAction(v === "all" ? "" : v); setPage(1) }
+  const onUserChange = (v: string) => { setActorId(v === "all" ? "" : v); setPage(1) }
 
   return (
     <div className="space-y-6">
@@ -125,6 +133,18 @@ export default function ActivityPage() {
             <SelectItem value="all">All actions</SelectItem>
             {ACTION_PREFIXES.map((a) => (
               <SelectItem key={a.value} value={a.value}>{a.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Select value={actorId || "all"} onValueChange={onUserChange}>
+          <SelectTrigger className="h-8 w-44 text-xs">
+            <SelectValue placeholder="All users" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All users</SelectItem>
+            {users.map((u) => (
+              <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
             ))}
           </SelectContent>
         </Select>
