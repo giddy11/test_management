@@ -163,16 +163,25 @@ class DashboardRepository {
     params.push(limit);
     return this.ds.query(
       `SELECT r.id, r.name, r.status, r.project_id AS "projectId", r.created_at AS "createdAt",
+        trim(concat(u.first_name, ' ', u.last_name)) AS "createdByName",
         count(res.id)::int AS total,
         count(*) FILTER (WHERE res.status = 'pass')::int AS pass,
         count(*) FILTER (WHERE res.status = 'fail')::int AS fail,
         count(*) FILTER (WHERE res.status = 'blocked')::int AS blocked,
-        count(*) FILTER (WHERE res.status = 'skipped')::int AS skipped
+        count(*) FILTER (WHERE res.status = 'skipped')::int AS skipped,
+        array_remove(array_agg(DISTINCT
+          CASE WHEN res2.status IS NOT NULL
+            THEN trim(concat(ut.first_name, ' ', ut.last_name))
+          END
+        ), NULL) AS testers
        FROM test_runs r
        JOIN projects p ON r.project_id = p.id
+       LEFT JOIN users u ON r.created_by_id = u.id
        LEFT JOIN test_run_results res ON res.run_id = r.id
+       LEFT JOIN test_run_results res2 ON res2.run_id = r.id AND res2.status IS NOT NULL
+       LEFT JOIN users ut ON res2.executed_by_id = ut.id
        WHERE ${pScope}
-       GROUP BY r.id
+       GROUP BY r.id, u.first_name, u.last_name
        ORDER BY r.created_at DESC
        LIMIT $${params.length}`,
       params

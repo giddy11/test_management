@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { Play, Trash2, FlaskConical, Layers } from "lucide-react"
+import { Play, Trash2, FlaskConical, Layers, User, Users } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -79,8 +79,28 @@ export function RunsTab({ projectId, canManage }: { projectId: string; canManage
               </div>
             </CardHeader>
 
-            <CardContent>
-              {run.summary ? (
+            <CardContent className="space-y-3">
+              {/* People */}
+              <div className="flex flex-col gap-1 text-xs text-muted-foreground">
+                {run.createdByName && (
+                  <span className="flex items-center gap-1.5">
+                    <User className="size-3 shrink-0" />
+                    Started by <span className="font-medium text-foreground">{run.createdByName}</span>
+                  </span>
+                )}
+                {run.testers && run.testers.length > 0 && (
+                  <span className="flex items-center gap-1.5">
+                    <Users className="size-3 shrink-0" />
+                    Tested by{" "}
+                    <span className="font-medium text-foreground">
+                      {run.testers.slice(0, 3).join(", ")}
+                      {run.testers.length > 3 && ` +${run.testers.length - 3} more`}
+                    </span>
+                  </span>
+                )}
+              </div>
+
+              {run.summary && run.summary.total > 0 ? (
                 <SummaryBar summary={run.summary} />
               ) : (
                 <p className="text-xs text-muted-foreground">Open to record results</p>

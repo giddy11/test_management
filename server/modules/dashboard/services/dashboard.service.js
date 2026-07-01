@@ -46,6 +46,8 @@ class DashboardService {
         status: r.status,
         projectId: r.projectId,
         createdAt: r.createdAt,
+        createdByName: r.createdByName || null,
+        testers: r.testers ?? [],
         summary: {
           total: r.total,
           pass: r.pass,

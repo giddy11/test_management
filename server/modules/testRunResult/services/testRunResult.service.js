@@ -58,6 +58,10 @@ class TestRunResultService {
 
   async recordResult(actor, id, data) {
     const result = await this.getResult(actor, id);
+    const { run } = await this.runService.getTestRun(actor, result.runId);
+    if (run.status === "completed") {
+      throw new AppError("This run is completed. Reopen it before recording results.", 403);
+    }
 
     const patch = {};
     if (data.actualResult !== undefined) patch.actualResult = data.actualResult;
@@ -93,7 +97,10 @@ class TestRunResultService {
   }
 
   async bulkRecordResults(actor, { runId, ids, status }) {
-    await this.runService.getTestRun(actor, runId); // access check
+    const { run } = await this.runService.getTestRun(actor, runId); // access check
+    if (run.status === "completed") {
+      throw new AppError("This run is completed. Reopen it before recording results.", 403);
+    }
 
     const now = new Date();
     const patch =

@@ -73,6 +73,8 @@ export interface TestRun {
   suiteId: string
   status: RunStatus
   createdById: string
+  createdByName: string | null
+  testers: string[]
   createdAt: string
   summary?: RunSummary
 }
@@ -195,6 +197,8 @@ export interface DashboardOverview {
     status: RunStatus
     projectId: string
     createdAt: string
+    createdByName: string | null
+    testers: string[]
     summary: RunSummary
   }[]
   projectsBreakdown: ProjectBreakdown[]

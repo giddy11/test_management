@@ -8,7 +8,7 @@ const { TestSuiteService } = require("../../testSuite/services/testSuite.service
 const { NotificationService } = require("../../notification/services/notification.service");
 const { ActivityService } = require("../../activity/services/activity.service");
 const { AppError } = require("../../../shared/errors/AppError");
-const { RunStatus } = require("../../../config/constants");
+const { RunStatus, UserRole } = require("../../../config/constants");
 
 class TestRunService {
   static Instance = new TestRunService();
@@ -71,6 +71,15 @@ class TestRunService {
   async updateTestRun(actor, id, data) {
     const { run } = await this.getTestRun(actor, id);
     const wasCompleted = run.status === RunStatus.COMPLETED;
+
+    // Only admins can reopen a completed run.
+    if (
+      wasCompleted &&
+      data.status === RunStatus.IN_PROGRESS &&
+      actor.role === UserRole.USER
+    ) {
+      throw new AppError("Only admins can reopen a completed run.", 403);
+    }
 
     const patch = {};
     if (data.name !== undefined) patch.name = data.name;

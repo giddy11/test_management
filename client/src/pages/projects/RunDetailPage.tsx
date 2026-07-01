@@ -13,9 +13,13 @@ import { useRun, useResults, useUpdateRun, useBulkRecordResults } from "@/hooks/
 import { RESULT_STATUSES, RESULT_META, type ResultStatus } from "@/lib/enums"
 import { cn } from "@/lib/utils"
 import { ApiError } from "@/transport/http"
+import { useAuth } from "@/contexts/AuthContext"
+import { UserRole } from "@/types/auth.types"
 
 export default function RunDetailPage() {
   const { projectId = "", runId = "" } = useParams()
+  const { user } = useAuth()
+  const canManage = user?.role === UserRole.ADMIN || user?.role === UserRole.SUPERADMIN
   const { data: run, isLoading } = useRun(runId)
   const [page, setPage] = useState(1)
   const { data: runResults } = useResults(runId, page)
@@ -89,9 +93,17 @@ export default function RunDetailPage() {
             </Badge>
           </div>
         </div>
-        <Button variant={completed ? "outline" : "default"} onClick={toggleStatus} disabled={updateRun.isPending}>
-          {completed ? <><RotateCcw className="mr-1 size-4" /> Reopen</> : <><CheckCircle2 className="mr-1 size-4" /> Mark completed</>}
-        </Button>
+        {completed ? (
+          canManage && (
+            <Button variant="outline" onClick={toggleStatus} disabled={updateRun.isPending}>
+              <RotateCcw className="mr-1 size-4" /> Reopen
+            </Button>
+          )
+        ) : (
+          <Button onClick={toggleStatus} disabled={updateRun.isPending}>
+            <CheckCircle2 className="mr-1 size-4" /> Mark completed
+          </Button>
+        )}
       </div>
 
       {run.summary?.total ? (
@@ -112,54 +124,62 @@ export default function RunDetailPage() {
 
         {results.length > 0 && (
           <>
-            {/* Select-all row + bulk action toolbar */}
-            <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-muted/40 px-3 py-2">
-              <Checkbox
-                checked={allSelected}
-                onCheckedChange={toggleAll}
-                aria-label="Select all results"
-              />
-              <span className="text-sm text-muted-foreground">
-                {someSelected ? `${selected.size} selected` : "Select all"}
-              </span>
+            {/* Select-all row + bulk action toolbar — hidden when run is completed */}
+            {!completed && (
+              <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-muted/40 px-3 py-2">
+                <Checkbox
+                  checked={allSelected}
+                  onCheckedChange={toggleAll}
+                  aria-label="Select all results"
+                />
+                <span className="text-sm text-muted-foreground">
+                  {someSelected ? `${selected.size} selected` : "Select all"}
+                </span>
 
-              {someSelected && (
-                <>
-                  <div className="mx-1 h-4 w-px bg-border" />
-                  {RESULT_STATUSES.map((s) => (
+                {someSelected && (
+                  <>
+                    <div className="mx-1 h-4 w-px bg-border" />
+                    {RESULT_STATUSES.map((s) => (
+                      <Button
+                        key={s}
+                        size="sm"
+                        variant="outline"
+                        disabled={bulkRecord.isPending}
+                        onClick={() => applyBulkStatus(s)}
+                        className={cn("h-7 text-xs")}
+                        style={{ borderColor: RESULT_META[s].color, color: RESULT_META[s].color }}
+                      >
+                        {RESULT_META[s].label} all
+                      </Button>
+                    ))}
                     <Button
-                      key={s}
                       size="sm"
-                      variant="outline"
+                      variant="ghost"
                       disabled={bulkRecord.isPending}
-                      onClick={() => applyBulkStatus(s)}
-                      className={cn("h-7 text-xs")}
-                      style={{ borderColor: RESULT_META[s].color, color: RESULT_META[s].color }}
+                      onClick={() => applyBulkStatus(null)}
+                      className="h-7 text-xs text-muted-foreground"
                     >
-                      {RESULT_META[s].label} all
+                      Clear
                     </Button>
-                  ))}
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    disabled={bulkRecord.isPending}
-                    onClick={() => applyBulkStatus(null)}
-                    className="h-7 text-xs text-muted-foreground"
-                  >
-                    Clear
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => setSelected(new Set())}
-                    className="ml-auto h-7 px-2"
-                    aria-label="Deselect all"
-                  >
-                    <X className="size-3.5" />
-                  </Button>
-                </>
-              )}
-            </div>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setSelected(new Set())}
+                      className="ml-auto h-7 px-2"
+                      aria-label="Deselect all"
+                    >
+                      <X className="size-3.5" />
+                    </Button>
+                  </>
+                )}
+              </div>
+            )}
+
+            {completed && (
+              <p className="rounded-lg border border-amber-300/60 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-300">
+                This run is completed. {canManage ? "Reopen it to record new results." : "Contact an admin to reopen it."}
+              </p>
+            )}
 
             {results.map((r) => (
               <ResultRow
@@ -169,8 +189,9 @@ export default function RunDetailPage() {
                 caseTitle={r.caseTitle ?? r.testCaseId}
                 projectId={projectId}
                 suiteId={run.suiteId}
-                selected={selected.has(r.id)}
-                onToggle={() => toggleOne(r.id)}
+                disabled={completed}
+                selected={!completed && selected.has(r.id)}
+                onToggle={completed ? undefined : () => toggleOne(r.id)}
               />
             ))}
           </>
