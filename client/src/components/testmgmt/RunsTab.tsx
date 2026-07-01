@@ -1,6 +1,6 @@
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { Play, Trash2, FlaskConical } from "lucide-react"
+import { Play, Trash2, FlaskConical, Layers } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -10,12 +10,19 @@ import { CreateRunDialog } from "@/components/testmgmt/CreateRunDialog"
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog"
 import { InlineLoader } from "@/components/shared/PageLoader"
 import { useRuns, useDeleteRun } from "@/hooks/useRuns"
+import { useSuites } from "@/hooks/useSuites"
 import type { TestRun } from "@/types/testMgmt.types"
 
 export function RunsTab({ projectId, canManage }: { projectId: string; canManage: boolean }) {
   const navigate = useNavigate()
   const { data: runs = [], isLoading } = useRuns(projectId)
+  const { data: suites = [] } = useSuites(projectId)
   const del = useDeleteRun()
+
+  const suiteMap = useMemo(
+    () => new Map(suites.map((s) => [s.id, s.name])),
+    [suites]
+  )
   const [createOpen, setCreateOpen] = useState(false)
   const [deleting, setDeleting] = useState<TestRun | null>(null)
 
@@ -46,7 +53,15 @@ export function RunsTab({ projectId, canManage }: { projectId: string; canManage
           >
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between gap-3">
-                <CardTitle className="text-base">{run.name}</CardTitle>
+                <div className="min-w-0">
+                  <CardTitle className="text-base">{run.name}</CardTitle>
+                  {suiteMap.get(run.suiteId) && (
+                    <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+                      <Layers className="size-3 shrink-0" />
+                      {suiteMap.get(run.suiteId)}
+                    </p>
+                  )}
+                </div>
                 <div className="flex items-center gap-2">
                   <Badge variant={run.status === "completed" ? "default" : "secondary"}>
                     {run.status === "completed" ? "Completed" : "In progress"}
@@ -63,6 +78,7 @@ export function RunsTab({ projectId, canManage }: { projectId: string; canManage
                 </div>
               </div>
             </CardHeader>
+
             <CardContent>
               {run.summary ? (
                 <SummaryBar summary={run.summary} />
