@@ -34,6 +34,7 @@ export interface TestCase {
   tags: string[]
   deadline: string | null
   attachmentCount: number
+  latestResultStatus: ResultStatus | "pending" | null
   createdAt: string
 }
 export interface CreateCasePayload {
@@ -161,6 +162,11 @@ export interface SuiteBreakdown {
   name: string
   projectId: string
   caseCount: number
+  pass: number
+  fail: number
+  blocked: number
+  skipped: number
+  pending: number
 }
 export interface TopPerformer {
   id: string

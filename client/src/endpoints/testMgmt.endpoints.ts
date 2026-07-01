@@ -36,6 +36,7 @@ export const CaseEndpoints = {
     search?: string
     priority?: string
     status?: string
+    runStatus?: string
   }) => wrapCall<TestCase[]>("GET", "/api/v1/test-cases", obj(params)),
   fetchById: (id: string) => wrapCall<TestCase>("GET", `/api/v1/test-cases/${id}`),
   create: (payload: CreateCasePayload) => wrapCall<TestCase>("POST", "/api/v1/test-cases", obj(payload)),

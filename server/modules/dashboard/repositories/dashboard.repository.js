@@ -103,12 +103,26 @@ class DashboardRepository {
 
   async suitesBreakdown(organizationId, projectId) {
     const [pScope, params] = this.scope(organizationId, projectId);
+    // Use LATERAL to get only the latest result per test case so counts reflect
+    // current state, not an inflated aggregate across multiple runs.
     return this.ds.query(
       `SELECT ts.id, ts.name, ts.project_id AS "projectId",
-        count(DISTINCT tc.id)::int AS "caseCount"
+        count(DISTINCT tc.id)::int AS "caseCount",
+        count(*) FILTER (WHERE latest.status = 'pass')::int AS pass,
+        count(*) FILTER (WHERE latest.status = 'fail')::int AS fail,
+        count(*) FILTER (WHERE latest.status = 'blocked')::int AS blocked,
+        count(*) FILTER (WHERE latest.status = 'skipped')::int AS skipped,
+        count(*) FILTER (WHERE latest.run_id IS NOT NULL AND latest.status IS NULL)::int AS pending
        FROM test_suites ts
        JOIN projects p ON ts.project_id = p.id
        LEFT JOIN test_cases tc ON tc.suite_id = ts.id AND tc.deleted_at IS NULL
+       LEFT JOIN LATERAL (
+         SELECT run_id, status
+         FROM test_run_results
+         WHERE test_case_id = tc.id
+         ORDER BY executed_at DESC NULLS LAST, id DESC
+         LIMIT 1
+       ) latest ON true
        WHERE ${pScope} AND ts.deleted_at IS NULL
        GROUP BY ts.id, ts.name, ts.project_id
        ORDER BY ts.project_id, ts.name`,

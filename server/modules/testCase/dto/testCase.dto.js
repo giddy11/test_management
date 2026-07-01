@@ -21,6 +21,7 @@ function toTestCaseResponse(tc) {
     tags: tc.tags ?? [],
     deadline: tc.deadline ?? null,
     attachmentCount: tc.attachmentCount ?? 0,
+    latestResultStatus: tc.latestResultStatus ?? null,
     createdAt: tc.createdAt,
   };
 }

@@ -12,6 +12,7 @@ interface CaseQuery {
   search?: string
   priority?: TcPriority
   status?: TcStatus
+  runStatus?: string
 }
 
 export function useCases(suiteId: string, params: CaseQuery = {}) {

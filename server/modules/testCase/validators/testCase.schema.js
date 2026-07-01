@@ -52,6 +52,7 @@ const fetchTestCasesSchema = z.object({
     search: z.string().optional(),
     priority: z.enum(enums.testCasePriority).optional(),
     status: z.enum(enums.testCaseStatus).optional(),
+    runStatus: z.enum(["not_run", "pending", ...enums.resultStatus]).optional(),
   }),
 });
 

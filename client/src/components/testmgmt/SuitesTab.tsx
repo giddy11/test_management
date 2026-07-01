@@ -4,13 +4,22 @@ import { Plus, Pencil, Trash2, Layers, ChevronRight, ClipboardList } from "lucid
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { SummaryBar } from "@/components/shared/SummaryBar"
 import { SuiteFormDialog } from "@/components/testmgmt/SuiteFormDialog"
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog"
 import { InlineLoader } from "@/components/shared/PageLoader"
 import { useSuites, useDeleteSuite } from "@/hooks/useSuites"
-import type { TestSuite } from "@/types/testMgmt.types"
+import type { SuiteBreakdown, TestSuite } from "@/types/testMgmt.types"
 
-export function SuitesTab({ projectId, canManage }: { projectId: string; canManage: boolean }) {
+export function SuitesTab({
+  projectId,
+  canManage,
+  breakdown,
+}: {
+  projectId: string
+  canManage: boolean
+  breakdown?: Map<string, SuiteBreakdown>
+}) {
   const navigate = useNavigate()
   const { data: suites = [], isLoading } = useSuites(projectId)
   const del = useDeleteSuite()
@@ -58,6 +67,17 @@ export function SuitesTab({ projectId, canManage }: { projectId: string; canMana
                   ? <span className="text-amber-600">No test cases yet</span>
                   : <span>{s.caseCount} test case{s.caseCount === 1 ? "" : "s"}</span>}
               </div>
+              {(() => {
+                const bd = breakdown?.get(s.id)
+                if (!bd) return null
+                const total = bd.pass + bd.fail + bd.blocked + bd.skipped + bd.pending
+                if (total === 0) return null
+                return (
+                  <div className="pt-2">
+                    <SummaryBar summary={{ total, pass: bd.pass, fail: bd.fail, blocked: bd.blocked, skipped: bd.skipped, pending: bd.pending }} />
+                  </div>
+                )
+              })()}
             </CardHeader>
             {canManage && (
               <CardContent className="flex justify-end gap-1 pt-0">

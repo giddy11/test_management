@@ -11,7 +11,7 @@ class TestCaseRepository {
   }
 
   // assigneeId set => only cases assigned to that user (used to scope 'user' role).
-  async fetchPaginated({ suiteId, page = 1, limit = 20, search, priority, status, assigneeId }) {
+  async fetchPaginated({ suiteId, page = 1, limit = 20, search, priority, status, runStatus, assigneeId }) {
     const offset = getOffset(page, limit);
     const qb = this.repo
       .createQueryBuilder("tc")
@@ -31,6 +31,23 @@ class TestCaseRepository {
     if (status) {
       qb.andWhere("tc.status = :status", { status });
     }
+    if (runStatus === "not_run") {
+      qb.andWhere(
+        "NOT EXISTS (SELECT 1 FROM test_run_results trr WHERE trr.test_case_id = tc.id)"
+      );
+    } else if (runStatus === "pending") {
+      qb.andWhere(
+        `EXISTS (SELECT 1 FROM test_run_results trr WHERE trr.test_case_id = tc.id)
+         AND (SELECT trr2.status FROM test_run_results trr2 WHERE trr2.test_case_id = tc.id
+              ORDER BY trr2.executed_at DESC NULLS LAST, trr2.id DESC LIMIT 1) IS NULL`
+      );
+    } else if (runStatus) {
+      qb.andWhere(
+        `(SELECT trr.status FROM test_run_results trr WHERE trr.test_case_id = tc.id
+          ORDER BY trr.executed_at DESC NULLS LAST, trr.id DESC LIMIT 1) = :runStatus`,
+        { runStatus }
+      );
+    }
     if (assigneeId) {
       // Restrict to cases this user is assigned to (separate exists subquery so the
       // selected assignee list still includes all assignees).
@@ -45,12 +62,34 @@ class TestCaseRepository {
 
     if (data.length > 0) {
       const ds = this.repo.manager.connection;
-      const counts = await ds.query(
-        `SELECT test_case_id, COUNT(*)::int AS count FROM test_case_attachments WHERE test_case_id = ANY($1::uuid[]) GROUP BY test_case_id`,
-        [data.map((tc) => tc.id)]
-      );
+      const ids = data.map((tc) => tc.id);
+
+      const [counts, latestStatuses] = await Promise.all([
+        ds.query(
+          `SELECT test_case_id, COUNT(*)::int AS count FROM test_case_attachments WHERE test_case_id = ANY($1::uuid[]) GROUP BY test_case_id`,
+          [ids]
+        ),
+        ds.query(
+          `SELECT DISTINCT ON (test_case_id) test_case_id, status
+           FROM test_run_results
+           WHERE test_case_id = ANY($1::uuid[])
+           ORDER BY test_case_id, executed_at DESC NULLS LAST, id DESC`,
+          [ids]
+        ),
+      ]);
+
       const countMap = new Map(counts.map((r) => [r.test_case_id, r.count]));
-      data.forEach((tc) => { tc.attachmentCount = countMap.get(tc.id) ?? 0; });
+      // statusMap value: null = pending (in run, not executed). Missing key = never run.
+      const statusMap = new Map(latestStatuses.map((r) => [r.test_case_id, r.status]));
+
+      data.forEach((tc) => {
+        tc.attachmentCount = countMap.get(tc.id) ?? 0;
+        if (!statusMap.has(tc.id)) {
+          tc.latestResultStatus = null; // never been in any run
+        } else {
+          tc.latestResultStatus = statusMap.get(tc.id) ?? "pending"; // null status → "pending"
+        }
+      });
     }
 
     return { data, meta: buildMeta(page, limit, total, data.length) };

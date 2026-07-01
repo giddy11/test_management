@@ -26,12 +26,12 @@ import { ImportCasesDialog } from "@/components/testmgmt/ImportCasesDialog"
 import { AssignDialog } from "@/components/testmgmt/AssignDialog"
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog"
 import { InlineLoader } from "@/components/shared/PageLoader"
-import { PriorityBadge, CaseStatusBadge } from "@/components/shared/StatusBadge"
+import { PriorityBadge, CaseStatusBadge, ResultBadge } from "@/components/shared/StatusBadge"
 import { useSuite } from "@/hooks/useSuites"
 import { useCases, useDeleteCase, useBulkDeleteCases } from "@/hooks/useCases"
 import { useAuth } from "@/contexts/AuthContext"
 import { UserRole } from "@/types/auth.types"
-import { TC_PRIORITIES, TC_STATUSES, type TcPriority, type TcStatus } from "@/lib/enums"
+import { TC_PRIORITIES, TC_STATUSES, RESULT_STATUSES, RESULT_META, type TcPriority, type TcStatus, type ResultStatus } from "@/lib/enums"
 import type { TestCase } from "@/types/testMgmt.types"
 
 export default function SuiteDetailPage() {
@@ -47,6 +47,7 @@ export default function SuiteDetailPage() {
   const [search, setSearch] = useState("")
   const [priority, setPriority] = useState<TcPriority | undefined>()
   const [status, setStatus] = useState<TcStatus | undefined>()
+  const [runStatus, setRunStatus] = useState<string | undefined>()
   const [page, setPage] = useState(1)
 
   // debounce the search box
@@ -58,7 +59,7 @@ export default function SuiteDetailPage() {
     return () => clearTimeout(t)
   }, [searchInput])
 
-  const { data, isLoading } = useCases(suiteId, { page, search: search || undefined, priority, status })
+  const { data, isLoading } = useCases(suiteId, { page, search: search || undefined, priority, status, runStatus })
   const cases = data?.data ?? []
   const meta = data?.meta
 
@@ -67,7 +68,7 @@ export default function SuiteDetailPage() {
 
   // selection (per page)
   const [selected, setSelected] = useState<Set<string>>(new Set())
-  useEffect(() => setSelected(new Set()), [page, search, priority, status])
+  useEffect(() => setSelected(new Set()), [page, search, priority, status, runStatus])
 
   const [formOpen, setFormOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
@@ -140,6 +141,17 @@ export default function SuiteDetailPage() {
             {TC_STATUSES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
           </SelectContent>
         </Select>
+        <Select value={runStatus ?? "all"} onValueChange={(v) => { setRunStatus(filterValue(v)); setPage(1) }}>
+          <SelectTrigger className="sm:w-[175px]"><SelectValue placeholder="Run result" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All run results</SelectItem>
+            <SelectItem value="not_run">Not run</SelectItem>
+            <SelectItem value="pending">Pending</SelectItem>
+            {RESULT_STATUSES.map((s) => (
+              <SelectItem key={s} value={s}>{RESULT_META[s].label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         {canManage && selected.size > 0 && (
           <div className="flex gap-2 sm:ml-auto">
             <Button variant="outline" onClick={() => setBulkAssignOpen(true)}>
@@ -168,6 +180,7 @@ export default function SuiteDetailPage() {
               <TableHead>Title</TableHead>
               <TableHead>Priority</TableHead>
               <TableHead>Status</TableHead>
+              <TableHead>Run Result</TableHead>
               <TableHead>Assigned</TableHead>
               <TableHead>Deadline</TableHead>
               <TableHead>Tags</TableHead>
@@ -176,10 +189,10 @@ export default function SuiteDetailPage() {
           </TableHeader>
           <TableBody>
             {isLoading && (
-              <TableRow><TableCell colSpan={canManage ? 8 : 7} className="h-24"><InlineLoader /></TableCell></TableRow>
+              <TableRow><TableCell colSpan={canManage ? 9 : 8} className="h-24"><InlineLoader /></TableCell></TableRow>
             )}
             {!isLoading && cases.length === 0 && (
-              <TableRow><TableCell colSpan={canManage ? 8 : 7} className="h-24 text-center text-muted-foreground">No test cases match.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={canManage ? 9 : 8} className="h-24 text-center text-muted-foreground">No test cases match.</TableCell></TableRow>
             )}
             {cases.map((tc) => (
               <TableRow
@@ -225,6 +238,13 @@ export default function SuiteDetailPage() {
                 </TableCell>
                 <TableCell><PriorityBadge value={tc.priority} /></TableCell>
                 <TableCell><CaseStatusBadge value={tc.status} /></TableCell>
+                <TableCell>
+                  {tc.latestResultStatus === null ? (
+                    <span className="text-xs text-muted-foreground">Not run</span>
+                  ) : (
+                    <ResultBadge value={tc.latestResultStatus === "pending" ? null : tc.latestResultStatus as ResultStatus} />
+                  )}
+                </TableCell>
                 <TableCell>
                   {tc.assignees.length === 0 ? (
                     <span className="text-muted-foreground">—</span>
