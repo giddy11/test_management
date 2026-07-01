@@ -51,10 +51,10 @@ export function ResultDonut({ breakdown }: { breakdown: DashboardOverview["resul
           </Pie>
           <Tooltip
             contentStyle={tooltipStyle}
-            formatter={(value: number, name: string) => [
-              `${value} (${Math.round((value / breakdown.total) * 100)}%)`,
-              name,
-            ]}
+            formatter={(value, name) => {
+              const n = Number(value)
+              return [`${n} (${breakdown.total > 0 ? Math.round((n / breakdown.total) * 100) : 0}%)`, String(name)]
+            }}
           />
         </PieChart>
       </ResponsiveContainer>
