@@ -24,11 +24,16 @@ const BAR_PALETTE = ["#6366f1", "#0ea5e9", "#22c55e", "#f59e0b", "#ef4444", "#a8
 
 const RESULT_KEYS = ["pass", "fail", "blocked", "skipped", "pending"] as const
 
-// Donut of run result outcomes with a legend showing counts.
+// Donut of run result outcomes with a legend showing counts for all categories.
 export function ResultDonut({ breakdown }: { breakdown: DashboardOverview["resultBreakdown"] }) {
-  const segments = RESULT_KEYS
-    .map((k) => ({ key: k, name: RESULT_META[k].label, value: breakdown[k], color: RESULT_META[k].color }))
-    .filter((d) => d.value > 0)
+  // Always include all segments — recharts simply won't draw a 0-value arc,
+  // but having them in the data keeps the tooltip and colours consistent.
+  const segments = RESULT_KEYS.map((k) => ({
+    key: k,
+    name: RESULT_META[k].label,
+    value: breakdown[k],
+    color: RESULT_META[k].color,
+  }))
 
   if (breakdown.total === 0) {
     return <EmptyChart label="No results recorded yet" />
@@ -59,8 +64,8 @@ export function ResultDonut({ breakdown }: { breakdown: DashboardOverview["resul
         </PieChart>
       </ResponsiveContainer>
 
-      {/* Legend */}
-      <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 px-1 sm:grid-cols-3">
+      {/* Legend — shows all 5 categories so users can see what's counted */}
+      <div className="grid grid-cols-2 gap-x-4 gap-y-2 px-1 sm:grid-cols-3">
         {RESULT_KEYS.map((k) => {
           const count = breakdown[k]
           const pct = breakdown.total > 0 ? Math.round((count / breakdown.total) * 100) : 0
@@ -71,8 +76,8 @@ export function ResultDonut({ breakdown }: { breakdown: DashboardOverview["resul
                 style={{ backgroundColor: RESULT_META[k].color }}
               />
               <span className="text-muted-foreground">{RESULT_META[k].label}</span>
-              <span className="ml-auto font-medium tabular-nums">
-                {count > 0 ? `${count} (${pct}%)` : "—"}
+              <span className="ml-auto font-medium tabular-nums text-foreground">
+                {count} <span className="text-muted-foreground">({pct}%)</span>
               </span>
             </div>
           )
