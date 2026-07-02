@@ -75,7 +75,7 @@ export function SuiteFormDialog({ open, onOpenChange, projectId, editing }: Prop
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={pending}>
+            <Button type="submit" disabled={pending} data-tour="create-suite-submit-btn">
               {pending ? "Saving…" : isEdit ? "Save changes" : "Create suite"}
             </Button>
           </DialogFooter>

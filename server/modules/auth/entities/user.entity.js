@@ -39,6 +39,11 @@ const User = new EntitySchema({
       type: "boolean",
       default: false,
     },
+    onboardingCompleted: {
+      name: "onboarding_completed",
+      type: "boolean",
+      default: false,
+    },
     // Groups all members of one company. Set to a fresh id when an admin registers;
     // members the admin creates inherit the admin's organizationId.
     organizationId: {

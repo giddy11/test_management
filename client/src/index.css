@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+@import "driver.js/dist/driver.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -102,4 +103,48 @@
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* ─── Onboarding tour (driver.js) — themed to match shadcn tokens ─────────── */
+.driver-popover.tm-onboarding-popover {
+  background: var(--popover);
+  color: var(--popover-foreground);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+.driver-popover.tm-onboarding-popover .driver-popover-title {
+  color: var(--popover-foreground);
+}
+.driver-popover.tm-onboarding-popover .driver-popover-description {
+  color: var(--muted-foreground);
+}
+.driver-popover.tm-onboarding-popover .driver-popover-footer-btn {
+  background: var(--primary);
+  color: var(--primary-foreground);
+  border: none;
+  border-radius: var(--radius-md);
+}
+.driver-popover.tm-onboarding-popover .driver-popover-footer-btn:hover,
+.driver-popover.tm-onboarding-popover .driver-popover-footer-btn:focus {
+  background: var(--primary);
+  opacity: 0.9;
+}
+.driver-popover.tm-onboarding-popover .driver-popover-close-btn {
+  color: var(--muted-foreground);
+}
+.driver-popover.tm-onboarding-popover .driver-popover-close-btn:hover,
+.driver-popover.tm-onboarding-popover .driver-popover-close-btn:focus {
+  color: var(--popover-foreground);
+}
+.driver-popover.tm-onboarding-popover .driver-popover-arrow-side-left.driver-popover-arrow {
+  border-left-color: var(--popover);
+}
+.driver-popover.tm-onboarding-popover .driver-popover-arrow-side-right.driver-popover-arrow {
+  border-right-color: var(--popover);
+}
+.driver-popover.tm-onboarding-popover .driver-popover-arrow-side-top.driver-popover-arrow {
+  border-top-color: var(--popover);
+}
+.driver-popover.tm-onboarding-popover .driver-popover-arrow-side-bottom.driver-popover-arrow {
+  border-bottom-color: var(--popover);
 }

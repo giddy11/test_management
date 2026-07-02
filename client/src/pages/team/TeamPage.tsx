@@ -60,7 +60,7 @@ export default function TeamPage() {
           <h1 className="text-2xl font-semibold tracking-tight">Team</h1>
           <p className="text-sm text-muted-foreground">Manage users in your organisation.</p>
         </div>
-        <Button onClick={openAdd} className="w-full sm:w-auto">
+        <Button onClick={openAdd} className="w-full sm:w-auto" data-tour="add-user-btn">
           <Plus className="mr-1 size-4" /> Add user
         </Button>
       </div>

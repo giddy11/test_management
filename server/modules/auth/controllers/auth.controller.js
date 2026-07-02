@@ -120,6 +120,18 @@ class AuthController {
     }
   }
 
+  static async updateOnboarding(req, res, next) {
+    try {
+      const user = await AuthService.Instance.setOnboardingStatus(
+        req.user.id,
+        req.validated.body.completed
+      );
+      res.status(200).json(ApiResponse.ok("Onboarding status updated", toUserResponse(user)));
+    } catch (err) {
+      next(err);
+    }
+  }
+
   static async me(req, res, next) {
     try {
       const user = await AuthService.Instance.authRepo.findUserById(req.user.id);

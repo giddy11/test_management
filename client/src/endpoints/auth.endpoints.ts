@@ -41,4 +41,7 @@ export const AuthEndpoints = {
 
   updateProfile: (payload: UpdateProfilePayload) =>
     wrapCall<User>("PATCH", "/api/v1/auth/profile", payload as unknown as Record<string, unknown>),
+
+  updateOnboarding: (completed: boolean) =>
+    wrapCall<User>("PATCH", "/api/v1/auth/onboarding", { completed }),
 }

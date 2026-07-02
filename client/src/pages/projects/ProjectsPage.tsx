@@ -52,7 +52,7 @@ export default function ProjectsPage() {
           <p className="text-sm text-muted-foreground">Group your test suites and runs by project.</p>
         </div>
         {canManage && (
-          <Button onClick={openCreate} className="w-full sm:w-auto">
+          <Button onClick={openCreate} className="w-full sm:w-auto" data-tour="new-project-btn">
             <Plus className="mr-1 size-4" /> New project
           </Button>
         )}

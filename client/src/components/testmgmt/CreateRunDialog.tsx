@@ -49,9 +49,10 @@ export function CreateRunDialog({ open, onOpenChange, projectId }: Props) {
   useEffect(() => {
     if (open) {
       const stamp = new Date().toLocaleDateString()
-      reset({ name: `Test run — ${stamp}`, suiteId: "" })
+      // Pre-select the suite when it's the only option — one less click.
+      reset({ name: `Test run — ${stamp}`, suiteId: suites.length === 1 ? suites[0].id : "" })
     }
-  }, [open, reset])
+  }, [open, reset, suites])
 
   const suiteId = watch("suiteId")
 
@@ -96,7 +97,7 @@ export function CreateRunDialog({ open, onOpenChange, projectId }: Props) {
           </div>
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button type="submit" disabled={create.isPending || !suites.length}>
+            <Button type="submit" disabled={create.isPending || !suites.length} data-tour="create-run-submit-btn">
               {create.isPending ? "Starting…" : "Start run"}
             </Button>
           </DialogFooter>

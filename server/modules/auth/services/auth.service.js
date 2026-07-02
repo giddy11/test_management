@@ -244,6 +244,13 @@ class AuthService {
     return this.authRepo.updateUser(actorId, patch);
   }
 
+  // ── Onboarding tour status ────────────────────────────────────────────────────
+  async setOnboardingStatus(actorId, completed) {
+    const user = await this.authRepo.findUserById(actorId);
+    if (!user) throw new AppError("Account not found", 404);
+    return this.authRepo.updateUser(actorId, { onboardingCompleted: completed });
+  }
+
   // ── Google Sign In ─────────────────────────────────────────────────────────────
   async google({ idToken }) {
     if (!this.googleClient) {

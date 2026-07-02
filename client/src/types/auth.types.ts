@@ -16,6 +16,7 @@ export interface User {
   companyName: string | null
   email: string
   isEmailVerified: boolean
+  onboardingCompleted: boolean
   role: UserRole
   provider: string
   avatarUrl: string | null

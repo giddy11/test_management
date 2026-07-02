@@ -29,7 +29,7 @@ export function RunsTab({ projectId, canManage }: { projectId: string; canManage
   return (
     <div className="space-y-4">
       <div className="flex justify-end">
-        <Button size="sm" onClick={() => setCreateOpen(true)}>
+        <Button size="sm" onClick={() => setCreateOpen(true)} data-tour="start-run-btn">
           <Play className="mr-1 size-4" /> Start run
         </Button>
       </div>

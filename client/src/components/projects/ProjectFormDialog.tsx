@@ -89,7 +89,7 @@ export function ProjectFormDialog({ open, onOpenChange, editing }: Props) {
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={pending}>
+            <Button type="submit" disabled={pending} data-tour="create-project-submit-btn">
               {pending ? "Saving…" : isEdit ? "Save changes" : "Create project"}
             </Button>
           </DialogFooter>

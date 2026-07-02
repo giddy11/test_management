@@ -11,6 +11,7 @@ function toUserResponse(user) {
     companyName: user.companyName ?? null,
     email: user.email,
     isEmailVerified: user.isEmailVerified ?? false,
+    onboardingCompleted: user.onboardingCompleted ?? false,
     role: user.role,
     provider: user.provider,
     organizationId: user.organizationId ?? null,

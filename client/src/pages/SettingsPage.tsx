@@ -2,7 +2,8 @@ import { useState } from "react"
 import { useForm } from "react-hook-form"
 import { toast } from "sonner"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
-import { User, Lock } from "lucide-react"
+import { useNavigate } from "react-router-dom"
+import { User, Lock, LifeBuoy } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -12,7 +13,11 @@ import { Separator } from "@/components/ui/separator"
 import { AuthEndpoints } from "@/endpoints/auth.endpoints"
 import { ApiError } from "@/transport/http"
 import { useAuth } from "@/contexts/AuthContext"
-import type { ChangePasswordPayload, UpdateProfilePayload } from "@/types/auth.types"
+import { useGuideTour } from "@/hooks/useGuideTour"
+import { useUpdateOnboardingStatus } from "@/hooks/useOnboarding"
+import { useProjects } from "@/hooks/useProjects"
+import { ALL_GUIDES, DASHBOARD_GUIDE, SUITES_AND_RUNS_GUIDE, type TourGuide } from "@/lib/tourGuides"
+import { UserRole, type ChangePasswordPayload, type UpdateProfilePayload } from "@/types/auth.types"
 
 // ── Profile tab ───────────────────────────────────────────────────────────────
 
@@ -249,9 +254,64 @@ function SecurityTab() {
   )
 }
 
+// ── Help tab ──────────────────────────────────────────────────────────────────
+
+function HelpTab() {
+  const { user } = useAuth()
+  const navigate = useNavigate()
+  const updateStatus = useUpdateOnboardingStatus()
+  const { startTour } = useGuideTour()
+  const { data: projectsData } = useProjects({ page: 1, limit: 1 })
+  const hasProject = (projectsData?.data.length ?? 0) > 0
+
+  const guides = ALL_GUIDES.filter((g) => !g.roles || (user && g.roles.includes(user.role)))
+
+  const handleStart = (guide: TourGuide) => {
+    const onComplete = guide.id === DASHBOARD_GUIDE.id ? () => updateStatus.mutate(true) : undefined
+    if (guide.id === SUITES_AND_RUNS_GUIDE.id) {
+      const first = projectsData?.data[0]
+      if (!first) {
+        toast.error("Create a project first")
+        return
+      }
+      navigate(`/projects/${first.id}`)
+    }
+    startTour(guide, onComplete)
+  }
+
+  return (
+    <div className="grid gap-4 sm:grid-cols-2">
+      {guides.map((guide) => {
+        const disabled = guide.id === SUITES_AND_RUNS_GUIDE.id && !hasProject
+        return (
+          <Card key={guide.id}>
+            <CardHeader className="flex flex-row items-start gap-3 space-y-0">
+              <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <guide.icon className="size-4.5" />
+              </div>
+              <div>
+                <CardTitle className="text-base">{guide.title}</CardTitle>
+                <CardDescription>{guide.description}</CardDescription>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <Button onClick={() => handleStart(guide)} disabled={disabled} variant="outline">
+                {disabled ? "Create a project first" : "Start"}
+              </Button>
+            </CardContent>
+          </Card>
+        )
+      })}
+    </div>
+  )
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function SettingsPage() {
+  const { user } = useAuth()
+  const isAdmin = user?.role === UserRole.ADMIN || user?.role === UserRole.SUPERADMIN
+
   return (
     <div className="space-y-6">
       <div>
@@ -271,6 +331,12 @@ export default function SettingsPage() {
             <Lock className="size-3.5" />
             Security
           </TabsTrigger>
+          {isAdmin && (
+            <TabsTrigger value="help" className="gap-1.5">
+              <LifeBuoy className="size-3.5" />
+              Help
+            </TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent value="profile" className="mt-4">
@@ -280,6 +346,12 @@ export default function SettingsPage() {
         <TabsContent value="security" className="mt-4">
           <SecurityTab />
         </TabsContent>
+
+        {isAdmin && (
+          <TabsContent value="help" className="mt-4">
+            <HelpTab />
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   )

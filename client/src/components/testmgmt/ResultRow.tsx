@@ -101,22 +101,24 @@ export function ResultRow({ runId, result, caseTitle, projectId, suiteId, disabl
 
         {/* Right: action buttons */}
         <div className="flex flex-wrap gap-1.5 shrink-0">
-          {RESULT_STATUSES.map((s) => {
-            const active = result.status === s
-            return (
-              <Button
-                key={s}
-                size="sm"
-                variant="outline"
-                disabled={disabled || record.isPending}
-                onClick={() => setStatus(s)}
-                className={cn("h-7", active && "border-transparent text-white")}
-                style={active ? { backgroundColor: RESULT_META[s].color } : undefined}
-              >
-                {RESULT_META[s].label}
-              </Button>
-            )
-          })}
+          <div className="flex flex-wrap gap-1.5" data-tour="result-status-btns">
+            {RESULT_STATUSES.map((s) => {
+              const active = result.status === s
+              return (
+                <Button
+                  key={s}
+                  size="sm"
+                  variant="outline"
+                  disabled={disabled || record.isPending}
+                  onClick={() => setStatus(s)}
+                  className={cn("h-7", active && "border-transparent text-white")}
+                  style={active ? { backgroundColor: RESULT_META[s].color } : undefined}
+                >
+                  {RESULT_META[s].label}
+                </Button>
+              )
+            })}
+          </div>
           <Button size="sm" variant="ghost" className="h-7" onClick={() => setNotesOpen((o) => !o)}>
             {result.notes ? "Note ✓" : "Note"}
           </Button>

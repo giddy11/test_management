@@ -88,6 +88,12 @@ const updateProfileSchema = z.object({
     }),
 });
 
+const updateOnboardingSchema = z.object({
+  body: z.object({
+    completed: z.boolean(),
+  }),
+});
+
 module.exports = {
   registerSchema,
   loginSchema,
@@ -100,4 +106,5 @@ module.exports = {
   resetPasswordSchema,
   changePasswordSchema,
   updateProfileSchema,
+  updateOnboardingSchema,
 };

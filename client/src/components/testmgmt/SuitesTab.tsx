@@ -31,7 +31,7 @@ export function SuitesTab({
     <div className="space-y-4">
       <div className="flex justify-end">
         {canManage && (
-          <Button size="sm" onClick={() => { setEditing(null); setFormOpen(true) }}>
+          <Button size="sm" onClick={() => { setEditing(null); setFormOpen(true) }} data-tour="new-suite-btn">
             <Plus className="mr-1 size-4" /> New suite
           </Button>
         )}

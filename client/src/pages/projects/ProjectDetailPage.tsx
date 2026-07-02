@@ -42,7 +42,7 @@ export default function ProjectDetailPage() {
       <Tabs defaultValue="suites">
         <TabsList>
           <TabsTrigger value="suites">Test Suites</TabsTrigger>
-          <TabsTrigger value="runs">Test Runs</TabsTrigger>
+          <TabsTrigger value="runs" data-tour="runs-tab-trigger">Test Runs</TabsTrigger>
         </TabsList>
         <TabsContent value="suites" className="mt-4">
           <SuitesTab projectId={projectId} canManage={canManage} breakdown={breakdownMap} />

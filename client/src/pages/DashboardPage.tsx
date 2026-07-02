@@ -19,6 +19,7 @@ import { Badge } from "@/components/ui/badge"
 import { ResultDonut, DistributionBars } from "@/components/dashboard/AnalyticsCharts"
 import { SummaryBar } from "@/components/shared/SummaryBar"
 import { PageLoader } from "@/components/shared/PageLoader"
+import { OnboardingTour } from "@/components/onboarding/OnboardingTour"
 import { useDashboard } from "@/hooks/useDashboard"
 import { useAuth } from "@/contexts/AuthContext"
 import type { LucideIcon } from "lucide-react"
@@ -68,8 +69,10 @@ export default function DashboardPage() {
 
       {data && (
         <>
+          <OnboardingTour />
+
           {/* Totals */}
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4" data-tour="stat-cards">
             <StatCard icon={FolderKanban} label="Projects" value={data.totals.projects} />
             <StatCard icon={Layers} label="Test suites" value={data.totals.suites} />
             <StatCard icon={ClipboardList} label="Test cases" value={data.totals.cases} />

@@ -61,7 +61,7 @@ export function AppSidebar() {
             <SidebarMenu>
               {items.map((item) => (
                 <SidebarMenuItem key={item.to}>
-                  <NavLink to={item.to}>
+                  <NavLink to={item.to} data-tour={item.tourId}>
                     {({ isActive }) => (
                       <SidebarMenuButton tooltip={item.title} isActive={isActive}>
                         <item.icon />
@@ -80,7 +80,7 @@ export function AppSidebar() {
             <SidebarMenu>
               {bottomItems.map((item) => (
                 <SidebarMenuItem key={item.to}>
-                  <NavLink to={item.to}>
+                  <NavLink to={item.to} data-tour={item.tourId}>
                     {({ isActive }) => (
                       <SidebarMenuButton tooltip={item.title} isActive={isActive}>
                         <item.icon />
