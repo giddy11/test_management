@@ -60,39 +60,59 @@ class TestCaseRepository {
     const total = page === 1 ? await qb.getCount() : 0;
     const data = await qb.getMany();
 
-    if (data.length > 0) {
-      const ds = this.repo.manager.connection;
-      const ids = data.map((tc) => tc.id);
-
-      const [counts, latestStatuses] = await Promise.all([
-        ds.query(
-          `SELECT test_case_id, COUNT(*)::int AS count FROM test_case_attachments WHERE test_case_id = ANY($1::uuid[]) GROUP BY test_case_id`,
-          [ids]
-        ),
-        ds.query(
-          `SELECT DISTINCT ON (test_case_id) test_case_id, status
-           FROM test_run_results
-           WHERE test_case_id = ANY($1::uuid[])
-           ORDER BY test_case_id, executed_at DESC NULLS LAST, id DESC`,
-          [ids]
-        ),
-      ]);
-
-      const countMap = new Map(counts.map((r) => [r.test_case_id, r.count]));
-      // statusMap value: null = pending (in run, not executed). Missing key = never run.
-      const statusMap = new Map(latestStatuses.map((r) => [r.test_case_id, r.status]));
-
-      data.forEach((tc) => {
-        tc.attachmentCount = countMap.get(tc.id) ?? 0;
-        if (!statusMap.has(tc.id)) {
-          tc.latestResultStatus = null; // never been in any run
-        } else {
-          tc.latestResultStatus = statusMap.get(tc.id) ?? "pending"; // null status → "pending"
-        }
-      });
-    }
+    await this._attachComputed(data);
 
     return { data, meta: buildMeta(page, limit, total, data.length) };
+  }
+
+  // Attachment counts + latest run-result status, batched across all given cases.
+  // Shared by fetchPaginated() and findAllForExport() to avoid duplicating the queries.
+  async _attachComputed(data) {
+    if (data.length === 0) return;
+    const ds = this.repo.manager.connection;
+    const ids = data.map((tc) => tc.id);
+
+    const [counts, latestStatuses] = await Promise.all([
+      ds.query(
+        `SELECT test_case_id, COUNT(*)::int AS count FROM test_case_attachments WHERE test_case_id = ANY($1::uuid[]) GROUP BY test_case_id`,
+        [ids]
+      ),
+      ds.query(
+        `SELECT DISTINCT ON (test_case_id) test_case_id, status
+         FROM test_run_results
+         WHERE test_case_id = ANY($1::uuid[])
+         ORDER BY test_case_id, executed_at DESC NULLS LAST, id DESC`,
+        [ids]
+      ),
+    ]);
+
+    const countMap = new Map(counts.map((r) => [r.test_case_id, r.count]));
+    // statusMap value: null = pending (in run, not executed). Missing key = never run.
+    const statusMap = new Map(latestStatuses.map((r) => [r.test_case_id, r.status]));
+
+    data.forEach((tc) => {
+      tc.attachmentCount = countMap.get(tc.id) ?? 0;
+      if (!statusMap.has(tc.id)) {
+        tc.latestResultStatus = null; // never been in any run
+      } else {
+        tc.latestResultStatus = statusMap.get(tc.id) ?? "pending"; // null status → "pending"
+      }
+    });
+  }
+
+  // Unbounded — all non-deleted cases in a suite, with assignees + computed fields.
+  // Used only by export, which is a one-shot bulk read, not a list endpoint.
+  async findAllForExport(suiteId) {
+    const data = await this.repo
+      .createQueryBuilder("tc")
+      .leftJoinAndSelect("tc.assignees", "assignee")
+      .where("tc.suite_id = :suiteId", { suiteId })
+      .andWhere("tc.deleted_at IS NULL")
+      .orderBy("tc.createdAt", "ASC")
+      .getMany();
+
+    await this._attachComputed(data);
+    return data;
   }
 
   async findById(id) {

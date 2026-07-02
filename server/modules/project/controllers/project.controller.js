@@ -1,5 +1,6 @@
 // modules/project/controllers/project.controller.js
 const { ProjectService } = require("../services/project.service");
+const { TestCaseExportService } = require("../../testCase/services/testCaseExport.service");
 const { ApiResponse } = require("../../../shared/response/apiResponse");
 const { toProjectResponse } = require("../dto/project.dto");
 
@@ -58,6 +59,24 @@ class ProjectController {
         req.validated.body
       );
       res.status(200).json(ApiResponse.ok("Project updated", toProjectResponse(project)));
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  // GET /projects/:id/export — streams every suite in the project as one .xlsx, one sheet per suite.
+  static async exportProject(req, res, next) {
+    try {
+      const { buffer, filename } = await TestCaseExportService.Instance.exportProject(
+        req.user,
+        req.validated.params.id
+      );
+      res.setHeader(
+        "Content-Type",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      );
+      res.setHeader("Content-Disposition", `attachment; filename=${filename}`);
+      res.status(200).send(Buffer.from(buffer));
     } catch (err) {
       next(err);
     }

@@ -16,6 +16,8 @@ import ProjectDetailPage from "@/pages/projects/ProjectDetailPage"
 import SuiteDetailPage from "@/pages/projects/SuiteDetailPage"
 import TestCaseDetailPage from "@/pages/projects/TestCaseDetailPage"
 import RunDetailPage from "@/pages/projects/RunDetailPage"
+import FeatureRequestsPage from "@/pages/featureRequests/FeatureRequestsPage"
+import FeatureRequestDetailPage from "@/pages/featureRequests/FeatureRequestDetailPage"
 import PlaceholderPage from "@/pages/PlaceholderPage"
 import SettingsPage from "@/pages/SettingsPage"
 import { UserRole } from "@/types/auth.types"
@@ -45,6 +47,8 @@ export default function App() {
                 <Route path="/projects/:projectId/suites/:suiteId" element={<SuiteDetailPage />} />
                 <Route path="/projects/:projectId/suites/:suiteId/cases/:caseId" element={<TestCaseDetailPage />} />
                 <Route path="/projects/:projectId/runs/:runId" element={<RunDetailPage />} />
+                <Route path="/feature-requests" element={<FeatureRequestsPage />} />
+                <Route path="/feature-requests/:id" element={<FeatureRequestDetailPage />} />
                 <Route path="/settings" element={<SettingsPage />} />
               </Route>
 

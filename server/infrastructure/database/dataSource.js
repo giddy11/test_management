@@ -23,6 +23,15 @@ const {
 const {
   ActivityLog,
 } = require("../../modules/activity/entities/activityLog.entity");
+const {
+  FeatureRequest,
+} = require("../../modules/featureRequest/entities/featureRequest.entity");
+const {
+  FeatureRequestVote,
+} = require("../../modules/featureRequest/entities/featureRequestVote.entity");
+const {
+  FeatureRequestComment,
+} = require("../../modules/featureRequest/entities/featureRequestComment.entity");
 
 const AppDataSource = new DataSource({
   type: "postgres",
@@ -47,6 +56,9 @@ const AppDataSource = new DataSource({
     TestRunResult,
     Notification,
     ActivityLog,
+    FeatureRequest,
+    FeatureRequestVote,
+    FeatureRequestComment,
   ],
   migrations: ["infrastructure/database/migrations/*.js"],
 });

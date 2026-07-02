@@ -45,7 +45,12 @@ export default function ProjectDetailPage() {
           <TabsTrigger value="runs" data-tour="runs-tab-trigger">Test Runs</TabsTrigger>
         </TabsList>
         <TabsContent value="suites" className="mt-4">
-          <SuitesTab projectId={projectId} canManage={canManage} breakdown={breakdownMap} />
+          <SuitesTab
+            projectId={projectId}
+            projectName={project?.name ?? ""}
+            canManage={canManage}
+            breakdown={breakdownMap}
+          />
         </TabsContent>
         <TabsContent value="runs" className="mt-4">
           <RunsTab projectId={projectId} canManage={canManage} />

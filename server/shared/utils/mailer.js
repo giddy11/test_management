@@ -146,6 +146,53 @@ async function sendWelcomeEmail(to, firstName, password, loginUrl) {
   });
 }
 
+// ── Feature requests ────────────────────────────────────────────────────────────
+async function sendNewFeatureRequestEmail(to, firstName, title, submittedByName, url) {
+  const body = `
+    <h1 style="margin:0 0 12px;font-size:20px;font-weight:700;color:#0f172a">New feature request</h1>
+    <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.65">Hi ${firstName}, ${submittedByName} submitted a new feature request: <strong>${title}</strong>.</p>
+    ${ctaButton(url, "Review request")}`;
+  return send({
+    to,
+    subject: `New feature request — ${title} — TestMate`,
+    html: emailLayout(body),
+    text: `${submittedByName} submitted a new feature request: "${title}".`,
+  });
+}
+
+async function sendFeatureRequestStatusEmail(to, firstName, title, status, adminResponse, url) {
+  const label = status.replace(/_/g, " ");
+  const responseBox = adminResponse
+    ? `<div style="background:#f8fafc;border-left:3px solid #6366f1;border-radius:0 6px 6px 0;padding:14px 16px;margin:0 0 24px">
+        <p style="margin:0;font-size:14px;color:#374151"><strong>Response:</strong> ${adminResponse}</p>
+      </div>`
+    : "";
+  const body = `
+    <h1 style="margin:0 0 12px;font-size:20px;font-weight:700;color:#0f172a">Your feature request was updated</h1>
+    <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.65">Hi ${firstName}, your request <strong>${title}</strong> is now <strong>${label}</strong>.</p>
+    ${responseBox}
+    ${ctaButton(url, "View request")}`;
+  return send({
+    to,
+    subject: `Feature request update — ${title} — TestMate`,
+    html: emailLayout(body),
+    text: `Your feature request "${title}" is now ${label}.${adminResponse ? ` Response: ${adminResponse}` : ""}`,
+  });
+}
+
+async function sendFeatureRequestCommentEmail(to, firstName, title, commenterName, url) {
+  const body = `
+    <h1 style="margin:0 0 12px;font-size:20px;font-weight:700;color:#0f172a">New comment on your feature request</h1>
+    <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.65">Hi ${firstName}, ${commenterName} commented on your feature request <strong>${title}</strong>.</p>
+    ${ctaButton(url, "View comment")}`;
+  return send({
+    to,
+    subject: `New comment — ${title} — TestMate`,
+    html: emailLayout(body),
+    text: `${commenterName} commented on your feature request "${title}".`,
+  });
+}
+
 module.exports = {
   emailLayout,
   verifyTransport,
@@ -154,4 +201,7 @@ module.exports = {
   sendWelcomeEmail,
   sendTestAssignedEmail,
   sendRunCompletedEmail,
+  sendNewFeatureRequestEmail,
+  sendFeatureRequestStatusEmail,
+  sendFeatureRequestCommentEmail,
 };

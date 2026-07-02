@@ -13,6 +13,7 @@ const { ProjectController } = require("../controllers/project.controller");
 
 router.get("/", authMiddleware, validate(fetchProjectsSchema), ProjectController.fetchAll);
 router.get("/:id", authMiddleware, validate(idParamSchema), ProjectController.fetchById);
+router.get("/:id/export", authMiddleware, validate(idParamSchema), ProjectController.exportProject);
 router.post(
   "/",
   authMiddleware,

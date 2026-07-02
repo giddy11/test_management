@@ -1,5 +1,6 @@
 // modules/testSuite/controllers/testSuite.controller.js
 const { TestSuiteService } = require("../services/testSuite.service");
+const { TestCaseExportService } = require("../../testCase/services/testCaseExport.service");
 const { ApiResponse } = require("../../../shared/response/apiResponse");
 const { toTestSuiteResponse } = require("../dto/testSuite.dto");
 
@@ -62,6 +63,24 @@ class TestSuiteController {
       res
         .status(200)
         .json(ApiResponse.ok("Test suite updated", toTestSuiteResponse(suite)));
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  // GET /test-suites/:id/export — streams the suite's test cases as a single-sheet .xlsx.
+  static async exportSuite(req, res, next) {
+    try {
+      const { buffer, filename } = await TestCaseExportService.Instance.exportSuite(
+        req.user,
+        req.validated.params.id
+      );
+      res.setHeader(
+        "Content-Type",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      );
+      res.setHeader("Content-Disposition", `attachment; filename=${filename}`);
+      res.status(200).send(Buffer.from(buffer));
     } catch (err) {
       next(err);
     }

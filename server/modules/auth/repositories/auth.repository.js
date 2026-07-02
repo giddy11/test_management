@@ -36,6 +36,10 @@ class AuthRepository {
     return this.users.findOne({ where: { googleId } });
   }
 
+  async findByRole(role) {
+    return this.users.find({ where: { role } });
+  }
+
   async createUser(data) {
     return this.users.save(this.users.create(data));
   }

@@ -4,9 +4,11 @@ import {
   PRIORITY_BADGE,
   STATUS_BADGE,
   RESULT_META,
+  FEATURE_REQUEST_STATUS_META,
   type TcPriority,
   type TcStatus,
   type ResultStatus,
+  type FeatureRequestStatus,
 } from "@/lib/enums"
 
 export function PriorityBadge({ value }: { value: TcPriority }) {
@@ -19,5 +21,10 @@ export function CaseStatusBadge({ value }: { value: TcStatus }) {
 
 export function ResultBadge({ value }: { value: ResultStatus | null }) {
   const meta = RESULT_META[value ?? "pending"]
+  return <Badge className={cn("border-transparent", meta.badge)}>{meta.label}</Badge>
+}
+
+export function FeatureRequestStatusBadge({ value }: { value: FeatureRequestStatus }) {
+  const meta = FEATURE_REQUEST_STATUS_META[value]
   return <Badge className={cn("border-transparent", meta.badge)}>{meta.label}</Badge>
 }

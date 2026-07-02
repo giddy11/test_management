@@ -44,6 +44,16 @@ class TestSuiteRepository {
     return this.repo.findOne({ where: { id } });
   }
 
+  // Unbounded — all non-deleted suites in a project. Used only by export.
+  async findAllByProject(projectId) {
+    return this.repo
+      .createQueryBuilder("suite")
+      .where("suite.project_id = :projectId", { projectId })
+      .andWhere("suite.deleted_at IS NULL")
+      .orderBy("suite.createdAt", "ASC")
+      .getMany();
+  }
+
   async create(data) {
     return this.repo.save(this.repo.create(data));
   }

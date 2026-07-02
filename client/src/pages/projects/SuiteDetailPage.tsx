@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 import { Link, useNavigate, useParams } from "react-router-dom"
-import { ChevronLeft, Plus, Pencil, Trash2, FileUp, UserPlus, Paperclip } from "lucide-react"
+import { ChevronLeft, Plus, Pencil, Trash2, FileUp, UserPlus, Paperclip, Download } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -29,6 +29,7 @@ import { InlineLoader } from "@/components/shared/PageLoader"
 import { PriorityBadge, CaseStatusBadge, ResultBadge } from "@/components/shared/StatusBadge"
 import { useSuite } from "@/hooks/useSuites"
 import { useCases, useDeleteCase, useBulkDeleteCases } from "@/hooks/useCases"
+import { useExportSuite } from "@/hooks/useExport"
 import { useAuth } from "@/contexts/AuthContext"
 import { UserRole } from "@/types/auth.types"
 import { TC_PRIORITIES, TC_STATUSES, RESULT_STATUSES, RESULT_META, type TcPriority, type TcStatus, type ResultStatus } from "@/lib/enums"
@@ -65,6 +66,13 @@ export default function SuiteDetailPage() {
 
   const del = useDeleteCase()
   const bulkDel = useBulkDeleteCases()
+  const exportSuite = useExportSuite(suiteId, suite?.name ?? "")
+
+  const handleExport = () =>
+    exportSuite.mutate(undefined, {
+      onError: (e) => toast.error(e instanceof Error ? e.message : "Export failed"),
+      onSuccess: () => toast.success("Export downloaded"),
+    })
 
   // selection (per page)
   const [selected, setSelected] = useState<Set<string>>(new Set())
@@ -107,16 +115,23 @@ export default function SuiteDetailPage() {
           </Link>
           <h1 className="text-2xl font-semibold tracking-tight">{suite?.name ?? "Suite"}</h1>
         </div>
-        {canManage && (
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={() => setImportOpen(true)} className="flex-1 sm:flex-none">
-              <FileUp className="mr-1 size-4" /> Import
+        <div className="flex gap-2">
+          {cases.length > 0 && (
+            <Button variant="outline" onClick={handleExport} disabled={exportSuite.isPending} className="flex-1 sm:flex-none">
+              <Download className="mr-1 size-4" /> {exportSuite.isPending ? "Exporting…" : "Export"}
             </Button>
-            <Button onClick={() => { setEditing(null); setFormOpen(true) }} className="flex-1 sm:flex-none">
-              <Plus className="mr-1 size-4" /> New test case
-            </Button>
-          </div>
-        )}
+          )}
+          {canManage && (
+            <>
+              <Button variant="outline" onClick={() => setImportOpen(true)} className="flex-1 sm:flex-none">
+                <FileUp className="mr-1 size-4" /> Import
+              </Button>
+              <Button onClick={() => { setEditing(null); setFormOpen(true) }} className="flex-1 sm:flex-none">
+                <Plus className="mr-1 size-4" /> New test case
+              </Button>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Filters */}

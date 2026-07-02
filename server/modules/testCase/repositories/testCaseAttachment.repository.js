@@ -19,6 +19,16 @@ class TestCaseAttachmentRepository {
       .getMany();
   }
 
+  // Batch fetch across many cases at once — used by export to avoid N+1 queries.
+  async findByTestCaseIds(testCaseIds) {
+    if (!testCaseIds || testCaseIds.length === 0) return [];
+    return this.repo
+      .createQueryBuilder("att")
+      .where("att.test_case_id = ANY(:testCaseIds::uuid[])", { testCaseIds })
+      .orderBy("att.createdAt", "ASC")
+      .getMany();
+  }
+
   async findByRunResult(runResultId) {
     return this.repo
       .createQueryBuilder("att")

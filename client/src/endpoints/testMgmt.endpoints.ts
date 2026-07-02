@@ -95,6 +95,13 @@ export const ImportEndpoints = {
     wrapCall<{ created: number; duplicatesSkipped: number }>("POST", `/api/v1/test-cases/import/${importId}/confirm`),
 }
 
+export const ExportEndpoints = {
+  suite: (suiteId: string, filename: string) =>
+    downloadFile(`/api/v1/test-suites/${suiteId}/export`, filename),
+  project: (projectId: string, filename: string) =>
+    downloadFile(`/api/v1/projects/${projectId}/export`, filename),
+}
+
 export const DashboardEndpoints = {
   overview: (projectId?: string) =>
     wrapCall<DashboardOverview>("GET", "/api/v1/dashboard/overview", projectId ? { projectId } : {}),

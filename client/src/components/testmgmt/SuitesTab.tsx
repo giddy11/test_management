@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { Plus, Pencil, Trash2, Layers, ChevronRight, ClipboardList } from "lucide-react"
+import { Plus, Pencil, Trash2, Layers, ChevronRight, ClipboardList, Download } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -9,27 +9,42 @@ import { SuiteFormDialog } from "@/components/testmgmt/SuiteFormDialog"
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog"
 import { InlineLoader } from "@/components/shared/PageLoader"
 import { useSuites, useDeleteSuite } from "@/hooks/useSuites"
+import { useExportProject } from "@/hooks/useExport"
 import type { SuiteBreakdown, TestSuite } from "@/types/testMgmt.types"
 
 export function SuitesTab({
   projectId,
+  projectName,
   canManage,
   breakdown,
 }: {
   projectId: string
+  projectName: string
   canManage: boolean
   breakdown?: Map<string, SuiteBreakdown>
 }) {
   const navigate = useNavigate()
   const { data: suites = [], isLoading } = useSuites(projectId)
   const del = useDeleteSuite()
+  const exportProject = useExportProject(projectId, projectName)
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<TestSuite | null>(null)
   const [deleting, setDeleting] = useState<TestSuite | null>(null)
 
+  const handleExport = () =>
+    exportProject.mutate(undefined, {
+      onError: (e) => toast.error(e instanceof Error ? e.message : "Export failed"),
+      onSuccess: () => toast.success("Export downloaded"),
+    })
+
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-2">
+        {suites.length > 0 && (
+          <Button size="sm" variant="outline" onClick={handleExport} disabled={exportProject.isPending}>
+            <Download className="mr-1 size-4" /> {exportProject.isPending ? "Exporting…" : "Export all"}
+          </Button>
+        )}
         {canManage && (
           <Button size="sm" onClick={() => { setEditing(null); setFormOpen(true) }} data-tour="new-suite-btn">
             <Plus className="mr-1 size-4" /> New suite

@@ -13,6 +13,7 @@ const { TestSuiteController } = require("../controllers/testSuite.controller");
 
 router.get("/", authMiddleware, validate(fetchTestSuitesSchema), TestSuiteController.fetchAll);
 router.get("/:id", authMiddleware, validate(idParamSchema), TestSuiteController.fetchById);
+router.get("/:id/export", authMiddleware, validate(idParamSchema), TestSuiteController.exportSuite);
 router.post(
   "/",
   authMiddleware,

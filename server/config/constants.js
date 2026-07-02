@@ -45,6 +45,18 @@ const OtpType = Object.freeze({
 const NotificationType = Object.freeze({
   TEST_ASSIGNED: "test_assigned",
   RUN_COMPLETED: "run_completed",
+  FEATURE_REQUEST_STATUS_CHANGED: "feature_request_status_changed",
+  FEATURE_REQUEST_COMMENT: "feature_request_comment",
+  FEATURE_REQUEST_NEW: "feature_request_new",
+});
+
+const FeatureRequestStatus = Object.freeze({
+  NEW: "new",
+  UNDER_REVIEW: "under_review",
+  PLANNED: "planned",
+  IN_PROGRESS: "in_progress",
+  DONE: "done",
+  REJECTED: "rejected",
 });
 
 module.exports = {
@@ -56,6 +68,7 @@ module.exports = {
   AuthProvider,
   OtpType,
   NotificationType,
+  FeatureRequestStatus,
   enums: {
     userRole: Object.values(UserRole),
     testCasePriority: Object.values(TestCasePriority),
@@ -65,5 +78,6 @@ module.exports = {
     authProvider: Object.values(AuthProvider),
     otpType: Object.values(OtpType),
     notificationType: Object.values(NotificationType),
+    featureRequestStatus: Object.values(FeatureRequestStatus),
   },
 };
