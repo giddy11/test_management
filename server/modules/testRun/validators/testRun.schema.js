@@ -34,9 +34,16 @@ const fetchTestRunsSchema = z.object({
   }),
 });
 
+const fetchActiveStatusSchema = z.object({
+  query: z.object({
+    projectId: z.string().uuid(),
+  }),
+});
+
 module.exports = {
   createTestRunSchema,
   updateTestRunSchema,
   idParamSchema,
   fetchTestRunsSchema,
+  fetchActiveStatusSchema,
 };

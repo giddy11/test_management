@@ -24,6 +24,18 @@ class TestRunController {
     }
   }
 
+  static async fetchActiveStatus(req, res, next) {
+    try {
+      const result = await TestRunService.Instance.getActiveRunStatus(
+        req.user,
+        req.validated.query.projectId
+      );
+      res.status(200).json(ApiResponse.ok("Active run status fetched", result));
+    } catch (err) {
+      next(err);
+    }
+  }
+
   static async fetchById(req, res, next) {
     try {
       const { run, summary } = await TestRunService.Instance.getTestRun(

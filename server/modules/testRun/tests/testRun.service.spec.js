@@ -5,6 +5,8 @@ function makeRunRepo() {
   return {
     fetchPaginated: jest.fn(),
     findById: jest.fn(),
+    findActiveByProject: jest.fn().mockResolvedValue([]),
+    findActiveBySuite: jest.fn().mockResolvedValue(null),
     create: jest.fn(),
     update: jest.fn(),
     delete: jest.fn(),
@@ -79,6 +81,55 @@ describe("TestRunService", () => {
         })
       ).rejects.toMatchObject({ statusCode: 400 });
       expect(runRepo.create).not.toHaveBeenCalled();
+    });
+
+    it("throws 409 when the suite already has an in-progress run", async () => {
+      runRepo.findActiveBySuite.mockResolvedValue({ id: "run-existing" });
+      await expect(
+        service.createTestRun(actor, {
+          name: "x",
+          projectId: "proj-1",
+          suiteId: "suite-1",
+        })
+      ).rejects.toMatchObject({ statusCode: 409 });
+      expect(runRepo.create).not.toHaveBeenCalled();
+      expect(runRepo.findActiveBySuite).toHaveBeenCalledWith("suite-1");
+    });
+  });
+
+  describe("fetchTestRuns", () => {
+    it("scopes to the actor's own runs for the 'user' role", async () => {
+      runRepo.fetchPaginated.mockResolvedValue({ data: [], meta: {} });
+      const regularUser = { id: "user-1", role: "user", organizationId: "org-1" };
+      await service.fetchTestRuns(regularUser, { projectId: "proj-1" });
+      expect(runRepo.fetchPaginated).toHaveBeenCalledWith(
+        expect.objectContaining({ projectId: "proj-1", restrictToUserId: "user-1" })
+      );
+    });
+
+    it("does not scope by user for admins", async () => {
+      runRepo.fetchPaginated.mockResolvedValue({ data: [], meta: {} });
+      await service.fetchTestRuns(actor, { projectId: "proj-1" });
+      expect(runRepo.fetchPaginated).toHaveBeenCalledWith(
+        expect.objectContaining({ projectId: "proj-1", restrictToUserId: undefined })
+      );
+    });
+  });
+
+  describe("getActiveRunStatus", () => {
+    it("returns the suite ids that have an in-progress run", async () => {
+      runRepo.findActiveByProject.mockResolvedValue([
+        { id: "run-1", suiteId: "suite-1" },
+        { id: "run-2", suiteId: "suite-2" },
+      ]);
+      const result = await service.getActiveRunStatus(actor, "proj-1");
+      expect(result).toEqual({ activeSuiteIds: ["suite-1", "suite-2"] });
+    });
+
+    it("returns an empty list when no run is in progress", async () => {
+      runRepo.findActiveByProject.mockResolvedValue([]);
+      const result = await service.getActiveRunStatus(actor, "proj-1");
+      expect(result).toEqual({ activeSuiteIds: [] });
     });
   });
 

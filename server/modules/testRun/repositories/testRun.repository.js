@@ -2,6 +2,7 @@
 const { AppDataSource } = require("../../../infrastructure/database/dataSource");
 const { TestRun } = require("../entities/testRun.entity");
 const { buildMeta, getOffset } = require("../../../shared/pagination/paginate");
+const { RunStatus } = require("../../../config/constants");
 
 class TestRunRepository {
   static Instance = new TestRunRepository();
@@ -10,7 +11,7 @@ class TestRunRepository {
     this.repo = AppDataSource.getRepository(TestRun);
   }
 
-  async fetchPaginated({ projectId, page = 1, limit = 20 }) {
+  async fetchPaginated({ projectId, page = 1, limit = 20, restrictToUserId }) {
     const offset = getOffset(page, limit);
     const qb = this.repo
       .createQueryBuilder("run")
@@ -20,6 +21,19 @@ class TestRunRepository {
       .orderBy("run.createdAt", "DESC")
       .skip(offset)
       .take(limit);
+
+    // Non-admin callers only see runs they started or have recorded a result in.
+    if (restrictToUserId) {
+      qb.andWhere(
+        `(run.created_by_id = :restrictToUserId OR EXISTS (
+           SELECT 1 FROM test_run_results res
+           WHERE res.run_id = run.id
+             AND res.executed_by_id = :restrictToUserId
+             AND res.status IS NOT NULL
+         ))`,
+        { restrictToUserId }
+      );
+    }
 
     const total = page === 1 ? await qb.getCount() : 0;
     const data = await qb.getMany();
@@ -53,6 +67,20 @@ class TestRunRepository {
 
   async findById(id) {
     return this.repo.findOne({ where: { id } });
+  }
+
+  async findActiveByProject(projectId) {
+    return this.repo.find({
+      where: { projectId, status: RunStatus.IN_PROGRESS },
+      select: ["id", "suiteId"],
+    });
+  }
+
+  async findActiveBySuite(suiteId) {
+    return this.repo.findOne({
+      where: { suiteId, status: RunStatus.IN_PROGRESS },
+      select: ["id"],
+    });
   }
 
   async create(data) {

@@ -193,6 +193,7 @@ export default function SuiteDetailPage() {
                   />
                 </TableHead>
               )}
+              <TableHead className="w-12">S/N</TableHead>
               <TableHead>Title</TableHead>
               <TableHead>Priority</TableHead>
               <TableHead>Status</TableHead>
@@ -205,12 +206,12 @@ export default function SuiteDetailPage() {
           </TableHeader>
           <TableBody>
             {isLoading && (
-              <TableRow><TableCell colSpan={canManage ? 9 : 8} className="h-24"><InlineLoader /></TableCell></TableRow>
+              <TableRow><TableCell colSpan={canManage ? 10 : 9} className="h-24"><InlineLoader /></TableCell></TableRow>
             )}
             {!isLoading && cases.length === 0 && (
-              <TableRow><TableCell colSpan={canManage ? 9 : 8} className="h-24 text-center text-muted-foreground">No test cases match.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={canManage ? 10 : 9} className="h-24 text-center text-muted-foreground">No test cases match.</TableCell></TableRow>
             )}
-            {cases.map((tc) => (
+            {cases.map((tc, idx) => (
               <TableRow
                 key={tc.id}
                 data-state={selected.has(tc.id) ? "selected" : undefined}
@@ -226,6 +227,9 @@ export default function SuiteDetailPage() {
                     />
                   </TableCell>
                 )}
+                <TableCell className="text-muted-foreground">
+                  {(page - 1) * (meta?.limit ?? 20) + idx + 1}
+                </TableCell>
                 <TableCell>
                   <div className="space-y-0.5">
                     <div className="flex items-center gap-1.5">

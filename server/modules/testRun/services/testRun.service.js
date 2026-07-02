@@ -27,7 +27,16 @@ class TestRunService {
 
   async fetchTestRuns(actor, params) {
     await this.suiteService.projectService.getProject(actor, params.projectId);
-    return this.runRepo.fetchPaginated(params);
+    // Regular users only see runs they started or have recorded a result in.
+    // Admins/superadmins retain full visibility for oversight.
+    const restrictToUserId = actor.role === UserRole.USER ? actor.id : undefined;
+    return this.runRepo.fetchPaginated({ ...params, restrictToUserId });
+  }
+
+  async getActiveRunStatus(actor, projectId) {
+    await this.suiteService.projectService.getProject(actor, projectId);
+    const activeRuns = await this.runRepo.findActiveByProject(projectId);
+    return { activeSuiteIds: activeRuns.map((r) => r.suiteId) };
   }
 
   async getTestRun(actor, id) {
@@ -43,6 +52,15 @@ class TestRunService {
     const suite = await this.suiteService.getTestSuite(actor, data.suiteId);
     if (suite.projectId !== data.projectId) {
       throw new AppError("Suite does not belong to the given project", 400);
+    }
+
+    // Only one run may be in progress per suite at a time (other suites are unaffected).
+    const activeRun = await this.runRepo.findActiveBySuite(data.suiteId);
+    if (activeRun) {
+      throw new AppError(
+        "An ongoing test run already exists for this suite. Complete it before starting a new one.",
+        409
+      );
     }
 
     const run = await this.runRepo.create({

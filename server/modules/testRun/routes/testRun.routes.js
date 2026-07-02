@@ -8,10 +8,17 @@ const {
   updateTestRunSchema,
   idParamSchema,
   fetchTestRunsSchema,
+  fetchActiveStatusSchema,
 } = require("../validators/testRun.schema");
 const { TestRunController } = require("../controllers/testRun.controller");
 
 router.get("/", authMiddleware, validate(fetchTestRunsSchema), TestRunController.fetchAll);
+router.get(
+  "/active-status",
+  authMiddleware,
+  validate(fetchActiveStatusSchema),
+  TestRunController.fetchActiveStatus
+);
 router.get("/:id", authMiddleware, validate(idParamSchema), TestRunController.fetchById);
 router.post(
   "/",

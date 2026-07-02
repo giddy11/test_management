@@ -69,6 +69,8 @@ export const RunEndpoints = {
   fetchAll: (params: { projectId: string; page?: number; limit?: number }) =>
     wrapCall<TestRun[]>("GET", "/api/v1/test-runs", obj(params)),
   fetchById: (id: string) => wrapCall<TestRun>("GET", `/api/v1/test-runs/${id}`),
+  checkActive: (params: { projectId: string }) =>
+    wrapCall<{ activeSuiteIds: string[] }>("GET", "/api/v1/test-runs/active-status", obj(params)),
   create: (payload: CreateRunPayload) => wrapCall<TestRun>("POST", "/api/v1/test-runs", obj(payload)),
   update: (id: string, payload: { name?: string; status?: string }) =>
     wrapCall<TestRun>("PATCH", `/api/v1/test-runs/${id}`, obj(payload)),

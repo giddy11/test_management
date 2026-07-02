@@ -30,9 +30,10 @@ interface Props {
   open: boolean
   onOpenChange: (open: boolean) => void
   projectId: string
+  activeSuiteIds?: string[]
 }
 
-export function CreateRunDialog({ open, onOpenChange, projectId }: Props) {
+export function CreateRunDialog({ open, onOpenChange, projectId, activeSuiteIds = [] }: Props) {
   const navigate = useNavigate()
   const { data: suites = [] } = useSuites(projectId)
   const create = useCreateRun()
@@ -49,12 +50,15 @@ export function CreateRunDialog({ open, onOpenChange, projectId }: Props) {
   useEffect(() => {
     if (open) {
       const stamp = new Date().toLocaleDateString()
-      // Pre-select the suite when it's the only option — one less click.
-      reset({ name: `Test run — ${stamp}`, suiteId: suites.length === 1 ? suites[0].id : "" })
+      // Pre-select the suite when it's the only free option — one less click.
+      const freeSuites = suites.filter((s) => !activeSuiteIds.includes(s.id))
+      reset({ name: `Test run — ${stamp}`, suiteId: freeSuites.length === 1 ? freeSuites[0].id : "" })
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, reset, suites])
 
   const suiteId = watch("suiteId")
+  const suiteBusy = Boolean(suiteId) && activeSuiteIds.includes(suiteId)
 
   const onSubmit = (values: RunForm) => {
     create.mutate(
@@ -89,15 +93,26 @@ export function CreateRunDialog({ open, onOpenChange, projectId }: Props) {
               </SelectTrigger>
               <SelectContent>
                 {suites.map((s) => (
-                  <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                  <SelectItem key={s.id} value={s.id} disabled={activeSuiteIds.includes(s.id)}>
+                    {s.name}{activeSuiteIds.includes(s.id) ? " (run in progress)" : ""}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
             {errors.suiteId && <p className="text-xs text-destructive">{errors.suiteId.message}</p>}
+            {!errors.suiteId && suiteBusy && (
+              <p className="text-xs text-destructive">
+                This suite already has a run in progress. Complete it before starting another.
+              </p>
+            )}
           </div>
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button type="submit" disabled={create.isPending || !suites.length} data-tour="create-run-submit-btn">
+            <Button
+              type="submit"
+              disabled={create.isPending || !suites.length || suiteBusy}
+              data-tour="create-run-submit-btn"
+            >
               {create.isPending ? "Starting…" : "Start run"}
             </Button>
           </DialogFooter>

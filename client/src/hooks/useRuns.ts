@@ -18,6 +18,18 @@ export function useRuns(projectId: string) {
   })
 }
 
+export function useActiveRunStatus(projectId: string) {
+  return useQuery({
+    queryKey: [RUNS, "active-status", projectId],
+    queryFn: async () => {
+      const res = await RunEndpoints.checkActive({ projectId })
+      if (!res.success || !res.data) throw new ApiError(res.message, res.statusCode)
+      return res.data
+    },
+    enabled: Boolean(projectId),
+  })
+}
+
 export function useRun(id: string) {
   return useQuery({
     queryKey: [RUNS, "detail", id],

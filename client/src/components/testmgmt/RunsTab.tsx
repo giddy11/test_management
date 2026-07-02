@@ -5,11 +5,12 @@ import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { SummaryBar } from "@/components/shared/SummaryBar"
 import { CreateRunDialog } from "@/components/testmgmt/CreateRunDialog"
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog"
 import { InlineLoader } from "@/components/shared/PageLoader"
-import { useRuns, useDeleteRun } from "@/hooks/useRuns"
+import { useRuns, useDeleteRun, useActiveRunStatus } from "@/hooks/useRuns"
 import { useSuites } from "@/hooks/useSuites"
 import type { TestRun } from "@/types/testMgmt.types"
 
@@ -17,6 +18,7 @@ export function RunsTab({ projectId, canManage }: { projectId: string; canManage
   const navigate = useNavigate()
   const { data: runs = [], isLoading } = useRuns(projectId)
   const { data: suites = [] } = useSuites(projectId)
+  const { data: activeStatus } = useActiveRunStatus(projectId)
   const del = useDeleteRun()
 
   const suiteMap = useMemo(
@@ -26,12 +28,33 @@ export function RunsTab({ projectId, canManage }: { projectId: string; canManage
   const [createOpen, setCreateOpen] = useState(false)
   const [deleting, setDeleting] = useState<TestRun | null>(null)
 
+  const activeSuiteIds = activeStatus?.activeSuiteIds ?? []
+  // Only block "Start run" outright when every suite already has a run in progress —
+  // otherwise the dialog lets the user pick a suite that's still free.
+  const allSuitesBusy = suites.length > 0 && suites.every((s) => activeSuiteIds.includes(s.id))
+
   return (
     <div className="space-y-4">
       <div className="flex justify-end">
-        <Button size="sm" onClick={() => setCreateOpen(true)} data-tour="start-run-btn">
-          <Play className="mr-1 size-4" /> Start run
-        </Button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span>
+              <Button
+                size="sm"
+                onClick={() => setCreateOpen(true)}
+                disabled={allSuitesBusy}
+                data-tour="start-run-btn"
+              >
+                <Play className="mr-1 size-4" /> Start run
+              </Button>
+            </span>
+          </TooltipTrigger>
+          {allSuitesBusy && (
+            <TooltipContent>
+              Every suite already has a test run in progress. Complete one before starting another.
+            </TooltipContent>
+          )}
+        </Tooltip>
       </div>
 
       {isLoading && <InlineLoader className="py-8" />}
@@ -110,7 +133,12 @@ export function RunsTab({ projectId, canManage }: { projectId: string; canManage
         ))}
       </div>
 
-      <CreateRunDialog open={createOpen} onOpenChange={setCreateOpen} projectId={projectId} />
+      <CreateRunDialog
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        projectId={projectId}
+        activeSuiteIds={activeSuiteIds}
+      />
       <ConfirmDialog
         open={Boolean(deleting)}
         onOpenChange={(o) => !o && setDeleting(null)}
