@@ -52,17 +52,14 @@ class FeatureRequestRepository {
     await this.repo.softDelete(id);
   }
 
-  // Batch comment counts — avoids N+1 when annotating a list page.
-  async commentCounts(featureRequestIds) {
-    if (!featureRequestIds.length) return new Map();
-    const ds = this.repo.manager.connection;
-    const rows = await ds.query(
-      `SELECT feature_request_id, COUNT(*)::int AS count FROM feature_request_comments
-       WHERE feature_request_id = ANY($1::uuid[]) AND deleted_at IS NULL
-       GROUP BY feature_request_id`,
-      [featureRequestIds]
-    );
-    return new Map(rows.map((r) => [r.feature_request_id, r.count]));
+  // Denormalized — comments live in Firestore, so there's no local table to COUNT.
+  // Called by the service after each successful Firestore comment write/soft-delete.
+  async incrementCommentCount(id) {
+    await this.repo.increment({ id }, "commentCount", 1);
+  }
+
+  async decrementCommentCount(id) {
+    await this.repo.decrement({ id }, "commentCount", 1);
   }
 }
 

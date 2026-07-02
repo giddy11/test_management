@@ -21,7 +21,7 @@ const initials = (name: string) =>
 export function CommentThread({ requestId }: { requestId: string }) {
   const { user } = useAuth()
   const canModerate = user?.role === UserRole.ADMIN || user?.role === UserRole.SUPERADMIN
-  const { data: comments = [], isLoading } = useFeatureRequestComments(requestId)
+  const { data: comments, isLoading, isError } = useFeatureRequestComments(requestId)
   const addComment = useAddFeatureRequestComment(requestId)
   const deleteComment = useDeleteFeatureRequestComment(requestId)
   const [body, setBody] = useState("")
@@ -41,7 +41,11 @@ export function CommentThread({ requestId }: { requestId: string }) {
 
       {isLoading && <InlineLoader className="py-6" />}
 
-      {!isLoading && comments.length === 0 && (
+      {isError && (
+        <p className="text-sm text-destructive">Couldn't connect to live comments — try refreshing.</p>
+      )}
+
+      {!isLoading && !isError && comments.length === 0 && (
         <p className="text-sm text-muted-foreground">No comments yet.</p>
       )}
 

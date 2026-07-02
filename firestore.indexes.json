@@ -1,0 +1,14 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "featureRequestComments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "featureRequestId", "order": "ASCENDING" },
+        { "fieldPath": "deletedAt", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "ASCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

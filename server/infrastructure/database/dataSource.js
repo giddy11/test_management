@@ -29,9 +29,6 @@ const {
 const {
   FeatureRequestVote,
 } = require("../../modules/featureRequest/entities/featureRequestVote.entity");
-const {
-  FeatureRequestComment,
-} = require("../../modules/featureRequest/entities/featureRequestComment.entity");
 
 const AppDataSource = new DataSource({
   type: "postgres",
@@ -58,7 +55,6 @@ const AppDataSource = new DataSource({
     ActivityLog,
     FeatureRequest,
     FeatureRequestVote,
-    FeatureRequestComment,
   ],
   migrations: ["infrastructure/database/migrations/*.js"],
 });

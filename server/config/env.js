@@ -68,6 +68,14 @@ const env = {
     apiSecret: process.env.CLOUDINARY_API_SECRET || "",
   },
 
+  // Firestore — realtime feature-request comments. On Cloud Run, leave
+  // serviceAccountJson unset and grant the runtime service account
+  // roles/datastore.user so Application Default Credentials apply instead.
+  firebase: {
+    projectId: process.env.FIREBASE_PROJECT_ID || "",
+    serviceAccountJson: process.env.FIREBASE_SERVICE_ACCOUNT_JSON || "",
+  },
+
   // Used to build links in emails (e.g. password reset). Falls back to the API host.
   appBaseUrl: process.env.APP_BASE_URL || `http://localhost:${process.env.PORT || 4000}`,
   // Frontend URL — used for email links that open the UI (e.g. login button).

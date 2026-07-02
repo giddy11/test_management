@@ -1,0 +1,14 @@
+rules_version = '2';
+
+// Feature-request comments only. Writes only ever happen through the server's
+// Firebase Admin SDK (which bypasses these rules) — moderation/ownership checks
+// live in server/modules/featureRequest/services/featureRequest.service.js, not
+// here. Clients only ever read, via an anonymous Firebase sign-in.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /featureRequestComments/{commentId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+  }
+}

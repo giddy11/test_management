@@ -31,19 +31,17 @@ class FeatureRequestService {
     return actor.role === UserRole.ADMIN || actor.role === UserRole.SUPERADMIN;
   }
 
-  // Annotates a page of requests with the current actor's vote state + comment counts.
+  // Annotates a page of requests with the current actor's vote state. commentCount
+  // is a denormalized column on the row itself (comments live in Firestore).
   async annotate(actor, requests) {
     if (requests.length === 0) return [];
     const ids = requests.map((r) => r.id);
-    const [votedSet, commentCounts] = await Promise.all([
-      this.voteRepo.votedSetForUser(ids, actor.id),
-      this.frRepo.commentCounts(ids),
-    ]);
+    const votedSet = await this.voteRepo.votedSetForUser(ids, actor.id);
     return requests.map((r) => ({
       request: r,
       extra: {
         hasVoted: votedSet.has(r.id),
-        commentCount: commentCounts.get(r.id) ?? 0,
+        commentCount: r.commentCount ?? 0,
       },
     }));
   }
@@ -163,30 +161,39 @@ class FeatureRequestService {
     const fr = await this.frRepo.findById(id);
     if (!fr || fr.deletedAt) throw new AppError("Feature request not found", 404);
 
+    // Firestore has no join — the author's display name is denormalized onto the doc.
+    const commenter = await this.authRepo.findUserById(actor.id);
+    const commenterName = commenter
+      ? [commenter.firstName, commenter.lastName].filter(Boolean).join(" ")
+      : null;
+
     const comment = await this.commentRepo.create({
       featureRequestId: id,
       authorId: actor.id,
+      authorName: commenterName,
       body,
     });
 
+    // Firestore write and Postgres counter update aren't in one transaction (different
+    // databases) — accepted eventual-consistency tradeoff, same as the notify calls below.
+    await this.frRepo.incrementCommentCount(id);
+
     if (fr.submittedById && fr.submittedById !== actor.id) {
-      Promise.all([this.authRepo.findUserById(fr.submittedById), this.authRepo.findUserById(actor.id)])
-        .then(([submitter, commenter]) => {
+      this.authRepo
+        .findUserById(fr.submittedById)
+        .then((submitter) => {
           if (submitter) {
-            const commenterName = commenter
-              ? [commenter.firstName, commenter.lastName].filter(Boolean).join(" ")
-              : "Someone";
             this.notificationService.notifyFeatureRequestComment(submitter, {
               requestId: fr.id,
               title: fr.title,
-              commenterName,
+              commenterName: commenterName || "Someone",
             });
           }
         })
         .catch((e) => console.error("[featureRequest] comment notify failed:", e.message));
     }
 
-    return this.commentRepo.findById(comment.id);
+    return comment;
   }
 
   async deleteComment(actor, id, commentId) {
@@ -198,6 +205,7 @@ class FeatureRequestService {
       throw new AppError("You can only delete your own comments", 403);
     }
     await this.commentRepo.softDelete(commentId);
+    await this.frRepo.decrementCommentCount(id);
   }
 }
 

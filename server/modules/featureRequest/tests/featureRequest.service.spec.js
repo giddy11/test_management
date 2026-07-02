@@ -8,7 +8,8 @@ function makeFrRepo() {
     create: jest.fn(),
     update: jest.fn(),
     softDelete: jest.fn(),
-    commentCounts: jest.fn().mockResolvedValue(new Map()),
+    incrementCommentCount: jest.fn(),
+    decrementCommentCount: jest.fn(),
   };
 }
 
@@ -55,6 +56,7 @@ const fr = {
   submittedById: "user-1",
   organizationId: "org-1",
   upvoteCount: 0,
+  commentCount: 0,
   adminResponse: null,
   deletedAt: null,
 };
@@ -72,14 +74,14 @@ describe("FeatureRequestService", () => {
   });
 
   describe("fetchFeatureRequests", () => {
-    it("annotates each row with hasVoted + commentCount", async () => {
-      frRepo.fetchPaginated.mockResolvedValue({ data: [fr], meta: { page: 1 } });
+    it("annotates each row with hasVoted + the row's own denormalized commentCount", async () => {
+      const withComments = { ...fr, commentCount: 3 };
+      frRepo.fetchPaginated.mockResolvedValue({ data: [withComments], meta: { page: 1 } });
       voteRepo.votedSetForUser.mockResolvedValue(new Set(["fr-1"]));
-      frRepo.commentCounts.mockResolvedValue(new Map([["fr-1", 3]]));
 
       const result = await service.fetchFeatureRequests(user, { page: 1, limit: 20, sort: "top" });
 
-      expect(result.data).toEqual([{ request: fr, extra: { hasVoted: true, commentCount: 3 } }]);
+      expect(result.data).toEqual([{ request: withComments, extra: { hasVoted: true, commentCount: 3 } }]);
     });
   });
 
@@ -97,7 +99,6 @@ describe("FeatureRequestService", () => {
     it("returns the request with vote/comment annotations", async () => {
       frRepo.findById.mockResolvedValue(fr);
       voteRepo.votedSetForUser.mockResolvedValue(new Set());
-      frRepo.commentCounts.mockResolvedValue(new Map());
       const result = await service.getFeatureRequest(user, "fr-1");
       expect(result.request).toBe(fr);
       expect(result.extra).toEqual({ hasVoted: false, commentCount: 0 });
@@ -175,16 +176,20 @@ describe("FeatureRequestService", () => {
       await expect(service.addComment(user, "fr-1", "hello")).rejects.toMatchObject({ statusCode: 404 });
     });
 
-    it("creates the comment tied to the request and actor", async () => {
+    it("creates the comment tied to the request and actor, and bumps the denormalized count", async () => {
       frRepo.findById.mockResolvedValue(fr);
-      commentRepo.create.mockResolvedValue({ id: "c-1" });
-      commentRepo.findById.mockResolvedValue({ id: "c-1", body: "hello" });
+      authRepo.findUserById.mockResolvedValue({ id: "admin-1", firstName: "Ada", lastName: "Min" });
+      commentRepo.create.mockResolvedValue({ id: "c-1", body: "hello" });
+
       const result = await service.addComment(admin, "fr-1", "hello");
+
       expect(commentRepo.create).toHaveBeenCalledWith({
         featureRequestId: "fr-1",
         authorId: "admin-1",
+        authorName: "Ada Min",
         body: "hello",
       });
+      expect(frRepo.incrementCommentCount).toHaveBeenCalledWith("fr-1");
       expect(result).toEqual({ id: "c-1", body: "hello" });
     });
   });
@@ -202,10 +207,11 @@ describe("FeatureRequestService", () => {
       await expect(service.deleteComment(user, "fr-1", "c-1")).rejects.toMatchObject({ statusCode: 404 });
     });
 
-    it("allows the comment author to delete it", async () => {
+    it("allows the comment author to delete it and decrements the denormalized count", async () => {
       commentRepo.findById.mockResolvedValue(comment);
       await service.deleteComment(user, "fr-1", "c-1");
       expect(commentRepo.softDelete).toHaveBeenCalledWith("c-1");
+      expect(frRepo.decrementCommentCount).toHaveBeenCalledWith("fr-1");
     });
 
     it("allows an admin to delete someone else's comment", async () => {
@@ -218,6 +224,7 @@ describe("FeatureRequestService", () => {
       commentRepo.findById.mockResolvedValue(comment);
       const other = { id: "other-1", role: "user", organizationId: "org-1" };
       await expect(service.deleteComment(other, "fr-1", "c-1")).rejects.toMatchObject({ statusCode: 403 });
+      expect(frRepo.decrementCommentCount).not.toHaveBeenCalled();
     });
   });
 });

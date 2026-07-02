@@ -24,15 +24,13 @@ function toFeatureRequestResponse(fr, extra = {}) {
   };
 }
 
+// Firestore has no join — authorId/authorName are denormalized directly onto the doc.
 function toCommentResponse(c) {
   if (!c) return null;
-  const author = c.author;
   return {
     id: c.id,
     featureRequestId: c.featureRequestId,
-    author: author
-      ? { id: author.id, name: [author.firstName, author.lastName].filter(Boolean).join(" ") }
-      : null,
+    author: c.authorId ? { id: c.authorId, name: c.authorName || "Deleted user" } : null,
     body: c.body,
     createdAt: c.createdAt,
   };

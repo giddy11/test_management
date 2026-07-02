@@ -45,6 +45,12 @@ const FeatureRequest = new EntitySchema({
       type: "integer",
       default: 0,
     },
+    // Denormalized — comments live in Firestore (realtime), not Postgres.
+    commentCount: {
+      name: "comment_count",
+      type: "integer",
+      default: 0,
+    },
     adminResponse: {
       name: "admin_response",
       type: "text",
