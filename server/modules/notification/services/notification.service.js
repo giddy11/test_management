@@ -11,6 +11,9 @@ const {
   sendNewFeatureRequestEmail,
   sendFeatureRequestStatusEmail,
   sendFeatureRequestCommentEmail,
+  sendNewBugEmail,
+  sendBugStatusEmail,
+  sendBugAssignedEmail,
 } = require("../../../shared/utils/mailer");
 
 class NotificationService {
@@ -129,6 +132,60 @@ class NotificationService {
     ]);
     sendFeatureRequestCommentEmail(user.email, user.firstName, ctx.title, ctx.commenterName, url).catch((e) =>
       console.error("[notify] feature-request-comment email failed:", e.message)
+    );
+  }
+
+  // ctx: { bugId, projectId, title, reportedByName }
+  async notifyNewBug(recipients, ctx) {
+    if (!recipients.length) return;
+    const url = `${env.appUrl}/projects/${ctx.projectId}/bugs/${ctx.bugId}`;
+    await this.repo.createMany(
+      recipients.map((u) => ({
+        userId: u.id,
+        type: NotificationType.BUG_REPORTED,
+        title: `New bug: ${ctx.title}`,
+        body: `${ctx.reportedByName} reported a new bug`,
+        data: { bugId: ctx.bugId, projectId: ctx.projectId },
+      }))
+    );
+    for (const u of recipients) {
+      sendNewBugEmail(u.email, u.firstName, ctx.title, ctx.reportedByName, url).catch((e) =>
+        console.error("[notify] new-bug email failed:", e.message)
+      );
+    }
+  }
+
+  // ctx: { bugId, projectId, title, status }
+  async notifyBugStatusChanged(user, ctx) {
+    const url = `${env.appUrl}/projects/${ctx.projectId}/bugs/${ctx.bugId}`;
+    await this.repo.createMany([
+      {
+        userId: user.id,
+        type: NotificationType.BUG_STATUS_CHANGED,
+        title: `Bug status changed: ${ctx.title}`,
+        body: `"${ctx.title}" is now ${ctx.status}`,
+        data: { bugId: ctx.bugId, projectId: ctx.projectId, status: ctx.status },
+      },
+    ]);
+    sendBugStatusEmail(user.email, user.firstName, ctx.title, ctx.status, url).catch((e) =>
+      console.error("[notify] bug-status email failed:", e.message)
+    );
+  }
+
+  // ctx: { bugId, projectId, title }
+  async notifyBugAssigned(user, ctx) {
+    const url = `${env.appUrl}/projects/${ctx.projectId}/bugs/${ctx.bugId}`;
+    await this.repo.createMany([
+      {
+        userId: user.id,
+        type: NotificationType.BUG_ASSIGNED,
+        title: `Bug assigned: ${ctx.title}`,
+        body: `You've been assigned to fix "${ctx.title}"`,
+        data: { bugId: ctx.bugId, projectId: ctx.projectId },
+      },
+    ]);
+    sendBugAssignedEmail(user.email, user.firstName, ctx.title, url).catch((e) =>
+      console.error("[notify] bug-assigned email failed:", e.message)
     );
   }
 }

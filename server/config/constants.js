@@ -48,6 +48,9 @@ const NotificationType = Object.freeze({
   FEATURE_REQUEST_STATUS_CHANGED: "feature_request_status_changed",
   FEATURE_REQUEST_COMMENT: "feature_request_comment",
   FEATURE_REQUEST_NEW: "feature_request_new",
+  BUG_REPORTED: "bug_reported",
+  BUG_ASSIGNED: "bug_assigned",
+  BUG_STATUS_CHANGED: "bug_status_changed",
 });
 
 const FeatureRequestStatus = Object.freeze({
@@ -57,6 +60,29 @@ const FeatureRequestStatus = Object.freeze({
   IN_PROGRESS: "in_progress",
   DONE: "done",
   REJECTED: "rejected",
+});
+
+const BugSeverity = Object.freeze({
+  TRIVIAL: "Trivial",
+  MINOR: "Minor",
+  MAJOR: "Major",
+  CRITICAL: "Critical",
+});
+
+const BugPriority = Object.freeze({
+  LOW: "Low",
+  MEDIUM: "Medium",
+  HIGH: "High",
+  URGENT: "Urgent",
+});
+
+const BugStatus = Object.freeze({
+  OPEN: "Open",
+  IN_PROGRESS: "In Progress",
+  FIXED: "Fixed",
+  VERIFIED: "Verified",
+  CLOSED: "Closed",
+  REOPENED: "Reopened",
 });
 
 module.exports = {
@@ -69,6 +95,9 @@ module.exports = {
   OtpType,
   NotificationType,
   FeatureRequestStatus,
+  BugSeverity,
+  BugPriority,
+  BugStatus,
   enums: {
     userRole: Object.values(UserRole),
     testCasePriority: Object.values(TestCasePriority),
@@ -79,5 +108,8 @@ module.exports = {
     otpType: Object.values(OtpType),
     notificationType: Object.values(NotificationType),
     featureRequestStatus: Object.values(FeatureRequestStatus),
+    bugSeverity: Object.values(BugSeverity),
+    bugPriority: Object.values(BugPriority),
+    bugStatus: Object.values(BugStatus),
   },
 };

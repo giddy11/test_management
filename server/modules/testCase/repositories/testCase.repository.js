@@ -136,6 +136,21 @@ class TestCaseRepository {
     return rows.length > 0;
   }
 
+  // Same as hasAssignmentInProject but scoped to a single suite — used to hide
+  // suites a 'user' role has no assignment in, one level below project visibility.
+  async hasAssignmentInSuite(suiteId, userId) {
+    const ds = this.repo.manager.connection;
+    const rows = await ds.query(
+      `SELECT 1
+       FROM test_cases tc
+       JOIN test_case_assignees tca ON tca.test_case_id = tc.id
+       WHERE tc.suite_id = $1 AND tc.deleted_at IS NULL AND tca.user_id = $2
+       LIMIT 1`,
+      [suiteId, userId]
+    );
+    return rows.length > 0;
+  }
+
   // Replaces the assignee set on a case. `users` is an array of `{ id }` refs.
   async setAssignees(testCase, users) {
     testCase.assignees = users;

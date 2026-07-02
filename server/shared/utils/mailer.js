@@ -193,6 +193,46 @@ async function sendFeatureRequestCommentEmail(to, firstName, title, commenterNam
   });
 }
 
+// ── Bugs ─────────────────────────────────────────────────────────────────────
+async function sendNewBugEmail(to, firstName, title, reportedByName, url) {
+  const body = `
+    <h1 style="margin:0 0 12px;font-size:20px;font-weight:700;color:#0f172a">New bug reported</h1>
+    <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.65">Hi ${firstName}, ${reportedByName} reported a new bug: <strong>${title}</strong>.</p>
+    ${ctaButton(url, "Review bug")}`;
+  return send({
+    to,
+    subject: `New bug — ${title} — TestMate`,
+    html: emailLayout(body),
+    text: `${reportedByName} reported a new bug: "${title}".`,
+  });
+}
+
+async function sendBugStatusEmail(to, firstName, title, status, url) {
+  const body = `
+    <h1 style="margin:0 0 12px;font-size:20px;font-weight:700;color:#0f172a">Bug status updated</h1>
+    <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.65">Hi ${firstName}, your bug report <strong>${title}</strong> is now <strong>${status}</strong>.</p>
+    ${ctaButton(url, "View bug")}`;
+  return send({
+    to,
+    subject: `Bug update — ${title} — TestMate`,
+    html: emailLayout(body),
+    text: `Your bug report "${title}" is now ${status}.`,
+  });
+}
+
+async function sendBugAssignedEmail(to, firstName, title, url) {
+  const body = `
+    <h1 style="margin:0 0 12px;font-size:20px;font-weight:700;color:#0f172a">You've been assigned a bug</h1>
+    <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.65">Hi ${firstName}, you've been assigned to fix <strong>${title}</strong>.</p>
+    ${ctaButton(url, "View bug")}`;
+  return send({
+    to,
+    subject: `Bug assigned — ${title} — TestMate`,
+    html: emailLayout(body),
+    text: `You've been assigned to fix the bug "${title}".`,
+  });
+}
+
 module.exports = {
   emailLayout,
   verifyTransport,
@@ -204,4 +244,7 @@ module.exports = {
   sendNewFeatureRequestEmail,
   sendFeatureRequestStatusEmail,
   sendFeatureRequestCommentEmail,
+  sendNewBugEmail,
+  sendBugStatusEmail,
+  sendBugAssignedEmail,
 };

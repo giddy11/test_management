@@ -32,6 +32,8 @@ const {
 const {
   FeatureRequestAttachment,
 } = require("../../modules/featureRequest/entities/featureRequestAttachment.entity");
+const { Bug } = require("../../modules/bug/entities/bug.entity");
+const { BugAttachment } = require("../../modules/bug/entities/bugAttachment.entity");
 
 const AppDataSource = new DataSource({
   type: "postgres",
@@ -59,6 +61,8 @@ const AppDataSource = new DataSource({
     FeatureRequest,
     FeatureRequestVote,
     FeatureRequestAttachment,
+    Bug,
+    BugAttachment,
   ],
   migrations: ["infrastructure/database/migrations/*.js"],
 });

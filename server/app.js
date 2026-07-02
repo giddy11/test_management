@@ -27,6 +27,8 @@ const notificationRoutes = require("./modules/notification/routes/notification.r
 const activityRoutes = require("./modules/activity/routes/activity.routes");
 const featureRequestRoutes = require("./modules/featureRequest/routes/featureRequest.routes");
 const featureRequestAttachmentRoutes = require("./modules/featureRequest/routes/featureRequestAttachment.routes");
+const bugRoutes = require("./modules/bug/routes/bug.routes");
+const bugAttachmentRoutes = require("./modules/bug/routes/bugAttachment.routes");
 
 function createApp() {
   const app = express();
@@ -63,6 +65,8 @@ function createApp() {
   api.use("/activity", activityRoutes);
   api.use("/feature-requests", featureRequestAttachmentRoutes); // /:id/attachments — mounted first
   api.use("/feature-requests", featureRequestRoutes);
+  api.use("/bugs", bugAttachmentRoutes); // /:id/attachments — mounted first
+  api.use("/bugs", bugRoutes);
   app.use("/api/v1", api);
 
   // 404 + centralised error handling

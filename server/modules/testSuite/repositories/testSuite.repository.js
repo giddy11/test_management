@@ -10,7 +10,7 @@ class TestSuiteRepository {
     this.repo = AppDataSource.getRepository(TestSuite);
   }
 
-  async fetchPaginated({ projectId, page = 1, limit = 20, search }) {
+  async fetchPaginated({ projectId, page = 1, limit = 20, search, assigneeId }) {
     const offset = getOffset(page, limit);
     const qb = this.repo
       .createQueryBuilder("suite")
@@ -22,6 +22,13 @@ class TestSuiteRepository {
 
     if (search) {
       qb.andWhere("suite.name ILIKE :search", { search: `%${search}%` });
+    }
+
+    if (assigneeId) {
+      qb.andWhere(
+        `EXISTS (SELECT 1 FROM test_cases tc JOIN test_case_assignees tca ON tca.test_case_id = tc.id WHERE tc.suite_id = suite.id AND tc.deleted_at IS NULL AND tca.user_id = :assigneeId)`,
+        { assigneeId }
+      );
     }
 
     const total = page === 1 ? await qb.getCount() : 0;

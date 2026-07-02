@@ -1,0 +1,59 @@
+// modules/bug/controllers/bug.controller.js
+const { BugService } = require("../services/bug.service");
+const { ApiResponse } = require("../../../shared/response/apiResponse");
+const { toBugResponse } = require("../dto/bug.dto");
+
+class BugController {
+  static async fetchAll(req, res, next) {
+    try {
+      const result = await BugService.Instance.fetchBugs(req.user, req.validated.query);
+      res
+        .status(200)
+        .json(ApiResponse.ok("Bugs fetched", result.data.map(toBugResponse), result.meta));
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  static async fetchById(req, res, next) {
+    try {
+      const bug = await BugService.Instance.getBug(req.user, req.validated.params.id);
+      res.status(200).json(ApiResponse.ok("Bug fetched", toBugResponse(bug)));
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  static async create(req, res, next) {
+    try {
+      const bug = await BugService.Instance.createBug(req.user, req.validated.body);
+      res.status(201).json(ApiResponse.created("Bug reported", toBugResponse(bug)));
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  static async manage(req, res, next) {
+    try {
+      const bug = await BugService.Instance.manageBug(
+        req.user,
+        req.validated.params.id,
+        req.validated.body
+      );
+      res.status(200).json(ApiResponse.ok("Bug updated", toBugResponse(bug)));
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  static async remove(req, res, next) {
+    try {
+      await BugService.Instance.deleteBug(req.user, req.validated.params.id);
+      res.status(200).json(ApiResponse.ok("Bug deleted", null));
+    } catch (err) {
+      next(err);
+    }
+  }
+}
+
+module.exports = { BugController };

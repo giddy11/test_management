@@ -1,24 +1,31 @@
 // modules/testSuite/services/testSuite.service.js
 const { TestSuiteRepository } = require("../repositories/testSuite.repository");
 const { ProjectService } = require("../../project/services/project.service");
+const { TestCaseRepository } = require("../../testCase/repositories/testCase.repository");
 const { ActivityService } = require("../../activity/services/activity.service");
 const { AppError } = require("../../../shared/errors/AppError");
+const { UserRole } = require("../../../config/constants");
 
 class TestSuiteService {
   static Instance = new TestSuiteService();
 
   constructor(
     suiteRepo = TestSuiteRepository.Instance,
-    projectService = ProjectService.Instance
+    projectService = ProjectService.Instance,
+    testCaseRepo = TestCaseRepository.Instance
   ) {
     this.suiteRepo = suiteRepo;
     this.projectService = projectService;
+    this.testCaseRepo = testCaseRepo;
   }
 
   async fetchTestSuites(actor, params) {
     // Ensure the caller owns the project before listing its suites.
     await this.projectService.getProject(actor, params.projectId);
-    return this.suiteRepo.fetchPaginated(params);
+    return this.suiteRepo.fetchPaginated({
+      ...params,
+      assigneeId: actor.role === UserRole.USER ? actor.id : undefined,
+    });
   }
 
   async getTestSuite(actor, id) {
@@ -27,6 +34,12 @@ class TestSuiteService {
       throw new AppError("Test suite not found", 404);
     }
     await this.projectService.getProject(actor, suite.projectId); // access check
+    if (actor.role === UserRole.USER) {
+      const hasAssignment = await this.testCaseRepo.hasAssignmentInSuite(suite.id, actor.id);
+      if (!hasAssignment) {
+        throw new AppError("You do not have access to this test suite", 403);
+      }
+    }
     return suite;
   }
 

@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { TC_PRIORITIES, TC_STATUSES } from "@/lib/enums"
+import { TC_PRIORITIES, TC_STATUSES, BUG_SEVERITIES, BUG_PRIORITIES } from "@/lib/enums"
 
 export const suiteSchema = z.object({
   name: z.string().min(1, "Suite name is required").max(200),
@@ -33,6 +33,22 @@ export const featureRequestSchema = z.object({
   referenceLinksText: z.string().optional().or(z.literal("")),
 })
 export type FeatureRequestForm = z.infer<typeof featureRequestSchema>
+
+// Steps to reproduce are entered one-per-line, parsed with linesToArray on submit.
+export const bugSchema = z.object({
+  title: z.string().min(1, "Title is required").max(200),
+  description: z.string().min(1, "Description is required").max(3000),
+  stepsToReproduceText: z.string().optional().or(z.literal("")),
+  expectedBehavior: z.string().max(2000).optional().or(z.literal("")),
+  actualBehavior: z.string().max(2000).optional().or(z.literal("")),
+  environment: z.string().max(255).optional().or(z.literal("")),
+  severity: z.enum(BUG_SEVERITIES),
+  priority: z.enum(BUG_PRIORITIES),
+  testRunId: z.string().optional().or(z.literal("")),
+  suiteId: z.string().optional().or(z.literal("")),
+  testCaseId: z.string().optional().or(z.literal("")),
+})
+export type BugForm = z.infer<typeof bugSchema>
 
 export const linesToArray = (text: string): string[] =>
   text

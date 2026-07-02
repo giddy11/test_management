@@ -5,10 +5,16 @@ import {
   STATUS_BADGE,
   RESULT_META,
   FEATURE_REQUEST_STATUS_META,
+  BUG_SEVERITY_BADGE,
+  BUG_PRIORITY_BADGE,
+  BUG_STATUS_META,
   type TcPriority,
   type TcStatus,
   type ResultStatus,
   type FeatureRequestStatus,
+  type BugSeverity,
+  type BugPriority,
+  type BugStatus,
 } from "@/lib/enums"
 
 export function PriorityBadge({ value }: { value: TcPriority }) {
@@ -26,5 +32,18 @@ export function ResultBadge({ value }: { value: ResultStatus | null }) {
 
 export function FeatureRequestStatusBadge({ value }: { value: FeatureRequestStatus }) {
   const meta = FEATURE_REQUEST_STATUS_META[value]
+  return <Badge className={cn("border-transparent", meta.badge)}>{meta.label}</Badge>
+}
+
+export function BugSeverityBadge({ value }: { value: BugSeverity }) {
+  return <Badge className={cn("border-transparent", BUG_SEVERITY_BADGE[value])}>{value}</Badge>
+}
+
+export function BugPriorityBadge({ value }: { value: BugPriority }) {
+  return <Badge className={cn("border-transparent", BUG_PRIORITY_BADGE[value])}>{value}</Badge>
+}
+
+export function BugStatusBadge({ value }: { value: BugStatus }) {
+  const meta = BUG_STATUS_META[value]
   return <Badge className={cn("border-transparent", meta.badge)}>{meta.label}</Badge>
 }

@@ -235,7 +235,7 @@ export default function DashboardPage() {
 
             <Card>
               <CardHeader><CardTitle className="text-base">Recent test runs</CardTitle></CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="max-h-[420px] space-y-4 overflow-y-auto pr-1">
                 {data.recentRuns.length === 0 && (
                   <p className="text-sm text-muted-foreground">
                     No runs yet. Open a project and start a test run to begin tracking.
