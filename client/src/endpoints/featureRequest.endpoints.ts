@@ -1,8 +1,9 @@
 // endpoints/featureRequest.endpoints.ts
-import { wrapCall } from "@/transport/http"
+import { wrapCall, uploadCall } from "@/transport/http"
 import type {
   CreateFeatureRequestPayload,
   FeatureRequest,
+  FeatureRequestAttachment,
   FeatureRequestComment,
   UpdateFeatureRequestStatusPayload,
   VoteResult,
@@ -20,6 +21,15 @@ export const FeatureRequestEndpoints = {
     wrapCall<FeatureRequest>("PATCH", `/api/v1/feature-requests/${id}`, obj(payload)),
   remove: (id: string) => wrapCall<null>("DELETE", `/api/v1/feature-requests/${id}`),
   vote: (id: string) => wrapCall<VoteResult>("POST", `/api/v1/feature-requests/${id}/vote`),
+}
+
+export const FeatureRequestAttachmentEndpoints = {
+  fetchAll: (requestId: string) =>
+    wrapCall<FeatureRequestAttachment[]>("GET", `/api/v1/feature-requests/${requestId}/attachments`),
+  upload: (requestId: string, files: File[]) =>
+    uploadCall<FeatureRequestAttachment[]>(`/api/v1/feature-requests/${requestId}/attachments`, files, "images"),
+  remove: (requestId: string, attachmentId: string) =>
+    wrapCall<null>("DELETE", `/api/v1/feature-requests/${requestId}/attachments/${attachmentId}`),
 }
 
 export const FeatureRequestCommentEndpoints = {

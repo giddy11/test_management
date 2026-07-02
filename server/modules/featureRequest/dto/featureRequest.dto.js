@@ -10,6 +10,7 @@ function toFeatureRequestResponse(fr, extra = {}) {
     description: fr.description,
     status: fr.status,
     category: fr.category ?? null,
+    referenceLinks: fr.referenceLinks ?? [],
     submittedBy: submitter
       ? {
           id: submitter.id,

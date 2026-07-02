@@ -1,6 +1,7 @@
 // modules/project/services/project.service.js
 const { ProjectRepository } = require("../repositories/project.repository");
 const { AuthRepository } = require("../../auth/repositories/auth.repository");
+const { TestCaseRepository } = require("../../testCase/repositories/testCase.repository");
 const { ActivityService } = require("../../activity/services/activity.service");
 const { AppError } = require("../../../shared/errors/AppError");
 const { UserRole } = require("../../../config/constants");
@@ -11,21 +12,33 @@ class ProjectService {
 
   constructor(
     projectRepo = ProjectRepository.Instance,
-    authRepo = AuthRepository.Instance
+    authRepo = AuthRepository.Instance,
+    testCaseRepo = TestCaseRepository.Instance
   ) {
     this.projectRepo = projectRepo;
     this.authRepo = authRepo;
+    this.testCaseRepo = testCaseRepo;
   }
 
   isSuperadmin(actor) {
     return actor.role === UserRole.SUPERADMIN;
   }
 
-  // Superadmin sees every org; everyone else is scoped to their organisation.
-  assertAccess(actor, project) {
+  // Superadmin sees every org; admins see every project in their own org. A plain
+  // 'user' additionally must be assigned to at least one test case somewhere in the
+  // project — otherwise there'd be nothing for them to see inside it anyway, and
+  // leaving the project itself visible would just be security-by-obscurity once the
+  // list is filtered (see ProjectRepository.fetchPaginated's assigneeId filter).
+  async assertAccess(actor, project) {
     if (this.isSuperadmin(actor)) return;
     if (!actor.organizationId || project.organizationId !== actor.organizationId) {
       throw new AppError("You do not have access to this project", 403);
+    }
+    if (actor.role === UserRole.USER) {
+      const hasAssignment = await this.testCaseRepo.hasAssignmentInProject(project.id, actor.id);
+      if (!hasAssignment) {
+        throw new AppError("You do not have access to this project", 403);
+      }
     }
   }
 
@@ -33,6 +46,7 @@ class ProjectService {
     return this.projectRepo.fetchPaginated({
       ...params,
       organizationId: this.isSuperadmin(actor) ? undefined : actor.organizationId,
+      assigneeId: actor.role === UserRole.USER ? actor.id : undefined,
     });
   }
 
@@ -41,7 +55,7 @@ class ProjectService {
     if (!project || project.deletedAt) {
       throw new AppError("Project not found", 404);
     }
-    this.assertAccess(actor, project);
+    await this.assertAccess(actor, project);
     return project;
   }
 

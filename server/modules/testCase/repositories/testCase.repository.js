@@ -119,6 +119,23 @@ class TestCaseRepository {
     return this.repo.findOne({ where: { id }, relations: { assignees: true } });
   }
 
+  // Existence check used to scope project-level visibility to the 'user' role —
+  // true if this user is assigned to at least one (non-deleted) case anywhere in
+  // the project, across all of the project's suites.
+  async hasAssignmentInProject(projectId, userId) {
+    const ds = this.repo.manager.connection;
+    const rows = await ds.query(
+      `SELECT 1
+       FROM test_suites ts
+       JOIN test_cases tc ON tc.suite_id = ts.id AND tc.deleted_at IS NULL
+       JOIN test_case_assignees tca ON tca.test_case_id = tc.id
+       WHERE ts.project_id = $1 AND ts.deleted_at IS NULL AND tca.user_id = $2
+       LIMIT 1`,
+      [projectId, userId]
+    );
+    return rows.length > 0;
+  }
+
   // Replaces the assignee set on a case. `users` is an array of `{ id }` refs.
   async setAssignees(testCase, users) {
     testCase.assignees = users;

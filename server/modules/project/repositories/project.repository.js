@@ -11,7 +11,9 @@ class ProjectRepository {
   }
 
   // organizationId omitted => unscoped (superadmin view across all companies).
-  async fetchPaginated({ organizationId, page = 1, limit = 20, search }) {
+  // assigneeId set => only projects this user has at least one test case assignment in
+  // (used to scope the 'user' role — see ProjectService.fetchProjects).
+  async fetchPaginated({ organizationId, page = 1, limit = 20, search, assigneeId }) {
     const offset = getOffset(page, limit);
     const qb = this.repo
       .createQueryBuilder("project")
@@ -25,6 +27,17 @@ class ProjectRepository {
     }
     if (search) {
       qb.andWhere("project.name ILIKE :search", { search: `%${search}%` });
+    }
+    if (assigneeId) {
+      qb.andWhere(
+        `EXISTS (
+          SELECT 1 FROM test_suites ts
+          JOIN test_cases tc ON tc.suite_id = ts.id AND tc.deleted_at IS NULL
+          JOIN test_case_assignees tca ON tca.test_case_id = tc.id
+          WHERE ts.project_id = project.id AND ts.deleted_at IS NULL AND tca.user_id = :assigneeId
+        )`,
+        { assigneeId }
+      );
     }
 
     const total = page === 1 ? await qb.getCount() : 0;

@@ -1,6 +1,8 @@
 // server.js — bootstrap: init DB connection, then start the HTTP server.
+const http = require("http");
 const { createApp } = require("./app");
 const { AppDataSource } = require("./infrastructure/database/dataSource");
+const { initSocketServer } = require("./infrastructure/realtime/socketServer");
 const { env } = require("./config/env");
 
 async function bootstrap() {
@@ -9,7 +11,10 @@ async function bootstrap() {
     console.info("[DB] Connected to PostgreSQL");
 
     const app = createApp();
-    app.listen(env.port, () => {
+    const httpServer = http.createServer(app); // Socket.IO needs the raw HTTP server, not just Express.
+    initSocketServer(httpServer);
+
+    httpServer.listen(env.port, () => {
       console.info(`[Server] Listening on http://localhost:${env.port} (${env.nodeEnv})`);
     });
   } catch (err) {

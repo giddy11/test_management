@@ -8,6 +8,7 @@ export interface FeatureRequest {
   description: string
   status: FeatureRequestStatus
   category: string | null
+  referenceLinks: string[]
   submittedBy: { id: string; name: string } | null
   upvoteCount: number
   hasVoted: boolean
@@ -30,6 +31,17 @@ export interface CreateFeatureRequestPayload {
   title: string
   description: string
   category?: string
+  referenceLinks?: string[]
+}
+
+export interface FeatureRequestAttachment {
+  id: string
+  featureRequestId: string
+  fileName: string
+  fileUrl: string
+  mimeType: string
+  fileSizeBytes: number
+  createdAt: string
 }
 
 export interface UpdateFeatureRequestStatusPayload {

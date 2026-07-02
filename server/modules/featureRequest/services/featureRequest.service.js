@@ -79,6 +79,7 @@ class FeatureRequestService {
       title: data.title,
       description: data.description,
       category: data.category ?? null,
+      referenceLinks: data.referenceLinks ?? null,
       status: FeatureRequestStatus.NEW,
       submittedById: actor.id,
     });

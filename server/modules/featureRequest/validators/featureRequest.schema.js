@@ -8,6 +8,7 @@ const createFeatureRequestSchema = z.object({
     title: z.string().min(1).max(200),
     description: z.string().min(1).max(3000),
     category: z.string().max(50).optional(),
+    referenceLinks: z.array(z.string().url()).max(10).optional(),
   }),
 });
 

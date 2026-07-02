@@ -15,6 +15,7 @@ import {
 import { UserFormDialog } from "@/components/team/UserFormDialog"
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog"
 import { InlineLoader } from "@/components/shared/PageLoader"
+import { PresenceDot } from "@/components/shared/PresenceDot"
 import { useUsers, useDeactivateUser } from "@/hooks/useUsers"
 import { useAuth } from "@/contexts/AuthContext"
 import { ROLE_LABEL } from "@/components/layout/nav"
@@ -109,7 +110,12 @@ export default function TeamPage() {
             )}
             {users.map((u) => (
               <TableRow key={u.id}>
-                <TableCell className="font-medium">{u.name}</TableCell>
+                <TableCell className="font-medium">
+                  <span className="inline-flex items-center gap-2">
+                    <PresenceDot userId={u.id} className="ring-0" />
+                    {u.name}
+                  </span>
+                </TableCell>
                 <TableCell className="text-muted-foreground">{u.email}</TableCell>
                 <TableCell>
                   <Badge variant={u.role === "user" ? "secondary" : "default"}>

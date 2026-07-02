@@ -27,6 +27,7 @@ import { AssignDialog } from "@/components/testmgmt/AssignDialog"
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog"
 import { InlineLoader } from "@/components/shared/PageLoader"
 import { PriorityBadge, CaseStatusBadge, ResultBadge } from "@/components/shared/StatusBadge"
+import { PresenceDot } from "@/components/shared/PresenceDot"
 import { useSuite } from "@/hooks/useSuites"
 import { useCases, useDeleteCase, useBulkDeleteCases } from "@/hooks/useCases"
 import { useExportSuite } from "@/hooks/useExport"
@@ -266,9 +267,12 @@ export default function SuiteDetailPage() {
                   ) : (
                     <div className="flex -space-x-2">
                       {tc.assignees.slice(0, 3).map((a) => (
-                        <Avatar key={a.id} className="size-6 border-2 border-background" title={a.name}>
-                          <AvatarFallback className="text-[10px]">{initials(a.name)}</AvatarFallback>
-                        </Avatar>
+                        <div key={a.id} className="relative">
+                          <Avatar className="size-6 border-2 border-background" title={a.name}>
+                            <AvatarFallback className="text-[10px]">{initials(a.name)}</AvatarFallback>
+                          </Avatar>
+                          <PresenceDot userId={a.id} className="absolute -bottom-0.5 -right-0.5 size-2" />
+                        </div>
                       ))}
                       {tc.assignees.length > 3 && (
                         <span className="flex size-6 items-center justify-center rounded-full border-2 border-background bg-muted text-[10px]">

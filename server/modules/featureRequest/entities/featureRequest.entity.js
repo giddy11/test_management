@@ -34,6 +34,14 @@ const FeatureRequest = new EntitySchema({
       length: 50,
       nullable: true,
     },
+    // Optional external URLs the submitter adds for context (design mockups, similar
+    // tools, docs, etc.) — same array-column pattern as TestCase.tags.
+    referenceLinks: {
+      name: "reference_links",
+      type: "text",
+      array: true,
+      nullable: true,
+    },
     submittedById: {
       name: "submitted_by_id",
       type: "uuid",

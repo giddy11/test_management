@@ -15,6 +15,10 @@ function makeAuthRepo() {
   return { findUserById: jest.fn() };
 }
 
+function makeTestCaseRepo() {
+  return { hasAssignmentInProject: jest.fn().mockResolvedValue(true) };
+}
+
 // actor = authenticated user; project belongs to the same organisation.
 const actor = { id: "owner-1", role: "admin", organizationId: "org-1" };
 const project = {
@@ -28,12 +32,14 @@ const project = {
 describe("ProjectService", () => {
   let projectRepo;
   let authRepo;
+  let testCaseRepo;
   let service;
 
   beforeEach(() => {
     projectRepo = makeProjectRepo();
     authRepo = makeAuthRepo();
-    service = new ProjectService(projectRepo, authRepo);
+    testCaseRepo = makeTestCaseRepo();
+    service = new ProjectService(projectRepo, authRepo, testCaseRepo);
   });
 
   describe("fetchProjects", () => {
@@ -51,6 +57,23 @@ describe("ProjectService", () => {
       await service.fetchProjects({ id: "s", role: "superadmin" }, { page: 1, limit: 20 });
       expect(projectRepo.fetchPaginated).toHaveBeenCalledWith(
         expect.objectContaining({ organizationId: undefined })
+      );
+    });
+
+    it("additionally scopes a plain 'user' by test case assignment", async () => {
+      projectRepo.fetchPaginated.mockResolvedValue({ data: [], meta: {} });
+      const plainUser = { id: "u-1", role: "user", organizationId: "org-1" };
+      await service.fetchProjects(plainUser, { page: 1, limit: 20 });
+      expect(projectRepo.fetchPaginated).toHaveBeenCalledWith(
+        expect.objectContaining({ organizationId: "org-1", assigneeId: "u-1" })
+      );
+    });
+
+    it("does not assignee-scope an admin", async () => {
+      projectRepo.fetchPaginated.mockResolvedValue({ data: [], meta: {} });
+      await service.fetchProjects(actor, { page: 1, limit: 20 });
+      expect(projectRepo.fetchPaginated).toHaveBeenCalledWith(
+        expect.objectContaining({ assigneeId: undefined })
       );
     });
   });
@@ -73,6 +96,27 @@ describe("ProjectService", () => {
       await expect(
         service.getProject({ id: "x", role: "admin", organizationId: "org-2" }, "proj-1")
       ).rejects.toMatchObject({ statusCode: 403 });
+    });
+
+    it("throws 403 for a 'user' with no assignment in the project", async () => {
+      projectRepo.findById.mockResolvedValue(project);
+      testCaseRepo.hasAssignmentInProject.mockResolvedValue(false);
+      const plainUser = { id: "u-1", role: "user", organizationId: "org-1" };
+      await expect(service.getProject(plainUser, "proj-1")).rejects.toMatchObject({ statusCode: 403 });
+      expect(testCaseRepo.hasAssignmentInProject).toHaveBeenCalledWith("proj-1", "u-1");
+    });
+
+    it("allows a 'user' who is assigned to at least one case in the project", async () => {
+      projectRepo.findById.mockResolvedValue(project);
+      testCaseRepo.hasAssignmentInProject.mockResolvedValue(true);
+      const plainUser = { id: "u-1", role: "user", organizationId: "org-1" };
+      await expect(service.getProject(plainUser, "proj-1")).resolves.toBe(project);
+    });
+
+    it("does not check assignment for admins/superadmins", async () => {
+      projectRepo.findById.mockResolvedValue(project);
+      await service.getProject(actor, "proj-1");
+      expect(testCaseRepo.hasAssignmentInProject).not.toHaveBeenCalled();
     });
   });
 

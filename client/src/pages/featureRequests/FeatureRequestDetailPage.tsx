@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { Link, useNavigate, useParams } from "react-router-dom"
-import { ChevronLeft, Pencil, Trash2 } from "lucide-react"
+import { ChevronLeft, Pencil, Trash2, ExternalLink } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -11,6 +11,7 @@ import { FeatureRequestStatusBadge } from "@/components/shared/StatusBadge"
 import { VoteButton } from "@/components/featureRequests/VoteButton"
 import { StatusUpdateDialog } from "@/components/featureRequests/StatusUpdateDialog"
 import { CommentThread } from "@/components/featureRequests/CommentThread"
+import { FeatureRequestAttachmentsSection } from "@/components/featureRequests/FeatureRequestAttachmentsSection"
 import { useFeatureRequest, useDeleteFeatureRequest } from "@/hooks/useFeatureRequests"
 import { useAuth } from "@/contexts/AuthContext"
 import { UserRole } from "@/types/auth.types"
@@ -65,12 +66,34 @@ export default function FeatureRequestDetailPage() {
 
       <p className="whitespace-pre-wrap text-sm leading-relaxed">{request.description}</p>
 
+      {request.referenceLinks.length > 0 && (
+        <div className="space-y-1">
+          <p className="text-xs font-medium text-muted-foreground">Reference links</p>
+          <ul className="space-y-1">
+            {request.referenceLinks.map((link) => (
+              <li key={link}>
+                <a
+                  href={link}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
+                >
+                  <ExternalLink className="size-3.5" /> {link}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {request.adminResponse && (
         <div className="rounded-lg border-l-2 border-primary bg-muted/30 p-4">
           <p className="mb-1 text-xs font-medium text-muted-foreground">Team response</p>
           <p className="whitespace-pre-wrap text-sm">{request.adminResponse}</p>
         </div>
       )}
+
+      <FeatureRequestAttachmentsSection requestId={request.id} />
 
       <Separator />
 

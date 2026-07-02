@@ -26,6 +26,7 @@ const dashboardRoutes = require("./modules/dashboard/routes/dashboard.routes");
 const notificationRoutes = require("./modules/notification/routes/notification.routes");
 const activityRoutes = require("./modules/activity/routes/activity.routes");
 const featureRequestRoutes = require("./modules/featureRequest/routes/featureRequest.routes");
+const featureRequestAttachmentRoutes = require("./modules/featureRequest/routes/featureRequestAttachment.routes");
 
 function createApp() {
   const app = express();
@@ -60,6 +61,7 @@ function createApp() {
   api.use("/dashboard", dashboardRoutes);
   api.use("/notifications", notificationRoutes);
   api.use("/activity", activityRoutes);
+  api.use("/feature-requests", featureRequestAttachmentRoutes); // /:id/attachments — mounted first
   api.use("/feature-requests", featureRequestRoutes);
   app.use("/api/v1", api);
 

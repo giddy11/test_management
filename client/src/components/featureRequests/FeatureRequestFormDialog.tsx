@@ -15,7 +15,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { FormField } from "@/components/shared/FormField"
 import { useCreateFeatureRequest } from "@/hooks/useFeatureRequests"
-import { featureRequestSchema, type FeatureRequestForm } from "@/lib/testMgmtValidation"
+import { featureRequestSchema, linesToArray, type FeatureRequestForm } from "@/lib/testMgmtValidation"
 import { ApiError } from "@/transport/http"
 
 interface Props {
@@ -35,12 +35,19 @@ export function FeatureRequestFormDialog({ open, onOpenChange, projectId }: Prop
   } = useForm<FeatureRequestForm>({ resolver: zodResolver(featureRequestSchema) })
 
   useEffect(() => {
-    if (open) reset({ title: "", description: "", category: "" })
+    if (open) reset({ title: "", description: "", category: "", referenceLinksText: "" })
   }, [open, reset])
 
   const onSubmit = (values: FeatureRequestForm) => {
+    const referenceLinks = values.referenceLinksText ? linesToArray(values.referenceLinksText) : undefined
     create.mutate(
-      { projectId, title: values.title, description: values.description, category: values.category || undefined },
+      {
+        projectId,
+        title: values.title,
+        description: values.description,
+        category: values.category || undefined,
+        referenceLinks,
+      },
       {
         onError: (e) => toast.error(e instanceof ApiError ? e.message : "Failed"),
         onSuccess: () => {
@@ -73,6 +80,16 @@ export function FeatureRequestFormDialog({ open, onOpenChange, projectId }: Prop
             placeholder="UI/UX, Reporting, Integration…"
             {...register("category")}
           />
+
+          <div className="grid gap-1.5">
+            <Label htmlFor="referenceLinksText">Reference links (optional, one per line)</Label>
+            <Textarea
+              id="referenceLinksText"
+              rows={2}
+              placeholder={"https://example.com/mockup\nhttps://docs.example.com/spec"}
+              {...register("referenceLinksText")}
+            />
+          </div>
 
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
