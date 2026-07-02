@@ -5,6 +5,7 @@ const {
   FeatureRequestCommentRepository,
 } = require("../repositories/featureRequestComment.repository");
 const { AuthRepository } = require("../../auth/repositories/auth.repository");
+const { ProjectService } = require("../../project/services/project.service");
 const { NotificationService } = require("../../notification/services/notification.service");
 const { ActivityService } = require("../../activity/services/activity.service");
 const { AppError } = require("../../../shared/errors/AppError");
@@ -18,17 +19,28 @@ class FeatureRequestService {
     voteRepo = FeatureRequestVoteRepository.Instance,
     commentRepo = FeatureRequestCommentRepository.Instance,
     authRepo = AuthRepository.Instance,
-    notificationService = NotificationService.Instance
+    notificationService = NotificationService.Instance,
+    projectService = ProjectService.Instance
   ) {
     this.frRepo = frRepo;
     this.voteRepo = voteRepo;
     this.commentRepo = commentRepo;
     this.authRepo = authRepo;
     this.notificationService = notificationService;
+    this.projectService = projectService;
   }
 
   canManage(actor) {
     return actor.role === UserRole.ADMIN || actor.role === UserRole.SUPERADMIN;
+  }
+
+  // Fetches the request, 404s if missing/deleted, then checks project access —
+  // same "check access via parent" pattern as TestSuiteService.getTestSuite.
+  async getAccessible(actor, id) {
+    const fr = await this.frRepo.findById(id);
+    if (!fr || fr.deletedAt) throw new AppError("Feature request not found", 404);
+    await this.projectService.getProject(actor, fr.projectId);
+    return fr;
   }
 
   // Annotates a page of requests with the current actor's vote state. commentCount
@@ -47,26 +59,28 @@ class FeatureRequestService {
   }
 
   async fetchFeatureRequests(actor, params) {
+    await this.projectService.getProject(actor, params.projectId);
     const { data, meta } = await this.frRepo.fetchPaginated(params);
     const annotated = await this.annotate(actor, data);
     return { data: annotated, meta };
   }
 
   async getFeatureRequest(actor, id) {
-    const fr = await this.frRepo.findById(id);
-    if (!fr || fr.deletedAt) throw new AppError("Feature request not found", 404);
+    const fr = await this.getAccessible(actor, id);
     const [{ extra }] = await this.annotate(actor, [fr]);
     return { request: fr, extra };
   }
 
   async createFeatureRequest(actor, data) {
+    const project = await this.projectService.getProject(actor, data.projectId);
+
     const fr = await this.frRepo.create({
+      projectId: data.projectId,
       title: data.title,
       description: data.description,
       category: data.category ?? null,
       status: FeatureRequestStatus.NEW,
       submittedById: actor.id,
-      organizationId: actor.organizationId ?? null,
     });
 
     ActivityService.Instance.log(actor, {
@@ -76,14 +90,24 @@ class FeatureRequestService {
       entityId: fr.id,
     });
 
-    Promise.all([this.authRepo.findByRole(UserRole.SUPERADMIN), this.authRepo.findUserById(actor.id)])
-      .then(([superadmins, submitter]) => {
-        if (superadmins.length) {
+    // Notify superadmins (platform-wide oversight) + the project's own org admins —
+    // mirrors ProjectService.assertAccess's access model.
+    Promise.all([
+      this.authRepo.findByRole(UserRole.SUPERADMIN),
+      project.organizationId
+        ? this.authRepo.findByRoleAndOrg(UserRole.ADMIN, project.organizationId)
+        : Promise.resolve([]),
+      this.authRepo.findUserById(actor.id),
+    ])
+      .then(([superadmins, orgAdmins, submitter]) => {
+        const recipients = [...new Map([...superadmins, ...orgAdmins].map((u) => [u.id, u])).values()];
+        if (recipients.length) {
           const submittedByName = submitter
             ? [submitter.firstName, submitter.lastName].filter(Boolean).join(" ")
             : "A user";
-          this.notificationService.notifyNewFeatureRequest(superadmins, {
+          this.notificationService.notifyNewFeatureRequest(recipients, {
             requestId: fr.id,
+            projectId: fr.projectId,
             title: fr.title,
             submittedByName,
           });
@@ -95,8 +119,7 @@ class FeatureRequestService {
   }
 
   async updateStatus(actor, id, data) {
-    const fr = await this.frRepo.findById(id);
-    if (!fr || fr.deletedAt) throw new AppError("Feature request not found", 404);
+    const fr = await this.getAccessible(actor, id);
 
     const patch = {};
     if (data.status !== undefined) {
@@ -121,6 +144,7 @@ class FeatureRequestService {
           if (submitter) {
             this.notificationService.notifyFeatureRequestStatusChanged(submitter, {
               requestId: fr.id,
+              projectId: fr.projectId,
               title: fr.title,
               status: updated.status,
               adminResponse: updated.adminResponse,
@@ -134,8 +158,7 @@ class FeatureRequestService {
   }
 
   async deleteFeatureRequest(actor, id) {
-    const fr = await this.frRepo.findById(id);
-    if (!fr || fr.deletedAt) throw new AppError("Feature request not found", 404);
+    const fr = await this.getAccessible(actor, id);
     await this.frRepo.softDelete(id);
     ActivityService.Instance.log(actor, {
       action: "feature_request.deleted",
@@ -146,20 +169,17 @@ class FeatureRequestService {
   }
 
   async toggleVote(actor, id) {
-    const fr = await this.frRepo.findById(id);
-    if (!fr || fr.deletedAt) throw new AppError("Feature request not found", 404);
+    await this.getAccessible(actor, id);
     return this.voteRepo.toggle(id, actor.id);
   }
 
   async fetchComments(actor, id, params) {
-    const fr = await this.frRepo.findById(id);
-    if (!fr || fr.deletedAt) throw new AppError("Feature request not found", 404);
+    await this.getAccessible(actor, id);
     return this.commentRepo.fetchPaginated(id, params);
   }
 
   async addComment(actor, id, body) {
-    const fr = await this.frRepo.findById(id);
-    if (!fr || fr.deletedAt) throw new AppError("Feature request not found", 404);
+    const fr = await this.getAccessible(actor, id);
 
     // Firestore has no join — the author's display name is denormalized onto the doc.
     const commenter = await this.authRepo.findUserById(actor.id);
@@ -185,6 +205,7 @@ class FeatureRequestService {
           if (submitter) {
             this.notificationService.notifyFeatureRequestComment(submitter, {
               requestId: fr.id,
+              projectId: fr.projectId,
               title: fr.title,
               commenterName: commenterName || "Someone",
             });
@@ -197,6 +218,8 @@ class FeatureRequestService {
   }
 
   async deleteComment(actor, id, commentId) {
+    await this.getAccessible(actor, id);
+
     const comment = await this.commentRepo.findById(commentId);
     if (!comment || comment.deletedAt || comment.featureRequestId !== id) {
       throw new AppError("Comment not found", 404);

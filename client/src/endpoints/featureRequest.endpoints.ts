@@ -11,7 +11,7 @@ import type {
 const obj = (p: unknown) => p as Record<string, unknown>
 
 export const FeatureRequestEndpoints = {
-  fetchAll: (params: { page?: number; limit?: number; status?: string; category?: string; search?: string; sort?: "top" | "newest" }) =>
+  fetchAll: (params: { projectId: string; page?: number; limit?: number; status?: string; category?: string; search?: string; sort?: "top" | "newest" }) =>
     wrapCall<FeatureRequest[]>("GET", "/api/v1/feature-requests", obj(params)),
   fetchById: (id: string) => wrapCall<FeatureRequest>("GET", `/api/v1/feature-requests/${id}`),
   create: (payload: CreateFeatureRequestPayload) =>

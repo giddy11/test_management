@@ -3,6 +3,7 @@ import type { FeatureRequestStatus } from "@/lib/enums"
 
 export interface FeatureRequest {
   id: string
+  projectId: string
   title: string
   description: string
   status: FeatureRequestStatus
@@ -25,6 +26,7 @@ export interface FeatureRequestComment {
 }
 
 export interface CreateFeatureRequestPayload {
+  projectId: string
   title: string
   description: string
   category?: string

@@ -4,6 +4,7 @@ import { ChevronLeft } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { SuitesTab } from "@/components/testmgmt/SuitesTab"
 import { RunsTab } from "@/components/testmgmt/RunsTab"
+import { FeatureRequestsTab } from "@/components/featureRequests/FeatureRequestsTab"
 import { useProject } from "@/hooks/useProjects"
 import { useDashboard } from "@/hooks/useDashboard"
 import { useAuth } from "@/contexts/AuthContext"
@@ -43,6 +44,7 @@ export default function ProjectDetailPage() {
         <TabsList>
           <TabsTrigger value="suites">Test Suites</TabsTrigger>
           <TabsTrigger value="runs" data-tour="runs-tab-trigger">Test Runs</TabsTrigger>
+          <TabsTrigger value="feature-requests">Feature Requests</TabsTrigger>
         </TabsList>
         <TabsContent value="suites" className="mt-4">
           <SuitesTab
@@ -54,6 +56,9 @@ export default function ProjectDetailPage() {
         </TabsContent>
         <TabsContent value="runs" className="mt-4">
           <RunsTab projectId={projectId} canManage={canManage} />
+        </TabsContent>
+        <TabsContent value="feature-requests" className="mt-4">
+          <FeatureRequestsTab projectId={projectId} />
         </TabsContent>
       </Tabs>
     </div>

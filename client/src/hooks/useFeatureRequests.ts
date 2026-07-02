@@ -15,14 +15,15 @@ interface FeatureRequestQuery {
   sort?: "top" | "newest"
 }
 
-export function useFeatureRequests(params: FeatureRequestQuery = {}) {
+export function useFeatureRequests(projectId: string, params: FeatureRequestQuery = {}) {
   return useQuery({
-    queryKey: [FEATURE_REQUESTS_KEY, params],
+    queryKey: [FEATURE_REQUESTS_KEY, projectId, params],
     queryFn: async () => {
-      const res = await FeatureRequestEndpoints.fetchAll({ limit: 20, sort: "top", ...params })
+      const res = await FeatureRequestEndpoints.fetchAll({ projectId, limit: 20, sort: "top", ...params })
       if (!res.success) throw new ApiError(res.message, res.statusCode)
       return { data: res.data ?? [], meta: res.meta }
     },
+    enabled: Boolean(projectId),
   })
 }
 

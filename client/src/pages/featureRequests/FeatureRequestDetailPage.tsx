@@ -17,7 +17,7 @@ import { UserRole } from "@/types/auth.types"
 import { ApiError } from "@/transport/http"
 
 export default function FeatureRequestDetailPage() {
-  const { id = "" } = useParams()
+  const { projectId = "", id = "" } = useParams()
   const navigate = useNavigate()
   const { user } = useAuth()
   const canManage = user?.role === UserRole.ADMIN || user?.role === UserRole.SUPERADMIN
@@ -32,8 +32,8 @@ export default function FeatureRequestDetailPage() {
 
   return (
     <div className="space-y-6">
-      <Link to="/feature-requests" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
-        <ChevronLeft className="size-4" /> Feature requests
+      <Link to={`/projects/${projectId}`} className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+        <ChevronLeft className="size-4" /> Back to project
       </Link>
 
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -90,7 +90,7 @@ export default function FeatureRequestDetailPage() {
             onError: (e) => toast.error(e instanceof ApiError ? e.message : "Failed"),
             onSuccess: () => {
               toast.success("Feature request deleted")
-              navigate("/feature-requests")
+              navigate(`/projects/${projectId}`)
             },
           })
         }

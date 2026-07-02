@@ -13,7 +13,7 @@ export const FeatureRequestCard = memo(function FeatureRequestCard({ request }: 
   return (
     <Card
       className="cursor-pointer transition-colors hover:border-primary/50"
-      onClick={() => navigate(`/feature-requests/${request.id}`)}
+      onClick={() => navigate(`/projects/${request.projectId}/feature-requests/${request.id}`)}
     >
       <CardContent className="flex items-start gap-4 py-4">
         <VoteButton requestId={request.id} upvoteCount={request.upvoteCount} hasVoted={request.hasVoted} />

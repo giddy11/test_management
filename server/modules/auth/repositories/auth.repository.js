@@ -40,6 +40,10 @@ class AuthRepository {
     return this.users.find({ where: { role } });
   }
 
+  async findByRoleAndOrg(role, organizationId) {
+    return this.users.find({ where: { role, organizationId } });
+  }
+
   async createUser(data) {
     return this.users.save(this.users.create(data));
   }

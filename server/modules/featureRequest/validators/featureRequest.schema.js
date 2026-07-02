@@ -4,6 +4,7 @@ const { enums } = require("../../../config/constants");
 
 const createFeatureRequestSchema = z.object({
   body: z.object({
+    projectId: z.string().uuid(),
     title: z.string().min(1).max(200),
     description: z.string().min(1).max(3000),
     category: z.string().max(50).optional(),
@@ -28,6 +29,7 @@ const idParamSchema = z.object({
 
 const fetchFeatureRequestsSchema = z.object({
   query: z.object({
+    projectId: z.string().uuid(),
     page: z.coerce.number().int().min(1).default(1),
     limit: z.coerce.number().int().min(1).max(100).default(20),
     status: z.enum(enums.featureRequestStatus).optional(),

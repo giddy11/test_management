@@ -1,5 +1,6 @@
 // modules/featureRequest/entities/featureRequest.entity.js
-// Platform-wide product feedback — visible to every user regardless of organisation.
+// Project-scoped — access is governed by ProjectService.assertAccess via the
+// project relation, same as TestSuite.
 const { EntitySchema } = require("typeorm");
 const { enums, FeatureRequestStatus } = require("../../../config/constants");
 
@@ -11,6 +12,10 @@ const FeatureRequest = new EntitySchema({
       type: "uuid",
       primary: true,
       generated: "uuid",
+    },
+    projectId: {
+      name: "project_id",
+      type: "uuid",
     },
     title: {
       type: "varchar",
@@ -31,12 +36,6 @@ const FeatureRequest = new EntitySchema({
     },
     submittedById: {
       name: "submitted_by_id",
-      type: "uuid",
-      nullable: true,
-    },
-    // Captured for context only — never used to scope visibility (platform-wide board).
-    organizationId: {
-      name: "organization_id",
       type: "uuid",
       nullable: true,
     },
@@ -74,6 +73,12 @@ const FeatureRequest = new EntitySchema({
     },
   },
   relations: {
+    project: {
+      type: "many-to-one",
+      target: "Project",
+      joinColumn: { name: "project_id" },
+      onDelete: "CASCADE",
+    },
     submittedBy: {
       type: "many-to-one",
       target: "User",
@@ -83,9 +88,9 @@ const FeatureRequest = new EntitySchema({
     },
   },
   indices: [
-    { name: "idx_feature_requests_status_created", columns: ["status", "createdAt"] },
+    { name: "idx_feature_requests_project_status_created", columns: ["projectId", "status", "createdAt"] },
     { name: "idx_feature_requests_submitted_by", columns: ["submittedById"] },
-    { name: "idx_feature_requests_upvote_count", columns: ["upvoteCount"] },
+    { name: "idx_feature_requests_project_upvote_count", columns: ["projectId", "upvoteCount"] },
   ],
 });
 

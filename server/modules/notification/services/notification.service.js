@@ -78,36 +78,36 @@ class NotificationService {
     );
   }
 
-  // ctx: { requestId, title, submittedByName }
-  async notifyNewFeatureRequest(superadmins, ctx) {
-    if (!superadmins.length) return;
-    const url = `${env.appUrl}/feature-requests/${ctx.requestId}`;
+  // ctx: { requestId, projectId, title, submittedByName }
+  async notifyNewFeatureRequest(recipients, ctx) {
+    if (!recipients.length) return;
+    const url = `${env.appUrl}/projects/${ctx.projectId}/feature-requests/${ctx.requestId}`;
     await this.repo.createMany(
-      superadmins.map((u) => ({
+      recipients.map((u) => ({
         userId: u.id,
         type: NotificationType.FEATURE_REQUEST_NEW,
         title: `New feature request: ${ctx.title}`,
         body: `${ctx.submittedByName} submitted a new feature request`,
-        data: { requestId: ctx.requestId },
+        data: { requestId: ctx.requestId, projectId: ctx.projectId },
       }))
     );
-    for (const u of superadmins) {
+    for (const u of recipients) {
       sendNewFeatureRequestEmail(u.email, u.firstName, ctx.title, ctx.submittedByName, url).catch((e) =>
         console.error("[notify] new-feature-request email failed:", e.message)
       );
     }
   }
 
-  // ctx: { requestId, title, status, adminResponse }
+  // ctx: { requestId, projectId, title, status, adminResponse }
   async notifyFeatureRequestStatusChanged(user, ctx) {
-    const url = `${env.appUrl}/feature-requests/${ctx.requestId}`;
+    const url = `${env.appUrl}/projects/${ctx.projectId}/feature-requests/${ctx.requestId}`;
     await this.repo.createMany([
       {
         userId: user.id,
         type: NotificationType.FEATURE_REQUEST_STATUS_CHANGED,
         title: `Your feature request status changed: ${ctx.title}`,
         body: `"${ctx.title}" is now ${ctx.status.replace(/_/g, " ")}`,
-        data: { requestId: ctx.requestId, status: ctx.status },
+        data: { requestId: ctx.requestId, projectId: ctx.projectId, status: ctx.status },
       },
     ]);
     sendFeatureRequestStatusEmail(user.email, user.firstName, ctx.title, ctx.status, ctx.adminResponse, url).catch(
@@ -115,16 +115,16 @@ class NotificationService {
     );
   }
 
-  // ctx: { requestId, title, commenterName }
+  // ctx: { requestId, projectId, title, commenterName }
   async notifyFeatureRequestComment(user, ctx) {
-    const url = `${env.appUrl}/feature-requests/${ctx.requestId}`;
+    const url = `${env.appUrl}/projects/${ctx.projectId}/feature-requests/${ctx.requestId}`;
     await this.repo.createMany([
       {
         userId: user.id,
         type: NotificationType.FEATURE_REQUEST_COMMENT,
         title: `New comment on: ${ctx.title}`,
         body: `${ctx.commenterName} commented on your feature request`,
-        data: { requestId: ctx.requestId },
+        data: { requestId: ctx.requestId, projectId: ctx.projectId },
       },
     ]);
     sendFeatureRequestCommentEmail(user.email, user.firstName, ctx.title, ctx.commenterName, url).catch((e) =>

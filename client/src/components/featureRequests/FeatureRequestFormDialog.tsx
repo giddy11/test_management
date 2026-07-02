@@ -21,9 +21,10 @@ import { ApiError } from "@/transport/http"
 interface Props {
   open: boolean
   onOpenChange: (open: boolean) => void
+  projectId: string
 }
 
-export function FeatureRequestFormDialog({ open, onOpenChange }: Props) {
+export function FeatureRequestFormDialog({ open, onOpenChange, projectId }: Props) {
   const create = useCreateFeatureRequest()
 
   const {
@@ -39,7 +40,7 @@ export function FeatureRequestFormDialog({ open, onOpenChange }: Props) {
 
   const onSubmit = (values: FeatureRequestForm) => {
     create.mutate(
-      { title: values.title, description: values.description, category: values.category || undefined },
+      { projectId, title: values.title, description: values.description, category: values.category || undefined },
       {
         onError: (e) => toast.error(e instanceof ApiError ? e.message : "Failed"),
         onSuccess: () => {

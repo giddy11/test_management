@@ -10,13 +10,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { PageLoader } from "@/components/shared/PageLoader"
+import { InlineLoader } from "@/components/shared/PageLoader"
 import { FeatureRequestCard } from "@/components/featureRequests/FeatureRequestCard"
 import { FeatureRequestFormDialog } from "@/components/featureRequests/FeatureRequestFormDialog"
 import { useFeatureRequests } from "@/hooks/useFeatureRequests"
 import { FEATURE_REQUEST_STATUSES, FEATURE_REQUEST_STATUS_META, type FeatureRequestStatus } from "@/lib/enums"
 
-export default function FeatureRequestsPage() {
+export function FeatureRequestsTab({ projectId }: { projectId: string }) {
   const [searchInput, setSearchInput] = useState("")
   const [search, setSearch] = useState("")
   const [status, setStatus] = useState<FeatureRequestStatus | undefined>()
@@ -32,7 +32,7 @@ export default function FeatureRequestsPage() {
     return () => clearTimeout(t)
   }, [searchInput])
 
-  const { data, isLoading, isError, error } = useFeatureRequests({
+  const { data, isLoading, isError, error } = useFeatureRequests(projectId, {
     page,
     limit: 20,
     status,
@@ -44,17 +44,7 @@ export default function FeatureRequestsPage() {
   const filterValue = (v: string) => (v === "all" ? undefined : v)
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Feature Requests</h1>
-          <p className="text-sm text-muted-foreground">Suggest and vote on what TestMate should build next.</p>
-        </div>
-        <Button onClick={() => setFormOpen(true)} className="w-full sm:w-auto">
-          <Plus className="mr-1 size-4" /> New request
-        </Button>
-      </div>
-
+    <div className="space-y-4">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
         <Input
           placeholder="Search requests…"
@@ -81,9 +71,12 @@ export default function FeatureRequestsPage() {
             <SelectItem value="newest">Newest</SelectItem>
           </SelectContent>
         </Select>
+        <Button size="sm" onClick={() => setFormOpen(true)} className="sm:ml-auto">
+          <Plus className="mr-1 size-4" /> New request
+        </Button>
       </div>
 
-      {isLoading && <PageLoader />}
+      {isLoading && <InlineLoader className="py-8" />}
       {isError && (
         <p className="text-sm text-destructive">
           {error instanceof Error ? error.message : "Failed to load feature requests"}
@@ -92,10 +85,10 @@ export default function FeatureRequestsPage() {
 
       {!isLoading && !isError && requests.length === 0 && (
         <Card className="border-dashed">
-          <CardContent className="flex flex-col items-center gap-2 py-12 text-center">
-            <Lightbulb className="size-8 text-muted-foreground" />
+          <CardContent className="flex flex-col items-center gap-2 py-10 text-center">
+            <Lightbulb className="size-7 text-muted-foreground" />
             <p className="text-sm text-muted-foreground">No feature requests yet.</p>
-            <Button onClick={() => setFormOpen(true)}>Submit the first one</Button>
+            <Button size="sm" onClick={() => setFormOpen(true)}>Submit the first one</Button>
           </CardContent>
         </Card>
       )}
@@ -118,7 +111,7 @@ export default function FeatureRequestsPage() {
         </div>
       )}
 
-      <FeatureRequestFormDialog open={formOpen} onOpenChange={setFormOpen} />
+      <FeatureRequestFormDialog open={formOpen} onOpenChange={setFormOpen} projectId={projectId} />
     </div>
   )
 }

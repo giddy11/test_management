@@ -10,13 +10,14 @@ class FeatureRequestRepository {
     this.repo = AppDataSource.getRepository(FeatureRequest);
   }
 
-  // Platform-wide — no organizationId filter. sort: "top" (default) | "newest".
-  async fetchPaginated({ page = 1, limit = 20, status, category, search, sort = "top" }) {
+  // sort: "top" (default) | "newest".
+  async fetchPaginated({ projectId, page = 1, limit = 20, status, category, search, sort = "top" }) {
     const offset = getOffset(page, limit);
     const qb = this.repo
       .createQueryBuilder("fr")
       .leftJoinAndSelect("fr.submittedBy", "submittedBy")
-      .where("fr.deleted_at IS NULL")
+      .where("fr.project_id = :projectId", { projectId }) // indexed FK
+      .andWhere("fr.deleted_at IS NULL")
       .skip(offset)
       .take(limit);
 

@@ -5,6 +5,7 @@ function toFeatureRequestResponse(fr, extra = {}) {
   const submitter = fr.submittedBy;
   return {
     id: fr.id,
+    projectId: fr.projectId,
     title: fr.title,
     description: fr.description,
     status: fr.status,
