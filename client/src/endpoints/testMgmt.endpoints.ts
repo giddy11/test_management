@@ -8,6 +8,7 @@ import type {
   DashboardOverview,
   ImportPreview,
   RecordResultPayload,
+  RecentRun,
   TestCase,
   TestRun,
   TestRunResult,
@@ -113,4 +114,6 @@ export const ExportEndpoints = {
 export const DashboardEndpoints = {
   overview: (projectId?: string) =>
     wrapCall<DashboardOverview>("GET", "/api/v1/dashboard/overview", projectId ? { projectId } : {}),
+  recentRuns: (params: { projectId?: string; suiteId?: string; page?: number; limit?: number }) =>
+    wrapCall<RecentRun[]>("GET", "/api/v1/dashboard/recent-runs", obj(params)),
 }

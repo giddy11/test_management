@@ -192,17 +192,21 @@ export interface DashboardOverview {
     total: number
   }
   passRate: number
-  recentRuns: {
-    id: string
-    name: string
-    status: RunStatus
-    projectId: string
-    createdAt: string
-    createdByName: string | null
-    testers: string[]
-    summary: RunSummary
-  }[]
   projectsBreakdown: ProjectBreakdown[]
   suitesBreakdown: SuiteBreakdown[]
   topPerformers: TopPerformer[]
+}
+
+export interface RecentRun {
+  id: string
+  name: string
+  status: RunStatus
+  projectId: string
+  projectName: string
+  suiteId: string | null
+  suiteName: string | null
+  createdAt: string
+  createdByName: string | null
+  testers: string[]
+  summary: RunSummary
 }

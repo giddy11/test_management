@@ -14,7 +14,6 @@ class DashboardService {
       caseStatus,
       casePriority,
       resultBreakdown,
-      recentRuns,
       projectsBreakdown,
       suitesBreakdown,
       topPerformers,
@@ -23,7 +22,6 @@ class DashboardService {
       this.repo.caseDistribution(organizationId, projectId, "status"),
       this.repo.caseDistribution(organizationId, projectId, "priority"),
       this.repo.resultBreakdown(organizationId, projectId),
-      this.repo.recentRuns(organizationId, projectId),
       this.repo.projectsBreakdown(organizationId, projectId),
       this.repo.suitesBreakdown(organizationId, projectId),
       this.repo.topPerformers(organizationId, projectId),
@@ -40,11 +38,35 @@ class DashboardService {
       casePriority,
       resultBreakdown,
       passRate,
-      recentRuns: recentRuns.map((r) => ({
+      projectsBreakdown,
+      suitesBreakdown,
+      topPerformers: topPerformers.map((p) => ({
+        id: p.id,
+        name: [p.firstName, p.lastName].filter(Boolean).join(" "),
+        total: p.total,
+        passes: p.passes,
+        failures: p.failures,
+        passRate: p.passRate,
+      })),
+    };
+  }
+
+  async recentRuns(organizationId, { projectId, suiteId, page, limit } = {}) {
+    const { data, meta } = await this.repo.recentRuns(organizationId, {
+      projectId,
+      suiteId,
+      page,
+      limit,
+    });
+    return {
+      data: data.map((r) => ({
         id: r.id,
         name: r.name,
         status: r.status,
         projectId: r.projectId,
+        projectName: r.projectName,
+        suiteId: r.suiteId,
+        suiteName: r.suiteName,
         createdAt: r.createdAt,
         createdByName: r.createdByName || null,
         testers: r.testers ?? [],
@@ -56,16 +78,7 @@ class DashboardService {
           skipped: r.skipped,
         },
       })),
-      projectsBreakdown,
-      suitesBreakdown,
-      topPerformers: topPerformers.map((p) => ({
-        id: p.id,
-        name: [p.firstName, p.lastName].filter(Boolean).join(" "),
-        total: p.total,
-        passes: p.passes,
-        failures: p.failures,
-        passRate: p.passRate,
-      })),
+      meta,
     };
   }
 }

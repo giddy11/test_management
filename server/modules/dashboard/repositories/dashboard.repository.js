@@ -2,6 +2,7 @@
 // Aggregate analytics, scoped to the requesting user's projects (owner_id),
 // optionally narrowed to one project.
 const { AppDataSource } = require("../../../infrastructure/database/dataSource");
+const { buildMeta, getOffset } = require("../../../shared/pagination/paginate");
 
 class DashboardRepository {
   static Instance = new DashboardRepository();
@@ -158,11 +159,23 @@ class DashboardRepository {
     );
   }
 
-  async recentRuns(organizationId, projectId, limit = 6) {
-    const [pScope, params] = this.scope(organizationId, projectId);
-    params.push(limit);
-    return this.ds.query(
-      `SELECT r.id, r.name, r.status, r.project_id AS "projectId", r.created_at AS "createdAt",
+  // Filterable, paginated recent-runs feed for the dashboard card.
+  // Count only runs on page 1, matching the shared pagination convention.
+  async recentRuns(organizationId, { projectId, suiteId, page = 1, limit = 10 } = {}) {
+    const [pScope, scopeParams] = this.scope(organizationId, projectId);
+    const params = [...scopeParams];
+    let suiteFilter = "";
+    if (suiteId) {
+      params.push(suiteId);
+      suiteFilter = ` AND r.suite_id = $${params.length}`;
+    }
+
+    const offset = getOffset(page, limit);
+    const dataParams = [...params, limit, offset];
+    const data = await this.ds.query(
+      `SELECT r.id, r.name, r.status, r.created_at AS "createdAt",
+        r.project_id AS "projectId", p.name AS "projectName",
+        r.suite_id AS "suiteId", ts.name AS "suiteName",
         trim(concat(u.first_name, ' ', u.last_name)) AS "createdByName",
         count(res.id)::int AS total,
         count(*) FILTER (WHERE res.status = 'pass')::int AS pass,
@@ -180,14 +193,28 @@ class DashboardRepository {
         ) AS testers
        FROM test_runs r
        JOIN projects p ON r.project_id = p.id
+       LEFT JOIN test_suites ts ON ts.id = r.suite_id
        LEFT JOIN users u ON r.created_by_id = u.id
        LEFT JOIN test_run_results res ON res.run_id = r.id
-       WHERE ${pScope}
-       GROUP BY r.id, u.first_name, u.last_name
+       WHERE ${pScope}${suiteFilter}
+       GROUP BY r.id, p.name, ts.name, u.first_name, u.last_name
        ORDER BY r.created_at DESC
-       LIMIT $${params.length}`,
-      params
+       LIMIT $${dataParams.length - 1} OFFSET $${dataParams.length}`,
+      dataParams
     );
+
+    let total = 0;
+    if (page === 1) {
+      const [row] = await this.ds.query(
+        `SELECT count(*)::int n FROM test_runs r
+         JOIN projects p ON r.project_id = p.id
+         WHERE ${pScope}${suiteFilter}`,
+        params
+      );
+      total = row.n;
+    }
+
+    return { data, meta: buildMeta(page, limit, total, data.length) };
   }
 }
 

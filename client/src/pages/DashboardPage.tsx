@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom"
-import { FolderKanban, Layers, ClipboardList, FlaskConical, Trophy, ChevronRight, User, Users } from "lucide-react"
+import { FolderKanban, Layers, ClipboardList, FlaskConical, Trophy, ChevronRight } from "lucide-react"
 import {
   Card,
   CardContent,
@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { ResultDonut, DistributionBars } from "@/components/dashboard/AnalyticsCharts"
-import { SummaryBar } from "@/components/shared/SummaryBar"
+import { RecentRunsCard } from "@/components/dashboard/RecentRunsCard"
 import { PageLoader } from "@/components/shared/PageLoader"
 import { OnboardingTour } from "@/components/onboarding/OnboardingTour"
 import { useDashboard } from "@/hooks/useDashboard"
@@ -233,48 +233,7 @@ export default function DashboardPage() {
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader><CardTitle className="text-base">Recent test runs</CardTitle></CardHeader>
-              <CardContent className="max-h-[420px] space-y-4 overflow-y-auto pr-1">
-                {data.recentRuns.length === 0 && (
-                  <p className="text-sm text-muted-foreground">
-                    No runs yet. Open a project and start a test run to begin tracking.
-                  </p>
-                )}
-                {data.recentRuns.map((run) => (
-                  <Link
-                    key={run.id}
-                    to={`/projects/${run.projectId}/runs/${run.id}`}
-                    className="block rounded-lg border p-3 transition-colors hover:border-primary/50"
-                  >
-                    <div className="mb-1.5 flex items-center justify-between gap-2">
-                      <span className="text-sm font-medium truncate">{run.name}</span>
-                      <span className="shrink-0 text-xs text-muted-foreground">
-                        {new Date(run.createdAt).toLocaleDateString()}
-                      </span>
-                    </div>
-                    <div className="mb-2 flex flex-col gap-0.5 text-xs text-muted-foreground">
-                      {run.createdByName && (
-                        <span className="flex items-center gap-1">
-                          <User className="size-3 shrink-0" />
-                          Started by <span className="font-medium text-foreground ml-0.5">{run.createdByName}</span>
-                        </span>
-                      )}
-                      {run.testers && run.testers.length > 0 && (
-                        <span className="flex items-center gap-1">
-                          <Users className="size-3 shrink-0" />
-                          <span className="font-medium text-foreground">
-                            {run.testers.slice(0, 2).join(", ")}
-                            {run.testers.length > 2 && ` +${run.testers.length - 2} more`}
-                          </span>
-                        </span>
-                      )}
-                    </div>
-                    <SummaryBar summary={run.summary} />
-                  </Link>
-                ))}
-              </CardContent>
-            </Card>
+            <RecentRunsCard />
           </div>
         </>
       )}

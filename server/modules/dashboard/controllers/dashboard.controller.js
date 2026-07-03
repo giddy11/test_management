@@ -14,6 +14,18 @@ class DashboardController {
       next(err);
     }
   }
+
+  static async recentRuns(req, res, next) {
+    try {
+      const { data, meta } = await DashboardService.Instance.recentRuns(
+        req.user.organizationId,
+        req.validated.query
+      );
+      res.status(200).json(ApiResponse.ok("Recent test runs", data, meta));
+    } catch (err) {
+      next(err);
+    }
+  }
 }
 
 module.exports = { DashboardController };

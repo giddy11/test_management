@@ -12,3 +12,21 @@ export function useDashboard(projectId?: string) {
     },
   })
 }
+
+interface RecentRunsParams {
+  projectId?: string
+  suiteId?: string
+  page?: number
+  limit?: number
+}
+
+export function useRecentRuns(params: RecentRunsParams) {
+  return useQuery({
+    queryKey: ["dashboard", "recent-runs", params],
+    queryFn: async () => {
+      const res = await DashboardEndpoints.recentRuns(params)
+      if (!res.success) throw new ApiError(res.message, res.statusCode)
+      return { data: res.data ?? [], meta: res.meta }
+    },
+  })
+}
