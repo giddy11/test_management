@@ -85,6 +85,18 @@ class TestCaseController {
       next(err);
     }
   }
+
+  static async bulkAssign(req, res, next) {
+    try {
+      const result = await TestCaseService.Instance.bulkAssignUsers(
+        req.user,
+        req.validated.body
+      );
+      res.status(200).json(ApiResponse.ok("Assignees updated", result));
+    } catch (err) {
+      next(err);
+    }
+  }
 }
 
 module.exports = { TestCaseController };

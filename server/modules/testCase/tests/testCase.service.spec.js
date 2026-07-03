@@ -1,5 +1,6 @@
 // modules/testCase/tests/testCase.service.spec.js
 const { TestCaseService } = require("../services/testCase.service");
+const { ActivityService } = require("../../activity/services/activity.service");
 const { TestCaseStatus } = require("../../../config/constants");
 
 function makeTcRepo() {
@@ -135,6 +136,47 @@ describe("TestCaseService", () => {
       await expect(service.assignUsers(admin, "tc-1", ["ghost"])).rejects.toMatchObject({
         statusCode: 404,
       });
+    });
+  });
+
+  describe("bulkAssignUsers", () => {
+    it("merges assignees per case and logs exactly one activity entry", async () => {
+      const logSpy = jest.spyOn(ActivityService.Instance, "log").mockImplementation(() => {});
+
+      tcRepo.findById.mockImplementation(async (id) =>
+        id === "tc-1"
+          ? { ...testCase, id: "tc-1", assignees: [{ id: "existing-1" }] }
+          : { ...testCase, id: "tc-2", assignees: [] }
+      );
+      authRepo.findUserById.mockImplementation(async (id) =>
+        id === "owner-1" ? admin : { id, organizationId: "org-1" }
+      );
+      tcRepo.setAssignees.mockImplementation(async (tc, users) => ({ ...tc, assignees: users }));
+
+      const result = await service.bulkAssignUsers(admin, {
+        caseIds: ["tc-1", "tc-2"],
+        userIds: ["u-9"],
+      });
+
+      expect(tcRepo.setAssignees).toHaveBeenCalledTimes(2);
+      expect(tcRepo.setAssignees).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({ id: "tc-1" }),
+        expect.arrayContaining([{ id: "existing-1" }, { id: "u-9" }])
+      );
+      expect(result).toEqual({ assignedCount: 2 });
+
+      // One summarised entry for the whole bulk action, not one per case.
+      expect(logSpy).toHaveBeenCalledTimes(1);
+      expect(logSpy).toHaveBeenCalledWith(
+        admin,
+        expect.objectContaining({
+          action: "test_case.assigned",
+          summary: expect.stringContaining("2 test cases"),
+        })
+      );
+
+      logSpy.mockRestore();
     });
   });
 

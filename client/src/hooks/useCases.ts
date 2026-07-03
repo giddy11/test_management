@@ -99,18 +99,11 @@ export function useBulkAssignCases() {
       userIds: string[]
       deadline?: string | null
     }) => {
-      const results = await Promise.allSettled(
-        cases.map(({ id, existingAssigneeIds }) => {
-          // merge: keep existing assignees + add new ones
-          const merged = [...new Set([...existingAssigneeIds, ...userIds])]
-          return CaseEndpoints.assign(id, merged, deadline)
-        })
-      )
-      const failed = results.filter(
-        (r) => r.status === "rejected" || (r.status === "fulfilled" && !r.value.success)
-      ).length
-      if (failed > 0) throw new ApiError(`${failed} of ${cases.length} could not be assigned`, 0)
-      return { assigned: cases.length }
+      // Single request — the backend merges with existing assignees per case
+      // and records one summarised activity-log entry instead of one per case.
+      const res = await CaseEndpoints.bulkAssign(cases.map((c) => c.id), userIds, deadline)
+      if (!res.success || !res.data) throw new ApiError(res.message, res.statusCode, res.errors)
+      return { assigned: res.data.assignedCount }
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: [KEY] }),
   })

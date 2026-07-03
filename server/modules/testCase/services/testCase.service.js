@@ -146,6 +146,60 @@ class TestCaseService {
 
     return { testCase: saved, addedUsers };
   }
+
+  // Add users to many cases at once (existing assignees are kept), logged as ONE activity entry.
+  async bulkAssignUsers(actor, { caseIds, userIds, deadline }) {
+    const users = [];
+    for (const uid of userIds) {
+      const user = await this.authRepo.findUserById(uid);
+      if (!user) throw new AppError(`User not found: ${uid}`, 404);
+      if (user.organizationId !== actor.organizationId && actor.role !== UserRole.SUPERADMIN) {
+        throw new AppError("You can only assign users from your organisation", 403);
+      }
+      users.push(user);
+    }
+
+    const me = await this.authRepo.findUserById(actor.id);
+    const assignedByName = me
+      ? [me.firstName, me.lastName].filter(Boolean).join(" ")
+      : "An admin";
+
+    let lastSuite = null;
+    for (const caseId of caseIds) {
+      const tc = await this.getTestCase(actor, caseId);
+      const suite = await this.suiteService.getTestSuite(actor, tc.suiteId);
+      lastSuite = suite;
+
+      const before = new Set((tc.assignees ?? []).map((u) => u.id));
+      const mergedIds = [...new Set([...before, ...users.map((u) => u.id)])];
+      let saved = await this.tcRepo.setAssignees(tc, mergedIds.map((id) => ({ id })));
+
+      if (deadline !== undefined) {
+        saved = await this.tcRepo.update(saved.id, { deadline: deadline ?? null });
+      }
+
+      const addedUsers = users.filter((u) => !before.has(u.id));
+      if (addedUsers.length) {
+        NotificationService.Instance.notifyAssignment(addedUsers, {
+          caseTitle: tc.title,
+          caseId: tc.id,
+          suiteId: tc.suiteId,
+          projectId: suite.projectId,
+          assignedByName,
+        }).catch((e) => console.error("[notify] bulk assignment failed:", e.message));
+      }
+    }
+
+    ActivityService.Instance.log(actor, {
+      action: "test_case.assigned",
+      summary: `Assigned ${users.length} user${users.length === 1 ? "" : "s"} to ${caseIds.length} test case${caseIds.length === 1 ? "" : "s"}`,
+      entityType: "suite",
+      entityId: lastSuite?.id ?? null,
+      metadata: { caseIds, suiteId: lastSuite?.id, projectId: lastSuite?.projectId },
+    });
+
+    return { assignedCount: caseIds.length };
+  }
 }
 
 module.exports = { TestCaseService };

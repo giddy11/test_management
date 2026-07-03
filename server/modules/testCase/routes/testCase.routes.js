@@ -7,6 +7,7 @@ const {
   createTestCaseSchema,
   updateTestCaseSchema,
   assignTestCaseSchema,
+  bulkAssignTestCaseSchema,
   idParamSchema,
   fetchTestCasesSchema,
 } = require("../validators/testCase.schema");
@@ -34,6 +35,15 @@ router.delete(
   authorise("superadmin", "admin"),
   validate(idParamSchema),
   TestCaseController.remove
+);
+
+// Add users to many test cases at once (existing assignees kept); logged as one activity entry.
+router.patch(
+  "/assignees/bulk",
+  authMiddleware,
+  authorise("superadmin", "admin"),
+  validate(bulkAssignTestCaseSchema),
+  TestCaseController.bulkAssign
 );
 
 // Assign (replace) the set of users on a test case.

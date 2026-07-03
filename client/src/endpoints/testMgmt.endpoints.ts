@@ -45,6 +45,12 @@ export const CaseEndpoints = {
   remove: (id: string) => wrapCall<null>("DELETE", `/api/v1/test-cases/${id}`),
   assign: (id: string, userIds: string[], deadline?: string | null) =>
     wrapCall<TestCase>("PATCH", `/api/v1/test-cases/${id}/assignees`, { userIds, deadline }),
+  bulkAssign: (caseIds: string[], userIds: string[], deadline?: string | null) =>
+    wrapCall<{ assignedCount: number }>("PATCH", "/api/v1/test-cases/assignees/bulk", {
+      caseIds,
+      userIds,
+      deadline,
+    }),
 }
 
 export const AttachmentEndpoints = {
