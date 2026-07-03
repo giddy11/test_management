@@ -5,6 +5,7 @@ import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { SummaryBar } from "@/components/shared/SummaryBar"
 import { ResultRow } from "@/components/testmgmt/ResultRow"
@@ -22,7 +23,9 @@ export default function RunDetailPage() {
   const canManage = user?.role === UserRole.ADMIN || user?.role === UserRole.SUPERADMIN
   const { data: run, isLoading } = useRun(runId)
   const [page, setPage] = useState(1)
-  const { data: runResults } = useResults(runId, page)
+  const [searchInput, setSearchInput] = useState("")
+  const [search, setSearch] = useState("")
+  const { data: runResults } = useResults(runId, { page, search: search || undefined })
   const results = runResults?.data ?? []
   const meta = runResults?.meta
   const updateRun = useUpdateRun()
@@ -30,8 +33,17 @@ export default function RunDetailPage() {
 
   const [selected, setSelected] = useState<Set<string>>(new Set())
 
-  // Clear selection when navigating pages
-  useEffect(() => { setSelected(new Set()) }, [page])
+  // Debounce the search box
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setSearch(searchInput)
+      setPage(1)
+    }, 300)
+    return () => clearTimeout(t)
+  }, [searchInput])
+
+  // Clear selection when navigating pages or search results change
+  useEffect(() => { setSelected(new Set()) }, [page, search])
 
   const allSelected = results.length > 0 && results.every((r) => selected.has(r.id))
   const someSelected = selected.size > 0
@@ -117,9 +129,18 @@ export default function RunDetailPage() {
         </Card>
       ) : null}
 
+      <Input
+        placeholder="Search test cases…"
+        value={searchInput}
+        onChange={(e) => setSearchInput(e.target.value)}
+        className="sm:max-w-xs"
+      />
+
       <div className="space-y-2">
         {results.length === 0 && (
-          <p className="text-sm text-muted-foreground">No test cases assigned to you in this run.</p>
+          <p className="text-sm text-muted-foreground">
+            {search ? "No test cases match your search." : "No test cases assigned to you in this run."}
+          </p>
         )}
 
         {results.length > 0 && (

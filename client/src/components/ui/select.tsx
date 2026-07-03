@@ -5,9 +5,13 @@ import { Select as SelectPrimitive } from "radix-ui"
 import { cn } from "@/lib/utils"
 
 function Select({
+  modal = false,
   ...props
 }: React.ComponentProps<typeof SelectPrimitive.Root>) {
-  return <SelectPrimitive.Root data-slot="select" {...props} />
+  // Radix Select is modal by default, which disables pointer-events on the rest of
+  // the page (including a parent Dialog) while open. That makes an outside click meant
+  // to just close the Select "pass through" to the Dialog's overlay and close it too.
+  return <SelectPrimitive.Root data-slot="select" modal={modal} {...props} />
 }
 
 function SelectGroup({

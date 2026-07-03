@@ -35,6 +35,7 @@ const fetchResultsSchema = z.object({
     limit: z.coerce.number().int().min(1).max(100).default(20),
     runId: z.string().uuid(),
     status: z.enum(enums.resultStatus).optional(),
+    search: z.string().trim().min(1).max(200).optional(),
   }),
 });
 

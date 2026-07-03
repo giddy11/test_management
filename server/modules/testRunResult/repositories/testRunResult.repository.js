@@ -11,7 +11,7 @@ class TestRunResultRepository {
   }
 
   // assigneeId set => only results whose test case is assigned to that user.
-  async fetchPaginated({ runId, page = 1, limit = 20, status, assigneeId }) {
+  async fetchPaginated({ runId, page = 1, limit = 20, status, assigneeId, search }) {
     const offset = getOffset(page, limit);
     const qb = this.repo
       .createQueryBuilder("result")
@@ -31,6 +31,9 @@ class TestRunResultRepository {
         `EXISTS (SELECT 1 FROM test_case_assignees tca WHERE tca.test_case_id = result.test_case_id AND tca.user_id = :assigneeId)`,
         { assigneeId }
       );
+    }
+    if (search) {
+      qb.andWhere("tc.title ILIKE :search", { search: `%${search}%` });
     }
 
     const total = page === 1 ? await qb.getCount() : 0;

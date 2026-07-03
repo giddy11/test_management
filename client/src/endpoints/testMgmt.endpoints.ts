@@ -78,7 +78,7 @@ export const RunEndpoints = {
 }
 
 export const ResultEndpoints = {
-  fetchAll: (params: { runId: string; page?: number; limit?: number; status?: string }) =>
+  fetchAll: (params: { runId: string; page?: number; limit?: number; status?: string; search?: string }) =>
     wrapCall<TestRunResult[]>("GET", "/api/v1/test-run-results", obj(params)),
   record: (id: string, payload: RecordResultPayload) =>
     wrapCall<TestRunResult>("PATCH", `/api/v1/test-run-results/${id}`, obj(payload)),

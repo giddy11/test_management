@@ -81,11 +81,18 @@ export function useDeleteRun() {
   })
 }
 
-export function useResults(runId: string, page = 1) {
+interface ResultQuery {
+  page?: number
+  search?: string
+  status?: string
+}
+
+export function useResults(runId: string, params: ResultQuery = {}) {
+  const { page = 1, search, status } = params
   return useQuery({
-    queryKey: [RESULTS, runId, page],
+    queryKey: [RESULTS, runId, page, search, status],
     queryFn: async () => {
-      const res = await ResultEndpoints.fetchAll({ runId, limit: 100, page })
+      const res = await ResultEndpoints.fetchAll({ runId, limit: 100, page, search, status })
       if (!res.success) throw new ApiError(res.message, res.statusCode)
       return { data: res.data ?? [], meta: res.meta }
     },
