@@ -150,8 +150,8 @@ describe("TestCaseService", () => {
         id === "owner-1" ? admin : { id, organizationId: "org-1" }
       );
       tcRepo.findBulkAssignable.mockResolvedValue([
-        { id: "tc-1", title: "A", suiteId: "suite-1", projectId: "p-1" },
-        { id: "tc-2", title: "B", suiteId: "suite-1", projectId: "p-1" },
+        { id: "tc-1", title: "A", suiteId: "suite-1", suiteName: "Login", projectId: "p-1", projectName: "Web" },
+        { id: "tc-2", title: "B", suiteId: "suite-1", suiteName: "Login", projectId: "p-1", projectName: "Web" },
       ]);
     });
 
@@ -174,7 +174,7 @@ describe("TestCaseService", () => {
         admin,
         expect.objectContaining({
           action: "test_case.assigned",
-          summary: expect.stringContaining("2 test cases"),
+          summary: expect.stringMatching(/2 test cases in suite "Login"/),
         })
       );
 

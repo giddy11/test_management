@@ -26,8 +26,9 @@ function makeTcRepo() {
 
 function makeSuiteService() {
   return {
-    getTestSuite: jest.fn().mockResolvedValue({ id: "suite-1", projectId: "proj-1" }),
-    projectService: { getProject: jest.fn().mockResolvedValue({ id: "proj-1" }) },
+    getTestSuite: jest.fn().mockResolvedValue({ id: "suite-1", name: "Login", projectId: "proj-1" }),
+    projectService: { getProject: jest.fn().mockResolvedValue({ id: "proj-1", name: "Web" }) },
+    suiteRepo: { findById: jest.fn().mockResolvedValue({ id: "suite-1", name: "Login" }) },
   };
 }
 

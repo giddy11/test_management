@@ -164,7 +164,8 @@ class TestCaseRepository {
     if (!caseIds.length) return [];
     const ds = this.repo.manager.connection;
     return ds.query(
-      `SELECT tc.id, tc.title, tc.suite_id AS "suiteId", ts.project_id AS "projectId"
+      `SELECT tc.id, tc.title, tc.suite_id AS "suiteId", ts.name AS "suiteName",
+        ts.project_id AS "projectId", p.name AS "projectName"
        FROM test_cases tc
        JOIN test_suites ts ON ts.id = tc.suite_id AND ts.deleted_at IS NULL
        JOIN projects p ON p.id = ts.project_id

@@ -199,7 +199,7 @@ export default function ActivityPage() {
                       <Icon className="size-4" />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm">{a.summary}</p>
+                      <p className="text-sm line-clamp-2">{a.summary}</p>
                       <p className="text-xs text-muted-foreground">
                         <span className="font-medium text-foreground">{actorName}</span>
                         {" · "}

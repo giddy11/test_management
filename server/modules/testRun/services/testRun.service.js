@@ -66,6 +66,8 @@ class TestRunService {
       );
     }
 
+    const project = await this.suiteService.projectService.getProject(actor, data.projectId);
+
     const run = await this.runRepo.create({
       name: data.name,
       projectId: data.projectId,
@@ -85,10 +87,10 @@ class TestRunService {
     );
     ActivityService.Instance.log(actor, {
       action: "run.created",
-      summary: `Started test run "${run.name}"`,
+      summary: `Started test run "${run.name}" on suite "${suite.name}" in project "${project.name}"`,
       entityType: "test_run",
       entityId: run.id,
-      metadata: { projectId: run.projectId },
+      metadata: { projectId: run.projectId, suiteId: run.suiteId },
     });
     return { run, summary };
   }
@@ -132,12 +134,13 @@ class TestRunService {
     }
 
     if (data.status === RunStatus.COMPLETED && !wasCompleted) {
+      const suite = await this.suiteService.suiteRepo.findById(run.suiteId);
       ActivityService.Instance.log(actor, {
         action: "run.completed",
-        summary: `Completed test run "${updated.name}"`,
+        summary: `Completed test run "${updated.name}"${suite ? ` on suite "${suite.name}"` : ""}`,
         entityType: "test_run",
         entityId: run.id,
-        metadata: { projectId: run.projectId },
+        metadata: { projectId: run.projectId, suiteId: run.suiteId },
       });
     }
 

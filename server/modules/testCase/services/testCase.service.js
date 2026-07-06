@@ -7,6 +7,18 @@ const { ActivityService } = require("../../activity/services/activity.service");
 const { AppError } = require("../../../shared/errors/AppError");
 const { TestCaseStatus, UserRole } = require("../../../config/constants");
 
+// Human-readable label for an activity summary: names up to 3 users, else a count.
+function userLabel(users) {
+  const names = users.map(
+    (u) => [u.firstName, u.lastName].filter(Boolean).join(" ").trim() || u.email || "a user"
+  );
+  if (names.length === 0) return "no one";
+  if (names.length === 1) return names[0];
+  if (names.length === 2) return `${names[0]} and ${names[1]}`;
+  if (names.length === 3) return `${names[0]}, ${names[1]} and ${names[2]}`;
+  return `${names.length} users`;
+}
+
 // `actor` = { id, role, organizationId }.
 class TestCaseService {
   static Instance = new TestCaseService();
@@ -123,7 +135,10 @@ class TestCaseService {
 
     ActivityService.Instance.log(actor, {
       action: "test_case.assigned",
-      summary: `Assigned ${users.length} user${users.length === 1 ? "" : "s"} to "${tc.title}"`,
+      summary:
+        users.length === 0
+          ? `Cleared assignees on "${tc.title}" in suite "${suite.name}"`
+          : `Assigned ${userLabel(users)} to "${tc.title}" in suite "${suite.name}"`,
       entityType: "test_case",
       entityId: tc.id,
       metadata: { suiteId: tc.suiteId, projectId: suite.projectId },
@@ -169,12 +184,15 @@ class TestCaseService {
     const validIds = cases.map((c) => c.id);
     const sample = cases[0];
 
+    const caseLabel = `${validIds.length} test case${validIds.length === 1 ? "" : "s"}`;
+    const suiteLabel = `suite "${sample.suiteName}" in project "${sample.projectName}"`;
+
     if (mode === "remove") {
       await this.tcRepo.removeAssignees(validIds, userIds);
 
       ActivityService.Instance.log(actor, {
         action: "test_case.unassigned",
-        summary: `Removed ${users.length} user${users.length === 1 ? "" : "s"} from ${validIds.length} test case${validIds.length === 1 ? "" : "s"}`,
+        summary: `Removed ${userLabel(users)} from ${caseLabel} in ${suiteLabel}`,
         entityType: "suite",
         entityId: sample.suiteId,
         metadata: { caseIds: validIds, suiteId: sample.suiteId, projectId: sample.projectId },
@@ -216,7 +234,7 @@ class TestCaseService {
 
     ActivityService.Instance.log(actor, {
       action: "test_case.assigned",
-      summary: `Assigned ${users.length} user${users.length === 1 ? "" : "s"} to ${validIds.length} test case${validIds.length === 1 ? "" : "s"}`,
+      summary: `Assigned ${userLabel(users)} to ${caseLabel} in ${suiteLabel}`,
       entityType: "suite",
       entityId: sample.suiteId,
       metadata: { caseIds: validIds, suiteId: sample.suiteId, projectId: sample.projectId },
