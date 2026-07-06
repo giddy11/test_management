@@ -12,6 +12,11 @@ function makeTcRepo() {
     update: jest.fn(),
     softDelete: jest.fn(),
     setAssignees: jest.fn(),
+    findBulkAssignable: jest.fn(),
+    addAssignees: jest.fn().mockResolvedValue(undefined),
+    removeAssignees: jest.fn().mockResolvedValue(undefined),
+    setDeadlineForMany: jest.fn().mockResolvedValue(undefined),
+    findExistingAssigneePairs: jest.fn().mockResolvedValue(new Set()),
   };
 }
 
@@ -113,7 +118,7 @@ describe("TestCaseService", () => {
       authRepo.findUserById.mockResolvedValue({ id: "u-9", organizationId: "org-1" });
       tcRepo.setAssignees.mockImplementation(async (tc, users) => ({ ...tc, assignees: users }));
 
-      const { addedUsers } = await service.assignUsers(admin, "tc-1", ["u-9"]);
+      const { addedUsers } = await service.assignUsers(admin, "tc-1", { userIds: ["u-9"] });
 
       expect(tcRepo.setAssignees).toHaveBeenCalledWith(
         expect.anything(),
@@ -125,46 +130,43 @@ describe("TestCaseService", () => {
     it("rejects assigning a user from another organisation", async () => {
       tcRepo.findById.mockResolvedValue({ ...testCase, assignees: [] });
       authRepo.findUserById.mockResolvedValue({ id: "u-x", organizationId: "org-2" });
-      await expect(service.assignUsers(admin, "tc-1", ["u-x"])).rejects.toMatchObject({
-        statusCode: 403,
-      });
+      await expect(
+        service.assignUsers(admin, "tc-1", { userIds: ["u-x"] })
+      ).rejects.toMatchObject({ statusCode: 403 });
     });
 
     it("throws 404 for an unknown user", async () => {
       tcRepo.findById.mockResolvedValue({ ...testCase, assignees: [] });
       authRepo.findUserById.mockResolvedValue(null);
-      await expect(service.assignUsers(admin, "tc-1", ["ghost"])).rejects.toMatchObject({
-        statusCode: 404,
-      });
+      await expect(
+        service.assignUsers(admin, "tc-1", { userIds: ["ghost"] })
+      ).rejects.toMatchObject({ statusCode: 404 });
     });
   });
 
   describe("bulkAssignUsers", () => {
-    it("merges assignees per case and logs exactly one activity entry", async () => {
-      const logSpy = jest.spyOn(ActivityService.Instance, "log").mockImplementation(() => {});
-
-      tcRepo.findById.mockImplementation(async (id) =>
-        id === "tc-1"
-          ? { ...testCase, id: "tc-1", assignees: [{ id: "existing-1" }] }
-          : { ...testCase, id: "tc-2", assignees: [] }
-      );
+    beforeEach(() => {
       authRepo.findUserById.mockImplementation(async (id) =>
         id === "owner-1" ? admin : { id, organizationId: "org-1" }
       );
-      tcRepo.setAssignees.mockImplementation(async (tc, users) => ({ ...tc, assignees: users }));
+      tcRepo.findBulkAssignable.mockResolvedValue([
+        { id: "tc-1", title: "A", suiteId: "suite-1", projectId: "p-1" },
+        { id: "tc-2", title: "B", suiteId: "suite-1", projectId: "p-1" },
+      ]);
+    });
+
+    it("adds users across all cases in one bulk insert and logs one activity entry", async () => {
+      const logSpy = jest.spyOn(ActivityService.Instance, "log").mockImplementation(() => {});
 
       const result = await service.bulkAssignUsers(admin, {
         caseIds: ["tc-1", "tc-2"],
         userIds: ["u-9"],
       });
 
-      expect(tcRepo.setAssignees).toHaveBeenCalledTimes(2);
-      expect(tcRepo.setAssignees).toHaveBeenNthCalledWith(
-        1,
-        expect.objectContaining({ id: "tc-1" }),
-        expect.arrayContaining([{ id: "existing-1" }, { id: "u-9" }])
-      );
-      expect(result).toEqual({ assignedCount: 2 });
+      expect(tcRepo.addAssignees).toHaveBeenCalledTimes(1);
+      expect(tcRepo.addAssignees).toHaveBeenCalledWith(["tc-1", "tc-2"], ["u-9"]);
+      expect(tcRepo.removeAssignees).not.toHaveBeenCalled();
+      expect(result).toEqual({ assignedCount: 2, mode: "add" });
 
       // One summarised entry for the whole bulk action, not one per case.
       expect(logSpy).toHaveBeenCalledTimes(1);
@@ -177,6 +179,34 @@ describe("TestCaseService", () => {
       );
 
       logSpy.mockRestore();
+    });
+
+    it("removes users in bulk and logs an unassigned entry (no insert)", async () => {
+      const logSpy = jest.spyOn(ActivityService.Instance, "log").mockImplementation(() => {});
+
+      const result = await service.bulkAssignUsers(admin, {
+        caseIds: ["tc-1", "tc-2"],
+        userIds: ["u-9"],
+        mode: "remove",
+      });
+
+      expect(tcRepo.removeAssignees).toHaveBeenCalledWith(["tc-1", "tc-2"], ["u-9"]);
+      expect(tcRepo.addAssignees).not.toHaveBeenCalled();
+      expect(result).toEqual({ assignedCount: 2, mode: "remove" });
+      expect(logSpy).toHaveBeenCalledWith(
+        admin,
+        expect.objectContaining({ action: "test_case.unassigned" })
+      );
+
+      logSpy.mockRestore();
+    });
+
+    it("throws 404 when none of the cases are accessible", async () => {
+      tcRepo.findBulkAssignable.mockResolvedValue([]);
+      await expect(
+        service.bulkAssignUsers(admin, { caseIds: ["tc-x"], userIds: ["u-9"] })
+      ).rejects.toMatchObject({ statusCode: 404 });
+      expect(tcRepo.addAssignees).not.toHaveBeenCalled();
     });
   });
 

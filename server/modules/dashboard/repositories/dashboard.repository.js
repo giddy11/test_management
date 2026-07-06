@@ -161,17 +161,38 @@ class DashboardRepository {
 
   // Filterable, paginated recent-runs feed for the dashboard card.
   // Count only runs on page 1, matching the shared pagination convention.
-  async recentRuns(organizationId, { projectId, suiteId, page = 1, limit = 10 } = {}) {
+  // assigneeId set => the per-run result counts (the progress bar) cover ONLY the
+  // cases assigned to that user, so e.g. 10/10 of their own cases reads as 100%.
+  async recentRuns(
+    organizationId,
+    { projectId, suiteId, status, assigneeId, page = 1, limit = 10 } = {}
+  ) {
     const [pScope, scopeParams] = this.scope(organizationId, projectId);
-    const params = [...scopeParams];
-    let suiteFilter = "";
+
+    // Run-level filters — referenced by both the data and count queries (same indices).
+    const filterParams = [...scopeParams];
+    let runFilters = "";
     if (suiteId) {
-      params.push(suiteId);
-      suiteFilter = ` AND r.suite_id = $${params.length}`;
+      filterParams.push(suiteId);
+      runFilters += ` AND r.suite_id = $${filterParams.length}`;
+    }
+    if (status) {
+      filterParams.push(status);
+      runFilters += ` AND r.status = $${filterParams.length}`;
     }
 
-    const offset = getOffset(page, limit);
-    const dataParams = [...params, limit, offset];
+    // Optional assignee scope for the counts — applied in the results JOIN so
+    // unassigned results become NULL and fall out of the aggregates.
+    const dataParams = [...filterParams];
+    let assigneeJoin = "";
+    if (assigneeId) {
+      dataParams.push(assigneeId);
+      assigneeJoin = ` AND EXISTS (SELECT 1 FROM test_case_assignees tca WHERE tca.test_case_id = res.test_case_id AND tca.user_id = $${dataParams.length})`;
+    }
+
+    const limitIdx = dataParams.push(limit);
+    const offsetIdx = dataParams.push(getOffset(page, limit));
+
     const data = await this.ds.query(
       `SELECT r.id, r.name, r.status, r.created_at AS "createdAt",
         r.project_id AS "projectId", p.name AS "projectName",
@@ -195,11 +216,11 @@ class DashboardRepository {
        JOIN projects p ON r.project_id = p.id
        LEFT JOIN test_suites ts ON ts.id = r.suite_id
        LEFT JOIN users u ON r.created_by_id = u.id
-       LEFT JOIN test_run_results res ON res.run_id = r.id
-       WHERE ${pScope}${suiteFilter}
+       LEFT JOIN test_run_results res ON res.run_id = r.id${assigneeJoin}
+       WHERE ${pScope}${runFilters}
        GROUP BY r.id, p.name, ts.name, u.first_name, u.last_name
        ORDER BY r.created_at DESC
-       LIMIT $${dataParams.length - 1} OFFSET $${dataParams.length}`,
+       LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
       dataParams
     );
 
@@ -208,8 +229,8 @@ class DashboardRepository {
       const [row] = await this.ds.query(
         `SELECT count(*)::int n FROM test_runs r
          JOIN projects p ON r.project_id = p.id
-         WHERE ${pScope}${suiteFilter}`,
-        params
+         WHERE ${pScope}${runFilters}`,
+        filterParams
       );
       total = row.n;
     }

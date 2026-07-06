@@ -18,7 +18,7 @@ class DashboardController {
   static async recentRuns(req, res, next) {
     try {
       const { data, meta } = await DashboardService.Instance.recentRuns(
-        req.user.organizationId,
+        req.user,
         req.validated.query
       );
       res.status(200).json(ApiResponse.ok("Recent test runs", data, meta));

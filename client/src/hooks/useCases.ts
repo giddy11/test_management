@@ -94,14 +94,17 @@ export function useBulkAssignCases() {
       cases,
       userIds,
       deadline,
+      mode = "add",
     }: {
       cases: { id: string; existingAssigneeIds: string[] }[]
       userIds: string[]
       deadline?: string | null
+      mode?: "add" | "remove"
     }) => {
-      // Single request — the backend merges with existing assignees per case
-      // and records one summarised activity-log entry instead of one per case.
-      const res = await CaseEndpoints.bulkAssign(cases.map((c) => c.id), userIds, deadline)
+      // Single request — the backend adds/removes the users across all cases in a
+      // few bulk queries and records one summarised activity-log entry. The add
+      // path is idempotent, so a retry after a timeout won't double-assign.
+      const res = await CaseEndpoints.bulkAssign(cases.map((c) => c.id), userIds, deadline, mode)
       if (!res.success || !res.data) throw new ApiError(res.message, res.statusCode, res.errors)
       return { assigned: res.data.assignedCount }
     },

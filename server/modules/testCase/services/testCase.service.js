@@ -147,8 +147,11 @@ class TestCaseService {
     return { testCase: saved, addedUsers };
   }
 
-  // Add users to many cases at once (existing assignees are kept), logged as ONE activity entry.
-  async bulkAssignUsers(actor, { caseIds, userIds, deadline }) {
+  // Add (or remove) a set of users across many cases at once, in a handful of
+  // bulk queries — logged as ONE activity entry. `mode` is "add" (default) or
+  // "remove". The add path is idempotent (ON CONFLICT DO NOTHING), so a retried
+  // request after a client timeout is a harmless no-op rather than a double-assign.
+  async bulkAssignUsers(actor, { caseIds, userIds, deadline, mode = "add" }) {
     const users = [];
     for (const uid of userIds) {
       const user = await this.authRepo.findUserById(uid);
@@ -159,46 +162,67 @@ class TestCaseService {
       users.push(user);
     }
 
-    const me = await this.authRepo.findUserById(actor.id);
-    const assignedByName = me
-      ? [me.firstName, me.lastName].filter(Boolean).join(" ")
-      : "An admin";
+    // Filter to cases in the caller's org, one query — silently drops any the
+    // caller can't touch (e.g. cross-org ids), same visibility rule as getTestCase.
+    const cases = await this.tcRepo.findBulkAssignable(caseIds, actor.organizationId);
+    if (!cases.length) throw new AppError("No accessible test cases in the selection", 404);
+    const validIds = cases.map((c) => c.id);
+    const sample = cases[0];
 
-    let lastSuite = null;
-    for (const caseId of caseIds) {
-      const tc = await this.getTestCase(actor, caseId);
-      const suite = await this.suiteService.getTestSuite(actor, tc.suiteId);
-      lastSuite = suite;
+    if (mode === "remove") {
+      await this.tcRepo.removeAssignees(validIds, userIds);
 
-      const before = new Set((tc.assignees ?? []).map((u) => u.id));
-      const mergedIds = [...new Set([...before, ...users.map((u) => u.id)])];
-      let saved = await this.tcRepo.setAssignees(tc, mergedIds.map((id) => ({ id })));
+      ActivityService.Instance.log(actor, {
+        action: "test_case.unassigned",
+        summary: `Removed ${users.length} user${users.length === 1 ? "" : "s"} from ${validIds.length} test case${validIds.length === 1 ? "" : "s"}`,
+        entityType: "suite",
+        entityId: sample.suiteId,
+        metadata: { caseIds: validIds, suiteId: sample.suiteId, projectId: sample.projectId },
+      });
 
-      if (deadline !== undefined) {
-        saved = await this.tcRepo.update(saved.id, { deadline: deadline ?? null });
+      return { assignedCount: validIds.length, mode };
+    }
+
+    // Add: figure out who's genuinely new (for notifications) before inserting.
+    const existingPairs = await this.tcRepo.findExistingAssigneePairs(validIds, userIds);
+    const newlyAssignedUserIds = new Set();
+    for (const cid of validIds) {
+      for (const uid of userIds) {
+        if (!existingPairs.has(`${cid}:${uid}`)) newlyAssignedUserIds.add(uid);
       }
+    }
 
-      const addedUsers = users.filter((u) => !before.has(u.id));
-      if (addedUsers.length) {
-        NotificationService.Instance.notifyAssignment(addedUsers, {
-          caseTitle: tc.title,
-          caseId: tc.id,
-          suiteId: tc.suiteId,
-          projectId: suite.projectId,
-          assignedByName,
-        }).catch((e) => console.error("[notify] bulk assignment failed:", e.message));
-      }
+    await this.tcRepo.addAssignees(validIds, userIds);
+    if (deadline !== undefined) {
+      await this.tcRepo.setDeadlineForMany(validIds, deadline ?? null);
+    }
+
+    const addedUsers = users.filter((u) => newlyAssignedUserIds.has(u.id));
+    if (addedUsers.length) {
+      const me = await this.authRepo.findUserById(actor.id);
+      const assignedByName = me
+        ? [me.firstName, me.lastName].filter(Boolean).join(" ")
+        : "An admin";
+      // One notification per user for the whole batch (referencing a sample case)
+      // instead of one per case — avoids flooding an assignee's inbox.
+      NotificationService.Instance.notifyAssignment(addedUsers, {
+        caseTitle: sample.title,
+        caseId: sample.id,
+        suiteId: sample.suiteId,
+        projectId: sample.projectId,
+        assignedByName,
+      }).catch((e) => console.error("[notify] bulk assignment failed:", e.message));
     }
 
     ActivityService.Instance.log(actor, {
       action: "test_case.assigned",
-      summary: `Assigned ${users.length} user${users.length === 1 ? "" : "s"} to ${caseIds.length} test case${caseIds.length === 1 ? "" : "s"}`,
+      summary: `Assigned ${users.length} user${users.length === 1 ? "" : "s"} to ${validIds.length} test case${validIds.length === 1 ? "" : "s"}`,
       entityType: "suite",
-      entityId: lastSuite?.id ?? null,
-      metadata: { caseIds, suiteId: lastSuite?.id, projectId: lastSuite?.projectId },
+      entityId: sample.suiteId,
+      metadata: { caseIds: validIds, suiteId: sample.suiteId, projectId: sample.projectId },
     });
 
-    return { assignedCount: caseIds.length };
+    return { assignedCount: validIds.length, mode };
   }
 }
 

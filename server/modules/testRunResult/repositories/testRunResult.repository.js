@@ -77,14 +77,23 @@ class TestRunResultRepository {
   }
 
   // Aggregated counts per status for a run — powers the dashboard summary.
-  async statusSummary(runId) {
-    const rows = await this.repo
+  // assigneeId set => counts only cover cases assigned to that user (mirrors fetchPaginated).
+  async statusSummary(runId, assigneeId) {
+    const qb = this.repo
       .createQueryBuilder("result")
       .select("result.status", "status")
       .addSelect("COUNT(*)", "count")
       .where("result.run_id = :runId", { runId })
-      .groupBy("result.status")
-      .getRawMany();
+      .groupBy("result.status");
+
+    if (assigneeId) {
+      qb.andWhere(
+        `EXISTS (SELECT 1 FROM test_case_assignees tca WHERE tca.test_case_id = result.test_case_id AND tca.user_id = :assigneeId)`,
+        { assigneeId }
+      );
+    }
+
+    const rows = await qb.getRawMany();
 
     return rows.reduce(
       (acc, r) => {

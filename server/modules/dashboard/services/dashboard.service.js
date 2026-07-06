@@ -1,5 +1,6 @@
 // modules/dashboard/services/dashboard.service.js
 const { DashboardRepository } = require("../repositories/dashboard.repository");
+const { UserRole } = require("../../../config/constants");
 
 class DashboardService {
   static Instance = new DashboardService();
@@ -51,10 +52,15 @@ class DashboardService {
     };
   }
 
-  async recentRuns(organizationId, { projectId, suiteId, page, limit } = {}) {
-    const { data, meta } = await this.repo.recentRuns(organizationId, {
+  async recentRuns(actor, { projectId, suiteId, status, page, limit } = {}) {
+    // Regular users' progress bars count only cases assigned to them; admins see
+    // the run-wide totals for oversight.
+    const assigneeId = actor.role === UserRole.USER ? actor.id : undefined;
+    const { data, meta } = await this.repo.recentRuns(actor.organizationId, {
       projectId,
       suiteId,
+      status,
+      assigneeId,
       page,
       limit,
     });

@@ -21,6 +21,7 @@ const PAGE_SIZE = 8
 export function RecentRunsCard() {
   const [projectId, setProjectId] = useState("")
   const [suiteId, setSuiteId] = useState("")
+  const [status, setStatus] = useState("")
   const [page, setPage] = useState(1)
 
   const { data: projectsData } = useProjects({ page: 1, limit: 100 })
@@ -30,13 +31,14 @@ export function RecentRunsCard() {
   const { data, isLoading } = useRecentRuns({
     projectId: projectId || undefined,
     suiteId: suiteId || undefined,
+    status: status || undefined,
     page,
     limit: PAGE_SIZE,
   })
   const runs = data?.data ?? []
   const meta = data?.meta
 
-  const hasFilter = Boolean(projectId || suiteId)
+  const hasFilter = Boolean(projectId || suiteId || status)
 
   const onProjectChange = (v: string) => {
     setProjectId(v === "all" ? "" : v)
@@ -47,9 +49,14 @@ export function RecentRunsCard() {
     setSuiteId(v === "all" ? "" : v)
     setPage(1)
   }
+  const onStatusChange = (v: string) => {
+    setStatus(v === "all" ? "" : v)
+    setPage(1)
+  }
   const clearFilters = () => {
     setProjectId("")
     setSuiteId("")
+    setStatus("")
     setPage(1)
   }
 
@@ -83,6 +90,17 @@ export function RecentRunsCard() {
             </SelectContent>
           </Select>
 
+          <Select value={status || "all"} onValueChange={onStatusChange}>
+            <SelectTrigger className="h-8 w-36 text-xs">
+              <SelectValue placeholder="Any status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Any status</SelectItem>
+              <SelectItem value="in_progress">In progress</SelectItem>
+              <SelectItem value="completed">Completed</SelectItem>
+            </SelectContent>
+          </Select>
+
           {hasFilter && (
             <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={clearFilters}>
               <X className="size-3 mr-1" /> Clear
@@ -105,6 +123,12 @@ export function RecentRunsCard() {
             className="block rounded-lg border p-3 transition-colors hover:border-primary/50"
           >
             <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
+              <Badge
+                variant={run.status === "completed" ? "default" : "secondary"}
+                className="font-normal"
+              >
+                {run.status === "completed" ? "Completed" : "In progress"}
+              </Badge>
               <Badge variant="outline" className="font-normal">
                 <FolderKanban className="size-3" /> {run.projectName}
               </Badge>

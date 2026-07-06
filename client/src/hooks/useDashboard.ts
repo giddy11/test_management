@@ -16,6 +16,7 @@ export function useDashboard(projectId?: string) {
 interface RecentRunsParams {
   projectId?: string
   suiteId?: string
+  status?: string
   page?: number
   limit?: number
 }

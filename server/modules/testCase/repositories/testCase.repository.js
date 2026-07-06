@@ -157,6 +157,69 @@ class TestCaseRepository {
     return this.repo.save(testCase);
   }
 
+  // Bulk access filter: of the given ids, return the ones that are non-deleted and
+  // belong to `organizationId` (via suite → project), with the fields the bulk
+  // assign flow needs for notifications + the activity log. One query, no N+1.
+  async findBulkAssignable(caseIds, organizationId) {
+    if (!caseIds.length) return [];
+    const ds = this.repo.manager.connection;
+    return ds.query(
+      `SELECT tc.id, tc.title, tc.suite_id AS "suiteId", ts.project_id AS "projectId"
+       FROM test_cases tc
+       JOIN test_suites ts ON ts.id = tc.suite_id AND ts.deleted_at IS NULL
+       JOIN projects p ON p.id = ts.project_id
+       WHERE tc.id = ANY($1::uuid[]) AND tc.deleted_at IS NULL AND p.organization_id = $2`,
+      [caseIds, organizationId]
+    );
+  }
+
+  // Idempotently add every (caseId, userId) pair to the join table in one insert.
+  // ON CONFLICT DO NOTHING means a retried request is a harmless no-op.
+  async addAssignees(caseIds, userIds) {
+    if (!caseIds.length || !userIds.length) return;
+    const ds = this.repo.manager.connection;
+    await ds.query(
+      `INSERT INTO test_case_assignees (test_case_id, user_id)
+       SELECT c, u FROM unnest($1::uuid[]) AS c CROSS JOIN unnest($2::uuid[]) AS u
+       ON CONFLICT DO NOTHING`,
+      [caseIds, userIds]
+    );
+  }
+
+  // Remove the given users from every given case in one statement.
+  async removeAssignees(caseIds, userIds) {
+    if (!caseIds.length || !userIds.length) return;
+    const ds = this.repo.manager.connection;
+    await ds.query(
+      `DELETE FROM test_case_assignees
+       WHERE test_case_id = ANY($1::uuid[]) AND user_id = ANY($2::uuid[])`,
+      [caseIds, userIds]
+    );
+  }
+
+  // Set the deadline on many cases at once (null clears it).
+  async setDeadlineForMany(caseIds, deadline) {
+    if (!caseIds.length) return;
+    const ds = this.repo.manager.connection;
+    await ds.query(
+      `UPDATE test_cases SET deadline = $2 WHERE id = ANY($1::uuid[])`,
+      [caseIds, deadline ?? null]
+    );
+  }
+
+  // Existing (caseId, userId) assignment pairs among the given cases/users, as a
+  // Set of "caseId:userId" keys — lets the bulk add notify only genuinely new users.
+  async findExistingAssigneePairs(caseIds, userIds) {
+    if (!caseIds.length || !userIds.length) return new Set();
+    const ds = this.repo.manager.connection;
+    const rows = await ds.query(
+      `SELECT test_case_id, user_id FROM test_case_assignees
+       WHERE test_case_id = ANY($1::uuid[]) AND user_id = ANY($2::uuid[])`,
+      [caseIds, userIds]
+    );
+    return new Set(rows.map((r) => `${r.test_case_id}:${r.user_id}`));
+  }
+
   // Returns a Set of external_ids already present in the suite (for import dedup).
   async findExistingExternalIdSet(suiteId, externalIds) {
     if (!externalIds || externalIds.length === 0) return new Set();

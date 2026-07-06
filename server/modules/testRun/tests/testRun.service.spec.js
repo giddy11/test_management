@@ -134,12 +134,22 @@ describe("TestRunService", () => {
   });
 
   describe("getTestRun", () => {
-    it("returns the run with its status summary", async () => {
+    it("returns the run-wide status summary for admins", async () => {
       runRepo.findById.mockResolvedValue(run);
       resultRepo.statusSummary.mockResolvedValue({ total: 3, pass: 1 });
       const result = await service.getTestRun(actor, "run-1");
       expect(result.run).toBe(run);
       expect(result.summary).toEqual({ total: 3, pass: 1 });
+      expect(resultRepo.statusSummary).toHaveBeenCalledWith("run-1", undefined);
+    });
+
+    it("scopes the status summary to the actor's assigned cases for the 'user' role", async () => {
+      runRepo.findById.mockResolvedValue(run);
+      resultRepo.statusSummary.mockResolvedValue({ total: 1, pass: 0 });
+      const regularUser = { id: "user-1", role: "user", organizationId: "org-1" };
+      const result = await service.getTestRun(regularUser, "run-1");
+      expect(result.summary).toEqual({ total: 1, pass: 0 });
+      expect(resultRepo.statusSummary).toHaveBeenCalledWith("run-1", "user-1");
     });
 
     it("throws 404 when the run is missing", async () => {

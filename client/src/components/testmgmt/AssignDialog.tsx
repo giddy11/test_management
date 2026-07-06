@@ -41,10 +41,12 @@ export function AssignDialog({ open, onOpenChange, testCase, bulkCases }: Props)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [search, setSearch] = useState("")
   const [deadline, setDeadline] = useState<string>("")
+  const [mode, setMode] = useState<"add" | "remove">("add")
 
   useEffect(() => {
     if (!open) return
     setSearch("")
+    setMode("add")
     if (isBulk) {
       // In bulk mode start with no users pre-selected — each case may differ
       setSelected(new Set())
@@ -55,6 +57,12 @@ export function AssignDialog({ open, onOpenChange, testCase, bulkCases }: Props)
     }
   }, [open, testCase, isBulk])
 
+  // Clear the picked users whenever the bulk add/remove mode flips — the two
+  // modes list different users, so a carried-over selection would be misleading.
+  useEffect(() => {
+    if (isBulk) setSelected(new Set())
+  }, [mode, isBulk])
+
   const toggle = (id: string) =>
     setSelected((prev) => {
       const next = new Set(prev)
@@ -62,7 +70,12 @@ export function AssignDialog({ open, onOpenChange, testCase, bulkCases }: Props)
       return next
     })
 
-  const filtered = users.filter((u) =>
+  // Users currently assigned to at least one selected case — the only ones that
+  // can be removed in bulk "remove" mode.
+  const assignedIds = new Set((bulkCases ?? []).flatMap((c) => c.existingAssigneeIds))
+  const isRemove = isBulk && mode === "remove"
+  const pool = isRemove ? users.filter((u) => assignedIds.has(u.id)) : users
+  const filtered = pool.filter((u) =>
     `${u.name} ${u.email}`.toLowerCase().includes(search.toLowerCase())
   )
 
@@ -71,11 +84,15 @@ export function AssignDialog({ open, onOpenChange, testCase, bulkCases }: Props)
   const save = () => {
     if (isBulk) {
       bulkAssign.mutate(
-        { cases: bulkCases!, userIds: [...selected], deadline: deadline || null },
+        { cases: bulkCases!, userIds: [...selected], deadline: isRemove ? undefined : deadline || null, mode },
         {
           onError: (e) => toast.error(e instanceof ApiError ? e.message : "Failed"),
           onSuccess: ({ assigned }) => {
-            toast.success(`Assigned users to ${assigned} test case${assigned === 1 ? "" : "s"}`)
+            toast.success(
+              isRemove
+                ? `Removed users from ${assigned} test case${assigned === 1 ? "" : "s"}`
+                : `Assigned users to ${assigned} test case${assigned === 1 ? "" : "s"}`
+            )
             onOpenChange(false)
           },
         }
@@ -96,9 +113,11 @@ export function AssignDialog({ open, onOpenChange, testCase, bulkCases }: Props)
   }
 
   const caseCount = isBulk ? bulkCases!.length : 1
-  const title = isBulk ? `Add assignees — ${caseCount} test cases` : "Assign users"
+  const title = isBulk ? `Manage assignees — ${caseCount} test cases` : "Assign users"
   const description = isBulk
-    ? `The selected users will be added as assignees on all ${caseCount} test cases. Existing assignees are kept.`
+    ? isRemove
+      ? `The selected users will be removed from all ${caseCount} test cases.`
+      : `The selected users will be added as assignees on all ${caseCount} test cases. Existing assignees are kept.`
     : `Pick who is responsible for "${testCase?.title}". They'll see it under their tests.`
 
   return (
@@ -110,8 +129,41 @@ export function AssignDialog({ open, onOpenChange, testCase, bulkCases }: Props)
         </DialogHeader>
 
         {isBulk && (
-          <div className="rounded-md border border-blue-300/60 bg-blue-50 px-3 py-2 text-xs text-blue-800 dark:border-blue-900/60 dark:bg-blue-950/30 dark:text-blue-300">
-            Selected users will be <strong>added</strong> to each case. Anyone already assigned stays assigned.
+          <div className="grid grid-cols-2 gap-1 rounded-lg bg-muted p-1">
+            <button
+              type="button"
+              onClick={() => setMode("add")}
+              className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                mode === "add" ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Add users
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode("remove")}
+              className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                mode === "remove" ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Remove users
+            </button>
+          </div>
+        )}
+
+        {isBulk && (
+          <div
+            className={
+              isRemove
+                ? "rounded-md border border-red-300/60 bg-red-50 px-3 py-2 text-xs text-red-800 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-300"
+                : "rounded-md border border-blue-300/60 bg-blue-50 px-3 py-2 text-xs text-blue-800 dark:border-blue-900/60 dark:bg-blue-950/30 dark:text-blue-300"
+            }
+          >
+            {isRemove ? (
+              <>Selected users will be <strong>removed</strong> from each case. Only users already assigned to the selection are shown.</>
+            ) : (
+              <>Selected users will be <strong>added</strong> to each case. Anyone already assigned stays assigned.</>
+            )}
           </div>
         )}
 
@@ -123,7 +175,9 @@ export function AssignDialog({ open, onOpenChange, testCase, bulkCases }: Props)
 
         <div className="max-h-60 space-y-1 overflow-y-auto">
           {filtered.length === 0 && (
-            <p className="py-6 text-center text-sm text-muted-foreground">No users found.</p>
+            <p className="py-6 text-center text-sm text-muted-foreground">
+              {isRemove ? "No users are assigned to the selected cases." : "No users found."}
+            </p>
           )}
           {filtered.map((u) => {
             const initials = `${u.firstName?.[0] ?? ""}${u.lastName?.[0] ?? ""}`.toUpperCase()
@@ -165,22 +219,30 @@ export function AssignDialog({ open, onOpenChange, testCase, bulkCases }: Props)
           </div>
         )}
 
-        <div className="space-y-1.5">
-          <Label htmlFor="deadline">Deadline (optional)</Label>
-          <Input
-            id="deadline"
-            type="date"
-            value={deadline}
-            onChange={(e) => setDeadline(e.target.value)}
-            min={new Date().toISOString().split("T")[0]}
-          />
-        </div>
+        {!isRemove && (
+          <div className="space-y-1.5">
+            <Label htmlFor="deadline">Deadline (optional)</Label>
+            <Input
+              id="deadline"
+              type="date"
+              value={deadline}
+              onChange={(e) => setDeadline(e.target.value)}
+              min={new Date().toISOString().split("T")[0]}
+            />
+          </div>
+        )}
 
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={save} disabled={isPending || selected.size === 0}>
+          <Button
+            onClick={save}
+            disabled={isPending || selected.size === 0}
+            variant={isRemove ? "destructive" : "default"}
+          >
             {isPending
               ? "Saving…"
+              : isRemove
+              ? `Remove from ${caseCount} case${caseCount === 1 ? "" : "s"}`
               : isBulk
               ? `Add to ${caseCount} case${caseCount === 1 ? "" : "s"}`
               : `Assign ${selected.size}`}

@@ -28,6 +28,7 @@ const bulkAssignTestCaseSchema = z.object({
     caseIds: z.array(z.string().uuid()).min(1).max(200),
     userIds: z.array(z.string().uuid()).min(1),
     deadline: z.string().date().nullable().optional(),
+    mode: z.enum(["add", "remove"]).default("add"),
   }),
 });
 

@@ -46,11 +46,17 @@ export const CaseEndpoints = {
   remove: (id: string) => wrapCall<null>("DELETE", `/api/v1/test-cases/${id}`),
   assign: (id: string, userIds: string[], deadline?: string | null) =>
     wrapCall<TestCase>("PATCH", `/api/v1/test-cases/${id}/assignees`, { userIds, deadline }),
-  bulkAssign: (caseIds: string[], userIds: string[], deadline?: string | null) =>
+  bulkAssign: (
+    caseIds: string[],
+    userIds: string[],
+    deadline?: string | null,
+    mode: "add" | "remove" = "add",
+  ) =>
     wrapCall<{ assignedCount: number }>("PATCH", "/api/v1/test-cases/assignees/bulk", {
       caseIds,
       userIds,
       deadline,
+      mode,
     }),
 }
 
@@ -114,6 +120,6 @@ export const ExportEndpoints = {
 export const DashboardEndpoints = {
   overview: (projectId?: string) =>
     wrapCall<DashboardOverview>("GET", "/api/v1/dashboard/overview", projectId ? { projectId } : {}),
-  recentRuns: (params: { projectId?: string; suiteId?: string; page?: number; limit?: number }) =>
+  recentRuns: (params: { projectId?: string; suiteId?: string; status?: string; page?: number; limit?: number }) =>
     wrapCall<RecentRun[]>("GET", "/api/v1/dashboard/recent-runs", obj(params)),
 }

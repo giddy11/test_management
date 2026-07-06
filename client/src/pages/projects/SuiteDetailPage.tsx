@@ -171,7 +171,7 @@ export default function SuiteDetailPage() {
         {canManage && selected.size > 0 && (
           <div className="flex gap-2 sm:ml-auto">
             <Button variant="outline" onClick={() => setBulkAssignOpen(true)}>
-              <UserPlus className="mr-1 size-4" /> Assign selected ({selected.size})
+              <UserPlus className="mr-1 size-4" /> Assignees ({selected.size})
             </Button>
             <Button variant="destructive" onClick={() => setBulkOpen(true)}>
               <Trash2 className="mr-1 size-4" /> Delete selected ({selected.size})

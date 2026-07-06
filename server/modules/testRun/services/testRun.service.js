@@ -43,7 +43,10 @@ class TestRunService {
     const run = await this.runRepo.findById(id);
     if (!run) throw new AppError("Test run not found", 404);
     await this.suiteService.projectService.getProject(actor, run.projectId);
-    const summary = await this.resultRepo.statusSummary(run.id);
+    // A plain user's progress reflects only the cases assigned to them, matching
+    // the results list they see below it. Admins keep the run-wide total.
+    const assigneeId = actor.role === UserRole.USER ? actor.id : undefined;
+    const summary = await this.resultRepo.statusSummary(run.id, assigneeId);
     return { run, summary };
   }
 
@@ -76,7 +79,10 @@ class TestRunService {
       cases.map((c) => ({ runId: run.id, testCaseId: c.id, status: null }))
     );
 
-    const summary = await this.resultRepo.statusSummary(run.id);
+    const summary = await this.resultRepo.statusSummary(
+      run.id,
+      actor.role === UserRole.USER ? actor.id : undefined
+    );
     ActivityService.Instance.log(actor, {
       action: "run.created",
       summary: `Started test run "${run.name}"`,
@@ -104,7 +110,10 @@ class TestRunService {
     if (data.name !== undefined) patch.name = data.name;
     if (data.status !== undefined) patch.status = data.status;
     const updated = await this.runRepo.update(run.id, patch);
-    const summary = await this.resultRepo.statusSummary(run.id);
+    const summary = await this.resultRepo.statusSummary(
+      run.id,
+      actor.role === UserRole.USER ? actor.id : undefined
+    );
 
     // Notify the run's creator when someone else completes it.
     if (
