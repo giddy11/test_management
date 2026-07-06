@@ -13,6 +13,7 @@ function toUserResponse(user) {
     isEmailVerified: user.isEmailVerified ?? false,
     onboardingCompleted: user.onboardingCompleted ?? false,
     role: user.role,
+    isOrgOwner: user.isOrgOwner ?? false,
     provider: user.provider,
     organizationId: user.organizationId ?? null,
     avatarUrl: user.avatarUrl ?? null,

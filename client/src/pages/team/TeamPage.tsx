@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Plus, Pencil, UserX } from "lucide-react"
+import { Plus, Pencil, UserX, Crown } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -118,15 +118,23 @@ export default function TeamPage() {
                 </TableCell>
                 <TableCell className="text-muted-foreground">{u.email}</TableCell>
                 <TableCell>
-                  <Badge variant={u.role === "user" ? "secondary" : "default"}>
-                    {ROLE_LABEL[u.role]}
-                  </Badge>
+                  <span className="inline-flex items-center gap-1.5">
+                    <Badge variant={u.role === "user" ? "secondary" : "default"}>
+                      {ROLE_LABEL[u.role]}
+                    </Badge>
+                    {u.isOrgOwner && (
+                      <Badge variant="outline" className="gap-1">
+                        <Crown className="size-3 text-amber-500" /> Owner
+                      </Badge>
+                    )}
+                  </span>
                 </TableCell>
                 <TableCell className="text-right">
                   <Button variant="ghost" size="sm" onClick={() => openEdit(u)}>
                     <Pencil className="size-4" />
                   </Button>
-                  {u.id !== me?.id && (
+                  {/* The organisation owner can't be deactivated — hide the action. */}
+                  {u.id !== me?.id && !u.isOrgOwner && (
                     <Button variant="ghost" size="sm" onClick={() => setDeactivating(u)}>
                       <UserX className="size-4 text-destructive" />
                     </Button>

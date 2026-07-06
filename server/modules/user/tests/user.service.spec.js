@@ -10,6 +10,7 @@ function makeRepo() {
     create: jest.fn(),
     update: jest.fn(),
     softDelete: jest.fn(),
+    findOrgOwnerId: jest.fn().mockResolvedValue(null),
   };
 }
 
@@ -110,6 +111,16 @@ describe("UserService", () => {
         service.updateUser("admin-1", "admin-1", { role: "user" })
       ).rejects.toMatchObject({ statusCode: 400 });
     });
+
+    it("prevents another admin from demoting the organisation owner", async () => {
+      const owner = { id: "owner-1", role: UserRole.ADMIN, organizationId: "org-1", deletedAt: null };
+      repo.findById.mockImplementation(async (id) => (id === "admin-1" ? admin : owner));
+      repo.findOrgOwnerId.mockResolvedValue("owner-1");
+      await expect(
+        service.updateUser("admin-1", "owner-1", { role: "user" })
+      ).rejects.toMatchObject({ statusCode: 403 });
+      expect(repo.update).not.toHaveBeenCalled();
+    });
   });
 
   describe("deactivateUser", () => {
@@ -125,6 +136,27 @@ describe("UserService", () => {
       );
       await service.deactivateUser("admin-1", "u-3");
       expect(repo.softDelete).toHaveBeenCalledWith("u-3");
+    });
+
+    it("prevents an admin from deactivating the organisation owner", async () => {
+      repo.findById.mockImplementation(async (id) =>
+        id === "admin-1" ? admin : { id, organizationId: "org-1", deletedAt: null }
+      );
+      repo.findOrgOwnerId.mockResolvedValue("owner-1");
+      await expect(
+        service.deactivateUser("admin-1", "owner-1")
+      ).rejects.toMatchObject({ statusCode: 403 });
+      expect(repo.softDelete).not.toHaveBeenCalled();
+    });
+
+    it("lets a superadmin deactivate the organisation owner", async () => {
+      const superadmin = { ...admin, id: "super-1", role: UserRole.SUPERADMIN };
+      repo.findById.mockImplementation(async (id) =>
+        id === "super-1" ? superadmin : { id, organizationId: "org-1", deletedAt: null }
+      );
+      repo.findOrgOwnerId.mockResolvedValue("owner-1");
+      await service.deactivateUser("super-1", "owner-1");
+      expect(repo.softDelete).toHaveBeenCalledWith("owner-1");
     });
   });
 });

@@ -40,6 +40,23 @@ class UserRepository {
     return this.repo.findOne({ where: { id } });
   }
 
+  // The organisation's owner = the account that created it, i.e. the earliest-created
+  // user in the org (the admin who registered; members are created afterwards).
+  // Includes soft-deleted rows so the owner's identity stays stable. Returns the id.
+  async findOrgOwnerId(organizationId) {
+    if (!organizationId) return null;
+    const row = await this.repo
+      .createQueryBuilder("u")
+      .select("u.id", "id")
+      .where("u.organization_id = :organizationId", { organizationId })
+      .orderBy("u.created_at", "ASC")
+      .addOrderBy("u.id", "ASC")
+      .withDeleted()
+      .limit(1)
+      .getRawOne();
+    return row ? row.id : null;
+  }
+
   async findByEmail(email) {
     return this.repo.findOne({ where: { email } });
   }

@@ -18,6 +18,7 @@ export interface User {
   isEmailVerified: boolean
   onboardingCompleted: boolean
   role: UserRole
+  isOrgOwner?: boolean
   provider: string
   avatarUrl: string | null
   address: string | null

@@ -25,12 +25,30 @@ class UserService {
     return actor.role === UserRole.SUPERADMIN;
   }
 
+  // True when `user` is the account that created their organisation. The owner is
+  // protected from being deactivated or role-demoted by other admins.
+  async isOrgOwner(user) {
+    if (!user?.organizationId) return false;
+    const ownerId = await this.userRepo.findOrgOwnerId(user.organizationId);
+    return ownerId != null && user.id === ownerId;
+  }
+
   async fetchUsers(actorId, params) {
     const actor = await this.loadActor(actorId);
     const organizationId = this.isSuperadmin(actor)
       ? undefined
       : actor.organizationId;
-    return this.userRepo.fetchPaginated({ ...params, organizationId });
+    const result = await this.userRepo.fetchPaginated({ ...params, organizationId });
+
+    // Flag the org owner so the client can protect them in the UI. Only meaningful
+    // for the org-scoped (admin) view; the superadmin cross-org list skips it.
+    if (organizationId) {
+      const ownerId = await this.userRepo.findOrgOwnerId(organizationId);
+      result.data.forEach((u) => {
+        u.isOrgOwner = ownerId != null && u.id === ownerId;
+      });
+    }
+    return result;
   }
 
   async getUser(actorId, id) {
@@ -77,9 +95,22 @@ class UserService {
   }
 
   async updateUser(actorId, id, data) {
+    const actor = await this.loadActor(actorId);
     const target = await this.getUser(actorId, id);
     if (id === actorId && data.role && data.role !== target.role) {
       throw new AppError("You cannot change your own role", 400);
+    }
+
+    // The organisation owner can't be demoted by anyone else — that would be a
+    // back-door way to strip the founding admin's control of the org.
+    if (
+      data.role &&
+      data.role !== target.role &&
+      id !== actorId &&
+      !this.isSuperadmin(actor) &&
+      (await this.isOrgOwner(target))
+    ) {
+      throw new AppError("You cannot change the organisation owner's role", 403);
     }
 
     const patch = {};
@@ -93,7 +124,15 @@ class UserService {
     if (id === actorId) {
       throw new AppError("You cannot deactivate your own account", 400);
     }
+    const actor = await this.loadActor(actorId);
     const target = await this.getUser(actorId, id);
+
+    // The account that created the organisation can never be blocked by another
+    // admin — only a platform superadmin may (for moderation).
+    if (!this.isSuperadmin(actor) && (await this.isOrgOwner(target))) {
+      throw new AppError("You cannot deactivate the organisation owner", 403);
+    }
+
     await this.userRepo.softDelete(target.id);
   }
 }
