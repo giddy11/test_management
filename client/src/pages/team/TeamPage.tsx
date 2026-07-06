@@ -130,9 +130,12 @@ export default function TeamPage() {
                   </span>
                 </TableCell>
                 <TableCell className="text-right">
-                  <Button variant="ghost" size="sm" onClick={() => openEdit(u)}>
-                    <Pencil className="size-4" />
-                  </Button>
+                  {/* The org owner can only be edited by themselves — hide edit for others. */}
+                  {(!u.isOrgOwner || u.id === me?.id) && (
+                    <Button variant="ghost" size="sm" onClick={() => openEdit(u)}>
+                      <Pencil className="size-4" />
+                    </Button>
+                  )}
                   {/* The organisation owner can't be deactivated — hide the action. */}
                   {u.id !== me?.id && !u.isOrgOwner && (
                     <Button variant="ghost" size="sm" onClick={() => setDeactivating(u)}>

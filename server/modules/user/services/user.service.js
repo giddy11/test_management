@@ -101,16 +101,10 @@ class UserService {
       throw new AppError("You cannot change your own role", 400);
     }
 
-    // The organisation owner can't be demoted by anyone else — that would be a
-    // back-door way to strip the founding admin's control of the org.
-    if (
-      data.role &&
-      data.role !== target.role &&
-      id !== actorId &&
-      !this.isSuperadmin(actor) &&
-      (await this.isOrgOwner(target))
-    ) {
-      throw new AppError("You cannot change the organisation owner's role", 403);
+    // The organisation owner's details (name, role, …) can only be edited by the
+    // owner themselves or a platform superadmin — never by another org admin.
+    if (id !== actorId && !this.isSuperadmin(actor) && (await this.isOrgOwner(target))) {
+      throw new AppError("You cannot edit the organisation owner", 403);
     }
 
     const patch = {};

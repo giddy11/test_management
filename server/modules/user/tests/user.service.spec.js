@@ -112,14 +112,26 @@ describe("UserService", () => {
       ).rejects.toMatchObject({ statusCode: 400 });
     });
 
-    it("prevents another admin from demoting the organisation owner", async () => {
+    it("prevents another admin from editing the organisation owner (role or name)", async () => {
       const owner = { id: "owner-1", role: UserRole.ADMIN, organizationId: "org-1", deletedAt: null };
       repo.findById.mockImplementation(async (id) => (id === "admin-1" ? admin : owner));
       repo.findOrgOwnerId.mockResolvedValue("owner-1");
       await expect(
         service.updateUser("admin-1", "owner-1", { role: "user" })
       ).rejects.toMatchObject({ statusCode: 403 });
+      await expect(
+        service.updateUser("admin-1", "owner-1", { firstName: "Hacked" })
+      ).rejects.toMatchObject({ statusCode: 403 });
       expect(repo.update).not.toHaveBeenCalled();
+    });
+
+    it("lets the owner edit their own details", async () => {
+      const owner = { id: "owner-1", role: UserRole.ADMIN, organizationId: "org-1", deletedAt: null };
+      repo.findById.mockResolvedValue(owner);
+      repo.findOrgOwnerId.mockResolvedValue("owner-1");
+      repo.update.mockResolvedValue({ ...owner, firstName: "Renamed" });
+      await service.updateUser("owner-1", "owner-1", { firstName: "Renamed" });
+      expect(repo.update).toHaveBeenCalledWith("owner-1", { firstName: "Renamed" });
     });
   });
 
