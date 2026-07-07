@@ -44,7 +44,7 @@ class TestSuiteService {
   }
 
   async createTestSuite(actor, data) {
-    await this.projectService.getProject(actor, data.projectId);
+    const project = await this.projectService.getProject(actor, data.projectId);
     const suite = await this.suiteRepo.create({
       name: data.name,
       description: data.description ?? null,
@@ -52,9 +52,10 @@ class TestSuiteService {
     });
     ActivityService.Instance.log(actor, {
       action: "suite.created",
-      summary: `Created test suite "${suite.name}"`,
+      summary: `Created test suite "${suite.name}" in project "${project.name}"`,
       entityType: "suite",
       entityId: suite.id,
+      metadata: { projectId: project.id },
     });
     return suite;
   }
@@ -69,12 +70,14 @@ class TestSuiteService {
 
   async deleteTestSuite(actor, id) {
     const suite = await this.getTestSuite(actor, id);
+    const project = await this.projectService.getProject(actor, suite.projectId);
     await this.suiteRepo.softDelete(suite.id);
     ActivityService.Instance.log(actor, {
       action: "suite.deleted",
-      summary: `Deleted test suite "${suite.name}"`,
+      summary: `Deleted test suite "${suite.name}" in project "${project.name}"`,
       entityType: "suite",
       entityId: suite.id,
+      metadata: { projectId: project.id },
     });
   }
 }

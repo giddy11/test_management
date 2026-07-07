@@ -59,13 +59,13 @@ class TestCaseService {
     return tc;
   }
 
-  logCaseEvent(actor, action, tc, verb, metadata = {}) {
+  logCaseEvent(actor, action, tc, verb, suite, metadata = {}) {
     ActivityService.Instance.log(actor, {
       action,
-      summary: `${verb} test case "${tc.title}"`,
+      summary: `${verb} test case "${tc.title}"${suite ? ` in suite "${suite.name}"` : ""}`,
       entityType: "test_case",
       entityId: tc.id,
-      metadata: { suiteId: tc.suiteId, ...metadata },
+      metadata: { suiteId: tc.suiteId, projectId: suite?.projectId ?? null, ...metadata },
     });
   }
 
@@ -82,7 +82,7 @@ class TestCaseService {
       tags: data.tags ?? null,
       createdById: actor.id,
     });
-    this.logCaseEvent(actor, "test_case.created", tc, "Created", { projectId: suite.projectId });
+    this.logCaseEvent(actor, "test_case.created", tc, "Created", suite);
     return tc;
   }
 
@@ -99,14 +99,16 @@ class TestCaseService {
     if (data.tags !== undefined) patch.tags = data.tags;
 
     const updated = await this.tcRepo.update(tc.id, patch);
-    this.logCaseEvent(actor, "test_case.updated", tc, "Updated");
+    const suite = await this.suiteService.getTestSuite(actor, tc.suiteId);
+    this.logCaseEvent(actor, "test_case.updated", tc, "Updated", suite);
     return updated;
   }
 
   async deleteTestCase(actor, id) {
     const tc = await this.getTestCase(actor, id);
+    const suite = await this.suiteService.getTestSuite(actor, tc.suiteId);
     await this.tcRepo.softDelete(tc.id);
-    this.logCaseEvent(actor, "test_case.deleted", tc, "Deleted");
+    this.logCaseEvent(actor, "test_case.deleted", tc, "Deleted", suite);
   }
 
   // Assign (replace) the set of users on a case + optional deadline. Returns { testCase, addedUsers }.

@@ -86,9 +86,10 @@ class FeatureRequestService {
 
     ActivityService.Instance.log(actor, {
       action: "feature_request.created",
-      summary: `Submitted feature request "${fr.title}"`,
+      summary: `Submitted feature request "${fr.title}" in project "${project.name}"`,
       entityType: "feature_request",
       entityId: fr.id,
+      metadata: { projectId: fr.projectId },
     });
 
     // Notify superadmins (platform-wide oversight) + the project's own org admins —
@@ -130,12 +131,14 @@ class FeatureRequestService {
     if (data.adminResponse !== undefined) patch.adminResponse = data.adminResponse;
 
     const updated = await this.frRepo.update(id, patch);
+    const project = await this.projectService.getProject(actor, fr.projectId);
 
     ActivityService.Instance.log(actor, {
       action: "feature_request.status_updated",
-      summary: `Updated feature request "${fr.title}" to ${updated.status}`,
+      summary: `Updated feature request "${fr.title}" to ${updated.status} in project "${project.name}"`,
       entityType: "feature_request",
       entityId: fr.id,
+      metadata: { projectId: fr.projectId },
     });
 
     if (data.status !== undefined && fr.submittedById && fr.submittedById !== actor.id) {
@@ -160,12 +163,14 @@ class FeatureRequestService {
 
   async deleteFeatureRequest(actor, id) {
     const fr = await this.getAccessible(actor, id);
+    const project = await this.projectService.getProject(actor, fr.projectId);
     await this.frRepo.softDelete(id);
     ActivityService.Instance.log(actor, {
       action: "feature_request.deleted",
-      summary: `Deleted feature request "${fr.title}"`,
+      summary: `Deleted feature request "${fr.title}" in project "${project.name}"`,
       entityType: "feature_request",
       entityId: fr.id,
+      metadata: { projectId: fr.projectId },
     });
   }
 

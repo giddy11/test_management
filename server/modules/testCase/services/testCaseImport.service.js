@@ -291,7 +291,7 @@ class TestCaseImportService {
     if (!session || session.ownerId !== actor.id) {
       throw new AppError("Import session not found or expired", 404);
     }
-    await this.suiteService.getTestSuite(actor, session.suiteId);
+    const suite = await this.suiteService.getTestSuite(actor, session.suiteId);
 
     // Re-check at write time in case cases were added between upload and confirm.
     const existingIdSet = await this.tcRepo.findExistingExternalIdSet(
@@ -323,15 +323,17 @@ class TestCaseImportService {
 
     importStore.delete(importId);
 
+    const suiteLabel = ` into suite "${suite.name}"`;
     const summary = duplicatesSkipped > 0
-      ? `Imported ${created.length} test case${created.length === 1 ? "" : "s"}, skipped ${duplicatesSkipped} duplicate${duplicatesSkipped === 1 ? "" : "s"}`
-      : `Imported ${created.length} test case${created.length === 1 ? "" : "s"}`;
+      ? `Imported ${created.length} test case${created.length === 1 ? "" : "s"}${suiteLabel}, skipped ${duplicatesSkipped} duplicate${duplicatesSkipped === 1 ? "" : "s"}`
+      : `Imported ${created.length} test case${created.length === 1 ? "" : "s"}${suiteLabel}`;
 
     ActivityService.Instance.log(actor, {
       action: "test_case.imported",
       summary,
       entityType: "suite",
       entityId: session.suiteId,
+      metadata: { suiteId: session.suiteId, projectId: suite.projectId },
     });
     return { created: created.length, duplicatesSkipped };
   }

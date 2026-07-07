@@ -4,6 +4,7 @@ const {
 } = require("../repositories/testRunResult.repository");
 const { TestRunService } = require("../../testRun/services/testRun.service");
 const { TestCaseRepository } = require("../../testCase/repositories/testCase.repository");
+const { TestSuiteRepository } = require("../../testSuite/repositories/testSuite.repository");
 const { ActivityService } = require("../../activity/services/activity.service");
 const { AppError } = require("../../../shared/errors/AppError");
 const { UserRole } = require("../../../config/constants");
@@ -14,11 +15,13 @@ class TestRunResultService {
   constructor(
     resultRepo = TestRunResultRepository.Instance,
     runService = TestRunService.Instance,
-    tcRepo = TestCaseRepository.Instance
+    tcRepo = TestCaseRepository.Instance,
+    suiteRepo = TestSuiteRepository.Instance
   ) {
     this.resultRepo = resultRepo;
     this.runService = runService;
     this.tcRepo = tcRepo;
+    this.suiteRepo = suiteRepo;
   }
 
   async fetchResults(actor, params) {
@@ -81,16 +84,19 @@ class TestRunResultService {
     const updated = await this.resultRepo.update(result.id, patch);
     if (data.status) {
       const tc = await this.tcRepo.findById(result.testCaseId);
+      const suite = await this.suiteRepo.findById(run.suiteId);
       ActivityService.Instance.log(actor, {
         action: "result.recorded",
-        summary: `Recorded "${data.status}" on "${tc?.title ?? "a test case"}"`,
+        summary: `Recorded "${data.status}" on "${tc?.title ?? "a test case"}"${
+          suite ? ` in suite "${suite.name}"` : ""
+        }`,
         entityType: "test_run_result",
         entityId: result.id,
         metadata: {
           runId: result.runId,
           testCaseId: result.testCaseId,
           projectId: run.projectId,
-          suiteId: tc?.suiteId ?? null,
+          suiteId: tc?.suiteId ?? run.suiteId ?? null,
         },
       });
     }
@@ -116,12 +122,15 @@ class TestRunResultService {
 
     await this.resultRepo.bulkUpdateForRun(runId, ids, patch);
 
+    const suite = await this.suiteRepo.findById(run.suiteId);
     ActivityService.Instance.log(actor, {
       action: "result.bulk_recorded",
-      summary: `Set ${ids.length} result${ids.length === 1 ? "" : "s"} to "${status ?? "pending"}"`,
+      summary: `Set ${ids.length} result${ids.length === 1 ? "" : "s"} to "${status ?? "pending"}"${
+        suite ? ` in suite "${suite.name}"` : ""
+      }`,
       entityType: "test_run_result",
       entityId: runId,
-      metadata: { runId, count: ids.length, status },
+      metadata: { runId, count: ids.length, status, projectId: run.projectId, suiteId: run.suiteId },
     });
   }
 }

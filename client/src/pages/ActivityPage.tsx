@@ -9,6 +9,8 @@ import {
   UserPlus,
   Users,
   FileUp,
+  Bug,
+  Lightbulb,
   Activity as ActivityIcon,
   Filter,
   X,
@@ -38,6 +40,8 @@ const ICONS: Record<string, LucideIcon> = {
   test_run: FlaskConical,
   test_run_result: CircleCheck,
   user: Users,
+  bug: Bug,
+  feature_request: Lightbulb,
 }
 
 function iconFor(a: ActivityLog): LucideIcon {
@@ -59,6 +63,8 @@ function buildLink(a: ActivityLog): string | null {
   if (et === "test_run_result" && m.projectId && m.runId) return `/projects/${m.projectId}/runs/${m.runId}`
   if (et === "test_case" && m.projectId && m.suiteId) return `/projects/${m.projectId}/suites/${m.suiteId}/cases/${eid}`
   if (et === "suite" && m.projectId) return `/projects/${m.projectId}/suites/${eid}`
+  if (et === "bug" && m.projectId) return `/projects/${m.projectId}/bugs/${eid}`
+  if (et === "feature_request" && m.projectId) return `/projects/${m.projectId}/feature-requests/${eid}`
   return null
 }
 

@@ -95,9 +95,10 @@ class BugService {
 
     ActivityService.Instance.log(actor, {
       action: "bug.created",
-      summary: `Reported bug "${bug.title}"`,
+      summary: `Reported bug "${bug.title}" in project "${project.name}"`,
       entityType: "bug",
       entityId: bug.id,
+      metadata: { projectId: bug.projectId },
     });
 
     // Notify superadmins (platform-wide oversight) + the project's own org admins —
@@ -156,12 +157,14 @@ class BugService {
     }
 
     const updated = await this.bugRepo.update(id, patch);
+    const project = await this.projectService.getProject(actor, bug.projectId);
 
     ActivityService.Instance.log(actor, {
       action: "bug.updated",
-      summary: `Updated bug "${bug.title}"`,
+      summary: `Updated bug "${bug.title}" in project "${project.name}"`,
       entityType: "bug",
       entityId: bug.id,
+      metadata: { projectId: bug.projectId },
     });
 
     if (data.status !== undefined && data.status !== previousStatus && bug.reportedById && bug.reportedById !== actor.id) {
@@ -208,12 +211,14 @@ class BugService {
       throw new AppError("Only admins can delete bugs", 403);
     }
     const bug = await this.getAccessible(actor, id);
+    const project = await this.projectService.getProject(actor, bug.projectId);
     await this.bugRepo.softDelete(id);
     ActivityService.Instance.log(actor, {
       action: "bug.deleted",
-      summary: `Deleted bug "${bug.title}"`,
+      summary: `Deleted bug "${bug.title}" in project "${project.name}"`,
       entityType: "bug",
       entityId: bug.id,
+      metadata: { projectId: bug.projectId },
     });
   }
 }
