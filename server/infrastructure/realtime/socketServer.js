@@ -7,6 +7,7 @@ const { Server } = require("socket.io");
 const { verifyAccessToken } = require("../../shared/utils/jwt");
 const { env } = require("../../config/env");
 const { UserRole } = require("../../config/constants");
+const { UserRepository } = require("../../modules/user/repositories/user.repository");
 
 let io = null;
 
@@ -110,6 +111,9 @@ function initSocketServer(httpServer) {
       entry.sockets.delete(socket.id);
       if (entry.sockets.size === 0) {
         io.to(broadcastRoomsFor(entry)).emit("presence:offline", { userId: actor.id });
+        UserRepository.Instance.touchLastSeen(actor.id).catch((e) =>
+          console.error("[presence] last-seen update failed:", e.message)
+        );
       }
     });
   });

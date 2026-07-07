@@ -26,6 +26,7 @@ export interface User {
   state: string | null
   country: string | null
   createdAt: string
+  lastSeenAt: string | null
 }
 
 export interface AuthTokens {

@@ -22,6 +22,7 @@ function toUserResponse(user) {
     state: user.state ?? null,
     country: user.country ?? null,
     createdAt: user.createdAt,
+    lastSeenAt: user.lastSeenAt ?? null,
   };
 }
 

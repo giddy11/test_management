@@ -105,6 +105,13 @@ const User = new EntitySchema({
       type: "timestamptz",
       createDate: true,
     },
+    // Updated when the user's last realtime (Socket.IO) connection drops — see
+    // infrastructure/realtime/socketServer.js. Null means they've never connected.
+    lastSeenAt: {
+      name: "last_seen_at",
+      type: "timestamptz",
+      nullable: true,
+    },
     deletedAt: {
       name: "deleted_at",
       type: "timestamptz",

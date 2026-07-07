@@ -18,7 +18,9 @@ import { InlineLoader } from "@/components/shared/PageLoader"
 import { PresenceDot } from "@/components/shared/PresenceDot"
 import { useUsers, useDeactivateUser } from "@/hooks/useUsers"
 import { useAuth } from "@/contexts/AuthContext"
+import { usePresence } from "@/contexts/PresenceContext"
 import { ROLE_LABEL } from "@/components/layout/nav"
+import { timeAgo } from "@/lib/timeAgo"
 import type { User } from "@/types/auth.types"
 
 export default function TeamPage() {
@@ -31,6 +33,7 @@ export default function TeamPage() {
 
   const { data, isLoading, isError, error } = useUsers({ page, limit: 20, search: search || undefined })
   const deactivate = useDeactivateUser()
+  const { isOnline } = usePresence()
 
   const openAdd = () => {
     setEditing(null)
@@ -83,27 +86,28 @@ export default function TeamPage() {
               <TableHead>Name</TableHead>
               <TableHead>Email</TableHead>
               <TableHead>Role</TableHead>
+              <TableHead>Last seen</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading && (
               <TableRow>
-                <TableCell colSpan={4} className="h-24">
+                <TableCell colSpan={5} className="h-24">
                   <InlineLoader />
                 </TableCell>
               </TableRow>
             )}
             {isError && (
               <TableRow>
-                <TableCell colSpan={4} className="h-24 text-center text-destructive">
+                <TableCell colSpan={5} className="h-24 text-center text-destructive">
                   {error instanceof Error ? error.message : "Failed to load users"}
                 </TableCell>
               </TableRow>
             )}
             {!isLoading && !isError && users.length === 0 && (
               <TableRow>
-                <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
+                <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
                   No users yet. Add your first one.
                 </TableCell>
               </TableRow>
@@ -128,6 +132,15 @@ export default function TeamPage() {
                       </Badge>
                     )}
                   </span>
+                </TableCell>
+                <TableCell className="text-sm">
+                  {isOnline(u.id) ? (
+                    <span className="font-medium text-emerald-600 dark:text-emerald-400">Online</span>
+                  ) : u.lastSeenAt ? (
+                    <span className="text-muted-foreground">{timeAgo(u.lastSeenAt)}</span>
+                  ) : (
+                    <span className="text-muted-foreground">Never</span>
+                  )}
                 </TableCell>
                 <TableCell className="text-right">
                   {/* The org owner can only be edited by themselves — hide edit for others. */}

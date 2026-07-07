@@ -73,6 +73,11 @@ class UserRepository {
   async softDelete(id) {
     await this.repo.softDelete(id);
   }
+
+  // Called when a user's last realtime connection drops (see socketServer.js).
+  async touchLastSeen(id) {
+    await this.repo.update(id, { lastSeenAt: new Date() });
+  }
 }
 
 module.exports = { UserRepository };
