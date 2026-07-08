@@ -8,6 +8,7 @@ import { Separator } from "@/components/ui/separator"
 import { AppSidebar } from "@/components/layout/AppSidebar"
 import { ThemeToggle } from "@/components/shared/ThemeToggle"
 import { NotificationBell } from "@/components/layout/NotificationBell"
+import { WhatsNewDialog } from "@/components/layout/WhatsNewDialog"
 import { PresenceProvider } from "@/contexts/PresenceContext"
 
 export function DashboardLayout() {
@@ -28,6 +29,7 @@ export function DashboardLayout() {
           <main className="flex-1 p-4 md:p-6">
             <Outlet />
           </main>
+          <WhatsNewDialog />
         </SidebarInset>
       </SidebarProvider>
     </PresenceProvider>

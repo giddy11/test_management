@@ -7,6 +7,7 @@ import { SuitesTab } from "@/components/testmgmt/SuitesTab"
 import { RunsTab } from "@/components/testmgmt/RunsTab"
 import { FeatureRequestsTab } from "@/components/featureRequests/FeatureRequestsTab"
 import { BugsTab } from "@/components/bugs/BugsTab"
+import { FeedbackTab } from "@/components/feedback/FeedbackTab"
 import { useProject } from "@/hooks/useProjects"
 import { useDashboard } from "@/hooks/useDashboard"
 import { useAuth } from "@/contexts/AuthContext"
@@ -63,6 +64,7 @@ export default function ProjectDetailPage() {
           <TabsTrigger value="runs" data-tour="runs-tab-trigger">Test Runs</TabsTrigger>
           <TabsTrigger value="feature-requests">Feature Requests</TabsTrigger>
           <TabsTrigger value="bugs">Bug Fixes</TabsTrigger>
+          <TabsTrigger value="feedback">Feedback</TabsTrigger>
         </TabsList>
         <TabsContent value="suites" className="mt-4">
           <SuitesTab
@@ -80,6 +82,9 @@ export default function ProjectDetailPage() {
         </TabsContent>
         <TabsContent value="bugs" className="mt-4">
           <BugsTab projectId={projectId} />
+        </TabsContent>
+        <TabsContent value="feedback" className="mt-4">
+          <FeedbackTab projectId={projectId} canManage={canManage} />
         </TabsContent>
       </Tabs>
     </div>

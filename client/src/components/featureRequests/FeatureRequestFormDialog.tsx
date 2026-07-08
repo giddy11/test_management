@@ -13,8 +13,16 @@ import {
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { FormField } from "@/components/shared/FormField"
 import { useCreateFeatureRequest } from "@/hooks/useFeatureRequests"
+import { useSuites } from "@/hooks/useSuites"
 import { featureRequestSchema, linesToArray, type FeatureRequestForm } from "@/lib/testMgmtValidation"
 import { ApiError } from "@/transport/http"
 
@@ -26,16 +34,21 @@ interface Props {
 
 export function FeatureRequestFormDialog({ open, onOpenChange, projectId }: Props) {
   const create = useCreateFeatureRequest()
+  const { data: suites = [] } = useSuites(projectId)
 
   const {
     register,
     handleSubmit,
     reset,
+    watch,
+    setValue,
     formState: { errors },
   } = useForm<FeatureRequestForm>({ resolver: zodResolver(featureRequestSchema) })
 
+  const moduleValue = watch("module")
+
   useEffect(() => {
-    if (open) reset({ title: "", description: "", category: "", referenceLinksText: "" })
+    if (open) reset({ title: "", description: "", category: "", module: "", referenceLinksText: "" })
   }, [open, reset])
 
   const onSubmit = (values: FeatureRequestForm) => {
@@ -46,6 +59,7 @@ export function FeatureRequestFormDialog({ open, onOpenChange, projectId }: Prop
         title: values.title,
         description: values.description,
         category: values.category || undefined,
+        module: values.module || undefined,
         referenceLinks,
       },
       {
@@ -74,12 +88,29 @@ export function FeatureRequestFormDialog({ open, onOpenChange, projectId }: Prop
             {errors.description && <p className="text-xs text-destructive">{errors.description.message}</p>}
           </div>
 
-          <FormField
-            id="category"
-            label="Category (optional)"
-            placeholder="UI/UX, Reporting, Integration…"
-            {...register("category")}
-          />
+          <div className="grid gap-4 sm:grid-cols-2">
+            <FormField
+              id="category"
+              label="Category (optional)"
+              placeholder="UI/UX, Reporting, Integration…"
+              {...register("category")}
+            />
+            <div className="grid gap-1.5">
+              <Label>Module (optional)</Label>
+              <Select
+                value={moduleValue || "none"}
+                onValueChange={(v) => setValue("module", v === "none" ? "" : v)}
+              >
+                <SelectTrigger><SelectValue placeholder="Pick a suite" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">None</SelectItem>
+                  {suites.map((s) => (
+                    <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
 
           <div className="grid gap-1.5">
             <Label htmlFor="referenceLinksText">Reference links (optional, one per line)</Label>

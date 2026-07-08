@@ -22,29 +22,65 @@ class DashboardRepository {
     return [sql, params];
   }
 
-  async totals(organizationId, projectId) {
+  // ── Per-user scoping (role 'user') ──────────────────────────────────────────
+  // A plain user's dashboard covers only what relates to them:
+  //  - projects they're a member of, or have a case assignment in
+  //  - cases assigned to them — or ALL cases of projects they lead
+  // Each helper appends $n params and returns a SQL fragment.
+
+  // Project (alias p) is visible to the user: member OR has an assignment in it.
+  userProjectScope(params, userId, alias = "p") {
+    params.push(userId);
+    const u = `$${params.length}`;
+    return `(
+      EXISTS (SELECT 1 FROM project_members upm WHERE upm.project_id = ${alias}.id AND upm.user_id = ${u})
+      OR EXISTS (
+        SELECT 1 FROM test_suites uvs
+        JOIN test_cases uvc ON uvc.suite_id = uvs.id AND uvc.deleted_at IS NULL
+        JOIN test_case_assignees uvt ON uvt.test_case_id = uvc.id
+        WHERE uvs.project_id = ${alias}.id AND uvs.deleted_at IS NULL AND uvt.user_id = ${u}
+      )
+    )`;
+  }
+
+  // Case (alias tc, inside project alias p) counts for the user: assigned to
+  // them, or anything inside a project they lead.
+  userCaseScope(params, userId, caseAlias = "tc", projectAlias = "p") {
+    params.push(userId);
+    const u = `$${params.length}`;
+    return `(
+      EXISTS (SELECT 1 FROM test_case_assignees uta WHERE uta.test_case_id = ${caseAlias}.id AND uta.user_id = ${u})
+      OR EXISTS (SELECT 1 FROM project_members ulm WHERE ulm.project_id = ${projectAlias}.id AND ulm.user_id = ${u} AND ulm.role = 'team_lead')
+    )`;
+  }
+
+  async totals(organizationId, projectId, userId) {
     const [pScope, params] = this.scope(organizationId, projectId);
+    const projScope = userId ? ` AND ${this.userProjectScope(params, userId)}` : "";
     const [projects] = await this.ds.query(
-      `SELECT count(*)::int n FROM projects p WHERE ${pScope}`,
+      `SELECT count(*)::int n FROM projects p WHERE ${pScope}${projScope}`,
       params
     );
     const [suites] = await this.ds.query(
       `SELECT count(*)::int n FROM test_suites ts
        JOIN projects p ON ts.project_id = p.id
-       WHERE ${pScope} AND ts.deleted_at IS NULL`,
+       WHERE ${pScope}${projScope} AND ts.deleted_at IS NULL`,
       params
     );
+
+    const caseParams = [...params.slice(0, projectId ? 2 : 1)];
+    const caseScope = userId ? ` AND ${this.userCaseScope(caseParams, userId)}` : "";
     const [cases] = await this.ds.query(
       `SELECT count(*)::int n FROM test_cases tc
        JOIN test_suites ts ON tc.suite_id = ts.id
        JOIN projects p ON ts.project_id = p.id
-       WHERE ${pScope} AND ts.deleted_at IS NULL AND tc.deleted_at IS NULL`,
-      params
+       WHERE ${pScope} AND ts.deleted_at IS NULL AND tc.deleted_at IS NULL${caseScope}`,
+      caseParams
     );
     const [runs] = await this.ds.query(
       `SELECT count(*)::int n FROM test_runs r
        JOIN projects p ON r.project_id = p.id
-       WHERE ${pScope}`,
+       WHERE ${pScope}${projScope}`,
       params
     );
     return {
@@ -55,26 +91,33 @@ class DashboardRepository {
     };
   }
 
-  async caseDistribution(organizationId, projectId, column) {
+  async caseDistribution(organizationId, projectId, column, userId) {
     const [pScope, params] = this.scope(organizationId, projectId);
+    const caseScope = userId ? ` AND ${this.userCaseScope(params, userId)}` : "";
     return this.ds.query(
       `SELECT tc.${column} AS key, count(*)::int AS count FROM test_cases tc
        JOIN test_suites ts ON tc.suite_id = ts.id
        JOIN projects p ON ts.project_id = p.id
-       WHERE ${pScope} AND ts.deleted_at IS NULL AND tc.deleted_at IS NULL
+       WHERE ${pScope} AND ts.deleted_at IS NULL AND tc.deleted_at IS NULL${caseScope}
        GROUP BY tc.${column} ORDER BY count DESC`,
       params
     );
   }
 
-  async resultBreakdown(organizationId, projectId) {
+  async resultBreakdown(organizationId, projectId, userId) {
     const [pScope, params] = this.scope(organizationId, projectId);
+    // For a plain user: results on cases assigned to them, or in projects they lead.
+    const caseScope = userId
+      ? ` AND ${this.userCaseScope(params, userId, "tc")}`
+      : "";
+    const caseJoin = userId ? `JOIN test_cases tc ON res.test_case_id = tc.id` : "";
     const rows = await this.ds.query(
       `SELECT COALESCE(res.status::text, 'pending') AS key, count(*)::int AS count
        FROM test_run_results res
        JOIN test_runs r ON res.run_id = r.id
        JOIN projects p ON r.project_id = p.id
-       WHERE ${pScope}
+       ${caseJoin}
+       WHERE ${pScope}${caseScope}
        GROUP BY COALESCE(res.status::text, 'pending')`,
       params
     );
@@ -86,24 +129,28 @@ class DashboardRepository {
     return base;
   }
 
-  async projectsBreakdown(organizationId, projectId) {
+  async projectsBreakdown(organizationId, projectId, userId) {
     const [pScope, params] = this.scope(organizationId, projectId);
+    const projScope = userId ? ` AND ${this.userProjectScope(params, userId)}` : "";
+    const caseScope = userId ? ` AND ${this.userCaseScope(params, userId)}` : "";
     return this.ds.query(
       `SELECT p.id, p.name,
         count(DISTINCT ts.id)::int AS "suiteCount",
         count(DISTINCT tc.id)::int AS "caseCount"
        FROM projects p
        LEFT JOIN test_suites ts ON ts.project_id = p.id AND ts.deleted_at IS NULL
-       LEFT JOIN test_cases tc ON tc.suite_id = ts.id AND tc.deleted_at IS NULL
-       WHERE ${pScope}
+       LEFT JOIN test_cases tc ON tc.suite_id = ts.id AND tc.deleted_at IS NULL${caseScope}
+       WHERE ${pScope}${projScope}
        GROUP BY p.id, p.name
        ORDER BY p.name`,
       params
     );
   }
 
-  async suitesBreakdown(organizationId, projectId) {
+  async suitesBreakdown(organizationId, projectId, userId) {
     const [pScope, params] = this.scope(organizationId, projectId);
+    const projScope = userId ? ` AND ${this.userProjectScope(params, userId)}` : "";
+    const caseScope = userId ? ` AND ${this.userCaseScope(params, userId)}` : "";
     // Use LATERAL to get only the latest result per test case so counts reflect
     // current state, not an inflated aggregate across multiple runs.
     return this.ds.query(
@@ -116,7 +163,7 @@ class DashboardRepository {
         count(*) FILTER (WHERE latest.run_id IS NOT NULL AND latest.status IS NULL)::int AS pending
        FROM test_suites ts
        JOIN projects p ON ts.project_id = p.id
-       LEFT JOIN test_cases tc ON tc.suite_id = ts.id AND tc.deleted_at IS NULL
+       LEFT JOIN test_cases tc ON tc.suite_id = ts.id AND tc.deleted_at IS NULL${caseScope}
        LEFT JOIN LATERAL (
          SELECT run_id, status
          FROM test_run_results
@@ -124,7 +171,7 @@ class DashboardRepository {
          ORDER BY executed_at DESC NULLS LAST, id DESC
          LIMIT 1
        ) latest ON true
-       WHERE ${pScope} AND ts.deleted_at IS NULL
+       WHERE ${pScope}${projScope} AND ts.deleted_at IS NULL
        GROUP BY ts.id, ts.name, ts.project_id
        ORDER BY ts.project_id, ts.name`,
       params
@@ -203,6 +250,10 @@ class DashboardRepository {
     // Run-level filters — referenced by both the data and count queries (same indices).
     const filterParams = [...scopeParams];
     let runFilters = "";
+    // Plain users only see runs in projects visible to them (member or assigned).
+    if (assigneeId) {
+      runFilters += ` AND ${this.userProjectScope(filterParams, assigneeId)}`;
+    }
     if (suiteId) {
       filterParams.push(suiteId);
       runFilters += ` AND r.suite_id = $${filterParams.length}`;

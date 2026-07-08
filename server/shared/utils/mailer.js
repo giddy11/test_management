@@ -110,6 +110,64 @@ async function sendTestAssignedEmail(to, firstName, caseTitle, assignedByName, u
   });
 }
 
+// ── External feedback (public form submitters — not TestMate users) ───────────
+async function sendFeedbackReceivedEmail(to, name, projectName, title) {
+  const body = `
+    <h1 style="margin:0 0 12px;font-size:20px;font-weight:700;color:#0f172a">We've received your feedback</h1>
+    <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.65">Hi ${name}, thanks for reaching out about <strong>${projectName}</strong>. Your feedback <strong>${title}</strong> has been logged with the team.</p>
+    <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.65">We'll email you as it progresses — from review through to resolution.</p>`;
+  return send({
+    to,
+    subject: `Feedback received — ${title} — ${projectName}`,
+    html: emailLayout(body),
+    text: `Thanks ${name} — your feedback "${title}" about ${projectName} has been logged. We'll email you as it progresses.`,
+  });
+}
+
+const FEEDBACK_STATUS_LABELS = {
+  logged: "Logged",
+  acknowledged: "Acknowledged",
+  assigned: "Assigned",
+  investigating: "Under investigation",
+  resolved: "Resolved",
+  awaiting_confirmation: "Awaiting your confirmation",
+  closed: "Closed",
+};
+
+async function sendFeedbackStatusEmail(to, name, projectName, title, status, copy, adminResponse) {
+  const label = FEEDBACK_STATUS_LABELS[status] ?? status;
+  const responseBox = adminResponse
+    ? `<div style="background:#f8fafc;border-left:3px solid #6366f1;border-radius:0 6px 6px 0;padding:14px 16px;margin:0 0 24px">
+        <p style="margin:0;font-size:14px;color:#374151"><strong>Note from the team:</strong> ${adminResponse}</p>
+      </div>`
+    : "";
+  const body = `
+    <h1 style="margin:0 0 12px;font-size:20px;font-weight:700;color:#0f172a">Update on your feedback</h1>
+    <p style="margin:0 0 8px;font-size:15px;color:#374151;line-height:1.65">Hi ${name}, your feedback <strong>${title}</strong> for <strong>${projectName}</strong> is now: <strong>${label}</strong>.</p>
+    <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.65">${copy}</p>
+    ${responseBox}`;
+  return send({
+    to,
+    subject: `Feedback update — ${title} — ${projectName}`,
+    html: emailLayout(body),
+    text: `Your feedback "${title}" for ${projectName} is now ${label}. ${copy}`,
+  });
+}
+
+// Internal alert to admins/members when external feedback arrives.
+async function sendNewFeedbackAlertEmail(to, firstName, title, typeLabel, projectName, submitterName, url) {
+  const body = `
+    <h1 style="margin:0 0 12px;font-size:20px;font-weight:700;color:#0f172a">New external ${typeLabel}</h1>
+    <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.65">Hi ${firstName}, ${submitterName} submitted <strong>${title}</strong> on <strong>${projectName}</strong> through the public feedback form.</p>
+    ${ctaButton(url, "Open project")}`;
+  return send({
+    to,
+    subject: `New external ${typeLabel} — ${projectName} — TestMate`,
+    html: emailLayout(body),
+    text: `${submitterName} submitted "${title}" (${typeLabel}) on ${projectName} via the public feedback form.`,
+  });
+}
+
 async function sendProjectMemberAddedEmail(to, firstName, projectName, roleLabel, addedByName, url) {
   const body = `
     <h1 style="margin:0 0 12px;font-size:20px;font-weight:700;color:#0f172a">You've been added to a project</h1>
@@ -257,6 +315,9 @@ module.exports = {
   sendWelcomeEmail,
   sendTestAssignedEmail,
   sendProjectMemberAddedEmail,
+  sendFeedbackReceivedEmail,
+  sendFeedbackStatusEmail,
+  sendNewFeedbackAlertEmail,
   sendRunCompletedEmail,
   sendNewFeatureRequestEmail,
   sendFeatureRequestStatusEmail,

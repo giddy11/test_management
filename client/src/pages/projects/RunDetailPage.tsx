@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 import { Link, useParams } from "react-router-dom"
-import { ChevronLeft, CheckCircle2, RotateCcw, X } from "lucide-react"
+import { ChevronLeft, CheckCircle2, Pencil, RotateCcw, X } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -30,6 +30,8 @@ export default function RunDetailPage() {
   const bulkRecord = useBulkRecordResults(runId)
 
   const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [editingName, setEditingName] = useState(false)
+  const [nameInput, setNameInput] = useState("")
 
   // Debounce the search box
   useEffect(() => {
@@ -80,6 +82,23 @@ export default function RunDetailPage() {
   if (!run) return <p className="text-sm text-destructive">Run not found.</p>
 
   const completed = run.status === "completed"
+  const saveName = () => {
+    const name = nameInput.trim()
+    if (!name || name === run.name) {
+      setEditingName(false)
+      return
+    }
+    updateRun.mutate(
+      { id: run.id, payload: { name } },
+      {
+        onError: (e) => toast.error(e instanceof ApiError ? e.message : "Failed"),
+        onSuccess: () => {
+          toast.success("Run renamed")
+          setEditingName(false)
+        },
+      }
+    )
+  }
   const toggleStatus = () =>
     updateRun.mutate(
       { id: run.id, payload: { status: completed ? "in_progress" : "completed" } },
@@ -97,7 +116,44 @@ export default function RunDetailPage() {
             <ChevronLeft className="size-4" /> Back to project
           </Link>
           <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-2xl font-semibold tracking-tight">{run.name}</h1>
+            {editingName ? (
+              <form
+                className="flex items-center gap-2"
+                onSubmit={(e) => {
+                  e.preventDefault()
+                  saveName()
+                }}
+              >
+                <Input
+                  value={nameInput}
+                  onChange={(e) => setNameInput(e.target.value)}
+                  className="h-9 w-64 text-lg font-semibold"
+                  autoFocus
+                />
+                <Button type="submit" size="sm" disabled={updateRun.isPending || !nameInput.trim()}>
+                  Save
+                </Button>
+                <Button type="button" size="sm" variant="ghost" onClick={() => setEditingName(false)}>
+                  Cancel
+                </Button>
+              </form>
+            ) : (
+              <>
+                <h1 className="text-2xl font-semibold tracking-tight">{run.name}</h1>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-7 text-muted-foreground"
+                  aria-label="Rename run"
+                  onClick={() => {
+                    setNameInput(run.name)
+                    setEditingName(true)
+                  }}
+                >
+                  <Pencil className="size-3.5" />
+                </Button>
+              </>
+            )}
             <Badge variant={completed ? "default" : "secondary"}>
               {completed ? "Completed" : "In progress"}
             </Badge>

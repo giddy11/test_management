@@ -8,6 +8,7 @@ export type NotificationType =
   | "bug_reported"
   | "bug_assigned"
   | "bug_status_changed"
+  | "feedback_new"
 
 export interface AppNotification {
   id: string
@@ -21,6 +22,7 @@ export interface AppNotification {
     runId?: string
     requestId?: string
     bugId?: string
+    feedbackId?: string
     role?: string
     status?: string
   } | null

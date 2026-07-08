@@ -118,7 +118,9 @@ export default function DashboardPage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Welcome back, {user?.firstName}</h1>
         <p className="text-sm text-muted-foreground">
-          Track how your documented tests are being followed up and executed.
+          {user?.role === "user"
+            ? "Your projects, assigned tests and results at a glance."
+            : "Track how your documented tests are being followed up and executed."}
         </p>
       </div>
 

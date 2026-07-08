@@ -20,6 +20,8 @@ import FeatureRequestDetailPage from "@/pages/featureRequests/FeatureRequestDeta
 import BugDetailPage from "@/pages/bugs/BugDetailPage"
 import PlaceholderPage from "@/pages/PlaceholderPage"
 import SettingsPage from "@/pages/SettingsPage"
+import PublicFeedbackPage from "@/pages/public/PublicFeedbackPage"
+import AnnouncementsPage from "@/pages/AnnouncementsPage"
 import { UserRole } from "@/types/auth.types"
 
 export default function App() {
@@ -32,6 +34,8 @@ export default function App() {
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
+          {/* Public feedback form — no account needed, token-gated */}
+          <Route path="/feedback/:token" element={<PublicFeedbackPage />} />
 
           {/* Authenticated */}
           <Route element={<ProtectedRoute />}>
@@ -62,6 +66,7 @@ export default function App() {
               <Route element={<ProtectedRoute roles={[UserRole.SUPERADMIN]} />}>
                 <Route element={<DashboardLayout />}>
                   <Route path="/platform" element={<PlaceholderPage title="Organisations" />} />
+                <Route path="/announcements" element={<AnnouncementsPage />} />
                 </Route>
               </Route>
             </Route>

@@ -24,7 +24,7 @@ import { FormField } from "@/components/shared/FormField"
 import { useCreateBug } from "@/hooks/useBugs"
 import { useSuites } from "@/hooks/useSuites"
 import { useCases } from "@/hooks/useCases"
-import { useRuns } from "@/hooks/useRuns"
+// import { useRuns } from "@/hooks/useRuns" // related-test-run picker removed
 import { bugSchema, linesToArray, type BugForm } from "@/lib/testMgmtValidation"
 import { BUG_SEVERITIES, BUG_PRIORITIES } from "@/lib/enums"
 import { ApiError } from "@/transport/http"
@@ -38,7 +38,9 @@ interface Props {
 export function BugFormDialog({ open, onOpenChange, projectId }: Props) {
   const create = useCreateBug()
   const { data: suites = [] } = useSuites(projectId)
-  const { data: runs = [] } = useRuns(projectId)
+  // Related-test-run picker removed from the form (kept commented below in case
+  // it comes back) — so the runs query is disabled too.
+  // const { data: runs = [] } = useRuns(projectId)
 
   const {
     register,
@@ -69,7 +71,6 @@ export function BugFormDialog({ open, onOpenChange, projectId }: Props) {
 
   const severity = watch("severity")
   const priority = watch("priority")
-  const testRunId = watch("testRunId")
   const suiteId = watch("suiteId")
   const testCaseId = watch("testCaseId")
 
@@ -112,6 +113,38 @@ export function BugFormDialog({ open, onOpenChange, projectId }: Props) {
           <DialogDescription>Describe the defect so it can be triaged and fixed.</DialogDescription>
         </DialogHeader>
         <form className="grid gap-4" onSubmit={handleSubmit(onSubmit)}>
+          {/* Related test case first — optional, but the most valuable triage context. */}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-1.5">
+              <Label>Related test case (optional)</Label>
+              <Select
+                value={suiteId || "none"}
+                onValueChange={(v) => {
+                  setValue("suiteId", v === "none" ? "" : v)
+                  setValue("testCaseId", "")
+                }}
+              >
+                <SelectTrigger><SelectValue placeholder="Pick a suite first" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">None</SelectItem>
+                  {suites.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            {suiteId && (
+              <div className="grid gap-1.5">
+                <Label>Test case</Label>
+                <Select value={testCaseId || "none"} onValueChange={(v) => setValue("testCaseId", v === "none" ? "" : v)}>
+                  <SelectTrigger><SelectValue placeholder="None" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">None</SelectItem>
+                    {cases.map((c) => <SelectItem key={c.id} value={c.id}>{c.title}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </div>
+
           <FormField id="title" label="Title" error={errors.title?.message} {...register("title")} />
 
           <div className="grid gap-1.5">
@@ -169,50 +202,21 @@ export function BugFormDialog({ open, onOpenChange, projectId }: Props) {
             </div>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="grid gap-1.5">
-              <Label>Related test run (optional)</Label>
-              <Select
-                value={testRunId || "none"}
-                onValueChange={(v) => setValue("testRunId", v === "none" ? "" : v)}
-              >
-                <SelectTrigger><SelectValue placeholder="None" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">None</SelectItem>
-                  {runs.map((r) => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid gap-1.5">
-              <Label>Related test case (optional)</Label>
-              <Select
-                value={suiteId || "none"}
-                onValueChange={(v) => {
-                  setValue("suiteId", v === "none" ? "" : v)
-                  setValue("testCaseId", "")
-                }}
-              >
-                <SelectTrigger><SelectValue placeholder="Pick a suite first" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">None</SelectItem>
-                  {suites.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
+          {/* Related test run — removed as not needed (kept for reference):
+          <div className="grid gap-1.5">
+            <Label>Related test run (optional)</Label>
+            <Select
+              value={testRunId || "none"}
+              onValueChange={(v) => setValue("testRunId", v === "none" ? "" : v)}
+            >
+              <SelectTrigger><SelectValue placeholder="None" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">None</SelectItem>
+                {runs.map((r) => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
           </div>
-
-          {suiteId && (
-            <div className="grid gap-1.5">
-              <Label>Test case</Label>
-              <Select value={testCaseId || "none"} onValueChange={(v) => setValue("testCaseId", v === "none" ? "" : v)}>
-                <SelectTrigger><SelectValue placeholder="None" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">None</SelectItem>
-                  {cases.map((c) => <SelectItem key={c.id} value={c.id}>{c.title}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
+          */}
 
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>

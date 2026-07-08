@@ -43,6 +43,7 @@ export default function FeatureRequestDetailPage() {
               <h1 className="text-2xl font-semibold tracking-tight">{request.title}</h1>
               <FeatureRequestStatusBadge value={request.status} />
               {request.category && <Badge variant="outline">{request.category}</Badge>}
+              {request.module && <Badge variant="outline" className="text-muted-foreground">{request.module}</Badge>}
             </div>
             <p className="mt-1 text-sm text-muted-foreground">
               {request.submittedBy ? `Submitted by ${request.submittedBy.name}` : "Submitted"}

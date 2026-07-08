@@ -32,6 +32,7 @@ export function toProjectResponse(project: Project | null) {
         }, [])
       : undefined,
     suiteCount: project.suiteCount ?? 0,
+    feedbackToken: project.feedbackToken ?? null,
     createdAt: project.createdAt,
   };
 }

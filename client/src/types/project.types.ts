@@ -14,6 +14,7 @@ export interface Project {
   ownerId: string
   suiteCount: number
   members?: ProjectMember[]
+  feedbackToken?: string | null
   createdAt: string
 }
 

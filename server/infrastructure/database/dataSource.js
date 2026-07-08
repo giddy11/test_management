@@ -36,6 +36,11 @@ const {
   FeatureRequestAttachment,
 } = require("../../modules/featureRequest/entities/featureRequestAttachment.entity");
 const { Bug } = require("../../modules/bug/entities/bug.entity");
+const { AppUpdate } = require("../../modules/appUpdate/entities/appUpdate.entity");
+const { Feedback } = require("../../modules/feedback/entities/feedback.entity");
+const {
+  FeedbackAttachment,
+} = require("../../modules/feedback/entities/feedbackAttachment.entity");
 const { BugAttachment } = require("../../modules/bug/entities/bugAttachment.entity");
 
 const AppDataSource = new DataSource({
@@ -67,6 +72,9 @@ const AppDataSource = new DataSource({
     FeatureRequestAttachment,
     Bug,
     BugAttachment,
+    AppUpdate,
+    Feedback,
+    FeedbackAttachment,
   ],
   migrations: ["infrastructure/database/migrations/*.{js,ts}"],
 });

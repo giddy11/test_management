@@ -30,6 +30,7 @@ export const featureRequestSchema = z.object({
   title: z.string().min(1, "Title is required").max(200),
   description: z.string().min(1, "Description is required").max(3000),
   category: z.string().max(50).optional().or(z.literal("")),
+  module: z.string().max(100).optional().or(z.literal("")),
   referenceLinksText: z.string().optional().or(z.literal("")),
 })
 export type FeatureRequestForm = z.infer<typeof featureRequestSchema>

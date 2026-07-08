@@ -112,6 +112,13 @@ const User = new EntitySchema({
       type: "timestamptz",
       nullable: true,
     },
+    // "What's new" announcements: the user has seen every app update created at
+    // or before this timestamp. Null means the modal has never been dismissed.
+    updatesSeenAt: {
+      name: "updates_seen_at",
+      type: "timestamptz",
+      nullable: true,
+    },
     deletedAt: {
       name: "deleted_at",
       type: "timestamptz",

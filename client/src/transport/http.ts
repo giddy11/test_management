@@ -122,6 +122,26 @@ export async function uploadCall<T>(
   }
 }
 
+// Multiple files + extra text fields (e.g. the public feedback form).
+export async function uploadFilesWithFields<T>(
+  path: string,
+  files: File[],
+  fields: Record<string, string> = {},
+  fileField = "images"
+): Promise<ApiResponse<T>> {
+  const form = new FormData()
+  Object.entries(fields).forEach(([k, v]) => form.append(k, v))
+  files.forEach((f) => form.append(fileField, f))
+  try {
+    const response = await http.post<ApiResponse<T>>(path, form, {
+      headers: { "Content-Type": "multipart/form-data" },
+    })
+    return response.data
+  } catch (err) {
+    return normaliseError(err)
+  }
+}
+
 // Single file + extra text fields (e.g. import: file + suiteId).
 export async function uploadWithFields<T>(
   path: string,

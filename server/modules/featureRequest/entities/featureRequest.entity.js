@@ -34,6 +34,13 @@ const FeatureRequest = new EntitySchema({
       length: 50,
       nullable: true,
     },
+    // Optional free-text module/area of the project the request relates to
+    // (e.g. "Billing", "Onboarding") — helps admins route it.
+    module: {
+      type: "varchar",
+      length: 100,
+      nullable: true,
+    },
     // Optional external URLs the submitter adds for context (design mockups, similar
     // tools, docs, etc.) — same array-column pattern as TestCase.tags.
     referenceLinks: {

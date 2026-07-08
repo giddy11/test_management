@@ -23,6 +23,7 @@ export const FeatureRequestCard = memo(function FeatureRequestCard({ request }: 
               <CardTitle className="text-base">{request.title}</CardTitle>
               <FeatureRequestStatusBadge value={request.status} />
               {request.category && <Badge variant="outline">{request.category}</Badge>}
+              {request.module && <Badge variant="outline" className="text-muted-foreground">{request.module}</Badge>}
             </div>
             <CardDescription className="line-clamp-2">{request.description}</CardDescription>
           </CardHeader>

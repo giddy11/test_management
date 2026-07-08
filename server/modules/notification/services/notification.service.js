@@ -9,6 +9,7 @@ const {
   sendTestAssignedEmail,
   sendRunCompletedEmail,
   sendProjectMemberAddedEmail,
+  sendNewFeedbackAlertEmail,
   sendNewFeatureRequestEmail,
   sendFeatureRequestStatusEmail,
   sendFeatureRequestCommentEmail,
@@ -112,6 +113,28 @@ class NotificationService {
         ctx.addedByName,
         url
       ).catch((e) => console.error("[notify] member-added email failed:", e.message));
+    }
+  }
+
+  // External feedback arrived via a project's public form.
+  // ctx: { feedbackId, projectId, projectName, title, type, submitterName }
+  async notifyNewFeedback(recipients, ctx) {
+    if (!recipients.length) return;
+    const url = `${env.appUrl}/projects/${ctx.projectId}`;
+    const typeLabel = String(ctx.type ?? "feedback").replace(/_/g, " ");
+    await this.repo.createMany(
+      recipients.map((u) => ({
+        userId: u.id,
+        type: NotificationType.FEEDBACK_NEW,
+        title: `New external ${typeLabel}: ${ctx.title}`,
+        body: `${ctx.submitterName} submitted feedback on ${ctx.projectName} via the public form`,
+        data: { feedbackId: ctx.feedbackId, projectId: ctx.projectId },
+      }))
+    );
+    for (const u of recipients) {
+      sendNewFeedbackAlertEmail(u.email, u.firstName, ctx.title, typeLabel, ctx.projectName, ctx.submitterName, url).catch(
+        (e) => console.error("[notify] new-feedback email failed:", e.message)
+      );
     }
   }
 

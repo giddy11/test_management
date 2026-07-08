@@ -17,7 +17,7 @@ import { useGuideTour } from "@/hooks/useGuideTour"
 import { useUpdateOnboardingStatus } from "@/hooks/useOnboarding"
 import { useProjects } from "@/hooks/useProjects"
 import { ALL_GUIDES, DASHBOARD_GUIDE, SUITES_AND_RUNS_GUIDE, type TourGuide } from "@/lib/tourGuides"
-import { UserRole, type ChangePasswordPayload, type UpdateProfilePayload } from "@/types/auth.types"
+import { type ChangePasswordPayload, type UpdateProfilePayload } from "@/types/auth.types"
 
 // ── Profile tab ───────────────────────────────────────────────────────────────
 
@@ -309,9 +309,6 @@ function HelpTab() {
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function SettingsPage() {
-  const { user } = useAuth()
-  const isAdmin = user?.role === UserRole.ADMIN || user?.role === UserRole.SUPERADMIN
-
   return (
     <div className="space-y-6">
       <div>
@@ -331,12 +328,10 @@ export default function SettingsPage() {
             <Lock className="size-3.5" />
             Security
           </TabsTrigger>
-          {isAdmin && (
-            <TabsTrigger value="help" className="gap-1.5">
-              <LifeBuoy className="size-3.5" />
-              Help
-            </TabsTrigger>
-          )}
+          <TabsTrigger value="help" className="gap-1.5">
+            <LifeBuoy className="size-3.5" />
+            Help
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="profile" className="mt-4">
@@ -347,11 +342,9 @@ export default function SettingsPage() {
           <SecurityTab />
         </TabsContent>
 
-        {isAdmin && (
-          <TabsContent value="help" className="mt-4">
-            <HelpTab />
-          </TabsContent>
-        )}
+        <TabsContent value="help" className="mt-4">
+          <HelpTab />
+        </TabsContent>
       </Tabs>
     </div>
   )

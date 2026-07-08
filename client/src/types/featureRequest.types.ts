@@ -8,6 +8,7 @@ export interface FeatureRequest {
   description: string
   status: FeatureRequestStatus
   category: string | null
+  module: string | null
   referenceLinks: string[]
   submittedBy: { id: string; name: string } | null
   upvoteCount: number
@@ -31,6 +32,7 @@ export interface CreateFeatureRequestPayload {
   title: string
   description: string
   category?: string
+  module?: string
   referenceLinks?: string[]
 }
 

@@ -89,6 +89,11 @@ export class ProjectRepository {
     });
   }
 
+  // Public feedback form lookup — token is the only credential, so no org scope.
+  async findByFeedbackToken(token: string): Promise<Project | null> {
+    return this.repo.findOne({ where: { feedbackToken: token } });
+  }
+
   async create(data: Partial<Project>): Promise<Project> {
     return this.repo.save(this.repo.create(data));
   }

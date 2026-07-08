@@ -8,6 +8,8 @@ export interface Project {
   description: string | null;
   ownerId: string;
   organizationId: string | null;
+  // When set, the public feedback form at /feedback/<token> is enabled.
+  feedbackToken: string | null;
   createdAt: Date;
   deletedAt: Date | null;
   owner?: unknown;
@@ -40,6 +42,12 @@ const Project = new EntitySchema<Project>({
     // Company that owns this project — all its members share access.
     organizationId: {
       name: "organization_id",
+      type: "uuid",
+      nullable: true,
+    },
+    // Secret token enabling the public feedback form; null = disabled.
+    feedbackToken: {
+      name: "feedback_token",
       type: "uuid",
       nullable: true,
     },

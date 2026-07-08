@@ -49,8 +49,27 @@ const OtpType = Object.freeze({
   RESET_PASSWORD: "reset_password",
 });
 
+// External feedback submitted through a project's public form.
+const FeedbackType = Object.freeze({
+  FEATURE_REQUEST: "feature_request",
+  BUG: "bug",
+  COMPLAINT: "complaint",
+});
+
+// Lifecycle of external feedback — the submitter is emailed at every stage.
+const FeedbackStatus = Object.freeze({
+  LOGGED: "logged",
+  ACKNOWLEDGED: "acknowledged",
+  ASSIGNED: "assigned",
+  INVESTIGATING: "investigating",
+  RESOLVED: "resolved",
+  AWAITING_CONFIRMATION: "awaiting_confirmation",
+  CLOSED: "closed",
+});
+
 const NotificationType = Object.freeze({
   PROJECT_MEMBER_ADDED: "project_member_added",
+  FEEDBACK_NEW: "feedback_new",
   TEST_ASSIGNED: "test_assigned",
   RUN_COMPLETED: "run_completed",
   FEATURE_REQUEST_STATUS_CHANGED: "feature_request_status_changed",
@@ -96,6 +115,8 @@ const BugStatus = Object.freeze({
 module.exports = {
   UserRole,
   ProjectMemberRole,
+  FeedbackType,
+  FeedbackStatus,
   TestCasePriority,
   TestCaseStatus,
   RunStatus,
@@ -110,6 +131,8 @@ module.exports = {
   enums: {
     userRole: Object.values(UserRole),
     projectMemberRole: Object.values(ProjectMemberRole),
+    feedbackType: Object.values(FeedbackType),
+    feedbackStatus: Object.values(FeedbackStatus),
     testCasePriority: Object.values(TestCasePriority),
     testCaseStatus: Object.values(TestCaseStatus),
     runStatus: Object.values(RunStatus),

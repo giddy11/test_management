@@ -29,6 +29,9 @@ const featureRequestRoutes = require("./modules/featureRequest/routes/featureReq
 const featureRequestAttachmentRoutes = require("./modules/featureRequest/routes/featureRequestAttachment.routes");
 const bugRoutes = require("./modules/bug/routes/bug.routes");
 const bugAttachmentRoutes = require("./modules/bug/routes/bugAttachment.routes");
+const appUpdateRoutes = require("./modules/appUpdate/routes/appUpdate.routes");
+const feedbackRoutes = require("./modules/feedback/routes/feedback.routes");
+const publicFeedbackRoutes = require("./modules/feedback/routes/publicFeedback.routes");
 
 function createApp() {
   const app = express();
@@ -67,6 +70,9 @@ function createApp() {
   api.use("/feature-requests", featureRequestRoutes);
   api.use("/bugs", bugAttachmentRoutes); // /:id/attachments — mounted first
   api.use("/bugs", bugRoutes);
+  api.use("/app-updates", appUpdateRoutes);
+  api.use("/feedback", feedbackRoutes);
+  api.use("/public/feedback", publicFeedbackRoutes); // unauthenticated, token-gated
   app.use("/api/v1", api);
 
   // 404 + centralised error handling

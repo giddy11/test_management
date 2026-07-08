@@ -44,6 +44,9 @@ class DashboardService {
     const organizationId = actor.organizationId;
     // Team performance + FR/bug oversight are for company admins only.
     const isAdmin = actor.role === UserRole.ADMIN || actor.role === UserRole.SUPERADMIN;
+    // A plain user's metrics cover only what relates to them: projects they're
+    // in, cases assigned to them (or every case of projects they lead).
+    const userId = isAdmin ? undefined : actor.id;
 
     const [
       totals,
@@ -56,12 +59,12 @@ class DashboardService {
       featureRequests,
       bugs,
     ] = await Promise.all([
-      this.repo.totals(organizationId, projectId),
-      this.repo.caseDistribution(organizationId, projectId, "status"),
-      this.repo.caseDistribution(organizationId, projectId, "priority"),
-      this.repo.resultBreakdown(organizationId, projectId),
-      this.repo.projectsBreakdown(organizationId, projectId),
-      this.repo.suitesBreakdown(organizationId, projectId),
+      this.repo.totals(organizationId, projectId, userId),
+      this.repo.caseDistribution(organizationId, projectId, "status", userId),
+      this.repo.caseDistribution(organizationId, projectId, "priority", userId),
+      this.repo.resultBreakdown(organizationId, projectId, userId),
+      this.repo.projectsBreakdown(organizationId, projectId, userId),
+      this.repo.suitesBreakdown(organizationId, projectId, userId),
       isAdmin ? this.repo.topPerformers(organizationId, projectId) : Promise.resolve(null),
       isAdmin ? this.repo.featureRequestBreakdown(organizationId, projectId) : Promise.resolve(null),
       isAdmin ? this.repo.bugBreakdown(organizationId, projectId) : Promise.resolve(null),

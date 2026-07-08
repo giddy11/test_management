@@ -4,6 +4,7 @@ import {
   FolderKanban,
   Users,
   Building2,
+  Megaphone,
   Settings,
   Activity,
   type LucideIcon,
@@ -24,6 +25,7 @@ export const NAV_ITEMS: NavItem[] = [
   { title: "Projects", to: "/projects", icon: FolderKanban, tourId: "nav-projects" },
   { title: "Team", to: "/team", icon: Users, roles: [UserRole.SUPERADMIN, UserRole.ADMIN], tourId: "nav-team" },
   { title: "Organisations", to: "/platform", icon: Building2, roles: [UserRole.SUPERADMIN] },
+  { title: "Announcements", to: "/announcements", icon: Megaphone, roles: [UserRole.SUPERADMIN] },
 ]
 
 // Secondary navigation — pinned to the bottom of the sidebar.
