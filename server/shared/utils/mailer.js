@@ -173,23 +173,25 @@ async function sendNewFeatureRequestEmail(to, firstName, title, submittedByName,
   });
 }
 
-async function sendFeatureRequestStatusEmail(to, firstName, title, status, adminResponse, url) {
+async function sendFeatureRequestStatusEmail(to, firstName, title, status, adminResponse, url, isOwner = true) {
   const label = status.replace(/_/g, " ");
   const responseBox = adminResponse
     ? `<div style="background:#f8fafc;border-left:3px solid #6366f1;border-radius:0 6px 6px 0;padding:14px 16px;margin:0 0 24px">
         <p style="margin:0;font-size:14px;color:#374151"><strong>Response:</strong> ${adminResponse}</p>
       </div>`
     : "";
+  const heading = isOwner ? "Your feature request was updated" : "Feature request updated";
+  const whose = isOwner ? "your request" : "the request";
   const body = `
-    <h1 style="margin:0 0 12px;font-size:20px;font-weight:700;color:#0f172a">Your feature request was updated</h1>
-    <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.65">Hi ${firstName}, your request <strong>${title}</strong> is now <strong>${label}</strong>.</p>
+    <h1 style="margin:0 0 12px;font-size:20px;font-weight:700;color:#0f172a">${heading}</h1>
+    <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.65">Hi ${firstName}, ${whose} <strong>${title}</strong> is now <strong>${label}</strong>.</p>
     ${responseBox}
     ${ctaButton(url, "View request")}`;
   return send({
     to,
     subject: `Feature request update — ${title} — TestMate`,
     html: emailLayout(body),
-    text: `Your feature request "${title}" is now ${label}.${adminResponse ? ` Response: ${adminResponse}` : ""}`,
+    text: `${isOwner ? "Your" : "The"} feature request "${title}" is now ${label}.${adminResponse ? ` Response: ${adminResponse}` : ""}`,
   });
 }
 
@@ -220,16 +222,17 @@ async function sendNewBugEmail(to, firstName, title, reportedByName, url) {
   });
 }
 
-async function sendBugStatusEmail(to, firstName, title, status, url) {
+async function sendBugStatusEmail(to, firstName, title, status, url, isOwner = true) {
+  const whose = isOwner ? "your bug report" : "the bug";
   const body = `
     <h1 style="margin:0 0 12px;font-size:20px;font-weight:700;color:#0f172a">Bug status updated</h1>
-    <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.65">Hi ${firstName}, your bug report <strong>${title}</strong> is now <strong>${status}</strong>.</p>
+    <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.65">Hi ${firstName}, ${whose} <strong>${title}</strong> is now <strong>${status}</strong>.</p>
     ${ctaButton(url, "View bug")}`;
   return send({
     to,
     subject: `Bug update — ${title} — TestMate`,
     html: emailLayout(body),
-    text: `Your bug report "${title}" is now ${status}.`,
+    text: `${isOwner ? "Your bug report" : "The bug"} "${title}" is now ${status}.`,
   });
 }
 

@@ -116,6 +116,7 @@ class NotificationService {
   }
 
   // ctx: { requestId, projectId, title, submittedByName }
+  // Callers exclude the submitter — nobody is notified about their own action.
   async notifyNewFeatureRequest(recipients, ctx) {
     if (!recipients.length) return;
     const url = `${env.appUrl}/projects/${ctx.projectId}/feature-requests/${ctx.requestId}`;
@@ -154,9 +155,15 @@ class NotificationService {
       }))
     );
     for (const u of users) {
-      sendFeatureRequestStatusEmail(u.email, u.firstName, ctx.title, ctx.status, ctx.adminResponse, url).catch(
-        (e) => console.error("[notify] feature-request-status email failed:", e.message)
-      );
+      sendFeatureRequestStatusEmail(
+        u.email,
+        u.firstName,
+        ctx.title,
+        ctx.status,
+        ctx.adminResponse,
+        url,
+        u.id === ctx.submittedById
+      ).catch((e) => console.error("[notify] feature-request-status email failed:", e.message));
     }
   }
 
@@ -198,7 +205,7 @@ class NotificationService {
   }
 
   // recipients: the reporter + the project's members (deduped by the caller).
-  // ctx: { bugId, projectId, title, status }
+  // ctx: { bugId, projectId, title, status, reportedById }
   async notifyBugStatusChanged(recipients, ctx) {
     const users = Array.isArray(recipients) ? recipients : [recipients];
     if (!users.length) return;
@@ -213,9 +220,14 @@ class NotificationService {
       }))
     );
     for (const u of users) {
-      sendBugStatusEmail(u.email, u.firstName, ctx.title, ctx.status, url).catch((e) =>
-        console.error("[notify] bug-status email failed:", e.message)
-      );
+      sendBugStatusEmail(
+        u.email,
+        u.firstName,
+        ctx.title,
+        ctx.status,
+        url,
+        u.id === ctx.reportedById
+      ).catch((e) => console.error("[notify] bug-status email failed:", e.message));
     }
   }
 

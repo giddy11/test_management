@@ -198,6 +198,7 @@ class BugService {
               projectId: bug.projectId,
               title: bug.title,
               status: updated.status,
+              reportedById: bug.reportedById,
             });
           }
         })

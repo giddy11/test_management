@@ -98,8 +98,8 @@ class FeatureRequestService {
     });
 
     // Notify superadmins (platform-wide oversight) + the project's own org admins
-    // + the project's members + the submitter themselves (a confirmation that
-    // their request went in).
+    // + the project's members. The submitter gets nothing — no in-app, no email —
+    // they know what they just submitted.
     Promise.all([
       this.authRepo.findByRole(UserRole.SUPERADMIN),
       project.organizationId
@@ -109,9 +109,13 @@ class FeatureRequestService {
       this.memberRepo.findMemberUsers(fr.projectId),
     ])
       .then(([superadmins, orgAdmins, submitter, members]) => {
-        const pool = [...superadmins, ...orgAdmins, ...members];
-        if (submitter) pool.push(submitter);
-        const recipients = [...new Map(pool.map((u) => [u.id, u])).values()];
+        const recipients = [
+          ...new Map(
+            [...superadmins, ...orgAdmins, ...members]
+              .filter((u) => u.id !== actor.id)
+              .map((u) => [u.id, u])
+          ).values(),
+        ];
         if (recipients.length) {
           const submittedByName = submitter
             ? [submitter.firstName, submitter.lastName].filter(Boolean).join(" ")

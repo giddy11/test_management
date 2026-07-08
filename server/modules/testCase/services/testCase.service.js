@@ -159,12 +159,14 @@ class TestCaseService {
     });
 
     // Notify newly-assigned users (in-app + email), fire-and-forget.
-    if (addedUsers.length) {
+    // The actor is excluded — nobody is notified about their own action.
+    const notifyUsers = addedUsers.filter((u) => u.id !== actor.id);
+    if (notifyUsers.length) {
       const me = await this.authRepo.findUserById(actor.id);
       const assignedByName = me
         ? [me.firstName, me.lastName].filter(Boolean).join(" ")
         : "An admin";
-      NotificationService.Instance.notifyAssignment(addedUsers, {
+      NotificationService.Instance.notifyAssignment(notifyUsers, {
         caseTitle: tc.title,
         caseId: tc.id,
         suiteId: tc.suiteId,
@@ -236,7 +238,8 @@ class TestCaseService {
       await this.tcRepo.setDeadlineForMany(validIds, deadline ?? null);
     }
 
-    const addedUsers = users.filter((u) => newlyAssignedUserIds.has(u.id));
+    // Actor excluded — nobody is notified about their own action.
+    const addedUsers = users.filter((u) => newlyAssignedUserIds.has(u.id) && u.id !== actor.id);
     if (addedUsers.length) {
       const me = await this.authRepo.findUserById(actor.id);
       const assignedByName = me
