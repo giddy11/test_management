@@ -6,7 +6,7 @@ class DashboardController {
   static async overview(req, res, next) {
     try {
       const data = await DashboardService.Instance.overview(
-        req.user.organizationId,
+        req.user,
         req.validated.query.projectId
       );
       res.status(200).json(ApiResponse.ok("Dashboard overview", data));

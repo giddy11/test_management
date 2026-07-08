@@ -12,11 +12,35 @@ function makeResultRepo() {
 }
 
 function makeRunService() {
-  return { getTestRun: jest.fn().mockResolvedValue({ run: { id: "run-1" }, summary: {} }) };
+  return {
+    getTestRun: jest.fn().mockResolvedValue({
+      run: { id: "run-1", name: "Sprint 3", suiteId: "suite-1", projectId: "proj-1" },
+      summary: {},
+    }),
+    suiteService: {
+      projectService: {
+        assertCanManageProject: jest.fn().mockImplementation(async (a) => {
+          if (a.role === "user") {
+            const err = new Error("Only admins or this project's team lead can do this");
+            err.statusCode = 403;
+            throw err;
+          }
+        }),
+      },
+    },
+  };
 }
 
 function makeTcRepo() {
   return { findById: jest.fn() };
+}
+
+function makeSuiteRepo() {
+  return { findById: jest.fn().mockResolvedValue({ id: "suite-1", name: "Access Management" }) };
+}
+
+function makeProjectRepo() {
+  return { findById: jest.fn().mockResolvedValue({ id: "proj-1", name: "ERP" }) };
 }
 
 const result = {
@@ -31,13 +55,17 @@ describe("TestRunResultService", () => {
   let resultRepo;
   let runService;
   let tcRepo;
+  let suiteRepo;
+  let projectRepo;
   let service;
 
   beforeEach(() => {
     resultRepo = makeResultRepo();
     runService = makeRunService();
     tcRepo = makeTcRepo();
-    service = new TestRunResultService(resultRepo, runService, tcRepo);
+    suiteRepo = makeSuiteRepo();
+    projectRepo = makeProjectRepo();
+    service = new TestRunResultService(resultRepo, runService, tcRepo, suiteRepo, projectRepo);
   });
 
   describe("fetchResults", () => {
@@ -89,6 +117,25 @@ describe("TestRunResultService", () => {
       expect(patch.executedById).toBe("owner-1");
       expect(patch.executedAt).toBeInstanceOf(Date);
       expect(patch.notes).toBe("ok");
+    });
+
+    it("logs an activity summary naming the case, suite, project and run", async () => {
+      const { ActivityService } = require("../../activity/services/activity.service");
+      const spy = jest.spyOn(ActivityService.Instance, "log").mockImplementation(() => {});
+      resultRepo.findById.mockResolvedValue(result);
+      resultRepo.update.mockImplementation(async (_id, patch) => ({ ...result, ...patch }));
+      tcRepo.findById.mockResolvedValue({ id: "tc-1", title: "ERP Access - HR Officer" });
+
+      await service.recordResult(actor, "res-1", { status: "pass" });
+
+      expect(spy).toHaveBeenCalledWith(
+        actor,
+        expect.objectContaining({
+          summary:
+            'Recorded "pass" on "ERP Access - HR Officer" in suite "Access Management" (project "ERP", run "Sprint 3")',
+        })
+      );
+      spy.mockRestore();
     });
 
     it("does not stamp executor when only notes change", async () => {

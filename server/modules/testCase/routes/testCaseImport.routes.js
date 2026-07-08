@@ -18,7 +18,7 @@ router.get("/template", authMiddleware, TestCaseImportController.downloadTemplat
 router.post(
   "/import",
   authMiddleware,
-  authorise("superadmin", "admin"),
+  authorise("superadmin", "admin", "user"),
   uploadSpreadsheet("file"), // parse multipart, validate MIME + size
   validate(importUploadSchema), // validate non-file fields (suiteId)
   TestCaseImportController.upload
@@ -36,7 +36,7 @@ router.get(
 router.post(
   "/import/:importId/confirm",
   authMiddleware,
-  authorise("superadmin", "admin"),
+  authorise("superadmin", "admin", "user"),
   validate(importConfirmSchema),
   TestCaseImportController.confirm
 );

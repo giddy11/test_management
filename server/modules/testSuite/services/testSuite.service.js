@@ -22,9 +22,14 @@ class TestSuiteService {
   async fetchTestSuites(actor, params) {
     // Ensure the caller owns the project before listing its suites.
     await this.projectService.getProject(actor, params.projectId);
+    // Team leads see every suite in their project; plain members only see
+    // suites containing a case assigned to them.
+    const restricted =
+      actor.role === UserRole.USER &&
+      !(await this.projectService.isTeamLead(actor, params.projectId));
     return this.suiteRepo.fetchPaginated({
       ...params,
-      assigneeId: actor.role === UserRole.USER ? actor.id : undefined,
+      assigneeId: restricted ? actor.id : undefined,
     });
   }
 
@@ -34,7 +39,10 @@ class TestSuiteService {
       throw new AppError("Test suite not found", 404);
     }
     await this.projectService.getProject(actor, suite.projectId); // access check
-    if (actor.role === UserRole.USER) {
+    if (
+      actor.role === UserRole.USER &&
+      !(await this.projectService.isTeamLead(actor, suite.projectId))
+    ) {
       const hasAssignment = await this.testCaseRepo.hasAssignmentInSuite(suite.id, actor.id);
       if (!hasAssignment) {
         throw new AppError("You do not have access to this test suite", 403);
@@ -45,6 +53,7 @@ class TestSuiteService {
 
   async createTestSuite(actor, data) {
     const project = await this.projectService.getProject(actor, data.projectId);
+    await this.projectService.assertCanManageProject(actor, project.id);
     const suite = await this.suiteRepo.create({
       name: data.name,
       description: data.description ?? null,
@@ -62,6 +71,7 @@ class TestSuiteService {
 
   async updateTestSuite(actor, id, data) {
     const suite = await this.getTestSuite(actor, id);
+    await this.projectService.assertCanManageProject(actor, suite.projectId);
     const patch = {};
     if (data.name !== undefined) patch.name = data.name;
     if (data.description !== undefined) patch.description = data.description;
@@ -71,6 +81,7 @@ class TestSuiteService {
   async deleteTestSuite(actor, id) {
     const suite = await this.getTestSuite(actor, id);
     const project = await this.projectService.getProject(actor, suite.projectId);
+    await this.projectService.assertCanManageProject(actor, project.id);
     await this.suiteRepo.softDelete(suite.id);
     ActivityService.Instance.log(actor, {
       action: "suite.deleted",

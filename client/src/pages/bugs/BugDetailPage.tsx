@@ -11,8 +11,7 @@ import { BugManageDialog } from "@/components/bugs/BugManageDialog"
 import { BugAttachmentsSection } from "@/components/bugs/BugAttachmentsSection"
 import { useBug, useDeleteBug } from "@/hooks/useBugs"
 import { useCase } from "@/hooks/useCases"
-import { useAuth } from "@/contexts/AuthContext"
-import { UserRole } from "@/types/auth.types"
+import { useCanManageProject } from "@/hooks/useProjects"
 import { ApiError } from "@/transport/http"
 
 function LinkedTestCase({ projectId, testCaseId }: { projectId: string; testCaseId: string }) {
@@ -31,8 +30,7 @@ function LinkedTestCase({ projectId, testCaseId }: { projectId: string; testCase
 export default function BugDetailPage() {
   const { projectId = "", id = "" } = useParams()
   const navigate = useNavigate()
-  const { user } = useAuth()
-  const canManage = user?.role === UserRole.ADMIN || user?.role === UserRole.SUPERADMIN
+  const canManage = useCanManageProject(projectId)
 
   const { data: bug, isLoading } = useBug(id)
   const del = useDeleteBug()

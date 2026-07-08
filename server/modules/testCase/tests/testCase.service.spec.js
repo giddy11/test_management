@@ -21,7 +21,20 @@ function makeTcRepo() {
 }
 
 function makeSuiteService() {
-  return { getTestSuite: jest.fn().mockResolvedValue({ id: "suite-1", projectId: "p-1" }) };
+  return {
+    getTestSuite: jest.fn().mockResolvedValue({ id: "suite-1", projectId: "p-1" }),
+    projectService: {
+      isTeamLead: jest.fn().mockResolvedValue(false),
+      canManageProject: jest.fn().mockImplementation(async (actor) => actor.role !== "user"),
+      assertCanManageProject: jest.fn().mockImplementation(async (actor) => {
+        if (actor.role === "user") {
+          const err = new Error("Only admins or this project's team lead can do this");
+          err.statusCode = 403;
+          throw err;
+        }
+      }),
+    },
+  };
 }
 
 function makeAuthRepo() {

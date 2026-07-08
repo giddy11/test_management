@@ -159,6 +159,34 @@ class DashboardRepository {
     );
   }
 
+  // Feature requests per status — admin-only dashboard card.
+  async featureRequestBreakdown(organizationId, projectId) {
+    const [pScope, params] = this.scope(organizationId, projectId);
+    const rows = await this.ds.query(
+      `SELECT fr.status AS key, count(*)::int AS count
+       FROM feature_requests fr
+       JOIN projects p ON fr.project_id = p.id
+       WHERE ${pScope} AND fr.deleted_at IS NULL
+       GROUP BY fr.status ORDER BY count DESC`,
+      params
+    );
+    return { total: rows.reduce((n, r) => n + r.count, 0), byStatus: rows };
+  }
+
+  // Bugs per status — admin-only dashboard card.
+  async bugBreakdown(organizationId, projectId) {
+    const [pScope, params] = this.scope(organizationId, projectId);
+    const rows = await this.ds.query(
+      `SELECT b.status AS key, count(*)::int AS count
+       FROM bugs b
+       JOIN projects p ON b.project_id = p.id
+       WHERE ${pScope} AND b.deleted_at IS NULL
+       GROUP BY b.status ORDER BY count DESC`,
+      params
+    );
+    return { total: rows.reduce((n, r) => n + r.count, 0), byStatus: rows };
+  }
+
   // Filterable, paginated recent-runs feed for the dashboard card.
   // Count only runs on page 1, matching the shared pagination convention.
   // assigneeId set => the per-run result counts (the progress bar) cover ONLY the

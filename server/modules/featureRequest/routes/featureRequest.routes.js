@@ -30,14 +30,14 @@ router.post(
 router.patch(
   "/:id",
   authMiddleware,
-  authorise("superadmin", "admin"),
+  authorise("superadmin", "admin", "user"),
   validate(updateStatusSchema),
   FeatureRequestController.updateStatus
 );
 router.delete(
   "/:id",
   authMiddleware,
-  authorise("superadmin", "admin"),
+  authorise("superadmin", "admin", "user"),
   validate(idParamSchema),
   FeatureRequestController.remove
 );

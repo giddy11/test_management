@@ -37,7 +37,7 @@ router.patch(
 router.delete(
   "/:id",
   authMiddleware,
-  authorise("superadmin", "admin"),
+  authorise("superadmin", "admin", "user"),
   validate(idParamSchema),
   TestRunController.remove
 );

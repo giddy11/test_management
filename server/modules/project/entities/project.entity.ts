@@ -1,7 +1,22 @@
-// modules/project/entities/project.entity.js
-const { EntitySchema } = require("typeorm");
+// modules/project/entities/project.entity.ts
+import { EntitySchema } from "typeorm";
+import type { ProjectMember } from "./projectMember.entity";
 
-const Project = new EntitySchema({
+export interface Project {
+  id: string;
+  name: string;
+  description: string | null;
+  ownerId: string;
+  organizationId: string | null;
+  createdAt: Date;
+  deletedAt: Date | null;
+  owner?: unknown;
+  memberships?: ProjectMember[];
+  // Attached by ProjectRepository.fetchPaginated — not a column.
+  suiteCount?: number;
+}
+
+const Project = new EntitySchema<Project>({
   name: "Project",
   tableName: "projects",
   columns: {
@@ -46,14 +61,11 @@ const Project = new EntitySchema({
       target: "User",
       joinColumn: { name: "owner_id" },
     },
-    members: {
-      type: "many-to-many",
-      target: "User",
-      joinTable: {
-        name: "project_members",
-        joinColumn: { name: "project_id", referencedColumnName: "id" },
-        inverseJoinColumn: { name: "user_id", referencedColumnName: "id" },
-      },
+    // Assigned users with a per-project role (member | team_lead).
+    memberships: {
+      type: "one-to-many",
+      target: "ProjectMember",
+      inverseSide: "project",
     },
   },
   indices: [
@@ -63,4 +75,4 @@ const Project = new EntitySchema({
   ],
 });
 
-module.exports = { Project };
+export { Project };

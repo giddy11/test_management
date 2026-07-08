@@ -1,0 +1,29 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": ["ES2022"],
+
+    // Incremental migration: .js and .ts coexist. Existing JS is not type-checked.
+    "allowJs": true,
+    "checkJs": false,
+
+    // tsx runs source files directly; tsc is used only as a type checker.
+    "noEmit": true,
+
+    "strict": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+
+    // Required by TypeORM if/when decorator-style entities are used.
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+
+    "types": ["node"]
+  },
+  "include": ["**/*.ts", "**/*.js"],
+  "exclude": ["node_modules", "dist", "coverage"]
+}

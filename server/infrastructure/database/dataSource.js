@@ -8,6 +8,9 @@ const { User } = require("../../modules/auth/entities/user.entity");
 const { RefreshToken } = require("../../modules/auth/entities/refreshToken.entity");
 const { OtpCode } = require("../../modules/auth/entities/otpCode.entity");
 const { Project } = require("../../modules/project/entities/project.entity");
+const {
+  ProjectMember,
+} = require("../../modules/project/entities/projectMember.entity");
 const { TestSuite } = require("../../modules/testSuite/entities/testSuite.entity");
 const { TestCase } = require("../../modules/testCase/entities/testCase.entity");
 const {
@@ -51,6 +54,7 @@ const AppDataSource = new DataSource({
     RefreshToken,
     OtpCode,
     Project,
+    ProjectMember,
     TestSuite,
     TestCase,
     TestCaseAttachment,
@@ -64,7 +68,7 @@ const AppDataSource = new DataSource({
     Bug,
     BugAttachment,
   ],
-  migrations: ["infrastructure/database/migrations/*.js"],
+  migrations: ["infrastructure/database/migrations/*.{js,ts}"],
 });
 
 module.exports = { AppDataSource };

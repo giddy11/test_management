@@ -15,4 +15,5 @@ RUN npm ci --omit=dev
 COPY . .
 
 EXPOSE 8080
-CMD ["node", "server.js"]
+# tsx (a production dependency) executes the mixed .js/.ts source tree directly.
+CMD ["npx", "tsx", "server.js"]

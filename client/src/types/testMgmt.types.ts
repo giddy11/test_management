@@ -179,6 +179,10 @@ export interface TopPerformer {
   failures: number
   passRate: number
 }
+export interface StatusBreakdown {
+  total: number
+  byStatus: Distribution[]
+}
 export interface DashboardOverview {
   totals: { projects: number; suites: number; cases: number; runs: number }
   caseStatus: Distribution[]
@@ -194,7 +198,10 @@ export interface DashboardOverview {
   passRate: number
   projectsBreakdown: ProjectBreakdown[]
   suitesBreakdown: SuiteBreakdown[]
-  topPerformers: TopPerformer[]
+  // Admin-only sections — omitted from the payload for regular users.
+  topPerformers?: TopPerformer[]
+  featureRequests?: StatusBreakdown
+  bugs?: StatusBreakdown
 }
 
 export interface RecentRun {

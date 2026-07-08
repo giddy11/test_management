@@ -216,7 +216,8 @@ class TestCaseImportService {
   }
 
   async upload(actor, suiteId, buffer) {
-    await this.suiteService.getTestSuite(actor, suiteId);
+    const suite = await this.suiteService.getTestSuite(actor, suiteId);
+    await this.suiteService.projectService.assertCanManageProject(actor, suite.projectId);
     const { rows, skipped } = await this.parseBuffer(buffer);
 
     // 1. Deduplicate within the file by ID.
@@ -292,6 +293,7 @@ class TestCaseImportService {
       throw new AppError("Import session not found or expired", 404);
     }
     const suite = await this.suiteService.getTestSuite(actor, session.suiteId);
+    await this.suiteService.projectService.assertCanManageProject(actor, suite.projectId);
 
     // Re-check at write time in case cases were added between upload and confirm.
     const existingIdSet = await this.tcRepo.findExistingExternalIdSet(

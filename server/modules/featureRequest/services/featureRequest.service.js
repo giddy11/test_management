@@ -8,6 +8,9 @@ const { AuthRepository } = require("../../auth/repositories/auth.repository");
 const { ProjectService } = require("../../project/services/project.service");
 const { NotificationService } = require("../../notification/services/notification.service");
 const { ActivityService } = require("../../activity/services/activity.service");
+const {
+  ProjectMemberRepository,
+} = require("../../project/repositories/projectMember.repository");
 const { AppError } = require("../../../shared/errors/AppError");
 const { UserRole, FeatureRequestStatus } = require("../../../config/constants");
 
@@ -20,7 +23,8 @@ class FeatureRequestService {
     commentRepo = FeatureRequestCommentRepository.Instance,
     authRepo = AuthRepository.Instance,
     notificationService = NotificationService.Instance,
-    projectService = ProjectService.Instance
+    projectService = ProjectService.Instance,
+    memberRepo = ProjectMemberRepository.Instance
   ) {
     this.frRepo = frRepo;
     this.voteRepo = voteRepo;
@@ -28,6 +32,7 @@ class FeatureRequestService {
     this.authRepo = authRepo;
     this.notificationService = notificationService;
     this.projectService = projectService;
+    this.memberRepo = memberRepo;
   }
 
   canManage(actor) {
@@ -92,17 +97,21 @@ class FeatureRequestService {
       metadata: { projectId: fr.projectId },
     });
 
-    // Notify superadmins (platform-wide oversight) + the project's own org admins —
-    // mirrors ProjectService.assertAccess's access model.
+    // Notify superadmins (platform-wide oversight) + the project's own org admins
+    // + the project's members + the submitter themselves (a confirmation that
+    // their request went in).
     Promise.all([
       this.authRepo.findByRole(UserRole.SUPERADMIN),
       project.organizationId
         ? this.authRepo.findByRoleAndOrg(UserRole.ADMIN, project.organizationId)
         : Promise.resolve([]),
       this.authRepo.findUserById(actor.id),
+      this.memberRepo.findMemberUsers(fr.projectId),
     ])
-      .then(([superadmins, orgAdmins, submitter]) => {
-        const recipients = [...new Map([...superadmins, ...orgAdmins].map((u) => [u.id, u])).values()];
+      .then(([superadmins, orgAdmins, submitter, members]) => {
+        const pool = [...superadmins, ...orgAdmins, ...members];
+        if (submitter) pool.push(submitter);
+        const recipients = [...new Map(pool.map((u) => [u.id, u])).values()];
         if (recipients.length) {
           const submittedByName = submitter
             ? [submitter.firstName, submitter.lastName].filter(Boolean).join(" ")
@@ -122,6 +131,8 @@ class FeatureRequestService {
 
   async updateStatus(actor, id, data) {
     const fr = await this.getAccessible(actor, id);
+    // Admins/superadmins and the project's team leads can change statuses.
+    await this.projectService.assertCanManageProject(actor, fr.projectId);
 
     const patch = {};
     if (data.status !== undefined) {
@@ -141,17 +152,27 @@ class FeatureRequestService {
       metadata: { projectId: fr.projectId },
     });
 
-    if (data.status !== undefined && fr.submittedById && fr.submittedById !== actor.id) {
-      this.authRepo
-        .findUserById(fr.submittedById)
-        .then((submitter) => {
-          if (submitter) {
-            this.notificationService.notifyFeatureRequestStatusChanged(submitter, {
+    // Status changes fan out to the submitter + every project member (in-app +
+    // email), excluding whoever made the change.
+    if (data.status !== undefined) {
+      Promise.all([
+        fr.submittedById ? this.authRepo.findUserById(fr.submittedById) : Promise.resolve(null),
+        this.memberRepo.findMemberUsers(fr.projectId),
+      ])
+        .then(([submitter, members]) => {
+          const pool = [...members];
+          if (submitter) pool.push(submitter);
+          const recipients = [
+            ...new Map(pool.filter((u) => u.id !== actor.id).map((u) => [u.id, u])).values(),
+          ];
+          if (recipients.length) {
+            this.notificationService.notifyFeatureRequestStatusChanged(recipients, {
               requestId: fr.id,
               projectId: fr.projectId,
               title: fr.title,
               status: updated.status,
               adminResponse: updated.adminResponse,
+              submittedById: fr.submittedById,
             });
           }
         })
@@ -164,6 +185,7 @@ class FeatureRequestService {
   async deleteFeatureRequest(actor, id) {
     const fr = await this.getAccessible(actor, id);
     const project = await this.projectService.getProject(actor, fr.projectId);
+    await this.projectService.assertCanManageProject(actor, project.id);
     await this.frRepo.softDelete(id);
     ActivityService.Instance.log(actor, {
       action: "feature_request.deleted",
@@ -224,13 +246,16 @@ class FeatureRequestService {
   }
 
   async deleteComment(actor, id, commentId) {
-    await this.getAccessible(actor, id);
+    const fr = await this.getAccessible(actor, id);
 
     const comment = await this.commentRepo.findById(commentId);
     if (!comment || comment.deletedAt || comment.featureRequestId !== id) {
       throw new AppError("Comment not found", 404);
     }
-    if (comment.authorId !== actor.id && !this.canManage(actor)) {
+    if (
+      comment.authorId !== actor.id &&
+      !(await this.projectService.canManageProject(actor, fr.projectId))
+    ) {
       throw new AppError("You can only delete your own comments", 403);
     }
     await this.commentRepo.softDelete(commentId);

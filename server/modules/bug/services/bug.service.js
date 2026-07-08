@@ -7,6 +7,9 @@ const { TestSuiteRepository } = require("../../testSuite/repositories/testSuite.
 const { TestRunRepository } = require("../../testRun/repositories/testRun.repository");
 const { NotificationService } = require("../../notification/services/notification.service");
 const { ActivityService } = require("../../activity/services/activity.service");
+const {
+  ProjectMemberRepository,
+} = require("../../project/repositories/projectMember.repository");
 const { AppError } = require("../../../shared/errors/AppError");
 const { UserRole, BugStatus } = require("../../../config/constants");
 
@@ -20,7 +23,8 @@ class BugService {
     testCaseRepo = TestCaseRepository.Instance,
     testSuiteRepo = TestSuiteRepository.Instance,
     testRunRepo = TestRunRepository.Instance,
-    notificationService = NotificationService.Instance
+    notificationService = NotificationService.Instance,
+    memberRepo = ProjectMemberRepository.Instance
   ) {
     this.bugRepo = bugRepo;
     this.projectService = projectService;
@@ -29,6 +33,7 @@ class BugService {
     this.testSuiteRepo = testSuiteRepo;
     this.testRunRepo = testRunRepo;
     this.notificationService = notificationService;
+    this.memberRepo = memberRepo;
   }
 
   canManage(actor) {
@@ -101,17 +106,25 @@ class BugService {
       metadata: { projectId: bug.projectId },
     });
 
-    // Notify superadmins (platform-wide oversight) + the project's own org admins —
-    // mirrors FeatureRequestService.createFeatureRequest's targeting.
+    // Notify superadmins (platform-wide oversight) + the project's own org admins
+    // + the project's members — mirrors FeatureRequestService's targeting.
+    // The reporter is excluded; they already know.
     Promise.all([
       this.authRepo.findByRole(UserRole.SUPERADMIN),
       project.organizationId
         ? this.authRepo.findByRoleAndOrg(UserRole.ADMIN, project.organizationId)
         : Promise.resolve([]),
       this.authRepo.findUserById(actor.id),
+      this.memberRepo.findMemberUsers(bug.projectId),
     ])
-      .then(([superadmins, orgAdmins, reporter]) => {
-        const recipients = [...new Map([...superadmins, ...orgAdmins].map((u) => [u.id, u])).values()];
+      .then(([superadmins, orgAdmins, reporter, members]) => {
+        const recipients = [
+          ...new Map(
+            [...superadmins, ...orgAdmins, ...members]
+              .filter((u) => u.id !== actor.id)
+              .map((u) => [u.id, u])
+          ).values(),
+        ];
         if (recipients.length) {
           const reportedByName = reporter
             ? [reporter.firstName, reporter.lastName].filter(Boolean).join(" ")
@@ -130,10 +143,9 @@ class BugService {
   }
 
   async manageBug(actor, id, data) {
-    if (!this.canManage(actor)) {
-      throw new AppError("Only admins can manage bugs", 403);
-    }
     const bug = await this.getAccessible(actor, id);
+    // Admins/superadmins and the project's team leads can manage bugs.
+    await this.projectService.assertCanManageProject(actor, bug.projectId);
 
     const patch = {};
     if (data.severity !== undefined) patch.severity = data.severity;
@@ -167,12 +179,21 @@ class BugService {
       metadata: { projectId: bug.projectId },
     });
 
-    if (data.status !== undefined && data.status !== previousStatus && bug.reportedById && bug.reportedById !== actor.id) {
-      this.authRepo
-        .findUserById(bug.reportedById)
-        .then((reporter) => {
-          if (reporter) {
-            this.notificationService.notifyBugStatusChanged(reporter, {
+    // Status changes fan out to the reporter + every project member (in-app +
+    // email), excluding whoever made the change.
+    if (data.status !== undefined && data.status !== previousStatus) {
+      Promise.all([
+        bug.reportedById ? this.authRepo.findUserById(bug.reportedById) : Promise.resolve(null),
+        this.memberRepo.findMemberUsers(bug.projectId),
+      ])
+        .then(([reporter, members]) => {
+          const pool = [...members];
+          if (reporter) pool.push(reporter);
+          const recipients = [
+            ...new Map(pool.filter((u) => u.id !== actor.id).map((u) => [u.id, u])).values(),
+          ];
+          if (recipients.length) {
+            this.notificationService.notifyBugStatusChanged(recipients, {
               bugId: bug.id,
               projectId: bug.projectId,
               title: bug.title,
@@ -207,10 +228,8 @@ class BugService {
   }
 
   async deleteBug(actor, id) {
-    if (!this.canManage(actor)) {
-      throw new AppError("Only admins can delete bugs", 403);
-    }
     const bug = await this.getAccessible(actor, id);
+    await this.projectService.assertCanManageProject(actor, bug.projectId);
     const project = await this.projectService.getProject(actor, bug.projectId);
     await this.bugRepo.softDelete(id);
     ActivityService.Instance.log(actor, {

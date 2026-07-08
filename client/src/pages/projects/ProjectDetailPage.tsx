@@ -1,6 +1,7 @@
 import { useMemo } from "react"
 import { Link, useParams } from "react-router-dom"
-import { ChevronLeft } from "lucide-react"
+import { ChevronLeft, Crown } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { SuitesTab } from "@/components/testmgmt/SuitesTab"
 import { RunsTab } from "@/components/testmgmt/RunsTab"
@@ -16,8 +17,12 @@ import type { SuiteBreakdown } from "@/types/testMgmt.types"
 export default function ProjectDetailPage() {
   const { projectId = "" } = useParams()
   const { user } = useAuth()
-  const canManage = user?.role === UserRole.ADMIN || user?.role === UserRole.SUPERADMIN
   const { data: project, isLoading } = useProject(projectId)
+  // Admins always manage; a regular user manages when they lead this project.
+  const isAdmin = user?.role === UserRole.ADMIN || user?.role === UserRole.SUPERADMIN
+  const canManage =
+    isAdmin ||
+    Boolean(project?.members?.some((m) => m.id === user?.id && m.role === "team_lead"))
   const { data: stats } = useDashboard(projectId)
 
   const breakdownMap = useMemo<Map<string, SuiteBreakdown>>(() => {
@@ -38,6 +43,17 @@ export default function ProjectDetailPage() {
         </h1>
         {project?.description && (
           <p className="text-sm text-muted-foreground">{project.description}</p>
+        )}
+        {Boolean(project?.members?.length) && (
+          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+            {project!.members!.map((m) => (
+              <Badge key={m.id} variant="secondary" className="gap-1 text-xs font-normal">
+                {m.role === "team_lead" && <Crown className="size-3 text-amber-500" />}
+                {m.name}
+                {m.role === "team_lead" && <span className="text-muted-foreground">· Lead</span>}
+              </Badge>
+            ))}
+          </div>
         )}
       </div>
 

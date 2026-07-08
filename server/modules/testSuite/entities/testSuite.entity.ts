@@ -1,7 +1,18 @@
-// modules/testSuite/entities/testSuite.entity.js
-const { EntitySchema } = require("typeorm");
+// modules/testSuite/entities/testSuite.entity.ts
+import { EntitySchema } from "typeorm";
 
-const TestSuite = new EntitySchema({
+export interface TestSuite {
+  id: string;
+  name: string;
+  description: string | null;
+  projectId: string;
+  createdAt: Date;
+  deletedAt: Date | null;
+  // Typed loosely until the Project entity is converted to TS.
+  project?: unknown;
+}
+
+const TestSuite = new EntitySchema<TestSuite>({
   name: "TestSuite",
   tableName: "test_suites",
   columns: {
@@ -48,4 +59,4 @@ const TestSuite = new EntitySchema({
   ],
 });
 
-module.exports = { TestSuite };
+export { TestSuite };

@@ -2,6 +2,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { ProjectEndpoints } from "@/endpoints/project.endpoints"
 import { ApiError } from "@/transport/http"
+import { useAuth } from "@/contexts/AuthContext"
+import { UserRole } from "@/types/auth.types"
 import type {
   CreateProjectPayload,
   FetchProjectsParams,
@@ -31,6 +33,18 @@ export function useProject(id: string) {
     },
     enabled: Boolean(id),
   })
+}
+
+// Whether the current user can manage the given project: admins/superadmins
+// always can; a regular user can when they're the project's team lead.
+// Mirrors the server's ProjectService.canManageProject.
+export function useCanManageProject(projectId: string) {
+  const { user } = useAuth()
+  const isAdmin = user?.role === UserRole.ADMIN || user?.role === UserRole.SUPERADMIN
+  // Admins never need the membership lookup — skip the fetch.
+  const { data: project } = useProject(isAdmin ? "" : projectId)
+  if (isAdmin) return true
+  return Boolean(project?.members?.some((m) => m.id === user?.id && m.role === "team_lead"))
 }
 
 export function useCreateProject() {

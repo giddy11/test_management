@@ -27,7 +27,18 @@ function makeTcRepo() {
 function makeSuiteService() {
   return {
     getTestSuite: jest.fn().mockResolvedValue({ id: "suite-1", name: "Login", projectId: "proj-1" }),
-    projectService: { getProject: jest.fn().mockResolvedValue({ id: "proj-1", name: "Web" }) },
+    projectService: {
+      getProject: jest.fn().mockResolvedValue({ id: "proj-1", name: "Web" }),
+      isTeamLead: jest.fn().mockResolvedValue(false),
+      canManageProject: jest.fn().mockImplementation(async (a) => a.role !== "user"),
+      assertCanManageProject: jest.fn().mockImplementation(async (a) => {
+        if (a.role === "user") {
+          const err = new Error("Only admins or this project's team lead can do this");
+          err.statusCode = 403;
+          throw err;
+        }
+      }),
+    },
     suiteRepo: { findById: jest.fn().mockResolvedValue({ id: "suite-1", name: "Login" }) },
   };
 }

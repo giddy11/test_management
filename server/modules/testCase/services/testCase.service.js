@@ -38,12 +38,19 @@ class TestCaseService {
     return actor.role === UserRole.USER;
   }
 
+  // Team leads of the suite's project see every case, like admins do.
+  async isRestrictedInProject(actor, projectId) {
+    if (!this.isRestricted(actor)) return false;
+    return !(await this.suiteService.projectService.isTeamLead(actor, projectId));
+  }
+
   async fetchTestCases(actor, params) {
-    await this.suiteService.getTestSuite(actor, params.suite); // org access check
+    const suite = await this.suiteService.getTestSuite(actor, params.suite); // org access check
+    const restricted = await this.isRestrictedInProject(actor, suite.projectId);
     return this.tcRepo.fetchPaginated({
       ...params,
       suiteId: params.suite,
-      assigneeId: this.isRestricted(actor) ? actor.id : undefined,
+      assigneeId: restricted ? actor.id : undefined,
     });
   }
 
@@ -52,8 +59,9 @@ class TestCaseService {
     if (!tc || tc.deletedAt) {
       throw new AppError("Test case not found", 404);
     }
-    await this.suiteService.getTestSuite(actor, tc.suiteId); // org access check
-    if (this.isRestricted(actor) && !(tc.assignees ?? []).some((u) => u.id === actor.id)) {
+    const suite = await this.suiteService.getTestSuite(actor, tc.suiteId); // org access check
+    const restricted = await this.isRestrictedInProject(actor, suite.projectId);
+    if (restricted && !(tc.assignees ?? []).some((u) => u.id === actor.id)) {
       throw new AppError("Test case not found", 404); // hide unassigned cases
     }
     return tc;
@@ -71,6 +79,7 @@ class TestCaseService {
 
   async createTestCase(actor, data) {
     const suite = await this.suiteService.getTestSuite(actor, data.suite);
+    await this.suiteService.projectService.assertCanManageProject(actor, suite.projectId);
     const tc = await this.tcRepo.create({
       title: data.title,
       description: data.description ?? null,
@@ -88,6 +97,8 @@ class TestCaseService {
 
   async updateTestCase(actor, id, data) {
     const tc = await this.getTestCase(actor, id);
+    const suiteForCheck = await this.suiteService.getTestSuite(actor, tc.suiteId);
+    await this.suiteService.projectService.assertCanManageProject(actor, suiteForCheck.projectId);
 
     const patch = {};
     if (data.title !== undefined) patch.title = data.title;
@@ -99,14 +110,14 @@ class TestCaseService {
     if (data.tags !== undefined) patch.tags = data.tags;
 
     const updated = await this.tcRepo.update(tc.id, patch);
-    const suite = await this.suiteService.getTestSuite(actor, tc.suiteId);
-    this.logCaseEvent(actor, "test_case.updated", tc, "Updated", suite);
+    this.logCaseEvent(actor, "test_case.updated", tc, "Updated", suiteForCheck);
     return updated;
   }
 
   async deleteTestCase(actor, id) {
     const tc = await this.getTestCase(actor, id);
     const suite = await this.suiteService.getTestSuite(actor, tc.suiteId);
+    await this.suiteService.projectService.assertCanManageProject(actor, suite.projectId);
     await this.tcRepo.softDelete(tc.id);
     this.logCaseEvent(actor, "test_case.deleted", tc, "Deleted", suite);
   }
@@ -115,6 +126,7 @@ class TestCaseService {
   async assignUsers(actor, id, { userIds, deadline }) {
     const tc = await this.getTestCase(actor, id);
     const suite = await this.suiteService.getTestSuite(actor, tc.suiteId);
+    await this.suiteService.projectService.assertCanManageProject(actor, suite.projectId);
 
     const before = new Set((tc.assignees ?? []).map((u) => u.id));
     const users = [];
@@ -183,6 +195,13 @@ class TestCaseService {
     // caller can't touch (e.g. cross-org ids), same visibility rule as getTestCase.
     const cases = await this.tcRepo.findBulkAssignable(caseIds, actor.organizationId);
     if (!cases.length) throw new AppError("No accessible test cases in the selection", 404);
+
+    // A 'user' caller must be team lead of every project the selection touches.
+    const projectIds = [...new Set(cases.map((c) => c.projectId))];
+    for (const pid of projectIds) {
+      await this.suiteService.projectService.assertCanManageProject(actor, pid);
+    }
+
     const validIds = cases.map((c) => c.id);
     const sample = cases[0];
 

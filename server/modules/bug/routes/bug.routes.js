@@ -17,14 +17,14 @@ router.post("/", authMiddleware, validate(createBugSchema), BugController.create
 router.patch(
   "/:id",
   authMiddleware,
-  authorise("superadmin", "admin"),
+  authorise("superadmin", "admin", "user"),
   validate(manageBugSchema),
   BugController.manage
 );
 router.delete(
   "/:id",
   authMiddleware,
-  authorise("superadmin", "admin"),
+  authorise("superadmin", "admin", "user"),
   validate(idParamSchema),
   BugController.remove
 );

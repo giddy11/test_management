@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { Bell, CheckCheck, ClipboardCheck, FlaskConical } from "lucide-react"
+import { Bell, Bug, CheckCheck, ClipboardCheck, FlaskConical, Lightbulb, UserPlus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -30,6 +30,9 @@ function linkFor(n: AppNotification): string {
   if (d.caseId && d.projectId && d.suiteId)
     return `/projects/${d.projectId}/suites/${d.suiteId}/cases/${d.caseId}`
   if (d.runId && d.projectId) return `/projects/${d.projectId}/runs/${d.runId}`
+  if (d.requestId && d.projectId) return `/projects/${d.projectId}/feature-requests/${d.requestId}`
+  if (d.bugId && d.projectId) return `/projects/${d.projectId}/bugs/${d.bugId}`
+  if (d.projectId) return `/projects/${d.projectId}`
   return "/dashboard"
 }
 
@@ -74,7 +77,15 @@ export function NotificationBell() {
             <p className="px-3 py-8 text-center text-sm text-muted-foreground">You're all caught up.</p>
           )}
           {items.map((n) => {
-            const Icon = n.type === "run_completed" ? FlaskConical : ClipboardCheck
+            const Icon = n.type === "run_completed"
+              ? FlaskConical
+              : n.type.startsWith("bug_")
+              ? Bug
+              : n.type.startsWith("feature_request_")
+              ? Lightbulb
+              : n.type === "project_member_added"
+              ? UserPlus
+              : ClipboardCheck
             return (
               <button
                 key={n.id}

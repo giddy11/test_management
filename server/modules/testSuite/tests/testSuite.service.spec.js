@@ -12,7 +12,18 @@ function makeSuiteRepo() {
 }
 
 function makeProjectService() {
-  return { getProject: jest.fn().mockResolvedValue({ id: "proj-1", ownerId: "owner-1" }) };
+  return {
+    getProject: jest.fn().mockResolvedValue({ id: "proj-1", ownerId: "owner-1" }),
+    isTeamLead: jest.fn().mockResolvedValue(false),
+    canManageProject: jest.fn().mockImplementation(async (actor) => actor.role !== "user"),
+    assertCanManageProject: jest.fn().mockImplementation(async (actor) => {
+      if (actor.role === "user") {
+        const err = new Error("Only admins or this project's team lead can do this");
+        err.statusCode = 403;
+        throw err;
+      }
+    }),
+  };
 }
 
 function makeTestCaseRepo() {
@@ -59,6 +70,16 @@ describe("TestSuiteService", () => {
         expect.objectContaining({ assigneeId: undefined })
       );
     });
+
+    it("does not assignee-scope a team lead of the project", async () => {
+      projectService.isTeamLead.mockResolvedValue(true);
+      suiteRepo.fetchPaginated.mockResolvedValue({ data: [], meta: {} });
+      await service.fetchTestSuites(plainUser, { projectId: "proj-1", page: 1, limit: 20 });
+      expect(projectService.isTeamLead).toHaveBeenCalledWith(plainUser, "proj-1");
+      expect(suiteRepo.fetchPaginated).toHaveBeenCalledWith(
+        expect.objectContaining({ assigneeId: undefined })
+      );
+    });
   });
 
   describe("getTestSuite", () => {
@@ -88,6 +109,14 @@ describe("TestSuiteService", () => {
       suiteRepo.findById.mockResolvedValue(suite);
       testCaseRepo.hasAssignmentInSuite.mockResolvedValue(true);
       await expect(service.getTestSuite(plainUser, "suite-1")).resolves.toBe(suite);
+    });
+
+    it("allows a team lead without any assignment in the suite", async () => {
+      suiteRepo.findById.mockResolvedValue(suite);
+      projectService.isTeamLead.mockResolvedValue(true);
+      testCaseRepo.hasAssignmentInSuite.mockResolvedValue(false);
+      await expect(service.getTestSuite(plainUser, "suite-1")).resolves.toBe(suite);
+      expect(testCaseRepo.hasAssignmentInSuite).not.toHaveBeenCalled();
     });
 
     it("does not check assignment for admins/superadmins", async () => {

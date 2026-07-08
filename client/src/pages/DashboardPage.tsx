@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom"
-import { FolderKanban, Layers, ClipboardList, FlaskConical, Trophy, ChevronRight } from "lucide-react"
+import { FolderKanban, Layers, ClipboardList, FlaskConical, Trophy, ChevronRight, Lightbulb, Bug } from "lucide-react"
 import {
   Card,
   CardContent,
@@ -35,6 +35,47 @@ function StatCard({ icon: Icon, label, value }: { icon: LucideIcon; label: strin
           <div className="text-2xl font-semibold leading-none">{value}</div>
           <div className="text-xs text-muted-foreground">{label}</div>
         </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+// Admin-only card: total + per-status counts for feature requests / bugs.
+function StatusBreakdownCard({
+  icon: Icon,
+  title,
+  description,
+  breakdown,
+}: {
+  icon: LucideIcon
+  title: string
+  description: string
+  breakdown: { total: number; byStatus: { key: string; count: number }[] }
+}) {
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center gap-2">
+        <Icon className="size-4 text-primary" />
+        <div>
+          <CardTitle className="text-base">
+            {title} <span className="ml-1 text-muted-foreground">({breakdown.total})</span>
+          </CardTitle>
+          <CardDescription>{description}</CardDescription>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {breakdown.byStatus.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Nothing reported yet.</p>
+        ) : (
+          <div className="flex flex-wrap gap-1.5">
+            {breakdown.byStatus.map((s) => (
+              <Badge key={s.key} variant="secondary" className="gap-1 text-xs capitalize">
+                {s.key.replace(/_/g, " ")}
+                <span className="font-semibold">{s.count}</span>
+              </Badge>
+            ))}
+          </div>
+        )}
       </CardContent>
     </Card>
   )
@@ -189,8 +230,31 @@ export default function DashboardPage() {
             </Card>
           </div>
 
-          {/* Top performers + Recent runs */}
+          {/* Feature requests + bugs oversight — present only for company admins */}
+          {(data.featureRequests || data.bugs) && (
+            <div className="grid gap-4 lg:grid-cols-2">
+              {data.featureRequests && (
+                <StatusBreakdownCard
+                  icon={Lightbulb}
+                  title="Feature requests"
+                  description="Across your organisation's projects"
+                  breakdown={data.featureRequests}
+                />
+              )}
+              {data.bugs && (
+                <StatusBreakdownCard
+                  icon={Bug}
+                  title="Bug fixes"
+                  description="Across your organisation's projects"
+                  breakdown={data.bugs}
+                />
+              )}
+            </div>
+          )}
+
+          {/* Top performers (admin-only) + Recent runs */}
           <div className="grid gap-4 lg:grid-cols-2">
+            {data.topPerformers && (
             <Card>
               <CardHeader className="flex flex-row items-center gap-2">
                 <Trophy className="size-4 text-yellow-500" />
@@ -232,6 +296,7 @@ export default function DashboardPage() {
                 )}
               </CardContent>
             </Card>
+            )}
 
             <RecentRunsCard />
           </div>

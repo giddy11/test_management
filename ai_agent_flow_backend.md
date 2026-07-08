@@ -16,6 +16,28 @@
 | **Framework Independence** | Business logic in services must not depend on Express, Fastify, or any HTTP framework. |
 | **API Agnosticism** | Endpoints must serve web clients and mobile clients equally — no platform-specific coupling. |
 
+### 1.1 Language & Runtime — TypeScript is Mandatory
+
+All backend code is written in **TypeScript**. Every code sample in this guide is TypeScript, and that is not cosmetic — it is the required language.
+
+| Rule | Requirement |
+|---|---|
+| **New files are always `.ts`** | Never create a new `.js` file — controllers, services, repositories, entities, schemas, DTOs, routes, tests, scripts, migrations: all `.ts` |
+| **Runtime is `tsx`** | Dev: `npm run dev` (`tsx watch server.js`). Prod: the Dockerfile runs `npx tsx server.js`. **Never run server entrypoints with plain `node`** — once the require graph contains a `.ts` file, plain `node` crashes |
+| **Type-check before finishing** | Run `npm run typecheck` (`tsc --noEmit`) after any change that adds or edits a `.ts` file — it must pass with zero errors |
+| **Strict mode** | `tsconfig.json` has `strict: true` for `.ts` files. No `any` unless genuinely unavoidable — prefer `unknown` + narrowing |
+| **ESM syntax in `.ts` files** | Use `import` / `export` in TypeScript files (tsx compiles them to CommonJS). Existing `.js` files keep `require` / `module.exports` |
+| **Tests may be `.ts`** | Jest is configured with `ts-jest`; test files match `*.spec.@(js|ts)`. New test files are `.spec.ts` |
+
+#### Incremental Migration Policy (existing `.js` code)
+
+This codebase is migrating from JavaScript incrementally (`allowJs: true`, `checkJs: false`). The rules:
+
+- Existing `.js` files keep working — do **not** mass-convert unrelated files.
+- When **substantially modifying** an existing `.js` file (new methods, changed signatures, reworked logic), convert it to `.ts` in the same change: rename, switch to `import`/`export`, add types, run `npm run typecheck` + the Jest suite.
+- Small fixes (a one-line bugfix, a log message) do not require conversion.
+- A converted file must keep its exact export shape (`export { X }` compiles to `module.exports.X`), so `.js` consumers that `require()` it continue to work unchanged.
+
 ---
 
 ## 2. Layered Architecture
@@ -563,6 +585,32 @@ modules/
 
 ### 9.3 Standard Entity Template
 
+> **This codebase's convention:** existing entities use TypeORM's **`EntitySchema`** style, not the decorator style shown below. When adding or converting an entity here, follow the existing convention — define an exported interface and type the schema with it, in a `.ts` file:
+>
+> ```typescript
+> // modules/testSuite/entities/testSuite.entity.ts
+> import { EntitySchema } from "typeorm";
+>
+> export interface TestSuite {
+>   id: string;
+>   name: string;
+>   projectId: string;
+>   createdAt: Date;
+>   deletedAt: Date | null;
+>   project?: unknown; // tighten once the related entity is converted
+> }
+>
+> const TestSuite = new EntitySchema<TestSuite>({
+>   name: "TestSuite",
+>   tableName: "test_suites",
+>   columns: { /* columns, indexes as data — same rules as below */ },
+> });
+>
+> export { TestSuite };
+> ```
+>
+> The decorator template below applies to greenfield projects scaffolded from this guide. Do not mix both styles in one codebase, and do not convert `EntitySchema` entities to decorators as a side effect of other work. The rules in §9.2 (repository ownership, no business logic, all indexes declared on the entity, soft delete) apply identically to both styles.
+
 ```typescript
 // modules/patient/entities/patient.entity.ts
 import {
@@ -1067,6 +1115,10 @@ patient.appointment.service.ts
 
 AI agents building features in this codebase MUST:
 
+- Write **every new file in TypeScript** (`.ts`) — no new `.js` files, ever (see §1.1)
+- Run `npm run typecheck` (`tsc --noEmit`) and the Jest suite before declaring any change complete
+- Convert an existing `.js` file to `.ts` when substantially modifying it (§1.1 migration policy)
+- Run all Node entrypoints (server, seeds, TypeORM CLI) through `tsx` — never plain `node`
 - Follow the scaffold checklist in Section 16 in order — **starting with the Model/Entity**
 - Define all `@Index` decorators on the entity before writing any repository queries
 - Create a migration immediately after defining the entity
@@ -1086,6 +1138,9 @@ AI agents building features in this codebase MUST:
 
 AI agents MUST NOT:
 
+- Create a new `.js` file for any reason — new code is TypeScript only
+- Use `any` where a real type, a generic, or `unknown` + narrowing would work
+- Convert entities from `EntitySchema` style to decorator style (or vice versa) as a side effect of other work (§9.3)
 - Create a new utility if an equivalent already exists in `shared/`
 - Bypass the repository and query the database directly from a service
 - Import an entity class in a service or controller

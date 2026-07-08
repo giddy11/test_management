@@ -14,13 +14,11 @@ import { useRun, useResults, useUpdateRun, useBulkRecordResults } from "@/hooks/
 import { RESULT_STATUSES, RESULT_META, type ResultStatus } from "@/lib/enums"
 import { cn } from "@/lib/utils"
 import { ApiError } from "@/transport/http"
-import { useAuth } from "@/contexts/AuthContext"
-import { UserRole } from "@/types/auth.types"
+import { useCanManageProject } from "@/hooks/useProjects"
 
 export default function RunDetailPage() {
   const { projectId = "", runId = "" } = useParams()
-  const { user } = useAuth()
-  const canManage = user?.role === UserRole.ADMIN || user?.role === UserRole.SUPERADMIN
+  const canManage = useCanManageProject(projectId)
   const { data: run, isLoading } = useRun(runId)
   const [page, setPage] = useState(1)
   const [searchInput, setSearchInput] = useState("")

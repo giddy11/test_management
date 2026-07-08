@@ -13,15 +13,13 @@ import { StatusUpdateDialog } from "@/components/featureRequests/StatusUpdateDia
 import { CommentThread } from "@/components/featureRequests/CommentThread"
 import { FeatureRequestAttachmentsSection } from "@/components/featureRequests/FeatureRequestAttachmentsSection"
 import { useFeatureRequest, useDeleteFeatureRequest } from "@/hooks/useFeatureRequests"
-import { useAuth } from "@/contexts/AuthContext"
-import { UserRole } from "@/types/auth.types"
+import { useCanManageProject } from "@/hooks/useProjects"
 import { ApiError } from "@/transport/http"
 
 export default function FeatureRequestDetailPage() {
   const { projectId = "", id = "" } = useParams()
   const navigate = useNavigate()
-  const { user } = useAuth()
-  const canManage = user?.role === UserRole.ADMIN || user?.role === UserRole.SUPERADMIN
+  const canManage = useCanManageProject(projectId)
 
   const { data: request, isLoading } = useFeatureRequest(id)
   const del = useDeleteFeatureRequest()

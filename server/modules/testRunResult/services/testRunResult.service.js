@@ -5,6 +5,7 @@ const {
 const { TestRunService } = require("../../testRun/services/testRun.service");
 const { TestCaseRepository } = require("../../testCase/repositories/testCase.repository");
 const { TestSuiteRepository } = require("../../testSuite/repositories/testSuite.repository");
+const { ProjectRepository } = require("../../project/repositories/project.repository");
 const { ActivityService } = require("../../activity/services/activity.service");
 const { AppError } = require("../../../shared/errors/AppError");
 const { UserRole } = require("../../../config/constants");
@@ -16,12 +17,14 @@ class TestRunResultService {
     resultRepo = TestRunResultRepository.Instance,
     runService = TestRunService.Instance,
     tcRepo = TestCaseRepository.Instance,
-    suiteRepo = TestSuiteRepository.Instance
+    suiteRepo = TestSuiteRepository.Instance,
+    projectRepo = ProjectRepository.Instance
   ) {
     this.resultRepo = resultRepo;
     this.runService = runService;
     this.tcRepo = tcRepo;
     this.suiteRepo = suiteRepo;
+    this.projectRepo = projectRepo;
   }
 
   async fetchResults(actor, params) {
@@ -83,13 +86,16 @@ class TestRunResultService {
 
     const updated = await this.resultRepo.update(result.id, patch);
     if (data.status) {
-      const tc = await this.tcRepo.findById(result.testCaseId);
-      const suite = await this.suiteRepo.findById(run.suiteId);
+      const [tc, suite, project] = await Promise.all([
+        this.tcRepo.findById(result.testCaseId),
+        this.suiteRepo.findById(run.suiteId),
+        this.projectRepo.findById(run.projectId),
+      ]);
       ActivityService.Instance.log(actor, {
         action: "result.recorded",
         summary: `Recorded "${data.status}" on "${tc?.title ?? "a test case"}"${
           suite ? ` in suite "${suite.name}"` : ""
-        }`,
+        }${project ? ` (project "${project.name}", run "${run.name}")` : ""}`,
         entityType: "test_run_result",
         entityId: result.id,
         metadata: {
@@ -105,6 +111,8 @@ class TestRunResultService {
 
   async deleteResult(actor, id) {
     const result = await this.getResult(actor, id);
+    const { run } = await this.runService.getTestRun(actor, result.runId);
+    await this.runService.suiteService.projectService.assertCanManageProject(actor, run.projectId);
     await this.resultRepo.delete(result.id);
   }
 
@@ -122,12 +130,15 @@ class TestRunResultService {
 
     await this.resultRepo.bulkUpdateForRun(runId, ids, patch);
 
-    const suite = await this.suiteRepo.findById(run.suiteId);
+    const [suite, project] = await Promise.all([
+      this.suiteRepo.findById(run.suiteId),
+      this.projectRepo.findById(run.projectId),
+    ]);
     ActivityService.Instance.log(actor, {
       action: "result.bulk_recorded",
       summary: `Set ${ids.length} result${ids.length === 1 ? "" : "s"} to "${status ?? "pending"}"${
         suite ? ` in suite "${suite.name}"` : ""
-      }`,
+      }${project ? ` (project "${project.name}", run "${run.name}")` : ""}`,
       entityType: "test_run_result",
       entityId: runId,
       metadata: { runId, count: ids.length, status, projectId: run.projectId, suiteId: run.suiteId },

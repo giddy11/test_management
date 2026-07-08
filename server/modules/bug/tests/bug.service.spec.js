@@ -14,6 +14,16 @@ function makeBugRepo() {
 function makeProjectService() {
   return {
     getProject: jest.fn().mockResolvedValue({ id: "proj-1", organizationId: "org-1" }),
+    // Default mimics the real rule: admins pass, plain users don't (override
+    // canManageProject/assertCanManageProject in team-lead tests).
+    canManageProject: jest.fn().mockImplementation(async (actor) => actor.role !== "user"),
+    assertCanManageProject: jest.fn().mockImplementation(async (actor) => {
+      if (actor.role === "user") {
+        const err = new Error("Only admins or this project's team lead can do this");
+        err.statusCode = 403;
+        throw err;
+      }
+    }),
   };
 }
 
@@ -45,6 +55,10 @@ function makeNotificationService() {
   };
 }
 
+function makeMemberRepo() {
+  return { findMemberUsers: jest.fn().mockResolvedValue([]) };
+}
+
 const admin = { id: "admin-1", role: "admin", organizationId: "org-1" };
 const user = { id: "user-1", role: "user", organizationId: "org-1" };
 
@@ -66,7 +80,7 @@ const bug = {
 };
 
 describe("BugService", () => {
-  let bugRepo, projectService, authRepo, testCaseRepo, testSuiteRepo, testRunRepo, notificationService, service;
+  let bugRepo, projectService, authRepo, testCaseRepo, testSuiteRepo, testRunRepo, notificationService, memberRepo, service;
 
   beforeEach(() => {
     bugRepo = makeBugRepo();
@@ -76,6 +90,7 @@ describe("BugService", () => {
     testSuiteRepo = makeTestSuiteRepo();
     testRunRepo = makeTestRunRepo();
     notificationService = makeNotificationService();
+    memberRepo = makeMemberRepo();
     service = new BugService(
       bugRepo,
       projectService,
@@ -83,7 +98,8 @@ describe("BugService", () => {
       testCaseRepo,
       testSuiteRepo,
       testRunRepo,
-      notificationService
+      notificationService,
+      memberRepo
     );
   });
 
@@ -192,11 +208,20 @@ describe("BugService", () => {
   });
 
   describe("manageBug", () => {
-    it("forbids a plain user from managing", async () => {
+    it("forbids a plain user (non team-lead) from managing", async () => {
+      bugRepo.findById.mockResolvedValue(bug);
       await expect(service.manageBug(user, "bug-1", { status: "Fixed" })).rejects.toMatchObject({
         statusCode: 403,
       });
-      expect(bugRepo.findById).not.toHaveBeenCalled();
+      expect(bugRepo.update).not.toHaveBeenCalled();
+    });
+
+    it("allows a team lead of the project to manage", async () => {
+      projectService.assertCanManageProject.mockResolvedValue(undefined);
+      bugRepo.findById.mockResolvedValue(bug);
+      bugRepo.update.mockResolvedValue({ ...bug, status: "Fixed" });
+      await service.manageBug(user, "bug-1", { status: "Fixed" });
+      expect(bugRepo.update).toHaveBeenCalled();
     });
 
     it("throws 404 when missing", async () => {
@@ -257,8 +282,10 @@ describe("BugService", () => {
   });
 
   describe("deleteBug", () => {
-    it("forbids a plain user", async () => {
+    it("forbids a plain user (non team-lead)", async () => {
+      bugRepo.findById.mockResolvedValue(bug);
       await expect(service.deleteBug(user, "bug-1")).rejects.toMatchObject({ statusCode: 403 });
+      expect(bugRepo.softDelete).not.toHaveBeenCalled();
     });
 
     it("soft-deletes after access checks for an admin", async () => {

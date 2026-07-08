@@ -7,6 +7,13 @@ const UserRole = Object.freeze({
   USER: "user", // a member added by the company admin
 });
 
+// Role a user holds inside a single project (distinct from their app-wide UserRole).
+// team_lead sees every suite/case in the project; member only sees what they're assigned.
+const ProjectMemberRole = Object.freeze({
+  MEMBER: "member",
+  TEAM_LEAD: "team_lead",
+});
+
 const TestCasePriority = Object.freeze({
   LOW: "Low",
   MEDIUM: "Medium",
@@ -43,6 +50,7 @@ const OtpType = Object.freeze({
 });
 
 const NotificationType = Object.freeze({
+  PROJECT_MEMBER_ADDED: "project_member_added",
   TEST_ASSIGNED: "test_assigned",
   RUN_COMPLETED: "run_completed",
   FEATURE_REQUEST_STATUS_CHANGED: "feature_request_status_changed",
@@ -87,6 +95,7 @@ const BugStatus = Object.freeze({
 
 module.exports = {
   UserRole,
+  ProjectMemberRole,
   TestCasePriority,
   TestCaseStatus,
   RunStatus,
@@ -100,6 +109,7 @@ module.exports = {
   BugStatus,
   enums: {
     userRole: Object.values(UserRole),
+    projectMemberRole: Object.values(ProjectMemberRole),
     testCasePriority: Object.values(TestCasePriority),
     testCaseStatus: Object.values(TestCaseStatus),
     runStatus: Object.values(RunStatus),

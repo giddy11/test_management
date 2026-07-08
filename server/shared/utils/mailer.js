@@ -110,6 +110,19 @@ async function sendTestAssignedEmail(to, firstName, caseTitle, assignedByName, u
   });
 }
 
+async function sendProjectMemberAddedEmail(to, firstName, projectName, roleLabel, addedByName, url) {
+  const body = `
+    <h1 style="margin:0 0 12px;font-size:20px;font-weight:700;color:#0f172a">You've been added to a project</h1>
+    <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.65">Hi ${firstName}, ${addedByName} added you to the project <strong>${projectName}</strong> as a <strong>${roleLabel}</strong>.</p>
+    ${ctaButton(url, "Open project")}`;
+  return send({
+    to,
+    subject: `You've been added to ${projectName} — TestMate`,
+    html: emailLayout(body),
+    text: `${addedByName} added you to the project "${projectName}" as a ${roleLabel}.`,
+  });
+}
+
 async function sendRunCompletedEmail(to, firstName, runName, summary, url) {
   const line = `${summary.pass ?? 0} passed · ${summary.fail ?? 0} failed · ${summary.blocked ?? 0} blocked · ${summary.skipped ?? 0} skipped`;
   const body = `
@@ -240,6 +253,7 @@ module.exports = {
   sendPasswordResetEmail,
   sendWelcomeEmail,
   sendTestAssignedEmail,
+  sendProjectMemberAddedEmail,
   sendRunCompletedEmail,
   sendNewFeatureRequestEmail,
   sendFeatureRequestStatusEmail,

@@ -9,7 +9,11 @@ class DashboardService {
     this.repo = repo;
   }
 
-  async overview(organizationId, projectId) {
+  async overview(actor, projectId) {
+    const organizationId = actor.organizationId;
+    // Team performance + FR/bug oversight are for company admins only.
+    const isAdmin = actor.role === UserRole.ADMIN || actor.role === UserRole.SUPERADMIN;
+
     const [
       totals,
       caseStatus,
@@ -18,6 +22,8 @@ class DashboardService {
       projectsBreakdown,
       suitesBreakdown,
       topPerformers,
+      featureRequests,
+      bugs,
     ] = await Promise.all([
       this.repo.totals(organizationId, projectId),
       this.repo.caseDistribution(organizationId, projectId, "status"),
@@ -25,7 +31,9 @@ class DashboardService {
       this.repo.resultBreakdown(organizationId, projectId),
       this.repo.projectsBreakdown(organizationId, projectId),
       this.repo.suitesBreakdown(organizationId, projectId),
-      this.repo.topPerformers(organizationId, projectId),
+      isAdmin ? this.repo.topPerformers(organizationId, projectId) : Promise.resolve(null),
+      isAdmin ? this.repo.featureRequestBreakdown(organizationId, projectId) : Promise.resolve(null),
+      isAdmin ? this.repo.bugBreakdown(organizationId, projectId) : Promise.resolve(null),
     ]);
 
     const passRate =
@@ -41,14 +49,19 @@ class DashboardService {
       passRate,
       projectsBreakdown,
       suitesBreakdown,
-      topPerformers: topPerformers.map((p) => ({
-        id: p.id,
-        name: [p.firstName, p.lastName].filter(Boolean).join(" "),
-        total: p.total,
-        passes: p.passes,
-        failures: p.failures,
-        passRate: p.passRate,
-      })),
+      // Admin-only sections are omitted (undefined) for regular users.
+      topPerformers: topPerformers
+        ? topPerformers.map((p) => ({
+            id: p.id,
+            name: [p.firstName, p.lastName].filter(Boolean).join(" "),
+            total: p.total,
+            passes: p.passes,
+            failures: p.failures,
+            passRate: p.passRate,
+          }))
+        : undefined,
+      featureRequests: featureRequests ?? undefined,
+      bugs: bugs ?? undefined,
     };
   }
 

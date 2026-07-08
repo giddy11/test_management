@@ -8,6 +8,7 @@ const { env } = require("../../../config/env");
 const {
   sendTestAssignedEmail,
   sendRunCompletedEmail,
+  sendProjectMemberAddedEmail,
   sendNewFeatureRequestEmail,
   sendFeatureRequestStatusEmail,
   sendFeatureRequestCommentEmail,
@@ -61,24 +62,57 @@ class NotificationService {
     }
   }
 
-  async notifyRunCompleted(userId, ctx) {
-    const user = await this.authRepo.findUserById(userId);
-    if (!user) return;
+  // userIds: run creator + the project's members (deduped by the caller).
+  async notifyRunCompleted(userIds, ctx) {
+    const ids = Array.isArray(userIds) ? userIds : [userIds];
+    const users = (
+      await Promise.all(ids.map((id) => this.authRepo.findUserById(id)))
+    ).filter(Boolean);
+    if (!users.length) return;
     const by = ctx.byUserId ? await this.authRepo.findUserById(ctx.byUserId) : null;
     const byName = by ? [by.firstName, by.lastName].filter(Boolean).join(" ") : "A teammate";
     const url = `${env.appUrl}/projects/${ctx.projectId}/runs/${ctx.runId}`;
-    await this.repo.createMany([
-      {
-        userId,
+    await this.repo.createMany(
+      users.map((u) => ({
+        userId: u.id,
         type: NotificationType.RUN_COMPLETED,
         title: `Run completed: ${ctx.runName}`,
         body: `${byName} marked this run completed`,
         data: { runId: ctx.runId, projectId: ctx.projectId },
-      },
-    ]);
-    sendRunCompletedEmail(user.email, user.firstName, ctx.runName, ctx.summary, url).catch((e) =>
-      console.error("[notify] run-completed email failed:", e.message)
+      }))
     );
+    for (const u of users) {
+      sendRunCompletedEmail(u.email, u.firstName, ctx.runName, ctx.summary, url).catch((e) =>
+        console.error("[notify] run-completed email failed:", e.message)
+      );
+    }
+  }
+
+  // recipients: [{ user, role }] — newly added project members.
+  // ctx: { projectId, projectName, addedByName }
+  async notifyProjectMemberAdded(recipients, ctx) {
+    if (!recipients.length) return;
+    const url = `${env.appUrl}/projects/${ctx.projectId}`;
+    const roleLabel = (role) => (role === "team_lead" ? "team lead" : "member");
+    await this.repo.createMany(
+      recipients.map((r) => ({
+        userId: r.user.id,
+        type: NotificationType.PROJECT_MEMBER_ADDED,
+        title: `Added to project: ${ctx.projectName}`,
+        body: `${ctx.addedByName} added you as a ${roleLabel(r.role)}`,
+        data: { projectId: ctx.projectId, role: r.role },
+      }))
+    );
+    for (const r of recipients) {
+      sendProjectMemberAddedEmail(
+        r.user.email,
+        r.user.firstName,
+        ctx.projectName,
+        roleLabel(r.role),
+        ctx.addedByName,
+        url
+      ).catch((e) => console.error("[notify] member-added email failed:", e.message));
+    }
   }
 
   // ctx: { requestId, projectId, title, submittedByName }
@@ -101,21 +135,29 @@ class NotificationService {
     }
   }
 
-  // ctx: { requestId, projectId, title, status, adminResponse }
-  async notifyFeatureRequestStatusChanged(user, ctx) {
+  // recipients: the submitter + the project's members (deduped by the caller).
+  // ctx: { requestId, projectId, title, status, adminResponse, submittedById }
+  async notifyFeatureRequestStatusChanged(recipients, ctx) {
+    const users = Array.isArray(recipients) ? recipients : [recipients];
+    if (!users.length) return;
     const url = `${env.appUrl}/projects/${ctx.projectId}/feature-requests/${ctx.requestId}`;
-    await this.repo.createMany([
-      {
-        userId: user.id,
+    await this.repo.createMany(
+      users.map((u) => ({
+        userId: u.id,
         type: NotificationType.FEATURE_REQUEST_STATUS_CHANGED,
-        title: `Your feature request status changed: ${ctx.title}`,
+        title:
+          u.id === ctx.submittedById
+            ? `Your feature request status changed: ${ctx.title}`
+            : `Feature request status changed: ${ctx.title}`,
         body: `"${ctx.title}" is now ${ctx.status.replace(/_/g, " ")}`,
         data: { requestId: ctx.requestId, projectId: ctx.projectId, status: ctx.status },
-      },
-    ]);
-    sendFeatureRequestStatusEmail(user.email, user.firstName, ctx.title, ctx.status, ctx.adminResponse, url).catch(
-      (e) => console.error("[notify] feature-request-status email failed:", e.message)
+      }))
     );
+    for (const u of users) {
+      sendFeatureRequestStatusEmail(u.email, u.firstName, ctx.title, ctx.status, ctx.adminResponse, url).catch(
+        (e) => console.error("[notify] feature-request-status email failed:", e.message)
+      );
+    }
   }
 
   // ctx: { requestId, projectId, title, commenterName }
@@ -155,21 +197,26 @@ class NotificationService {
     }
   }
 
+  // recipients: the reporter + the project's members (deduped by the caller).
   // ctx: { bugId, projectId, title, status }
-  async notifyBugStatusChanged(user, ctx) {
+  async notifyBugStatusChanged(recipients, ctx) {
+    const users = Array.isArray(recipients) ? recipients : [recipients];
+    if (!users.length) return;
     const url = `${env.appUrl}/projects/${ctx.projectId}/bugs/${ctx.bugId}`;
-    await this.repo.createMany([
-      {
-        userId: user.id,
+    await this.repo.createMany(
+      users.map((u) => ({
+        userId: u.id,
         type: NotificationType.BUG_STATUS_CHANGED,
         title: `Bug status changed: ${ctx.title}`,
         body: `"${ctx.title}" is now ${ctx.status}`,
         data: { bugId: ctx.bugId, projectId: ctx.projectId, status: ctx.status },
-      },
-    ]);
-    sendBugStatusEmail(user.email, user.firstName, ctx.title, ctx.status, url).catch((e) =>
-      console.error("[notify] bug-status email failed:", e.message)
+      }))
     );
+    for (const u of users) {
+      sendBugStatusEmail(u.email, u.firstName, ctx.title, ctx.status, url).catch((e) =>
+        console.error("[notify] bug-status email failed:", e.message)
+      );
+    }
   }
 
   // ctx: { bugId, projectId, title }

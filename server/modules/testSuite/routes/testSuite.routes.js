@@ -17,21 +17,21 @@ router.get("/:id/export", authMiddleware, validate(idParamSchema), TestSuiteCont
 router.post(
   "/",
   authMiddleware,
-  authorise("superadmin", "admin"),
+  authorise("superadmin", "admin", "user"),
   validate(createTestSuiteSchema),
   TestSuiteController.create
 );
 router.patch(
   "/:id",
   authMiddleware,
-  authorise("superadmin", "admin"),
+  authorise("superadmin", "admin", "user"),
   validate(updateTestSuiteSchema),
   TestSuiteController.update
 );
 router.delete(
   "/:id",
   authMiddleware,
-  authorise("superadmin", "admin"),
+  authorise("superadmin", "admin", "user"),
   validate(idParamSchema),
   TestSuiteController.remove
 );

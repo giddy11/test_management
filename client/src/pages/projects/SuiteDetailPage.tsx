@@ -31,16 +31,14 @@ import { PresenceDot } from "@/components/shared/PresenceDot"
 import { useSuite } from "@/hooks/useSuites"
 import { useCases, useDeleteCase, useBulkDeleteCases } from "@/hooks/useCases"
 import { useExportSuite } from "@/hooks/useExport"
-import { useAuth } from "@/contexts/AuthContext"
-import { UserRole } from "@/types/auth.types"
+import { useCanManageProject } from "@/hooks/useProjects"
 import { TC_PRIORITIES, TC_STATUSES, RESULT_STATUSES, RESULT_META, type TcPriority, type TcStatus, type ResultStatus } from "@/lib/enums"
 import type { TestCase } from "@/types/testMgmt.types"
 
 export default function SuiteDetailPage() {
   const { projectId = "", suiteId = "" } = useParams()
   const navigate = useNavigate()
-  const { user } = useAuth()
-  const canManage = user?.role === UserRole.ADMIN || user?.role === UserRole.SUPERADMIN
+  const canManage = useCanManageProject(projectId)
 
   const { data: suite } = useSuite(suiteId)
 

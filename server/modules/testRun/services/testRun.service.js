@@ -6,6 +6,9 @@ const {
 const { TestCaseRepository } = require("../../testCase/repositories/testCase.repository");
 const { TestSuiteService } = require("../../testSuite/services/testSuite.service");
 const { NotificationService } = require("../../notification/services/notification.service");
+const {
+  ProjectMemberRepository,
+} = require("../../project/repositories/projectMember.repository");
 const { ActivityService } = require("../../activity/services/activity.service");
 const { AppError } = require("../../../shared/errors/AppError");
 const { RunStatus, UserRole } = require("../../../config/constants");
@@ -25,11 +28,19 @@ class TestRunService {
     this.suiteService = suiteService;
   }
 
+  // Returns actor.id when the actor's run/result visibility must be restricted
+  // to their own work, or undefined for full visibility. Admins/superadmins and
+  // the project's team leads see everything.
+  async restrictToUser(actor, projectId) {
+    if (actor.role !== UserRole.USER) return undefined;
+    const isLead = await this.suiteService.projectService.isTeamLead(actor, projectId);
+    return isLead ? undefined : actor.id;
+  }
+
   async fetchTestRuns(actor, params) {
     await this.suiteService.projectService.getProject(actor, params.projectId);
     // Regular users only see runs they started or have recorded a result in.
-    // Admins/superadmins retain full visibility for oversight.
-    const restrictToUserId = actor.role === UserRole.USER ? actor.id : undefined;
+    const restrictToUserId = await this.restrictToUser(actor, params.projectId);
     return this.runRepo.fetchPaginated({ ...params, restrictToUserId });
   }
 
@@ -44,8 +55,8 @@ class TestRunService {
     if (!run) throw new AppError("Test run not found", 404);
     await this.suiteService.projectService.getProject(actor, run.projectId);
     // A plain user's progress reflects only the cases assigned to them, matching
-    // the results list they see below it. Admins keep the run-wide total.
-    const assigneeId = actor.role === UserRole.USER ? actor.id : undefined;
+    // the results list they see below it. Admins and team leads keep the run-wide total.
+    const assigneeId = await this.restrictToUser(actor, run.projectId);
     const summary = await this.resultRepo.statusSummary(run.id, assigneeId);
     return { run, summary };
   }
@@ -83,7 +94,7 @@ class TestRunService {
 
     const summary = await this.resultRepo.statusSummary(
       run.id,
-      actor.role === UserRole.USER ? actor.id : undefined
+      await this.restrictToUser(actor, data.projectId)
     );
     ActivityService.Instance.log(actor, {
       action: "run.created",
@@ -99,13 +110,13 @@ class TestRunService {
     const { run } = await this.getTestRun(actor, id);
     const wasCompleted = run.status === RunStatus.COMPLETED;
 
-    // Only admins can reopen a completed run.
+    // Only admins or the project's team lead can reopen a completed run.
     if (
       wasCompleted &&
       data.status === RunStatus.IN_PROGRESS &&
-      actor.role === UserRole.USER
+      !(await this.suiteService.projectService.canManageProject(actor, run.projectId))
     ) {
-      throw new AppError("Only admins can reopen a completed run.", 403);
+      throw new AppError("Only admins or the project's team lead can reopen a completed run.", 403);
     }
 
     const patch = {};
@@ -114,23 +125,27 @@ class TestRunService {
     const updated = await this.runRepo.update(run.id, patch);
     const summary = await this.resultRepo.statusSummary(
       run.id,
-      actor.role === UserRole.USER ? actor.id : undefined
+      await this.restrictToUser(actor, run.projectId)
     );
 
-    // Notify the run's creator when someone else completes it.
-    if (
-      data.status === RunStatus.COMPLETED &&
-      !wasCompleted &&
-      run.createdById &&
-      run.createdById !== actor.id
-    ) {
-      NotificationService.Instance.notifyRunCompleted(run.createdById, {
-        runName: updated.name,
-        runId: run.id,
-        projectId: run.projectId,
-        summary,
-        byUserId: actor.id,
-      }).catch((e) => console.error("[notify] run-completed failed:", e.message));
+    // Notify the run's creator + every project member when a run is completed
+    // (whoever completed it is excluded — they already know).
+    if (data.status === RunStatus.COMPLETED && !wasCompleted) {
+      ProjectMemberRepository.Instance.findMemberUsers(run.projectId)
+        .then((members) => {
+          const recipientIds = new Set(members.map((m) => m.id));
+          if (run.createdById) recipientIds.add(run.createdById);
+          recipientIds.delete(actor.id);
+          if (recipientIds.size === 0) return;
+          return NotificationService.Instance.notifyRunCompleted([...recipientIds], {
+            runName: updated.name,
+            runId: run.id,
+            projectId: run.projectId,
+            summary,
+            byUserId: actor.id,
+          });
+        })
+        .catch((e) => console.error("[notify] run-completed failed:", e.message));
     }
 
     if (data.status === RunStatus.COMPLETED && !wasCompleted) {
@@ -149,6 +164,7 @@ class TestRunService {
 
   async deleteTestRun(actor, id) {
     const { run } = await this.getTestRun(actor, id);
+    await this.suiteService.projectService.assertCanManageProject(actor, run.projectId);
     await this.runRepo.delete(run.id);
   }
 }

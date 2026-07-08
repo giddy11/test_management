@@ -18,21 +18,21 @@ router.get("/:id", authMiddleware, validate(idParamSchema), TestCaseController.f
 router.post(
   "/",
   authMiddleware,
-  authorise("superadmin", "admin"),
+  authorise("superadmin", "admin", "user"),
   validate(createTestCaseSchema),
   TestCaseController.create
 );
 router.patch(
   "/:id",
   authMiddleware,
-  authorise("superadmin", "admin"),
+  authorise("superadmin", "admin", "user"),
   validate(updateTestCaseSchema),
   TestCaseController.update
 );
 router.delete(
   "/:id",
   authMiddleware,
-  authorise("superadmin", "admin"),
+  authorise("superadmin", "admin", "user"),
   validate(idParamSchema),
   TestCaseController.remove
 );
@@ -41,7 +41,7 @@ router.delete(
 router.patch(
   "/assignees/bulk",
   authMiddleware,
-  authorise("superadmin", "admin"),
+  authorise("superadmin", "admin", "user"),
   validate(bulkAssignTestCaseSchema),
   TestCaseController.bulkAssign
 );
@@ -50,7 +50,7 @@ router.patch(
 router.patch(
   "/:id/assignees",
   authMiddleware,
-  authorise("superadmin", "admin"),
+  authorise("superadmin", "admin", "user"),
   validate(assignTestCaseSchema),
   TestCaseController.assign
 );

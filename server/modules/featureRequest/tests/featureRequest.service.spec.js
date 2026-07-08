@@ -48,7 +48,21 @@ function makeNotificationService() {
 function makeProjectService() {
   return {
     getProject: jest.fn().mockResolvedValue({ id: "proj-1", organizationId: "org-1" }),
+    // Default mimics the real rule: admins pass, plain users don't (override
+    // canManageProject/assertCanManageProject in team-lead tests).
+    canManageProject: jest.fn().mockImplementation(async (actor) => actor.role !== "user"),
+    assertCanManageProject: jest.fn().mockImplementation(async (actor) => {
+      if (actor.role === "user") {
+        const err = new Error("Only admins or this project's team lead can do this");
+        err.statusCode = 403;
+        throw err;
+      }
+    }),
   };
+}
+
+function makeMemberRepo() {
+  return { findMemberUsers: jest.fn().mockResolvedValue([]) };
 }
 
 const admin = { id: "admin-1", role: "admin", organizationId: "org-1" };
@@ -69,7 +83,7 @@ const fr = {
 };
 
 describe("FeatureRequestService", () => {
-  let frRepo, voteRepo, commentRepo, authRepo, notificationService, projectService, service;
+  let frRepo, voteRepo, commentRepo, authRepo, notificationService, projectService, memberRepo, service;
 
   beforeEach(() => {
     frRepo = makeFrRepo();
@@ -78,13 +92,15 @@ describe("FeatureRequestService", () => {
     authRepo = makeAuthRepo();
     notificationService = makeNotificationService();
     projectService = makeProjectService();
+    memberRepo = makeMemberRepo();
     service = new FeatureRequestService(
       frRepo,
       voteRepo,
       commentRepo,
       authRepo,
       notificationService,
-      projectService
+      projectService,
+      memberRepo
     );
   });
 
