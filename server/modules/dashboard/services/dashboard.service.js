@@ -2,6 +2,37 @@
 const { DashboardRepository } = require("../repositories/dashboard.repository");
 const { UserRole } = require("../../../config/constants");
 
+// Rows are (projectId, projectName, key, count) from a per-project+status query.
+// Rolls them up into an overall status total plus a per-project breakdown, so the
+// dashboard can show which project each item belongs to.
+function groupByProject(rows) {
+  const byStatus = new Map();
+  const byProject = new Map();
+  for (const row of rows) {
+    byStatus.set(row.key, (byStatus.get(row.key) ?? 0) + row.count);
+
+    if (!byProject.has(row.projectId)) {
+      byProject.set(row.projectId, {
+        projectId: row.projectId,
+        projectName: row.projectName,
+        total: 0,
+        byStatus: [],
+      });
+    }
+    const project = byProject.get(row.projectId);
+    project.total += row.count;
+    project.byStatus.push({ key: row.key, count: row.count });
+  }
+
+  return {
+    total: rows.reduce((n, r) => n + r.count, 0),
+    byStatus: [...byStatus.entries()]
+      .map(([key, count]) => ({ key, count }))
+      .sort((a, b) => b.count - a.count),
+    byProject: [...byProject.values()].sort((a, b) => b.total - a.total),
+  };
+}
+
 class DashboardService {
   static Instance = new DashboardService();
 
@@ -60,8 +91,8 @@ class DashboardService {
             passRate: p.passRate,
           }))
         : undefined,
-      featureRequests: featureRequests ?? undefined,
-      bugs: bugs ?? undefined,
+      featureRequests: featureRequests ? groupByProject(featureRequests) : undefined,
+      bugs: bugs ? groupByProject(bugs) : undefined,
     };
   }
 

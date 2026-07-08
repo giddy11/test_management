@@ -182,6 +182,7 @@ export interface TopPerformer {
 export interface StatusBreakdown {
   total: number
   byStatus: Distribution[]
+  byProject: { projectId: string; projectName: string; total: number; byStatus: Distribution[] }[]
 }
 export interface DashboardOverview {
   totals: { projects: number; suites: number; cases: number; runs: number }

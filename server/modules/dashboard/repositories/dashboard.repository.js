@@ -159,32 +159,35 @@ class DashboardRepository {
     );
   }
 
-  // Feature requests per status — admin-only dashboard card.
+  // Feature requests per status, and per project+status (so the dashboard can show
+  // which project each one belongs to) — admin-only dashboard card.
   async featureRequestBreakdown(organizationId, projectId) {
     const [pScope, params] = this.scope(organizationId, projectId);
     const rows = await this.ds.query(
-      `SELECT fr.status AS key, count(*)::int AS count
+      `SELECT p.id AS "projectId", p.name AS "projectName", fr.status AS key, count(*)::int AS count
        FROM feature_requests fr
        JOIN projects p ON fr.project_id = p.id
        WHERE ${pScope} AND fr.deleted_at IS NULL
-       GROUP BY fr.status ORDER BY count DESC`,
+       GROUP BY p.id, p.name, fr.status
+       ORDER BY p.name, count DESC`,
       params
     );
-    return { total: rows.reduce((n, r) => n + r.count, 0), byStatus: rows };
+    return rows;
   }
 
-  // Bugs per status — admin-only dashboard card.
+  // Bugs per status, and per project+status — admin-only dashboard card.
   async bugBreakdown(organizationId, projectId) {
     const [pScope, params] = this.scope(organizationId, projectId);
     const rows = await this.ds.query(
-      `SELECT b.status AS key, count(*)::int AS count
+      `SELECT p.id AS "projectId", p.name AS "projectName", b.status AS key, count(*)::int AS count
        FROM bugs b
        JOIN projects p ON b.project_id = p.id
        WHERE ${pScope} AND b.deleted_at IS NULL
-       GROUP BY b.status ORDER BY count DESC`,
+       GROUP BY p.id, p.name, b.status
+       ORDER BY p.name, count DESC`,
       params
     );
-    return { total: rows.reduce((n, r) => n + r.count, 0), byStatus: rows };
+    return rows;
   }
 
   // Filterable, paginated recent-runs feed for the dashboard card.

@@ -40,7 +40,8 @@ function StatCard({ icon: Icon, label, value }: { icon: LucideIcon; label: strin
   )
 }
 
-// Admin-only card: total + per-status counts for feature requests / bugs.
+// Admin-only card: total + per-status counts for feature requests / bugs,
+// broken down by project so it's clear where each one came from.
 function StatusBreakdownCard({
   icon: Icon,
   title,
@@ -50,7 +51,10 @@ function StatusBreakdownCard({
   icon: LucideIcon
   title: string
   description: string
-  breakdown: { total: number; byStatus: { key: string; count: number }[] }
+  breakdown: {
+    total: number
+    byProject: { projectId: string; projectName: string; total: number; byStatus: { key: string; count: number }[] }[]
+  }
 }) {
   return (
     <Card>
@@ -64,15 +68,27 @@ function StatusBreakdownCard({
         </div>
       </CardHeader>
       <CardContent>
-        {breakdown.byStatus.length === 0 ? (
+        {breakdown.byProject.length === 0 ? (
           <p className="text-sm text-muted-foreground">Nothing reported yet.</p>
         ) : (
-          <div className="flex flex-wrap gap-1.5">
-            {breakdown.byStatus.map((s) => (
-              <Badge key={s.key} variant="secondary" className="gap-1 text-xs capitalize">
-                {s.key.replace(/_/g, " ")}
-                <span className="font-semibold">{s.count}</span>
-              </Badge>
+          <div className="space-y-3">
+            {breakdown.byProject.map((proj) => (
+              <div key={proj.projectId}>
+                <Link
+                  to={`/projects/${proj.projectId}`}
+                  className="text-sm font-medium hover:underline"
+                >
+                  {proj.projectName}
+                </Link>
+                <div className="mt-1 flex flex-wrap gap-1.5">
+                  {proj.byStatus.map((s) => (
+                    <Badge key={s.key} variant="secondary" className="gap-1 text-xs capitalize">
+                      {s.key.replace(/_/g, " ")}
+                      <span className="font-semibold">{s.count}</span>
+                    </Badge>
+                  ))}
+                </div>
+              </div>
             ))}
           </div>
         )}
