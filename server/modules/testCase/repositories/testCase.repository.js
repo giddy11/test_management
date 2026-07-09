@@ -101,16 +101,23 @@ class TestCaseRepository {
   }
 
   // Unbounded — all non-deleted cases in a suite, with assignees + computed fields.
-  // Used only by export, which is a one-shot bulk read, not a list endpoint.
-  async findAllForExport(suiteId) {
-    const data = await this.repo
+  // Used only by export. When assigneeId is provided, only returns cases that user is assigned to.
+  async findAllForExport(suiteId, assigneeId = null) {
+    const qb = this.repo
       .createQueryBuilder("tc")
       .leftJoinAndSelect("tc.assignees", "assignee")
       .where("tc.suite_id = :suiteId", { suiteId })
       .andWhere("tc.deleted_at IS NULL")
-      .orderBy("tc.createdAt", "ASC")
-      .getMany();
+      .orderBy("tc.createdAt", "ASC");
 
+    if (assigneeId) {
+      qb.andWhere(
+        `EXISTS (SELECT 1 FROM test_case_assignees tca WHERE tca.test_case_id = tc.id AND tca.user_id = :assigneeId)`,
+        { assigneeId }
+      );
+    }
+
+    const data = await qb.getMany();
     await this._attachComputed(data);
     return data;
   }

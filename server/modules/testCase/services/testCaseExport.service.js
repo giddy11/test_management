@@ -9,6 +9,7 @@ const { TestSuiteRepository } = require("../../testSuite/repositories/testSuite.
 const { TestSuiteService } = require("../../testSuite/services/testSuite.service");
 const { ProjectService } = require("../../project/services/project.service");
 const { AppError } = require("../../../shared/errors/AppError");
+const { UserRole } = require("../../../config/constants");
 
 // Guards ExcelJS's in-memory workbook build against runaway project exports.
 const MAX_EXPORT_ROWS = 20000;
@@ -133,7 +134,8 @@ class TestCaseExportService {
 
   async exportSuite(actor, suiteId) {
     const suite = await this.suiteService.getTestSuite(actor, suiteId);
-    const cases = await this.tcRepo.findAllForExport(suiteId);
+    const assigneeId = actor.role === UserRole.USER ? actor.id : null;
+    const cases = await this.tcRepo.findAllForExport(suiteId, assigneeId);
     const attachmentsByCase = await this.attachmentsForCases(cases);
 
     const wb = new ExcelJS.Workbook();
@@ -148,10 +150,30 @@ class TestCaseExportService {
 
   async exportProject(actor, projectId) {
     const project = await this.projectService.getProject(actor, projectId);
-    const suites = await this.suiteRepo.findAllByProject(projectId);
+    const allSuites = await this.suiteRepo.findAllByProject(projectId);
+
+    if (allSuites.length === 0) {
+      throw new AppError("This project has no test suites to export", 422);
+    }
+
+    const assigneeId = actor.role === UserRole.USER ? actor.id : null;
+
+    // For restricted users, only include suites they have at least one assignment in.
+    const suites = assigneeId
+      ? (
+          await Promise.all(
+            allSuites.map(async (s) => ({
+              suite: s,
+              hasAssignment: await this.tcRepo.hasAssignmentInSuite(s.id, assigneeId),
+            }))
+          )
+        )
+          .filter((r) => r.hasAssignment)
+          .map((r) => r.suite)
+      : allSuites;
 
     if (suites.length === 0) {
-      throw new AppError("This project has no test suites to export", 422);
+      throw new AppError("You have no assigned test cases in this project to export", 422);
     }
 
     const wb = new ExcelJS.Workbook();
@@ -160,7 +182,7 @@ class TestCaseExportService {
     let totalRows = 0;
 
     for (const suite of suites) {
-      const cases = await this.tcRepo.findAllForExport(suite.id);
+      const cases = await this.tcRepo.findAllForExport(suite.id, assigneeId);
       totalRows += cases.length;
       if (totalRows > MAX_EXPORT_ROWS) {
         throw new AppError(
