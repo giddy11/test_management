@@ -126,6 +126,7 @@ class FeatureRequestService {
             projectId: fr.projectId,
             title: fr.title,
             submittedByName,
+            organizationId: project.organizationId,
           });
         }
       })
@@ -178,6 +179,7 @@ class FeatureRequestService {
               status: updated.status,
               adminResponse: updated.adminResponse,
               submittedById: fr.submittedById,
+              organizationId: project.organizationId,
             });
           }
         })

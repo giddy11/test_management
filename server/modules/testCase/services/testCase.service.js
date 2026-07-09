@@ -172,6 +172,7 @@ class TestCaseService {
         suiteId: tc.suiteId,
         projectId: suite.projectId,
         assignedByName,
+        organizationId: notifyUsers[0]?.organizationId,
       }).catch((e) => console.error("[notify] assignment failed:", e.message));
     }
 
@@ -253,6 +254,7 @@ class TestCaseService {
         suiteId: sample.suiteId,
         projectId: sample.projectId,
         assignedByName,
+        organizationId: addedUsers[0]?.organizationId,
       }).catch((e) => console.error("[notify] bulk assignment failed:", e.message));
     }
 

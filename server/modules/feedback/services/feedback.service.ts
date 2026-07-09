@@ -165,7 +165,8 @@ export class FeedbackService {
       fb.submitterEmail,
       fb.submitterName,
       project.name,
-      fb.title
+      fb.title,
+      project.organizationId
     ).catch((e: Error) => console.error("[feedback] received email failed:", e.message));
 
     // Alert the project's admins + members in-app and by email.
@@ -190,6 +191,7 @@ export class FeedbackService {
             title: fb.title,
             type: fb.type,
             submitterName: fb.submitterName,
+            organizationId: project.organizationId,
           });
         }
       })
@@ -290,7 +292,8 @@ export class FeedbackService {
           updated.status,
           copy,
           updated.adminResponse ?? null,
-          `${env.appUrl}/feedback/${fb.id}/confirm`
+          `${env.appUrl}/feedback/${fb.id}/confirm`,
+          project.organizationId
         ).catch((e: Error) => console.error("[feedback] status email failed:", e.message));
       }
     }
@@ -309,6 +312,7 @@ export class FeedbackService {
         projectName: project.name,
         title: fb.title,
         assignedByName,
+        organizationId: project.organizationId,
       }).catch((e: Error) => console.error("[feedback] assignment notify failed:", e.message));
     }
 
@@ -387,7 +391,8 @@ export class FeedbackService {
       fb.submitterName,
       project?.name ?? "",
       fb.title,
-      confirmed
+      confirmed,
+      project?.organizationId
     ).catch((e: Error) => console.error("[feedback] confirmation-received email failed:", e.message));
 
     // Alert the project's admins + members — same recipient fan-out as new feedback.

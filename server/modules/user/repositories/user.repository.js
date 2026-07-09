@@ -57,6 +57,24 @@ class UserRepository {
     return row ? row.id : null;
   }
 
+  // Same "earliest-created user in the org" rule as findOrgOwnerId, but
+  // returns the email directly in one query — used to address branded email
+  // footers to a stable, real contact at the company rather than the app's
+  // own SMTP relay mailbox.
+  async findOrgOwner(organizationId) {
+    if (!organizationId) return null;
+    const row = await this.repo
+      .createQueryBuilder("u")
+      .select(["u.id", "u.email"])
+      .where("u.organization_id = :organizationId", { organizationId })
+      .orderBy("u.created_at", "ASC")
+      .addOrderBy("u.id", "ASC")
+      .withDeleted()
+      .limit(1)
+      .getOne();
+    return row ? { id: row.id, email: row.email } : null;
+  }
+
   async findByEmail(email) {
     return this.repo.findOne({ where: { email } });
   }

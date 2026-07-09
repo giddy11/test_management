@@ -58,7 +58,7 @@ class NotificationService {
       }))
     );
     for (const u of users) {
-      sendTestAssignedEmail(u.email, u.firstName, ctx.caseTitle, ctx.assignedByName, url).catch(
+      sendTestAssignedEmail(u.email, u.firstName, ctx.caseTitle, ctx.assignedByName, url, ctx.organizationId).catch(
         (e) => console.error("[notify] assignment email failed:", e.message)
       );
     }
@@ -84,7 +84,7 @@ class NotificationService {
       }))
     );
     for (const u of users) {
-      sendRunCompletedEmail(u.email, u.firstName, ctx.runName, ctx.summary, url).catch((e) =>
+      sendRunCompletedEmail(u.email, u.firstName, ctx.runName, ctx.summary, url, u.organizationId).catch((e) =>
         console.error("[notify] run-completed email failed:", e.message)
       );
     }
@@ -112,7 +112,8 @@ class NotificationService {
         ctx.projectName,
         roleLabel(r.role),
         ctx.addedByName,
-        url
+        url,
+        r.user.organizationId
       ).catch((e) => console.error("[notify] member-added email failed:", e.message));
     }
   }
@@ -133,7 +134,7 @@ class NotificationService {
       }))
     );
     for (const u of recipients) {
-      sendNewFeedbackAlertEmail(u.email, u.firstName, ctx.title, typeLabel, ctx.projectName, ctx.submitterName, url).catch(
+      sendNewFeedbackAlertEmail(u.email, u.firstName, ctx.title, typeLabel, ctx.projectName, ctx.submitterName, url, ctx.organizationId).catch(
         (e) => console.error("[notify] new-feedback email failed:", e.message)
       );
     }
@@ -154,7 +155,7 @@ class NotificationService {
       }))
     );
     for (const u of users) {
-      sendFeedbackAssignedEmail(u.email, u.firstName, ctx.title, ctx.projectName, ctx.assignedByName, url).catch(
+      sendFeedbackAssignedEmail(u.email, u.firstName, ctx.title, ctx.projectName, ctx.assignedByName, url, ctx.organizationId).catch(
         (e) => console.error("[notify] feedback-assigned email failed:", e.message)
       );
     }
@@ -197,7 +198,7 @@ class NotificationService {
       }))
     );
     for (const u of recipients) {
-      sendNewFeatureRequestEmail(u.email, u.firstName, ctx.title, ctx.submittedByName, url).catch((e) =>
+      sendNewFeatureRequestEmail(u.email, u.firstName, ctx.title, ctx.submittedByName, url, ctx.organizationId).catch((e) =>
         console.error("[notify] new-feature-request email failed:", e.message)
       );
     }
@@ -229,7 +230,8 @@ class NotificationService {
         ctx.status,
         ctx.adminResponse,
         url,
-        u.id === ctx.submittedById
+        u.id === ctx.submittedById,
+        ctx.organizationId
       ).catch((e) => console.error("[notify] feature-request-status email failed:", e.message));
     }
   }
@@ -246,7 +248,7 @@ class NotificationService {
         data: { requestId: ctx.requestId, projectId: ctx.projectId },
       },
     ]);
-    sendFeatureRequestCommentEmail(user.email, user.firstName, ctx.title, ctx.commenterName, url).catch((e) =>
+    sendFeatureRequestCommentEmail(user.email, user.firstName, ctx.title, ctx.commenterName, url, user.organizationId).catch((e) =>
       console.error("[notify] feature-request-comment email failed:", e.message)
     );
   }
@@ -265,7 +267,7 @@ class NotificationService {
       }))
     );
     for (const u of recipients) {
-      sendNewBugEmail(u.email, u.firstName, ctx.title, ctx.reportedByName, url).catch((e) =>
+      sendNewBugEmail(u.email, u.firstName, ctx.title, ctx.reportedByName, url, ctx.organizationId).catch((e) =>
         console.error("[notify] new-bug email failed:", e.message)
       );
     }
@@ -293,7 +295,8 @@ class NotificationService {
         ctx.title,
         ctx.status,
         url,
-        u.id === ctx.reportedById
+        u.id === ctx.reportedById,
+        ctx.organizationId
       ).catch((e) => console.error("[notify] bug-status email failed:", e.message));
     }
   }
@@ -310,7 +313,7 @@ class NotificationService {
         data: { bugId: ctx.bugId, projectId: ctx.projectId },
       },
     ]);
-    sendBugAssignedEmail(user.email, user.firstName, ctx.title, url).catch((e) =>
+    sendBugAssignedEmail(user.email, user.firstName, ctx.title, url, user.organizationId).catch((e) =>
       console.error("[notify] bug-assigned email failed:", e.message)
     );
   }

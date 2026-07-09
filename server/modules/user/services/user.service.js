@@ -80,7 +80,7 @@ class UserService {
     });
 
     const loginUrl = `${env.appUrl}/login`;
-    sendWelcomeEmail(user.email, user.firstName, data.password, loginUrl).catch((err) =>
+    sendWelcomeEmail(user.email, user.firstName, data.password, loginUrl, user.organizationId).catch((err) =>
       console.error("[mailer] welcome email failed:", err.message)
     );
 

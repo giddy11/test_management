@@ -69,7 +69,7 @@ class AuthService {
     const sender =
       type === OtpType.VERIFY_EMAIL ? sendVerificationEmail : sendPasswordResetEmail;
     // Fire-and-forget — an email failure must never break the request.
-    sender(user.email, code, user.firstName).catch((err) =>
+    sender(user.email, code, user.firstName, user.organizationId).catch((err) =>
       console.error("[mailer] send failed:", err.message)
     );
     if (!env.isProduction) console.info(`[otp] ${type} for ${user.email}: ${code}`);

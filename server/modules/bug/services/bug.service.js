@@ -134,6 +134,7 @@ class BugService {
             projectId: bug.projectId,
             title: bug.title,
             reportedByName,
+            organizationId: project.organizationId,
           });
         }
       })
@@ -199,6 +200,7 @@ class BugService {
               title: bug.title,
               status: updated.status,
               reportedById: bug.reportedById,
+              organizationId: project.organizationId,
             });
           }
         })
