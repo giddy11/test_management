@@ -121,4 +121,10 @@ function initSocketServer(httpServer) {
   return io;
 }
 
-module.exports = { initSocketServer };
+// Lets other modules (e.g. the site banner service) broadcast to every
+// connected client without owning the connection lifecycle themselves.
+function getIO() {
+  return io;
+}
+
+module.exports = { initSocketServer, getIO };

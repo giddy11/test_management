@@ -45,6 +45,7 @@ const {
   FeedbackStatusHistory,
 } = require("../../modules/feedback/entities/feedbackStatusHistory.entity");
 const { BugAttachment } = require("../../modules/bug/entities/bugAttachment.entity");
+const { SiteBanner } = require("../../modules/siteBanner/entities/siteBanner.entity");
 
 const AppDataSource = new DataSource({
   type: "postgres",
@@ -79,6 +80,7 @@ const AppDataSource = new DataSource({
     Feedback,
     FeedbackAttachment,
     FeedbackStatusHistory,
+    SiteBanner,
   ],
   migrations: ["infrastructure/database/migrations/*.{js,ts}"],
 });

@@ -38,4 +38,10 @@ export class AppUpdateRepository {
       take: limit,
     });
   }
+
+  // Bulk delete from the superadmin's publishing page — TypeORM's softDelete
+  // accepts an array of ids, setting deletedAt on each in one query.
+  async softDeleteMany(ids: string[]): Promise<void> {
+    await this.repo.softDelete(ids);
+  }
 }

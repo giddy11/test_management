@@ -30,6 +30,8 @@ const featureRequestAttachmentRoutes = require("./modules/featureRequest/routes/
 const bugRoutes = require("./modules/bug/routes/bug.routes");
 const bugAttachmentRoutes = require("./modules/bug/routes/bugAttachment.routes");
 const appUpdateRoutes = require("./modules/appUpdate/routes/appUpdate.routes");
+const siteBannerRoutes = require("./modules/siteBanner/routes/siteBanner.routes");
+const organizationRoutes = require("./modules/organization/routes/organization.routes");
 const feedbackRoutes = require("./modules/feedback/routes/feedback.routes");
 const publicFeedbackRoutes = require("./modules/feedback/routes/publicFeedback.routes");
 
@@ -71,6 +73,8 @@ function createApp() {
   api.use("/bugs", bugAttachmentRoutes); // /:id/attachments — mounted first
   api.use("/bugs", bugRoutes);
   api.use("/app-updates", appUpdateRoutes);
+  api.use("/site-banner", siteBannerRoutes);
+  api.use("/organizations", organizationRoutes);
   api.use("/feedback", feedbackRoutes);
   api.use("/public/feedback", publicFeedbackRoutes); // unauthenticated, token-gated
   app.use("/api/v1", api);

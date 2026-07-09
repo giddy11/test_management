@@ -48,4 +48,13 @@ export class AppUpdateController {
       next(err);
     }
   }
+
+  static async deleteBulk(req: any, res: any, next: any) {
+    try {
+      await AppUpdateService.Instance.deleteUpdates(req.validated.body.ids);
+      res.status(200).json(ApiResponse.ok("Updates deleted", null));
+    } catch (err) {
+      next(err);
+    }
+  }
 }

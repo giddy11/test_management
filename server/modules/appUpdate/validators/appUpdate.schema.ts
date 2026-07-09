@@ -23,3 +23,11 @@ export const createBulkAppUpdateSchema = z.object({
       .max(30),
   }),
 });
+
+// Bulk-delete: select several published updates on the Announcements page and
+// remove them in one action.
+export const deleteBulkAppUpdateSchema = z.object({
+  body: z.object({
+    ids: z.array(z.string().uuid()).min(1).max(100),
+  }),
+});

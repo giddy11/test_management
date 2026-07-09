@@ -9,6 +9,7 @@ export interface AppUpdate {
   // Plain text; newlines render as bullet-ish paragraphs in the modal.
   body: string;
   createdAt: Date;
+  deletedAt: Date | null;
 }
 
 const AppUpdate = new EntitySchema<AppUpdate>({
@@ -31,6 +32,12 @@ const AppUpdate = new EntitySchema<AppUpdate>({
       name: "created_at",
       type: "timestamptz",
       createDate: true,
+    },
+    deletedAt: {
+      name: "deleted_at",
+      type: "timestamptz",
+      deleteDate: true,
+      nullable: true,
     },
   },
   indices: [{ name: "idx_app_updates_created", columns: ["createdAt"] }],

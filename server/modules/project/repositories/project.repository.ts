@@ -105,4 +105,15 @@ export class ProjectRepository {
   async softDelete(id: string): Promise<void> {
     await this.repo.softDelete(id);
   }
+
+  // Project counts per organization for the superadmin's /platform page.
+  async countByOrganizationIds(organizationIds: string[]): Promise<Map<string, number>> {
+    if (!organizationIds.length) return new Map();
+    const ds = this.repo.manager.connection;
+    const rows: { organization_id: string; count: number }[] = await ds.query(
+      `SELECT organization_id, COUNT(*)::int AS count FROM projects WHERE organization_id = ANY($1::uuid[]) AND deleted_at IS NULL GROUP BY organization_id`,
+      [organizationIds]
+    );
+    return new Map(rows.map((r) => [r.organization_id, r.count]));
+  }
 }

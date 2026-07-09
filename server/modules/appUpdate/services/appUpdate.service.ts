@@ -43,4 +43,9 @@ export class AppUpdateService {
   async markSeen(actor: Actor) {
     await this.authRepo.updateUser(actor.id, { updatesSeenAt: new Date() });
   }
+
+  // Removes several published updates at once from the Announcements page.
+  async deleteUpdates(ids: string[]) {
+    await this.updateRepo.softDeleteMany(ids);
+  }
 }

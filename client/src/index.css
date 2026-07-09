@@ -195,3 +195,26 @@
 .PhoneInput .PhoneInputInput {
   flex: 1;
 }
+
+/* ─── Site banner marquee ──────────────────────────────────────────────── */
+.tm-marquee-track {
+  overflow: hidden;
+  white-space: nowrap;
+  flex: 1 1 auto;
+}
+.tm-marquee-text {
+  display: inline-block;
+  padding-left: 100%;
+  animation: tm-marquee 20s linear infinite;
+}
+.tm-marquee-track:hover .tm-marquee-text {
+  animation-play-state: paused;
+}
+@keyframes tm-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-100%);
+  }
+}

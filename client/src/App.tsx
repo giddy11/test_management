@@ -18,7 +18,7 @@ import TestCaseDetailPage from "@/pages/projects/TestCaseDetailPage"
 import RunDetailPage from "@/pages/projects/RunDetailPage"
 import FeatureRequestDetailPage from "@/pages/featureRequests/FeatureRequestDetailPage"
 import BugDetailPage from "@/pages/bugs/BugDetailPage"
-import PlaceholderPage from "@/pages/PlaceholderPage"
+import OrganizationsPage from "@/pages/OrganizationsPage"
 import SettingsPage from "@/pages/SettingsPage"
 import PublicFeedbackPage from "@/pages/public/PublicFeedbackPage"
 import PublicFeedbackConfirmPage from "@/pages/public/PublicFeedbackConfirmPage"
@@ -68,7 +68,7 @@ export default function App() {
 
               <Route element={<ProtectedRoute roles={[UserRole.SUPERADMIN]} />}>
                 <Route element={<DashboardLayout />}>
-                  <Route path="/platform" element={<PlaceholderPage title="Organisations" />} />
+                  <Route path="/platform" element={<OrganizationsPage />} />
                 <Route path="/announcements" element={<AnnouncementsPage />} />
                 </Route>
               </Route>
