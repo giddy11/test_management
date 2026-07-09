@@ -17,6 +17,9 @@ export const FeedbackEndpoints = {
   manage: (id: string, payload: ManageFeedbackPayload) =>
     wrapCall<Feedback>("PATCH", `/api/v1/feedback/${id}`, payload as unknown as Record<string, unknown>),
 
+  remove: (id: string) =>
+    wrapCall<null>("DELETE", `/api/v1/feedback/${id}`),
+
   history: (id: string) =>
     wrapCall<FeedbackStatusHistoryEntry[]>("GET", `/api/v1/feedback/${id}/history`),
 

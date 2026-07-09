@@ -80,6 +80,15 @@ export class FeedbackController {
     }
   }
 
+  static async remove(req: any, res: any, next: any) {
+    try {
+      await FeedbackService.Instance.deleteFeedback(req.user, req.validated.params.id);
+      res.status(200).json(ApiResponse.ok("Feedback deleted", null));
+    } catch (err) {
+      next(err);
+    }
+  }
+
   static async history(req: any, res: any, next: any) {
     try {
       const rows = await FeedbackService.Instance.getFeedbackTimeline(

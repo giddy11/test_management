@@ -319,6 +319,25 @@ export class FeedbackService {
     return updated;
   }
 
+  // Only admins/superadmins and the project's team lead can delete — the same
+  // bar as reassignment, since removing an item is a management decision.
+  async deleteFeedback(actor: Actor, id: string): Promise<void> {
+    const fb = await this.feedbackRepo.findById(id);
+    if (!fb || fb.deletedAt) throw new AppError("Feedback not found", 404);
+    const project = await this.projectService.getProject(actor, fb.projectId);
+    await this.projectService.assertCanManageProject(actor, fb.projectId);
+
+    await this.feedbackRepo.softDelete(fb.id);
+
+    ActivityService.Instance.log(actor, {
+      action: "feedback.deleted",
+      summary: `Deleted feedback "${fb.title}" in project "${project.name}"`,
+      entityType: "feedback",
+      entityId: fb.id,
+      metadata: { projectId: fb.projectId },
+    });
+  }
+
   // Ordered stage-entry timestamps — the caller (DTO) derives per-stage
   // durations from consecutive entries.
   async getFeedbackTimeline(actor: Actor, id: string) {

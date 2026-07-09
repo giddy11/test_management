@@ -4,7 +4,7 @@
 // the workflow (the submitter is emailed on every stage change) — only
 // admins/team leads can reassign who's on it.
 import { useMemo, useState } from "react"
-import { Copy, Link2, Link2Off, MessageSquareHeart } from "lucide-react"
+import { Copy, Link2, Link2Off, MessageSquareHeart, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -34,7 +34,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { useFeedback, useFeedbackHistory, useManageFeedback, useSetFeedbackLink } from "@/hooks/useFeedback"
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog"
+import { useDeleteFeedback, useFeedback, useFeedbackHistory, useManageFeedback, useSetFeedbackLink } from "@/hooks/useFeedback"
 import { FeedbackTimeline } from "@/components/feedback/FeedbackTimeline"
 import { useProject } from "@/hooks/useProjects"
 import { useAuth } from "@/contexts/AuthContext"
@@ -70,6 +71,7 @@ export function FeedbackTab({ projectId, canManage }: Props) {
   const [page, setPage] = useState(1)
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [managing, setManaging] = useState<Feedback | null>(null)
+  const [deleting, setDeleting] = useState<Feedback | null>(null)
 
   const { data: project } = useProject(projectId)
   const { data, isLoading } = useFeedback({
@@ -79,6 +81,7 @@ export function FeedbackTab({ projectId, canManage }: Props) {
     status: statusFilter === "all" ? undefined : (statusFilter as FeedbackStatus),
   })
   const setLink = useSetFeedbackLink()
+  const deleteFeedback = useDeleteFeedback()
 
   const items = data?.data ?? []
   const meta = data?.meta
@@ -189,11 +192,23 @@ export function FeedbackTab({ projectId, canManage }: Props) {
             </CardHeader>
             <CardContent className="flex items-start justify-between gap-3 pt-0">
               <p className="line-clamp-2 text-sm text-muted-foreground">{fb.description}</p>
-              {(canManage || fb.assignees.some((a) => a.id === user?.id)) && (
-                <Button size="sm" variant="outline" onClick={() => setManaging(fb)}>
-                  Manage
-                </Button>
-              )}
+              <div className="flex shrink-0 items-center gap-2">
+                {(canManage || fb.assignees.some((a) => a.id === user?.id)) && (
+                  <Button size="sm" variant="outline" onClick={() => setManaging(fb)}>
+                    Manage
+                  </Button>
+                )}
+                {canManage && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="text-destructive hover:text-destructive"
+                    onClick={() => setDeleting(fb)}
+                  >
+                    <Trash2 className="size-3.5" />
+                  </Button>
+                )}
+              </div>
             </CardContent>
           </Card>
         ))}
@@ -216,6 +231,25 @@ export function FeedbackTab({ projectId, canManage }: Props) {
         members={project?.members ?? []}
         canReassign={canManage}
         onOpenChange={(o) => !o && setManaging(null)}
+      />
+
+      <ConfirmDialog
+        open={Boolean(deleting)}
+        onOpenChange={(o) => !o && setDeleting(null)}
+        title="Delete feedback"
+        description={`"${deleting?.title}" will be permanently removed. This cannot be undone.`}
+        confirmLabel="Delete"
+        loading={deleteFeedback.isPending}
+        onConfirm={() =>
+          deleting &&
+          deleteFeedback.mutate(deleting.id, {
+            onError: (e) => toast.error(e instanceof ApiError ? e.message : "Failed"),
+            onSuccess: () => {
+              toast.success("Feedback deleted")
+              setDeleting(null)
+            },
+          })
+        }
       />
     </div>
   )

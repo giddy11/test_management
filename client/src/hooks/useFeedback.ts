@@ -31,6 +31,17 @@ export function useManageFeedback() {
   })
 }
 
+export function useDeleteFeedback() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const res = await FeedbackEndpoints.remove(id)
+      if (!res.success) throw new ApiError(res.message, res.statusCode, res.errors)
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: [FEEDBACK_KEY] }),
+  })
+}
+
 export function useFeedbackHistory(feedbackId: string, enabled: boolean) {
   return useQuery({
     queryKey: [FEEDBACK_KEY, feedbackId, "history"],

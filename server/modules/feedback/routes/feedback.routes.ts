@@ -30,6 +30,16 @@ router.get(
   FeedbackController.history
 );
 
+// Deleting is a management decision — admins + the project's team lead only
+// (service-enforced, same bar as reassignment).
+router.delete(
+  "/:id",
+  authMiddleware,
+  authorise("superadmin", "admin", "user"),
+  validate(feedbackIdParamSchema),
+  FeedbackController.remove
+);
+
 // Enabling/rotating/disabling a project's public form link — admins only.
 router.post(
   "/projects/:id/link",

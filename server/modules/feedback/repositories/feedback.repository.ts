@@ -85,4 +85,8 @@ export class FeedbackRepository {
     feedback.assignees = users as Feedback["assignees"];
     return this.repo.save(feedback);
   }
+
+  async softDelete(id: string): Promise<void> {
+    await this.repo.softDelete(id);
+  }
 }
