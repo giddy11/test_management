@@ -3,6 +3,7 @@ import { FeedbackController } from "../controllers/feedback.controller";
 import {
   fetchFeedbackSchema,
   manageFeedbackSchema,
+  feedbackIdParamSchema,
   feedbackLinkSchema,
 } from "../validators/feedback.schema";
 
@@ -20,6 +21,13 @@ router.patch(
   authorise("superadmin", "admin", "user"),
   validate(manageFeedbackSchema),
   FeedbackController.manage
+);
+
+router.get(
+  "/:id/history",
+  authMiddleware,
+  validate(feedbackIdParamSchema),
+  FeedbackController.history
 );
 
 // Enabling/rotating/disabling a project's public form link — admins only.

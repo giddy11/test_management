@@ -13,6 +13,15 @@ export class AppUpdateController {
     }
   }
 
+  static async createBulk(req: any, res: any, next: any) {
+    try {
+      const updates = await AppUpdateService.Instance.createBulkUpdates(req.validated.body.items);
+      res.status(201).json(ApiResponse.created("Updates published", updates));
+    } catch (err) {
+      next(err);
+    }
+  }
+
   static async fetchAll(req: any, res: any, next: any) {
     try {
       const updates = await AppUpdateService.Instance.fetchAll();

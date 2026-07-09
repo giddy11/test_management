@@ -31,6 +31,18 @@ export function useManageFeedback() {
   })
 }
 
+export function useFeedbackHistory(feedbackId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: [FEEDBACK_KEY, feedbackId, "history"],
+    queryFn: async () => {
+      const res = await FeedbackEndpoints.history(feedbackId)
+      if (!res.success) throw new ApiError(res.message, res.statusCode)
+      return res.data ?? []
+    },
+    enabled: enabled && Boolean(feedbackId),
+  })
+}
+
 export function useSetFeedbackLink() {
   const qc = useQueryClient()
   return useMutation({

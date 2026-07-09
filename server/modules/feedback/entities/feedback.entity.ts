@@ -17,14 +17,20 @@ export interface Feedback {
   suiteName: string | null;
   submitterName: string;
   submitterEmail: string;
+  // Optional, E.164 format (e.g. "+2348012345678") — collected via the
+  // public form's international phone input.
+  submitterPhone: string | null;
   status: string; // FeedbackStatus
-  assignedToId: string | null;
   adminResponse: string | null;
+  // Set when the submitter rejects a resolution via the confirmation link
+  // (optional — why it isn't fixed). Cleared once the item is closed again.
+  reopenReason: string | null;
   statusUpdatedAt: Date | null;
   createdAt: Date;
   deletedAt: Date | null;
   project?: unknown;
-  assignedTo?: unknown;
+  // A feedback item can be assigned to several project members at once.
+  assignees?: { id: string; firstName: string; lastName: string | null; email: string }[];
   attachments?: { id: string; url: string; publicId: string }[];
 }
 
@@ -68,18 +74,24 @@ const Feedback = new EntitySchema<Feedback>({
       type: "varchar",
       length: 255,
     },
+    submitterPhone: {
+      name: "submitter_phone",
+      type: "varchar",
+      length: 30,
+      nullable: true,
+    },
     status: {
       type: "varchar",
       length: 30,
       default: FeedbackStatus.LOGGED,
     },
-    assignedToId: {
-      name: "assigned_to_id",
-      type: "uuid",
-      nullable: true,
-    },
     adminResponse: {
       name: "admin_response",
+      type: "text",
+      nullable: true,
+    },
+    reopenReason: {
+      name: "reopen_reason",
       type: "text",
       nullable: true,
     },
@@ -107,12 +119,15 @@ const Feedback = new EntitySchema<Feedback>({
       joinColumn: { name: "project_id" },
       onDelete: "CASCADE",
     },
-    assignedTo: {
-      type: "many-to-one",
+    // A feedback item can be assigned to several project members at once.
+    assignees: {
+      type: "many-to-many",
       target: "User",
-      joinColumn: { name: "assigned_to_id" },
-      nullable: true,
-      onDelete: "SET NULL",
+      joinTable: {
+        name: "feedback_assignees",
+        joinColumn: { name: "feedback_id", referencedColumnName: "id" },
+        inverseJoinColumn: { name: "user_id", referencedColumnName: "id" },
+      },
     },
     attachments: {
       type: "one-to-many",
@@ -122,7 +137,6 @@ const Feedback = new EntitySchema<Feedback>({
   },
   indices: [
     { name: "idx_feedback_project_status_created", columns: ["projectId", "status", "createdAt"] },
-    { name: "idx_feedback_assigned_to", columns: ["assignedToId"] },
   ],
 });
 

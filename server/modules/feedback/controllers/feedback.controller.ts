@@ -1,6 +1,6 @@
 // modules/feedback/controllers/feedback.controller.ts
 import { FeedbackService } from "../services/feedback.service";
-import { toFeedbackResponse } from "../dto/feedback.dto";
+import { toFeedbackResponse, toFeedbackTimelineResponse } from "../dto/feedback.dto";
 
 const { ApiResponse } = require("../../../shared/response/apiResponse");
 
@@ -31,6 +31,30 @@ export class FeedbackController {
     }
   }
 
+  static async publicConfirmationContext(req: any, res: any, next: any) {
+    try {
+      const context = await FeedbackService.Instance.getPublicConfirmationContext(
+        req.validated.params.id
+      );
+      res.status(200).json(ApiResponse.ok("Feedback confirmation context", context));
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  static async publicConfirm(req: any, res: any, next: any) {
+    try {
+      const result = await FeedbackService.Instance.submitConfirmation(
+        req.validated.params.id,
+        req.validated.body.confirmed,
+        req.validated.body.reason
+      );
+      res.status(200).json(ApiResponse.ok("Thanks for confirming", result));
+    } catch (err) {
+      next(err);
+    }
+  }
+
   // ── Authenticated ───────────────────────────────────────────────────────────
   static async fetchAll(req: any, res: any, next: any) {
     try {
@@ -51,6 +75,18 @@ export class FeedbackController {
         req.validated.body
       );
       res.status(200).json(ApiResponse.ok("Feedback updated", toFeedbackResponse(updated)));
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  static async history(req: any, res: any, next: any) {
+    try {
+      const rows = await FeedbackService.Instance.getFeedbackTimeline(
+        req.user,
+        req.validated.params.id
+      );
+      res.status(200).json(ApiResponse.ok("Feedback timeline fetched", toFeedbackTimelineResponse(rows)));
     } catch (err) {
       next(err);
     }

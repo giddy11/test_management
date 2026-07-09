@@ -41,6 +41,9 @@ const { Feedback } = require("../../modules/feedback/entities/feedback.entity");
 const {
   FeedbackAttachment,
 } = require("../../modules/feedback/entities/feedbackAttachment.entity");
+const {
+  FeedbackStatusHistory,
+} = require("../../modules/feedback/entities/feedbackStatusHistory.entity");
 const { BugAttachment } = require("../../modules/bug/entities/bugAttachment.entity");
 
 const AppDataSource = new DataSource({
@@ -75,6 +78,7 @@ const AppDataSource = new DataSource({
     AppUpdate,
     Feedback,
     FeedbackAttachment,
+    FeedbackStatusHistory,
   ],
   migrations: ["infrastructure/database/migrations/*.{js,ts}"],
 });

@@ -32,6 +32,7 @@ function linkFor(n: AppNotification): string {
   if (d.runId && d.projectId) return `/projects/${d.projectId}/runs/${d.runId}`
   if (d.requestId && d.projectId) return `/projects/${d.projectId}/feature-requests/${d.requestId}`
   if (d.bugId && d.projectId) return `/projects/${d.projectId}/bugs/${d.bugId}`
+  if (d.feedbackId && d.projectId) return `/projects/${d.projectId}?tab=feedback`
   if (d.projectId) return `/projects/${d.projectId}`
   return "/dashboard"
 }

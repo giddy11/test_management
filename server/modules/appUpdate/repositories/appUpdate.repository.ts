@@ -17,6 +17,13 @@ export class AppUpdateRepository {
     return this.repo.save(this.repo.create(data));
   }
 
+  // Publishes several announcements in one go, preserving the given order —
+  // used by the superadmin's "publish all" bulk action.
+  async createMany(items: { title: string; body: string }[]): Promise<AppUpdate[]> {
+    if (!items.length) return [];
+    return this.repo.save(this.repo.create(items));
+  }
+
   // All announcements, newest first — the superadmin's publishing page.
   async findAll(limit = 50): Promise<AppUpdate[]> {
     return this.repo.find({ order: { createdAt: "DESC" }, take: limit });

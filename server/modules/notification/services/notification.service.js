@@ -10,6 +10,7 @@ const {
   sendRunCompletedEmail,
   sendProjectMemberAddedEmail,
   sendNewFeedbackAlertEmail,
+  sendFeedbackAssignedEmail,
   sendNewFeatureRequestEmail,
   sendFeatureRequestStatusEmail,
   sendFeatureRequestCommentEmail,
@@ -136,6 +137,49 @@ class NotificationService {
         (e) => console.error("[notify] new-feedback email failed:", e.message)
       );
     }
+  }
+
+  // Multiple project members can be assigned to a feedback item at once.
+  // ctx: { feedbackId, projectId, projectName, title, assignedByName }
+  async notifyFeedbackAssigned(users, ctx) {
+    if (!users.length) return;
+    const url = `${env.appUrl}/projects/${ctx.projectId}?tab=feedback`;
+    await this.repo.createMany(
+      users.map((u) => ({
+        userId: u.id,
+        type: NotificationType.FEEDBACK_ASSIGNED,
+        title: `Feedback assigned: ${ctx.title}`,
+        body: `${ctx.assignedByName} assigned you to this feedback item`,
+        data: { feedbackId: ctx.feedbackId, projectId: ctx.projectId },
+      }))
+    );
+    for (const u of users) {
+      sendFeedbackAssignedEmail(u.email, u.firstName, ctx.title, ctx.projectName, ctx.assignedByName, url).catch(
+        (e) => console.error("[notify] feedback-assigned email failed:", e.message)
+      );
+    }
+  }
+
+  // The submitter used the confirmation link to close or reopen a feedback item.
+  // ctx: { feedbackId, projectId, projectName, title, confirmed, reopenReason }
+  async notifyFeedbackConfirmed(recipients, ctx) {
+    if (!recipients.length) return;
+    const reopenBody = `The submitter said "${ctx.title}" isn't fixed — it's back to investigating${
+      ctx.reopenReason ? `: "${ctx.reopenReason}"` : ""
+    }`;
+    await this.repo.createMany(
+      recipients.map((u) => ({
+        userId: u.id,
+        type: NotificationType.FEEDBACK_CONFIRMED,
+        title: ctx.confirmed
+          ? `Feedback confirmed resolved: ${ctx.title}`
+          : `Feedback reopened: ${ctx.title}`,
+        body: ctx.confirmed
+          ? `The submitter confirmed "${ctx.title}" is resolved — it's now closed`
+          : reopenBody,
+        data: { feedbackId: ctx.feedbackId, projectId: ctx.projectId },
+      }))
+    );
   }
 
   // ctx: { requestId, projectId, title, submittedByName }

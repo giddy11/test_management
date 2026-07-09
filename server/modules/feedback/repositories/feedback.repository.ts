@@ -30,7 +30,7 @@ export class FeedbackRepository {
     const offset = getOffset(page, limit);
     const qb = this.repo
       .createQueryBuilder("fb")
-      .leftJoinAndSelect("fb.assignedTo", "assignee")
+      .leftJoinAndSelect("fb.assignees", "assignee")
       .leftJoinAndSelect("fb.attachments", "attachment")
       .where("fb.project_id = :projectId", { projectId }) // indexed
       .andWhere("fb.deleted_at IS NULL")
@@ -54,7 +54,7 @@ export class FeedbackRepository {
   async findById(id: string): Promise<Feedback | null> {
     return this.repo.findOne({
       where: { id },
-      relations: { assignedTo: true, attachments: true },
+      relations: { assignees: true, attachments: true },
     });
   }
 
@@ -74,9 +74,15 @@ export class FeedbackRepository {
 
   async update(
     id: string,
-    patch: Partial<Omit<Feedback, "project" | "assignedTo">>
+    patch: Partial<Omit<Feedback, "project" | "assignees">>
   ): Promise<Feedback | null> {
     await this.repo.update(id, patch);
     return this.findById(id);
+  }
+
+  // Replaces the assignee set on a feedback item. `users` is an array of `{ id }` refs.
+  async setAssignees(feedback: Feedback, users: { id: string }[]): Promise<Feedback> {
+    feedback.assignees = users as Feedback["assignees"];
+    return this.repo.save(feedback);
   }
 }

@@ -1,12 +1,15 @@
 // External feedback triage tab: submissions from the project's public form,
 // tracked through the support lifecycle. Admins manage the shareable link;
-// admins + team leads move feedback through the workflow (the submitter is
-// emailed on every stage change).
+// admins, team leads, and each item's assignee(s) can move feedback through
+// the workflow (the submitter is emailed on every stage change) — only
+// admins/team leads can reassign who's on it.
 import { useMemo, useState } from "react"
 import { Copy, Link2, Link2Off, MessageSquareHeart } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import {
@@ -31,12 +34,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { useFeedback, useManageFeedback, useSetFeedbackLink } from "@/hooks/useFeedback"
+import { useFeedback, useFeedbackHistory, useManageFeedback, useSetFeedbackLink } from "@/hooks/useFeedback"
+import { FeedbackTimeline } from "@/components/feedback/FeedbackTimeline"
 import { useProject } from "@/hooks/useProjects"
-import { useUsers } from "@/hooks/useUsers"
 import { useAuth } from "@/contexts/AuthContext"
 import { UserRole } from "@/types/auth.types"
 import { ApiError } from "@/transport/http"
+import type { ProjectMember } from "@/types/project.types"
 import {
   FEEDBACK_STATUSES,
   FEEDBACK_STATUS_LABELS,
@@ -175,14 +179,17 @@ export function FeedbackTab({ projectId, canManage }: Props) {
                 <Badge variant={STATUS_VARIANT[fb.status]}>{FEEDBACK_STATUS_LABELS[fb.status]}</Badge>
               </div>
               <CardDescription>
-                From {fb.submitterName} ({fb.submitterEmail}) ·{" "}
+                From {fb.submitterName} ({fb.submitterEmail}
+                {fb.submitterPhone && <> · {fb.submitterPhone}</>}) ·{" "}
                 {new Date(fb.createdAt).toLocaleDateString()}
-                {fb.assignedTo && <> · assigned to {fb.assignedTo.name}</>}
+                {fb.assignees.length > 0 && (
+                  <> · assigned to {fb.assignees.map((a) => a.name).join(", ")}</>
+                )}
               </CardDescription>
             </CardHeader>
             <CardContent className="flex items-start justify-between gap-3 pt-0">
               <p className="line-clamp-2 text-sm text-muted-foreground">{fb.description}</p>
-              {canManage && (
+              {(canManage || fb.assignees.some((a) => a.id === user?.id)) && (
                 <Button size="sm" variant="outline" onClick={() => setManaging(fb)}>
                   Manage
                 </Button>
@@ -204,7 +211,12 @@ export function FeedbackTab({ projectId, canManage }: Props) {
         </div>
       )}
 
-      <FeedbackManageDialog feedback={managing} onOpenChange={(o) => !o && setManaging(null)} />
+      <FeedbackManageDialog
+        feedback={managing}
+        members={project?.members ?? []}
+        canReassign={canManage}
+        onOpenChange={(o) => !o && setManaging(null)}
+      />
     </div>
   )
 }
@@ -213,16 +225,19 @@ export function FeedbackTab({ projectId, canManage }: Props) {
 
 function FeedbackManageDialog({
   feedback,
+  members,
+  canReassign,
   onOpenChange,
 }: {
   feedback: Feedback | null
+  members: ProjectMember[]
+  canReassign: boolean
   onOpenChange: (open: boolean) => void
 }) {
   const manage = useManageFeedback()
-  const { data: usersData } = useUsers({ limit: 100 })
-  const users = usersData?.data ?? []
+  const { data: history = [] } = useFeedbackHistory(feedback?.id ?? "", Boolean(feedback))
   const [status, setStatus] = useState<FeedbackStatus | "">("")
-  const [assignedToId, setAssignedToId] = useState<string>("")
+  const [assigneeIds, setAssigneeIds] = useState<Set<string>>(new Set())
   const [response, setResponse] = useState("")
 
   // Sync local state when a new item is opened.
@@ -230,9 +245,22 @@ function FeedbackManageDialog({
   if (feedback && feedback.id !== lastId) {
     setLastId(feedback.id)
     setStatus(feedback.status)
-    setAssignedToId(feedback.assignedTo?.id ?? "")
+    setAssigneeIds(new Set(feedback.assignees.map((a) => a.id)))
     setResponse(feedback.adminResponse ?? "")
   }
+
+  const toggleAssignee = (id: string) =>
+    setAssigneeIds((prev) => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+
+  // The workflow is strictly sequential — only the current stage or the very
+  // next one can be picked, so a stage can't be skipped or reversed.
+  const currentIndex = feedback ? FEEDBACK_STATUSES.indexOf(feedback.status) : -1
+  const nextStatus = currentIndex >= 0 ? FEEDBACK_STATUSES[currentIndex + 1] : undefined
+  const isStatusSelectable = (s: FeedbackStatus) => s === feedback?.status || s === nextStatus
 
   const save = () => {
     if (!feedback) return
@@ -241,7 +269,9 @@ function FeedbackManageDialog({
         id: feedback.id,
         payload: {
           status: status || undefined,
-          assignedToId: assignedToId || null,
+          // Reassigning is a management action — assignees can update status
+          // and leave a note, but the backend rejects this field from them.
+          assignedToIds: canReassign ? [...assigneeIds] : undefined,
           adminResponse: response || null,
         },
       },
@@ -257,11 +287,12 @@ function FeedbackManageDialog({
 
   return (
     <Dialog open={Boolean(feedback)} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Manage feedback</DialogTitle>
           <DialogDescription>
             {feedback?.title} — from {feedback?.submitterName}
+            {feedback?.submitterPhone && <> · {feedback.submitterPhone}</>}
           </DialogDescription>
         </DialogHeader>
 
@@ -285,33 +316,113 @@ function FeedbackManageDialog({
               </div>
             )}
 
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="grid gap-1.5">
-                <Label>Status</Label>
-                <Select value={status} onValueChange={(v) => setStatus(v as FeedbackStatus)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {FEEDBACK_STATUSES.map((s) => (
-                      <SelectItem key={s} value={s}>{FEEDBACK_STATUS_LABELS[s]}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+            {feedback.reopenReason && (
+              <div className="rounded-md border-l-3 border-amber-500 bg-amber-500/10 px-3 py-2">
+                <p className="text-xs font-medium text-amber-600 dark:text-amber-400">
+                  Submitter said this isn't fixed:
+                </p>
+                <p className="mt-0.5 whitespace-pre-line text-sm">{feedback.reopenReason}</p>
               </div>
+            )}
+
+            {history.length > 0 && (
               <div className="grid gap-1.5">
-                <Label>Assign to</Label>
-                <Select
-                  value={assignedToId || "none"}
-                  onValueChange={(v) => setAssignedToId(v === "none" ? "" : v)}
-                >
-                  <SelectTrigger><SelectValue placeholder="Unassigned" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Unassigned</SelectItem>
-                    {users.map((u) => (
-                      <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label>Timeline</Label>
+                <div className="rounded-md border p-3">
+                  <FeedbackTimeline history={history} />
+                </div>
               </div>
+            )}
+
+            <div className="grid gap-1.5">
+              <Label>Status</Label>
+              <Select value={status} onValueChange={(v) => setStatus(v as FeedbackStatus)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {FEEDBACK_STATUSES.map((s) => (
+                    <SelectItem key={s} value={s} disabled={!isStatusSelectable(s)}>
+                      {FEEDBACK_STATUS_LABELS[s]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                {nextStatus
+                  ? `Next stage: ${FEEDBACK_STATUS_LABELS[nextStatus]}`
+                  : "Already at the final stage"}
+              </p>
+            </div>
+
+            <div className="grid gap-1.5">
+              <Label>Assign to{canReassign ? " (project members only)" : ""}</Label>
+              {!canReassign ? (
+                feedback.assignees.length > 0 ? (
+                  <div className="flex flex-wrap gap-1">
+                    {feedback.assignees.map((a) => (
+                      <Badge key={a.id} variant="secondary" className="text-xs">
+                        {a.name}
+                      </Badge>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Unassigned</p>
+                )
+              ) : members.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  This project has no members yet — add members to assign feedback.
+                </p>
+              ) : (
+                <>
+                  <div className="max-h-40 space-y-1 overflow-y-auto rounded-md border p-1">
+                    {members.map((m) => {
+                      const initials = m.name
+                        .split(" ")
+                        .map((p) => p[0])
+                        .slice(0, 2)
+                        .join("")
+                        .toUpperCase()
+                      return (
+                        <label
+                          key={m.id}
+                          className="flex cursor-pointer items-center gap-3 rounded-md px-2 py-1.5 hover:bg-accent"
+                        >
+                          <Checkbox
+                            checked={assigneeIds.has(m.id)}
+                            onCheckedChange={() => toggleAssignee(m.id)}
+                          />
+                          <Avatar className="size-7">
+                            <AvatarFallback className="text-xs">{initials || "U"}</AvatarFallback>
+                          </Avatar>
+                          <div className="min-w-0 flex-1">
+                            <div className="truncate text-sm font-medium">{m.name}</div>
+                            <div className="truncate text-xs text-muted-foreground">{m.email}</div>
+                          </div>
+                        </label>
+                      )
+                    })}
+                  </div>
+                  {assigneeIds.size > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {[...assigneeIds].map((id) => {
+                        const m = members.find((m) => m.id === id)
+                        if (!m) return null
+                        return (
+                          <Badge key={id} variant="secondary" className="gap-1 text-xs">
+                            {m.name}
+                            <button
+                              type="button"
+                              className="ml-0.5 rounded-full hover:text-destructive"
+                              onClick={() => toggleAssignee(id)}
+                            >
+                              ×
+                            </button>
+                          </Badge>
+                        )
+                      })}
+                    </div>
+                  )}
+                </>
+              )}
             </div>
 
             <div className="grid gap-1.5">

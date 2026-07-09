@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { PhoneInput } from "@/components/shared/PhoneInput"
 import {
   Card,
   CardContent,
@@ -38,6 +39,7 @@ export default function PublicFeedbackPage() {
   const [images, setImages] = useState<File[]>([])
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
+  const [phone, setPhone] = useState<string | undefined>(undefined)
   const [submitting, setSubmitting] = useState(false)
   const [done, setDone] = useState(false)
 
@@ -57,6 +59,15 @@ export default function PublicFeedbackPage() {
     setImages((prev) => [...prev, ...Array.from(files)].slice(0, MAX_IMAGES))
   }
 
+  const resetForm = () => {
+    setType("feature_request")
+    setTitle("")
+    setDescription("")
+    setSuiteName("")
+    setImages([])
+    setDone(false)
+  }
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
     setSubmitting(true)
@@ -68,6 +79,7 @@ export default function PublicFeedbackPage() {
         suiteName: suiteName || undefined,
         submitterName: name,
         submitterEmail: email,
+        submitterPhone: phone,
         images,
       })
       if (res.success) setDone(true)
@@ -102,6 +114,9 @@ export default function PublicFeedbackPage() {
               confirmation at <span className="font-medium">{email}</span> and will keep you
               posted as it progresses.
             </p>
+            <Button variant="outline" className="mt-6" onClick={resetForm}>
+              Submit another response
+            </Button>
           </CardContent>
         ) : (
           <>
@@ -126,6 +141,11 @@ export default function PublicFeedbackPage() {
                     <Label htmlFor="fb-email">Your email</Label>
                     <Input id="fb-email" type="email" required maxLength={255} value={email} onChange={(e) => setEmail(e.target.value)} />
                   </div>
+                </div>
+
+                <div className="grid gap-1.5">
+                  <Label htmlFor="fb-phone">Phone number (optional)</Label>
+                  <PhoneInput id="fb-phone" value={phone} onChange={setPhone} />
                 </div>
 
                 <div className="grid gap-1.5">

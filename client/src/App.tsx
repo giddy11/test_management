@@ -21,6 +21,7 @@ import BugDetailPage from "@/pages/bugs/BugDetailPage"
 import PlaceholderPage from "@/pages/PlaceholderPage"
 import SettingsPage from "@/pages/SettingsPage"
 import PublicFeedbackPage from "@/pages/public/PublicFeedbackPage"
+import PublicFeedbackConfirmPage from "@/pages/public/PublicFeedbackConfirmPage"
 import AnnouncementsPage from "@/pages/AnnouncementsPage"
 import { UserRole } from "@/types/auth.types"
 
@@ -36,6 +37,8 @@ export default function App() {
           <Route path="/reset-password" element={<ResetPasswordPage />} />
           {/* Public feedback form — no account needed, token-gated */}
           <Route path="/feedback/:token" element={<PublicFeedbackPage />} />
+          {/* Public confirmation link from the "awaiting confirmation" status email */}
+          <Route path="/feedback/:id/confirm" element={<PublicFeedbackConfirmPage />} />
 
           {/* Authenticated */}
           <Route element={<ProtectedRoute />}>

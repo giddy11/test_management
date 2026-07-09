@@ -9,6 +9,8 @@ export type NotificationType =
   | "bug_assigned"
   | "bug_status_changed"
   | "feedback_new"
+  | "feedback_assigned"
+  | "feedback_confirmed"
 
 export interface AppNotification {
   id: string

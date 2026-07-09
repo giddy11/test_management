@@ -1,5 +1,5 @@
 import { useMemo } from "react"
-import { Link, useParams } from "react-router-dom"
+import { Link, useParams, useSearchParams } from "react-router-dom"
 import { ChevronLeft, Crown } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -15,8 +15,15 @@ import { PageLoader } from "@/components/shared/PageLoader"
 import { UserRole } from "@/types/auth.types"
 import type { SuiteBreakdown } from "@/types/testMgmt.types"
 
+const PROJECT_TABS = ["suites", "runs", "feature-requests", "bugs", "feedback"] as const
+
 export default function ProjectDetailPage() {
   const { projectId = "" } = useParams()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const tabParam = searchParams.get("tab")
+  const activeTab = PROJECT_TABS.includes(tabParam as (typeof PROJECT_TABS)[number])
+    ? (tabParam as (typeof PROJECT_TABS)[number])
+    : "suites"
   const { user } = useAuth()
   const { data: project, isLoading } = useProject(projectId)
   // Admins always manage; a regular user manages when they lead this project.
@@ -58,7 +65,14 @@ export default function ProjectDetailPage() {
         )}
       </div>
 
-      <Tabs defaultValue="suites">
+      <Tabs
+        value={activeTab}
+        onValueChange={(v) => setSearchParams((prev) => {
+          const next = new URLSearchParams(prev)
+          next.set("tab", v)
+          return next
+        }, { replace: true })}
+      >
         <TabsList>
           <TabsTrigger value="suites">Test Suites</TabsTrigger>
           <TabsTrigger value="runs" data-tour="runs-tab-trigger">Test Runs</TabsTrigger>

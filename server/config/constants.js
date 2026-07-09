@@ -70,6 +70,8 @@ const FeedbackStatus = Object.freeze({
 const NotificationType = Object.freeze({
   PROJECT_MEMBER_ADDED: "project_member_added",
   FEEDBACK_NEW: "feedback_new",
+  FEEDBACK_ASSIGNED: "feedback_assigned",
+  FEEDBACK_CONFIRMED: "feedback_confirmed",
   TEST_ASSIGNED: "test_assigned",
   RUN_COMPLETED: "run_completed",
   FEATURE_REQUEST_STATUS_CHANGED: "feature_request_status_changed",

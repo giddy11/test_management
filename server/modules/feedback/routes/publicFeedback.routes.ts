@@ -2,7 +2,12 @@
 // Unauthenticated endpoints for the embeddable public feedback form.
 // The project's feedback_token (a UUID) is the only credential.
 import { FeedbackController } from "../controllers/feedback.controller";
-import { publicFormParamSchema, submitFeedbackSchema } from "../validators/feedback.schema";
+import {
+  publicFormParamSchema,
+  submitFeedbackSchema,
+  feedbackIdParamSchema,
+  submitConfirmationSchema,
+} from "../validators/feedback.schema";
 
 const router = require("express").Router();
 const rateLimit = require("express-rate-limit");
@@ -27,6 +32,21 @@ router.post(
   uploadMany("images", 5),
   validate(submitFeedbackSchema),
   FeedbackController.publicSubmit
+);
+
+// Confirmation link from the "awaiting confirmation" status email — the
+// feedback id itself is the (unguessable UUID) credential, same trust model
+// as the project's feedback_token above.
+router.get(
+  "/:id/confirm",
+  validate(feedbackIdParamSchema),
+  FeedbackController.publicConfirmationContext
+);
+router.post(
+  "/:id/confirm",
+  submitLimiter,
+  validate(submitConfirmationSchema),
+  FeedbackController.publicConfirm
 );
 
 module.exports = router;

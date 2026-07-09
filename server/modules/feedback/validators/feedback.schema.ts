@@ -20,6 +20,8 @@ export const submitFeedbackSchema = z.object({
     suiteName: z.string().max(200).optional(),
     submitterName: z.string().min(1).max(120),
     submitterEmail: z.string().email().max(255),
+    // E.164 (e.g. "+2348012345678") — produced by the international phone input.
+    submitterPhone: z.string().regex(/^\+[1-9]\d{6,14}$/, "Invalid phone number").optional(),
   }),
 });
 
@@ -39,12 +41,26 @@ export const manageFeedbackSchema = z.object({
   body: z
     .object({
       status: z.enum(feedbackStatuses).optional(),
-      assignedToId: z.string().uuid().nullable().optional(),
+      assignedToIds: z.array(z.string().uuid()).max(20).optional(),
       adminResponse: z.string().max(3000).nullable().optional(),
     })
     .refine((b) => Object.keys(b).length > 0, {
       message: "At least one field must be provided",
     }),
+});
+
+export const feedbackIdParamSchema = z.object({
+  params: z.object({ id: z.string().uuid() }),
+});
+
+// Public — the submitter's verdict via the "awaiting confirmation" email link.
+export const submitConfirmationSchema = z.object({
+  params: z.object({ id: z.string().uuid() }),
+  body: z.object({
+    confirmed: z.boolean(),
+    // Only meaningful when confirmed is false — why it isn't fixed.
+    reason: z.string().max(2000).optional(),
+  }),
 });
 
 export const feedbackLinkSchema = z.object({

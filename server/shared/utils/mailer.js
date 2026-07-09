@@ -97,6 +97,19 @@ function ctaButton(url, label) {
   </div>`;
 }
 
+// Renders free-text user input (e.g. an admin's note) safely: escapes HTML so
+// the text can't break the layout or inject markup, then turns line breaks
+// into <br> so the email keeps the paragraph/line breaks the author typed —
+// HTML collapses raw "\n" otherwise, which is what made emails read
+// differently from the multi-line textarea it was written in.
+function escapeAndLineBreak(text) {
+  return String(text)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\r\n|\r|\n/g, "<br>");
+}
+
 async function sendTestAssignedEmail(to, firstName, caseTitle, assignedByName, url) {
   const body = `
     <h1 style="margin:0 0 12px;font-size:20px;font-weight:700;color:#0f172a">You've been assigned a test</h1>
@@ -134,23 +147,47 @@ const FEEDBACK_STATUS_LABELS = {
   closed: "Closed",
 };
 
-async function sendFeedbackStatusEmail(to, name, projectName, title, status, copy, adminResponse) {
+async function sendFeedbackStatusEmail(to, name, projectName, title, status, copy, adminResponse, confirmUrl) {
   const label = FEEDBACK_STATUS_LABELS[status] ?? status;
   const responseBox = adminResponse
     ? `<div style="background:#f8fafc;border-left:3px solid #6366f1;border-radius:0 6px 6px 0;padding:14px 16px;margin:0 0 24px">
-        <p style="margin:0;font-size:14px;color:#374151"><strong>Note from the team:</strong> ${adminResponse}</p>
+        <p style="margin:0;font-size:14px;color:#374151"><strong>Note from the team:</strong><br>${escapeAndLineBreak(adminResponse)}</p>
       </div>`
     : "";
+  // "Awaiting confirmation" is the one stage that needs an action back from the
+  // submitter — a link to the confirmation page, not a reply-to-this-email ask.
+  const confirmButtons =
+    status === "awaiting_confirmation" && confirmUrl
+      ? ctaButton(confirmUrl, "Review and confirm")
+      : "";
   const body = `
     <h1 style="margin:0 0 12px;font-size:20px;font-weight:700;color:#0f172a">Update on your feedback</h1>
     <p style="margin:0 0 8px;font-size:15px;color:#374151;line-height:1.65">Hi ${name}, your feedback <strong>${title}</strong> for <strong>${projectName}</strong> is now: <strong>${label}</strong>.</p>
     <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.65">${copy}</p>
-    ${responseBox}`;
+    ${responseBox}
+    ${confirmButtons}`;
   return send({
     to,
     subject: `Feedback update — ${title} — ${projectName}`,
     html: emailLayout(body),
-    text: `Your feedback "${title}" for ${projectName} is now ${label}. ${copy}`,
+    text: `Your feedback "${title}" for ${projectName} is now ${label}. ${copy}${confirmUrl && status === "awaiting_confirmation" ? ` Confirm here: ${confirmUrl}` : ""}`,
+  });
+}
+
+// Sent after the submitter uses the confirmation link — closes the loop either way.
+async function sendFeedbackConfirmationReceivedEmail(to, name, projectName, title, confirmed) {
+  const heading = confirmed ? "Thanks for confirming!" : "Thanks — we'll keep investigating";
+  const line = confirmed
+    ? `Your feedback <strong>${title}</strong> for <strong>${projectName}</strong> has been closed. Thanks for helping us improve!`
+    : `We've reopened your feedback <strong>${title}</strong> for <strong>${projectName}</strong> and the team will take another look.`;
+  const body = `
+    <h1 style="margin:0 0 12px;font-size:20px;font-weight:700;color:#0f172a">${heading}</h1>
+    <p style="margin:0;font-size:15px;color:#374151;line-height:1.65">Hi ${name}, ${line}</p>`;
+  return send({
+    to,
+    subject: `Feedback ${confirmed ? "closed" : "reopened"} — ${title} — ${projectName}`,
+    html: emailLayout(body),
+    text: `Hi ${name}, ${confirmed ? `your feedback "${title}" for ${projectName} has been closed. Thanks!` : `we've reopened your feedback "${title}" for ${projectName} and will take another look.`}`,
   });
 }
 
@@ -165,6 +202,20 @@ async function sendNewFeedbackAlertEmail(to, firstName, title, typeLabel, projec
     subject: `New external ${typeLabel} — ${projectName} — TestMate`,
     html: emailLayout(body),
     text: `${submitterName} submitted "${title}" (${typeLabel}) on ${projectName} via the public feedback form.`,
+  });
+}
+
+// Internal alert to a project member newly assigned to a feedback item.
+async function sendFeedbackAssignedEmail(to, firstName, title, projectName, assignedByName, url) {
+  const body = `
+    <h1 style="margin:0 0 12px;font-size:20px;font-weight:700;color:#0f172a">You've been assigned feedback</h1>
+    <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.65">Hi ${firstName}, ${assignedByName} assigned you to the feedback <strong>${title}</strong> on <strong>${projectName}</strong>.</p>
+    ${ctaButton(url, "View feedback")}`;
+  return send({
+    to,
+    subject: `Feedback assigned — ${title} — TestMate`,
+    html: emailLayout(body),
+    text: `${assignedByName} assigned you to the feedback "${title}" on ${projectName}.`,
   });
 }
 
@@ -235,7 +286,7 @@ async function sendFeatureRequestStatusEmail(to, firstName, title, status, admin
   const label = status.replace(/_/g, " ");
   const responseBox = adminResponse
     ? `<div style="background:#f8fafc;border-left:3px solid #6366f1;border-radius:0 6px 6px 0;padding:14px 16px;margin:0 0 24px">
-        <p style="margin:0;font-size:14px;color:#374151"><strong>Response:</strong> ${adminResponse}</p>
+        <p style="margin:0;font-size:14px;color:#374151"><strong>Response:</strong><br>${escapeAndLineBreak(adminResponse)}</p>
       </div>`
     : "";
   const heading = isOwner ? "Your feature request was updated" : "Feature request updated";
@@ -318,6 +369,8 @@ module.exports = {
   sendFeedbackReceivedEmail,
   sendFeedbackStatusEmail,
   sendNewFeedbackAlertEmail,
+  sendFeedbackAssignedEmail,
+  sendFeedbackConfirmationReceivedEmail,
   sendRunCompletedEmail,
   sendNewFeatureRequestEmail,
   sendFeatureRequestStatusEmail,

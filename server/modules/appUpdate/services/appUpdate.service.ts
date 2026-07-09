@@ -23,6 +23,12 @@ export class AppUpdateService {
     return this.updateRepo.create(data);
   }
 
+  // Publishes a batch of announcements in one action — e.g. a release's worth
+  // of updates drafted together and published all at once.
+  async createBulkUpdates(items: { title: string; body: string }[]) {
+    return this.updateRepo.createMany(items);
+  }
+
   async fetchAll() {
     return this.updateRepo.findAll();
   }

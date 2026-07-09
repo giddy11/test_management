@@ -1,6 +1,6 @@
 // modules/appUpdate/routes/appUpdate.routes.ts
 import { AppUpdateController } from "../controllers/appUpdate.controller";
-import { createAppUpdateSchema } from "../validators/appUpdate.schema";
+import { createAppUpdateSchema, createBulkAppUpdateSchema } from "../validators/appUpdate.schema";
 
 const router = require("express").Router();
 const { validate } = require("../../../shared/middleware/validate.middleware");
@@ -15,6 +15,14 @@ router.post(
   authorise("superadmin"),
   validate(createAppUpdateSchema),
   AppUpdateController.create
+);
+// Publish several announcements in one action.
+router.post(
+  "/bulk",
+  authMiddleware,
+  authorise("superadmin"),
+  validate(createBulkAppUpdateSchema),
+  AppUpdateController.createBulk
 );
 
 // Company admins (and the superadmin) see the what's-new modal.
