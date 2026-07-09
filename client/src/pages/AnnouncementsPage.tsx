@@ -29,7 +29,15 @@ import { AudiencePicker, type BroadcastAudience } from "@/components/announcemen
 import { wrapCall, ApiError } from "@/transport/http"
 import { SiteBannerEndpoints } from "@/endpoints/siteBanner.endpoints"
 import { SITE_BANNER_KEY } from "@/hooks/useSiteBanner"
+import { useUsers } from "@/hooks/useUsers"
 import type { SiteBanner } from "@/types/siteBanner.types"
+
+function recipientsLabel(ids: string[], usersById: Map<string, string>): string {
+  if (ids.length === 0) return "0 people"
+  const names = ids.map((id) => usersById.get(id) ?? "Unknown user")
+  if (names.length <= 3) return names.join(", ")
+  return `${names.slice(0, 3).join(", ")} +${names.length - 3} more`
+}
 
 interface AppUpdate {
   id: string
@@ -40,12 +48,9 @@ interface AppUpdate {
   createdAt: string
 }
 
-function audienceLabel(u: AppUpdate): string {
+function audienceLabel(u: AppUpdate, usersById: Map<string, string>): string {
   if (u.audience === "all") return "All users"
-  if (u.audience === "custom") {
-    const count = u.recipientIds?.length ?? 0
-    return `${count} ${count === 1 ? "person" : "people"}`
-  }
+  if (u.audience === "custom") return recipientsLabel(u.recipientIds ?? [], usersById)
   return "All admins"
 }
 
@@ -63,12 +68,9 @@ const DURATION_OPTIONS = [
   { label: "7 days", minutes: 10080 },
 ]
 
-function bannerAudienceLabel(banner: SiteBanner): string {
+function bannerAudienceLabel(banner: SiteBanner, usersById: Map<string, string>): string {
   if (!banner.audience || banner.audience === "all") return "All users"
-  if (banner.audience === "custom") {
-    const count = banner.recipientIds?.length ?? 0
-    return `${count} ${count === 1 ? "person" : "people"}`
-  }
+  if (banner.audience === "custom") return recipientsLabel(banner.recipientIds ?? [], usersById)
   return "All admins"
 }
 
@@ -87,6 +89,9 @@ function SiteBannerCard() {
       return res.data ?? EMPTY_BANNER
     },
   })
+
+  const { data: usersData } = useUsers({ limit: 100 })
+  const usersById = new Map((usersData?.data ?? []).map((u) => [u.id, u.name]))
 
   const toggleRecipient = (userId: string) =>
     setRecipientIds((prev) => {
@@ -146,7 +151,7 @@ function SiteBannerCard() {
           <div className="grid gap-3">
             <div className="rounded-lg border bg-muted/40 p-3 text-sm">{banner.message}</div>
             <div className="flex flex-wrap items-center gap-2">
-              <Badge variant="outline">{bannerAudienceLabel(banner)}</Badge>
+              <Badge variant="outline">{bannerAudienceLabel(banner, usersById)}</Badge>
               {banner.expiresAt && (
                 <p className="text-xs text-muted-foreground">
                   Live until {new Date(banner.expiresAt).toLocaleString()}
@@ -261,6 +266,9 @@ export default function AnnouncementsPage() {
       return res.data ?? []
     },
   })
+
+  const { data: usersData } = useUsers({ limit: 100 })
+  const usersById = new Map((usersData?.data ?? []).map((u) => [u.id, u.name]))
 
   const toggleSelected = (id: string) =>
     setSelectedIds((prev) => {
@@ -484,7 +492,7 @@ export default function AnnouncementsPage() {
                   />
                   <CardTitle className="text-base">{u.title}</CardTitle>
                   <Badge variant="outline" className="shrink-0">
-                    {audienceLabel(u)}
+                    {audienceLabel(u, usersById)}
                   </Badge>
                 </div>
                 <span className="shrink-0 text-xs text-muted-foreground">
