@@ -27,7 +27,6 @@ const UNSEEN_KEY = ["app-updates", "unseen"]
 export function WhatsNewDialog() {
   const { user } = useAuth()
   const qc = useQueryClient()
-  const isAdmin = user?.role === "admin" || user?.role === "superadmin"
   const [open, setOpen] = useState(false)
 
   const { data: updates = [] } = useQuery({
@@ -36,7 +35,7 @@ export function WhatsNewDialog() {
       const res = await wrapCall<AppUpdate[]>("GET", "/api/v1/app-updates/unseen")
       return res.success ? res.data ?? [] : []
     },
-    enabled: isAdmin,
+    enabled: !!user,
     staleTime: Infinity,
   })
 
@@ -54,7 +53,7 @@ export function WhatsNewDialog() {
     markSeen.mutate()
   }
 
-  if (!isAdmin || updates.length === 0) return null
+  if (!user || updates.length === 0) return null
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && dismiss()}>

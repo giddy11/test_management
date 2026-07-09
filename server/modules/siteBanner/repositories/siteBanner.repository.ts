@@ -1,6 +1,7 @@
 // modules/siteBanner/repositories/siteBanner.repository.ts
 import type { Repository } from "typeorm";
 import { SiteBanner } from "../entities/siteBanner.entity";
+import type { SiteBannerAudience } from "../entities/siteBanner.entity";
 import { AppDataSource } from "../../../infrastructure/database/dataSource";
 
 const SINGLETON_ID = "global";
@@ -10,6 +11,8 @@ export interface ActivatePatch {
   durationMinutes: number;
   startedAt: Date;
   expiresAt: Date;
+  audience: SiteBannerAudience;
+  recipientIds: string[] | null;
   updatedBy: string;
 }
 
@@ -35,6 +38,8 @@ export class SiteBannerRepository {
         durationMinutes: null,
         startedAt: null,
         expiresAt: null,
+        audience: "all",
+        recipientIds: null,
         updatedBy: null,
       })
     );

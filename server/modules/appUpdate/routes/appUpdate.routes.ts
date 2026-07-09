@@ -37,18 +37,9 @@ router.delete(
   AppUpdateController.deleteBulk
 );
 
-// Company admins (and the superadmin) see the what's-new modal.
-router.get(
-  "/unseen",
-  authMiddleware,
-  authorise("superadmin", "admin"),
-  AppUpdateController.fetchUnseen
-);
-router.post(
-  "/seen",
-  authMiddleware,
-  authorise("superadmin", "admin"),
-  AppUpdateController.markSeen
-);
+// Any authenticated user can see the what's-new modal — visibility of the
+// underlying announcements is filtered by audience in the service/repository.
+router.get("/unseen", authMiddleware, AppUpdateController.fetchUnseen);
+router.post("/seen", authMiddleware, AppUpdateController.markSeen);
 
 module.exports = router;

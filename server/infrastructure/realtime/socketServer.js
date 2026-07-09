@@ -60,6 +60,12 @@ function initSocketServer(httpServer) {
 
     if (actor.organizationId) socket.join(orgRoom(actor.organizationId));
     if (actor.role === UserRole.SUPERADMIN) socket.join("superadmins");
+    // Broad "admins-and-up" room — used by targeted broadcasts (e.g. the site
+    // banner/announcements audience picker), distinct from "superadmins" above
+    // which scopes presence visibility.
+    if (actor.role === UserRole.ADMIN || actor.role === UserRole.SUPERADMIN) {
+      socket.join("admins");
+    }
 
     let entry = presence.get(actor.id);
     if (!entry) {
@@ -127,4 +133,25 @@ function getIO() {
   return io;
 }
 
-module.exports = { initSocketServer, getIO };
+// Broadcast to a named room (e.g. "admins") — used for audience-targeted
+// pushes that aren't a simple global emit.
+function emitToRoom(room, event, payload) {
+  io?.to(room).emit(event, payload);
+}
+
+// Broadcast directly to specific users' active connections (all tabs/devices),
+// looked up via the same presence map used for online/offline tracking. Users
+// with no open socket simply won't get the live push — they'll see the
+// correct state on their next fetch instead.
+function emitToUsers(userIds, event, payload) {
+  if (!io) return;
+  for (const userId of userIds) {
+    const entry = presence.get(userId);
+    if (!entry) continue;
+    for (const socketId of entry.sockets) {
+      io.to(socketId).emit(event, payload);
+    }
+  }
+}
+
+module.exports = { initSocketServer, getIO, emitToRoom, emitToUsers };

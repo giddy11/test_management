@@ -3,6 +3,8 @@
 // not a log. The superadmin turns it on with a message + duration, or off early.
 import { EntitySchema } from "typeorm";
 
+export type SiteBannerAudience = "all" | "admins" | "custom";
+
 export interface SiteBanner {
   id: string;
   message: string | null;
@@ -10,6 +12,9 @@ export interface SiteBanner {
   durationMinutes: number | null;
   startedAt: Date | null;
   expiresAt: Date | null;
+  audience: SiteBannerAudience;
+  // Only populated when audience === "custom".
+  recipientIds: string[] | null;
   updatedBy: string | null;
   updatedAt: Date;
 }
@@ -45,6 +50,17 @@ const SiteBanner = new EntitySchema<SiteBanner>({
     expiresAt: {
       name: "expires_at",
       type: "timestamptz",
+      nullable: true,
+    },
+    audience: {
+      type: "varchar",
+      length: 10,
+      default: "all",
+    },
+    recipientIds: {
+      name: "recipient_ids",
+      type: "uuid",
+      array: true,
       nullable: true,
     },
     updatedBy: {

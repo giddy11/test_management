@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Badge } from "@/components/ui/badge"
 import {
   Select,
   SelectContent,
@@ -24,6 +25,7 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog"
+import { AudiencePicker, type BroadcastAudience } from "@/components/announcements/AudiencePicker"
 import { wrapCall, ApiError } from "@/transport/http"
 import { SiteBannerEndpoints } from "@/endpoints/siteBanner.endpoints"
 import { SITE_BANNER_KEY } from "@/hooks/useSiteBanner"
@@ -33,7 +35,18 @@ interface AppUpdate {
   id: string
   title: string
   body: string
+  audience: BroadcastAudience
+  recipientIds: string[] | null
   createdAt: string
+}
+
+function audienceLabel(u: AppUpdate): string {
+  if (u.audience === "all") return "All users"
+  if (u.audience === "custom") {
+    const count = u.recipientIds?.length ?? 0
+    return `${count} ${count === 1 ? "person" : "people"}`
+  }
+  return "All admins"
 }
 
 const EMPTY_BANNER: SiteBanner = { message: null, isActive: false, expiresAt: null }
@@ -50,10 +63,21 @@ const DURATION_OPTIONS = [
   { label: "7 days", minutes: 10080 },
 ]
 
+function bannerAudienceLabel(banner: SiteBanner): string {
+  if (!banner.audience || banner.audience === "all") return "All users"
+  if (banner.audience === "custom") {
+    const count = banner.recipientIds?.length ?? 0
+    return `${count} ${count === 1 ? "person" : "people"}`
+  }
+  return "All admins"
+}
+
 function SiteBannerCard() {
   const qc = useQueryClient()
   const [message, setMessage] = useState("")
   const [durationMinutes, setDurationMinutes] = useState(60)
+  const [audience, setAudience] = useState<BroadcastAudience>("all")
+  const [recipientIds, setRecipientIds] = useState<Set<string>>(new Set())
 
   const { data: banner = EMPTY_BANNER } = useQuery({
     queryKey: SITE_BANNER_KEY,
@@ -64,9 +88,22 @@ function SiteBannerCard() {
     },
   })
 
+  const toggleRecipient = (userId: string) =>
+    setRecipientIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(userId)) next.delete(userId)
+      else next.add(userId)
+      return next
+    })
+
   const activate = useMutation({
     mutationFn: async () => {
-      const res = await SiteBannerEndpoints.activate({ message: message.trim(), durationMinutes })
+      const res = await SiteBannerEndpoints.activate({
+        message: message.trim(),
+        durationMinutes,
+        audience,
+        recipientIds: audience === "custom" ? Array.from(recipientIds) : undefined,
+      })
       if (!res.success || !res.data) throw new ApiError(res.message, res.statusCode, res.errors)
       return res.data
     },
@@ -74,6 +111,8 @@ function SiteBannerCard() {
       qc.setQueryData(SITE_BANNER_KEY, data)
       toast.success("Banner is live")
       setMessage("")
+      setAudience("all")
+      setRecipientIds(new Set())
     },
     onError: (e) => toast.error(e instanceof ApiError ? e.message : "Failed to activate banner"),
   })
@@ -106,11 +145,14 @@ function SiteBannerCard() {
         {banner.isActive ? (
           <div className="grid gap-3">
             <div className="rounded-lg border bg-muted/40 p-3 text-sm">{banner.message}</div>
-            {banner.expiresAt && (
-              <p className="text-xs text-muted-foreground">
-                Live until {new Date(banner.expiresAt).toLocaleString()}
-              </p>
-            )}
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant="outline">{bannerAudienceLabel(banner)}</Badge>
+              {banner.expiresAt && (
+                <p className="text-xs text-muted-foreground">
+                  Live until {new Date(banner.expiresAt).toLocaleString()}
+                </p>
+              )}
+            </div>
             <div>
               <Button
                 type="button"
@@ -160,8 +202,22 @@ function SiteBannerCard() {
                 </SelectContent>
               </Select>
             </div>
+            <AudiencePicker
+              idPrefix="banner"
+              audience={audience}
+              recipientIds={recipientIds}
+              onAudienceChange={setAudience}
+              onToggleRecipient={toggleRecipient}
+            />
             <div>
-              <Button type="submit" disabled={activate.isPending || !message.trim()}>
+              <Button
+                type="submit"
+                disabled={
+                  activate.isPending ||
+                  !message.trim() ||
+                  (audience === "custom" && recipientIds.size === 0)
+                }
+              >
                 {activate.isPending ? "Turning on…" : "Turn on"}
               </Button>
             </div>
@@ -176,12 +232,20 @@ interface DraftUpdate {
   key: number
   title: string
   body: string
+  audience: BroadcastAudience
+  recipientIds: Set<string>
 }
 
 const LIST_KEY = ["app-updates", "all"]
 
 let nextDraftKey = 1
-const emptyDraft = (): DraftUpdate => ({ key: nextDraftKey++, title: "", body: "" })
+const emptyDraft = (): DraftUpdate => ({
+  key: nextDraftKey++,
+  title: "",
+  body: "",
+  audience: "admins",
+  recipientIds: new Set(),
+})
 
 export default function AnnouncementsPage() {
   const qc = useQueryClient()
@@ -228,13 +292,21 @@ export default function AnnouncementsPage() {
     onError: (e) => toast.error(e instanceof ApiError ? e.message : "Failed to delete"),
   })
 
-  // Complete drafts (both fields filled) are what actually gets published —
-  // a trailing blank row the admin never got to doesn't block the rest.
-  const completeDrafts = drafts.filter((d) => d.title.trim() && d.body.trim())
+  // Complete drafts (both fields filled, and a non-empty recipient list when
+  // targeting specific users) are what actually gets published — a trailing
+  // blank row the admin never got to doesn't block the rest.
+  const completeDrafts = drafts.filter(
+    (d) => d.title.trim() && d.body.trim() && (d.audience !== "custom" || d.recipientIds.size > 0)
+  )
 
   const publishAll = useMutation({
     mutationFn: async () => {
-      const items = completeDrafts.map((d) => ({ title: d.title.trim(), body: d.body.trim() }))
+      const items = completeDrafts.map((d) => ({
+        title: d.title.trim(),
+        body: d.body.trim(),
+        audience: d.audience,
+        recipientIds: d.audience === "custom" ? Array.from(d.recipientIds) : undefined,
+      }))
       const res = await wrapCall<AppUpdate[]>("POST", "/api/v1/app-updates/bulk", { items })
       if (!res.success || !res.data) throw new ApiError(res.message, res.statusCode, res.errors)
       return res.data
@@ -242,8 +314,8 @@ export default function AnnouncementsPage() {
     onSuccess: (published) => {
       toast.success(
         published.length > 1
-          ? `Published ${published.length} updates — admins will see them on their next visit`
-          : "Published — admins will see it on their next visit"
+          ? `Published ${published.length} updates`
+          : "Published — recipients will see it on their next visit"
       )
       setDrafts([emptyDraft()])
       qc.invalidateQueries({ queryKey: LIST_KEY })
@@ -254,6 +326,17 @@ export default function AnnouncementsPage() {
   const updateDraft = (key: number, patch: Partial<DraftUpdate>) =>
     setDrafts((prev) => prev.map((d) => (d.key === key ? { ...d, ...patch } : d)))
 
+  const toggleDraftRecipient = (key: number, userId: string) =>
+    setDrafts((prev) =>
+      prev.map((d) => {
+        if (d.key !== key) return d
+        const next = new Set(d.recipientIds)
+        if (next.has(userId)) next.delete(userId)
+        else next.add(userId)
+        return { ...d, recipientIds: next }
+      })
+    )
+
   const removeDraft = (key: number) =>
     setDrafts((prev) => (prev.length > 1 ? prev.filter((d) => d.key !== key) : prev))
 
@@ -262,8 +345,8 @@ export default function AnnouncementsPage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Announcements</h1>
         <p className="text-sm text-muted-foreground">
-          Tell company admins what's new — each admin sees unseen announcements once, in a
-          modal, the next time they open TestMate.
+          Publish an update for all users, all admins, or a hand-picked list of people — each
+          recipient sees it once, in a modal, the next time they open TestMate.
         </p>
       </div>
 
@@ -326,6 +409,13 @@ export default function AnnouncementsPage() {
                     onChange={(e) => updateDraft(draft.key, { body: e.target.value })}
                   />
                 </div>
+                <AudiencePicker
+                  idPrefix={`ann-${draft.key}`}
+                  audience={draft.audience}
+                  recipientIds={draft.recipientIds}
+                  onAudienceChange={(audience) => updateDraft(draft.key, { audience })}
+                  onToggleRecipient={(userId) => toggleDraftRecipient(draft.key, userId)}
+                />
               </div>
             ))}
 
@@ -393,6 +483,9 @@ export default function AnnouncementsPage() {
                     aria-label={`Select ${u.title}`}
                   />
                   <CardTitle className="text-base">{u.title}</CardTitle>
+                  <Badge variant="outline" className="shrink-0">
+                    {audienceLabel(u)}
+                  </Badge>
                 </div>
                 <span className="shrink-0 text-xs text-muted-foreground">
                   {new Date(u.createdAt).toLocaleString()}

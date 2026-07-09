@@ -1,5 +1,6 @@
 // modules/appUpdate/services/appUpdate.service.ts
 import { AppUpdateRepository } from "../repositories/appUpdate.repository";
+import type { CreateAppUpdateData } from "../repositories/appUpdate.repository";
 import type { Actor } from "../../../shared/types/actor";
 
 const { AuthRepository } = require("../../auth/repositories/auth.repository");
@@ -18,14 +19,15 @@ export class AppUpdateService {
     this.authRepo = authRepo;
   }
 
-  // Superadmin publishes an announcement; admins will see it on next load.
-  async createUpdate(data: { title: string; body: string }) {
+  // Superadmin publishes an announcement, targeted at all users, all admins,
+  // or a hand-picked list; recipients will see it on next load.
+  async createUpdate(data: CreateAppUpdateData) {
     return this.updateRepo.create(data);
   }
 
   // Publishes a batch of announcements in one action — e.g. a release's worth
   // of updates drafted together and published all at once.
-  async createBulkUpdates(items: { title: string; body: string }[]) {
+  async createBulkUpdates(items: CreateAppUpdateData[]) {
     return this.updateRepo.createMany(items);
   }
 
@@ -33,10 +35,13 @@ export class AppUpdateService {
     return this.updateRepo.findAll();
   }
 
-  // Announcements this admin hasn't dismissed yet.
+  // Announcements this actor hasn't dismissed yet and is targeted by.
   async fetchUnseen(actor: Actor) {
     const user = await this.authRepo.findUserById(actor.id);
-    return this.updateRepo.findUnseen(user?.updatesSeenAt ?? null);
+    return this.updateRepo.findUnseen(
+      { id: actor.id, role: actor.role },
+      user?.updatesSeenAt ?? null
+    );
   }
 
   // Dismissing the modal marks everything published so far as seen.

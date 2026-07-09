@@ -3,11 +3,17 @@
 // Company admins see unseen announcements once, in a modal.
 import { EntitySchema } from "typeorm";
 
+export type AppUpdateAudience = "all" | "admins" | "custom";
+
 export interface AppUpdate {
   id: string;
   title: string;
   // Plain text; newlines render as bullet-ish paragraphs in the modal.
   body: string;
+  // Who this announcement is visible to. "custom" restricts it to recipientIds.
+  audience: AppUpdateAudience;
+  // Only populated when audience === "custom".
+  recipientIds: string[] | null;
   createdAt: Date;
   deletedAt: Date | null;
 }
@@ -27,6 +33,17 @@ const AppUpdate = new EntitySchema<AppUpdate>({
     },
     body: {
       type: "text",
+    },
+    audience: {
+      type: "varchar",
+      length: 10,
+      default: "admins",
+    },
+    recipientIds: {
+      name: "recipient_ids",
+      type: "uuid",
+      array: true,
+      nullable: true,
     },
     createdAt: {
       name: "created_at",

@@ -11,6 +11,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  useSidebar,
 } from "@/components/ui/sidebar"
 import {
   DropdownMenu,
@@ -28,11 +29,15 @@ import { navForRole, navBottomForRole, ROLE_LABEL } from "@/components/layout/na
 export function AppSidebar() {
   const { user } = useAuth()
   const logout = useLogout()
+  const { isMobile, setOpenMobile } = useSidebar()
   if (!user) return null
 
   const items = navForRole(user.role)
   const bottomItems = navBottomForRole(user.role)
   const initials = `${user.firstName?.[0] ?? ""}${user.lastName?.[0] ?? ""}`.toUpperCase()
+  const closeOnMobile = () => {
+    if (isMobile) setOpenMobile(false)
+  }
 
   return (
     <Sidebar collapsible="icon">
@@ -61,7 +66,7 @@ export function AppSidebar() {
             <SidebarMenu>
               {items.map((item) => (
                 <SidebarMenuItem key={item.to}>
-                  <NavLink to={item.to} data-tour={item.tourId}>
+                  <NavLink to={item.to} data-tour={item.tourId} onClick={closeOnMobile}>
                     {({ isActive }) => (
                       <SidebarMenuButton tooltip={item.title} isActive={isActive}>
                         <item.icon />
@@ -80,7 +85,7 @@ export function AppSidebar() {
             <SidebarMenu>
               {bottomItems.map((item) => (
                 <SidebarMenuItem key={item.to}>
-                  <NavLink to={item.to} data-tour={item.tourId}>
+                  <NavLink to={item.to} data-tour={item.tourId} onClick={closeOnMobile}>
                     {({ isActive }) => (
                       <SidebarMenuButton tooltip={item.title} isActive={isActive}>
                         <item.icon />
