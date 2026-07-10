@@ -6,6 +6,7 @@
   "scripts": {
     "start": "tsx server.js",
     "dev": "tsx watch server.js",
+    "dev:local": "tsx watch --env-file=.env.dev server.js",
     "typecheck": "tsc --noEmit",
     "typeorm": "tsx ./node_modules/typeorm/cli.js",
     "migration:generate": "tsx ./node_modules/typeorm/cli.js migration:generate -d infrastructure/database/dataSource.js",

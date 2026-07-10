@@ -130,6 +130,55 @@ npm run e2e
 ⚠️ Live specs must stay **read-only** (log in, look, leave). Do not add live
 tests that write data — see the shared-database rule at the top.
 
+### Running live mode against a local DB instead
+
+Pointing `CYPRESS_apiUrl` at the real (shared) API works, but it's safer to
+run live mode against your own local Postgres instead — mistakes can't touch
+dev/prod data at all. This repo is already set up for that:
+
+1. **Server:** `server/.env.dev` holds local DB overrides (`DB_HOST`,
+   `DB_PORT`, `DB_NAME=testmate`, `DB_SSL=false`) layered on top of
+   `server/.env` via Node's `--env-file` (dotenv doesn't override vars
+   `--env-file` already set, so everything else — JWT secrets, email,
+   Cloudinary — still comes from `.env`). Start the server against the local
+   DB with:
+
+   ```bash
+   cd server
+   npm run dev:local
+   ```
+
+   First run auto-creates the schema (TypeORM `synchronize` is on outside
+   production). Seed a login-able user with:
+
+   ```bash
+   npx tsx --env-file=.env.dev scripts/seedSuperadmin.js
+   ```
+
+   (uses `SUPERADMIN_EMAIL` / `SUPERADMIN_PASSWORD` from `server/.env`).
+
+2. **Client:** run the *real* dev server, not `dev:e2e` — it already points
+   `VITE_API_URL` at `http://localhost:4000` in `client/.env`:
+
+   ```bash
+   cd client
+   npm run dev
+   ```
+
+3. **Cypress:** point live mode at the local server and run just the live spec.
+   Use the actual `SUPERADMIN_EMAIL` / `SUPERADMIN_PASSWORD` values from
+   `server/.env` — not the variable names themselves:
+
+   ```powershell
+   $env:CYPRESS_TEST_USER_EMAIL = "edoghotugiddy@gmail.com"    # SUPERADMIN_EMAIL value
+   $env:CYPRESS_TEST_USER_PASSWORD = "GigiCarly@1"              # SUPERADMIN_PASSWORD value
+   $env:CYPRESS_apiUrl = "http://localhost:4000"
+   npx cypress run --spec "cypress/e2e/live/login-smoke.cy.ts"
+   ```
+
+`server/.env.dev` is gitignored (`.env.*` in `server/.gitignore`) — safe to
+keep local credentials in it.
+
 ## CI
 
 [.github/workflows/e2e.yml](../../.github/workflows/e2e.yml) runs on every PR
