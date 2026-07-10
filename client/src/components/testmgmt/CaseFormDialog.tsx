@@ -165,7 +165,7 @@ export function CaseFormDialog({ open, onOpenChange, suiteId, editing }: Props) 
 
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button type="submit" disabled={pending}>
+            <Button type="submit" disabled={pending} data-cy="case-submit">
               {pending ? "Saving…" : isEdit ? "Save changes" : "Create test case"}
             </Button>
           </DialogFooter>

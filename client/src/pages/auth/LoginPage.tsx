@@ -53,6 +53,7 @@ export default function LoginPage() {
               type="email"
               autoComplete="email"
               placeholder="you@company.com"
+              data-cy="login-email"
               error={errors.email?.message}
               {...register("email")}
             />
@@ -61,6 +62,7 @@ export default function LoginPage() {
               label="Password"
               autoComplete="current-password"
               placeholder="••••••••"
+              data-cy="login-password"
               error={errors.password?.message}
               {...register("password")}
             />
@@ -72,7 +74,7 @@ export default function LoginPage() {
                 Forgot password?
               </Link>
             </div>
-            <Button type="submit" className="w-full" disabled={login.isPending}>
+            <Button type="submit" className="w-full" disabled={login.isPending} data-cy="login-submit">
               {login.isPending ? "Signing in…" : "Sign in"}
             </Button>
           </form>

@@ -7,6 +7,7 @@ export function PageLoader({ label, className }: { label?: string; className?: s
       className={cn("flex min-h-[45vh] flex-col items-center justify-center gap-4", className)}
       role="status"
       aria-live="polite"
+      data-cy="page-loader"
     >
       <div className="relative size-10">
         <div className="absolute inset-0 rounded-full border-[3px] border-muted" />

@@ -71,6 +71,7 @@ export function RunsTab({ projectId, canManage }: { projectId: string; canManage
                 onClick={() => setCreateOpen(true)}
                 disabled={allSuitesBusy}
                 data-tour="start-run-btn"
+                data-cy="start-run"
               >
                 <Play className="mr-1 size-4" /> Start run
               </Button>
@@ -98,6 +99,7 @@ export function RunsTab({ projectId, canManage }: { projectId: string; canManage
         {runs.map((run) => (
           <Card
             key={run.id}
+            data-cy="run-card"
             className="cursor-pointer transition-colors hover:border-primary/50"
             onClick={() => navigate(`/projects/${projectId}/runs/${run.id}`)}
           >

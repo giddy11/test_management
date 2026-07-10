@@ -1,0 +1,29 @@
+[
+  {
+    "id": "e2e-proj-1",
+    "name": "Apollo",
+    "description": "Payments platform test project",
+    "ownerId": "e2e-admin-0001",
+    "suiteCount": 2,
+    "feedbackToken": null,
+    "createdAt": "2026-02-01T09:00:00.000Z"
+  },
+  {
+    "id": "e2e-proj-2",
+    "name": "Hermes",
+    "description": null,
+    "ownerId": "e2e-admin-0001",
+    "suiteCount": 0,
+    "feedbackToken": null,
+    "createdAt": "2026-02-05T09:00:00.000Z"
+  },
+  {
+    "id": "e2e-proj-3",
+    "name": "Zephyr",
+    "description": "Mobile companion app",
+    "ownerId": "e2e-admin-0001",
+    "suiteCount": 1,
+    "feedbackToken": null,
+    "createdAt": "2026-02-10T09:00:00.000Z"
+  }
+]

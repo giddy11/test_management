@@ -46,7 +46,7 @@ export function SuitesTab({
           </Button>
         )}
         {canManage && (
-          <Button size="sm" onClick={() => { setEditing(null); setFormOpen(true) }} data-tour="new-suite-btn">
+          <Button size="sm" onClick={() => { setEditing(null); setFormOpen(true) }} data-tour="new-suite-btn" data-cy="new-suite">
             <Plus className="mr-1 size-4" /> New suite
           </Button>
         )}
@@ -67,6 +67,7 @@ export function SuitesTab({
         {suites.map((s) => (
           <Card
             key={s.id}
+            data-cy="suite-card"
             className="group cursor-pointer transition-colors hover:border-primary/50"
             onClick={() => navigate(`/projects/${projectId}/suites/${s.id}`)}
           >
@@ -96,10 +97,10 @@ export function SuitesTab({
             </CardHeader>
             {canManage && (
               <CardContent className="flex justify-end gap-1 pt-0">
-                <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); setEditing(s); setFormOpen(true) }}>
+                <Button variant="ghost" size="sm" data-cy="suite-edit" onClick={(e) => { e.stopPropagation(); setEditing(s); setFormOpen(true) }}>
                   <Pencil className="size-4" />
                 </Button>
-                <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); setDeleting(s) }}>
+                <Button variant="ghost" size="sm" data-cy="suite-delete" onClick={(e) => { e.stopPropagation(); setDeleting(s) }}>
                   <Trash2 className="size-4 text-destructive" />
                 </Button>
               </CardContent>

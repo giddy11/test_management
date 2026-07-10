@@ -1,0 +1,66 @@
+{
+  "totals": { "projects": 3, "suites": 5, "cases": 42, "runs": 7 },
+  "caseStatus": [
+    { "key": "draft", "count": 10 },
+    { "key": "ready", "count": 22 },
+    { "key": "deprecated", "count": 10 }
+  ],
+  "casePriority": [
+    { "key": "high", "count": 12 },
+    { "key": "medium", "count": 20 },
+    { "key": "low", "count": 10 }
+  ],
+  "resultBreakdown": { "pass": 30, "fail": 5, "blocked": 2, "skipped": 1, "pending": 4, "total": 42 },
+  "passRate": 71,
+  "projectsBreakdown": [
+    { "id": "e2e-proj-1", "name": "Apollo", "suiteCount": 2, "caseCount": 20 },
+    { "id": "e2e-proj-2", "name": "Hermes", "suiteCount": 2, "caseCount": 15 },
+    { "id": "e2e-proj-3", "name": "Zephyr", "suiteCount": 1, "caseCount": 7 }
+  ],
+  "suitesBreakdown": [
+    {
+      "id": "e2e-suite-1",
+      "name": "Smoke suite",
+      "projectId": "e2e-proj-1",
+      "caseCount": 10,
+      "pass": 8,
+      "fail": 1,
+      "blocked": 0,
+      "skipped": 0,
+      "pending": 1
+    }
+  ],
+  "topPerformers": [
+    { "id": "e2e-user-0001", "name": "Uche Tester", "total": 20, "passes": 16, "failures": 4, "passRate": 80 }
+  ],
+  "featureRequests": {
+    "total": 4,
+    "byStatus": [
+      { "key": "pending", "count": 2 },
+      { "key": "in_progress", "count": 2 }
+    ],
+    "byProject": [
+      {
+        "projectId": "e2e-proj-1",
+        "projectName": "Apollo",
+        "total": 4,
+        "byStatus": [
+          { "key": "pending", "count": 2 },
+          { "key": "in_progress", "count": 2 }
+        ]
+      }
+    ]
+  },
+  "bugs": {
+    "total": 2,
+    "byStatus": [{ "key": "open", "count": 2 }],
+    "byProject": [
+      {
+        "projectId": "e2e-proj-2",
+        "projectName": "Hermes",
+        "total": 2,
+        "byStatus": [{ "key": "open", "count": 2 }]
+      }
+    ]
+  }
+}

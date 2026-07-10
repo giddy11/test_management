@@ -53,10 +53,10 @@ export default function FeatureRequestDetailPage() {
 
         {canManage && (
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => setStatusOpen(true)}>
+            <Button variant="outline" onClick={() => setStatusOpen(true)} data-cy="fr-update-status">
               <Pencil className="mr-1 size-4" /> Update status
             </Button>
-            <Button variant="outline" onClick={() => setDeleteOpen(true)}>
+            <Button variant="outline" onClick={() => setDeleteOpen(true)} data-cy="fr-delete">
               <Trash2 className="mr-1 size-4 text-destructive" />
             </Button>
           </div>

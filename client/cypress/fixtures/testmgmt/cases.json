@@ -1,0 +1,34 @@
+[
+  {
+    "id": "e2e-case-1",
+    "title": "Valid login",
+    "description": "User signs in with correct credentials",
+    "steps": ["Open the login page", "Enter valid credentials", "Click submit"],
+    "expectedResult": "Dashboard is shown",
+    "priority": "High",
+    "status": "Active",
+    "suiteId": "3f2504e0-4f89-41d3-9a0c-0305e82c3301",
+    "assignees": [{ "id": "e2e-user-0001", "name": "Uche Tester", "email": "uche.tester@example.com" }],
+    "tags": ["smoke"],
+    "deadline": null,
+    "attachmentCount": 0,
+    "latestResultStatus": null,
+    "createdAt": "2026-03-02T09:00:00.000Z"
+  },
+  {
+    "id": "e2e-case-2",
+    "title": "Invalid login shows error",
+    "description": null,
+    "steps": ["Open the login page", "Enter a wrong password", "Click submit"],
+    "expectedResult": "An error toast appears",
+    "priority": "Medium",
+    "status": "Draft",
+    "suiteId": "3f2504e0-4f89-41d3-9a0c-0305e82c3301",
+    "assignees": [],
+    "tags": [],
+    "deadline": null,
+    "attachmentCount": 0,
+    "latestResultStatus": "pass",
+    "createdAt": "2026-03-03T09:00:00.000Z"
+  }
+]

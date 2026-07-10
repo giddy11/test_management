@@ -52,7 +52,7 @@ export default function ProjectsPage() {
           <p className="text-sm text-muted-foreground">Group your test suites and runs by project.</p>
         </div>
         {canManage && (
-          <Button onClick={openCreate} className="w-full sm:w-auto" data-tour="new-project-btn">
+          <Button onClick={openCreate} className="w-full sm:w-auto" data-tour="new-project-btn" data-cy="new-project">
             <Plus className="mr-1 size-4" /> New project
           </Button>
         )}
@@ -60,6 +60,7 @@ export default function ProjectsPage() {
 
       <Input
         placeholder="Search projects…"
+        data-cy="project-search"
         value={search}
         onChange={(e) => {
           setPage(1)
@@ -89,6 +90,7 @@ export default function ProjectsPage() {
         {projects.map((p) => (
           <Card
             key={p.id}
+            data-cy="project-card"
             className="group cursor-pointer transition-colors hover:border-primary/50"
             onClick={() => navigate(`/projects/${p.id}`)}
           >
@@ -112,6 +114,7 @@ export default function ProjectsPage() {
                 <Button
                   variant="ghost"
                   size="sm"
+                  data-cy="project-edit"
                   onClick={(e) => {
                     e.stopPropagation()
                     setEditing(p)
@@ -123,6 +126,7 @@ export default function ProjectsPage() {
                 <Button
                   variant="ghost"
                   size="sm"
+                  data-cy="project-delete"
                   onClick={(e) => {
                     e.stopPropagation()
                     setDeleting(p)

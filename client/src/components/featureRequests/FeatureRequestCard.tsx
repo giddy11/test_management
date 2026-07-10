@@ -12,6 +12,7 @@ export const FeatureRequestCard = memo(function FeatureRequestCard({ request }: 
 
   return (
     <Card
+      data-cy="feature-request-card"
       className="cursor-pointer transition-colors hover:border-primary/50"
       onClick={() => navigate(`/projects/${request.projectId}/feature-requests/${request.id}`)}
     >

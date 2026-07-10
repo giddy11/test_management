@@ -35,10 +35,10 @@ export function ConfirmDialog({
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
         <DialogFooter>
-          <Button variant="ghost" onClick={() => onOpenChange(false)}>
+          <Button variant="ghost" onClick={() => onOpenChange(false)} data-cy="confirm-cancel">
             Cancel
           </Button>
-          <Button variant="destructive" onClick={onConfirm} disabled={loading}>
+          <Button variant="destructive" onClick={onConfirm} disabled={loading} data-cy="confirm-ok">
             {loading ? "Working…" : confirmLabel}
           </Button>
         </DialogFooter>

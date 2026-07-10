@@ -5,9 +5,14 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:e2e": "vite --mode e2e --port 5173 --strictPort",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "cy:open": "cypress open --e2e",
+    "cy:run": "cypress run",
+    "e2e": "start-server-and-test dev:e2e http://localhost:5173 cy:run",
+    "e2e:open": "start-server-and-test dev:e2e http://localhost:5173 cy:open"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.4.0",
@@ -39,7 +44,9 @@
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.2",
+    "cypress": "^15.18.1",
     "oxlint": "^1.69.0",
+    "start-server-and-test": "^3.0.11",
     "tailwindcss": "^4.3.2",
     "typescript": "~6.0.2",
     "vite": "^8.1.0"

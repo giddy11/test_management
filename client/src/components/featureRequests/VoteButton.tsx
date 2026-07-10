@@ -24,6 +24,7 @@ export function VoteButton({
           type="button"
           variant="outline"
           size="sm"
+          data-cy="vote-button"
           aria-label={hasVoted ? "Remove upvote" : "Upvote this request"}
           className={cn(
             "flex h-auto flex-col items-center gap-0.5 px-3 py-1.5",

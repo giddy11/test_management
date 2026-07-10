@@ -69,13 +69,13 @@ export function SuiteFormDialog({ open, onOpenChange, projectId, editing }: Prop
           <DialogDescription>Group related test cases (e.g. Auth, Checkout).</DialogDescription>
         </DialogHeader>
         <form className="grid gap-4" onSubmit={handleSubmit(onSubmit)}>
-          <FormField id="name" label="Name" error={errors.name?.message} {...register("name")} />
-          <FormField id="description" label="Description (optional)" {...register("description")} />
+          <FormField id="name" label="Name" data-cy="suite-name" error={errors.name?.message} {...register("name")} />
+          <FormField id="description" label="Description (optional)" data-cy="suite-description" {...register("description")} />
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={pending} data-tour="create-suite-submit-btn">
+            <Button type="submit" disabled={pending} data-tour="create-suite-submit-btn" data-cy="suite-submit">
               {pending ? "Saving…" : isEdit ? "Save changes" : "Create suite"}
             </Button>
           </DialogFooter>

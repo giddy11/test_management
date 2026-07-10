@@ -116,16 +116,16 @@ export default function SuiteDetailPage() {
         </div>
         <div className="flex gap-2">
           {cases.length > 0 && (
-            <Button variant="outline" onClick={handleExport} disabled={exportSuite.isPending} className="flex-1 sm:flex-none">
+            <Button variant="outline" onClick={handleExport} disabled={exportSuite.isPending} className="flex-1 sm:flex-none" data-cy="export-suite">
               <Download className="mr-1 size-4" /> {exportSuite.isPending ? "Exporting…" : "Export"}
             </Button>
           )}
           {canManage && (
             <>
-              <Button variant="outline" onClick={() => setImportOpen(true)} className="flex-1 sm:flex-none">
+              <Button variant="outline" onClick={() => setImportOpen(true)} className="flex-1 sm:flex-none" data-cy="import-cases">
                 <FileUp className="mr-1 size-4" /> Import
               </Button>
-              <Button onClick={() => { setEditing(null); setFormOpen(true) }} className="flex-1 sm:flex-none">
+              <Button onClick={() => { setEditing(null); setFormOpen(true) }} className="flex-1 sm:flex-none" data-cy="new-case">
                 <Plus className="mr-1 size-4" /> New test case
               </Button>
             </>
@@ -137,6 +137,7 @@ export default function SuiteDetailPage() {
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
         <Input
           placeholder="Search by title…"
+          data-cy="case-search"
           value={searchInput}
           onChange={(e) => setSearchInput(e.target.value)}
           className="sm:max-w-xs"
@@ -212,6 +213,7 @@ export default function SuiteDetailPage() {
             {cases.map((tc, idx) => (
               <TableRow
                 key={tc.id}
+                data-cy="case-row"
                 data-state={selected.has(tc.id) ? "selected" : undefined}
                 className="cursor-pointer"
                 onClick={() => navigate(`/projects/${projectId}/suites/${suiteId}/cases/${tc.id}`)}
@@ -295,13 +297,13 @@ export default function SuiteDetailPage() {
                 <TableCell className="text-right">
                   {canManage && (
                     <>
-                      <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); setAssigning(tc) }}>
+                      <Button variant="ghost" size="sm" data-cy="case-assign" onClick={(e) => { e.stopPropagation(); setAssigning(tc) }}>
                         <UserPlus className="size-4" />
                       </Button>
-                      <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); setEditing(tc); setFormOpen(true) }}>
+                      <Button variant="ghost" size="sm" data-cy="case-edit" onClick={(e) => { e.stopPropagation(); setEditing(tc); setFormOpen(true) }}>
                         <Pencil className="size-4" />
                       </Button>
-                      <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); setDeleting(tc) }}>
+                      <Button variant="ghost" size="sm" data-cy="case-delete" onClick={(e) => { e.stopPropagation(); setDeleting(tc) }}>
                         <Trash2 className="size-4 text-destructive" />
                       </Button>
                     </>

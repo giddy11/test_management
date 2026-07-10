@@ -62,7 +62,7 @@ export function BugsTab({ projectId }: { projectId: string }) {
             ))}
           </SelectContent>
         </Select>
-        <Button size="sm" onClick={() => setFormOpen(true)} className="sm:ml-auto">
+        <Button size="sm" onClick={() => setFormOpen(true)} className="sm:ml-auto" data-cy="report-bug">
           <Plus className="mr-1 size-4" /> Report bug
         </Button>
       </div>

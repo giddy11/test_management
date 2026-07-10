@@ -19,6 +19,7 @@ export const BugCard = memo(function BugCard({ bug }: { bug: Bug }) {
 
   return (
     <Card
+      data-cy="bug-card"
       className="cursor-pointer transition-colors hover:border-primary/50"
       onClick={() => navigate(`/projects/${bug.projectId}/bugs/${bug.id}`)}
     >

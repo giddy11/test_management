@@ -66,7 +66,7 @@ export function StatusUpdateDialog({ open, onOpenChange, request }: Props) {
           <div className="grid gap-1.5">
             <Label>Status</Label>
             <Select value={status} onValueChange={(v) => setStatus(v as FeatureRequestStatus)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectTrigger data-cy="fr-status"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {FEATURE_REQUEST_STATUSES.map((s) => (
                   <SelectItem key={s} value={s}>{FEATURE_REQUEST_STATUS_META[s].label}</SelectItem>
@@ -89,7 +89,7 @@ export function StatusUpdateDialog({ open, onOpenChange, request }: Props) {
           <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button type="button" onClick={onSubmit} disabled={update.isPending}>
+          <Button type="button" onClick={onSubmit} disabled={update.isPending} data-cy="fr-status-save">
             {update.isPending ? "Saving…" : "Save"}
           </Button>
         </DialogFooter>

@@ -84,11 +84,11 @@ export function CreateRunDialog({ open, onOpenChange, projectId, activeSuiteIds 
           </DialogDescription>
         </DialogHeader>
         <form className="grid gap-4" onSubmit={handleSubmit(onSubmit)}>
-          <FormField id="name" label="Run name" error={errors.name?.message} {...register("name")} />
+          <FormField id="name" label="Run name" data-cy="run-name" error={errors.name?.message} {...register("name")} />
           <div className="grid gap-1.5">
             <Label>Suite</Label>
             <Select value={suiteId} onValueChange={(v) => setValue("suiteId", v, { shouldValidate: true })}>
-              <SelectTrigger>
+              <SelectTrigger data-cy="run-suite">
                 <SelectValue placeholder={suites.length ? "Select a suite" : "No suites in this project"} />
               </SelectTrigger>
               <SelectContent>
@@ -112,6 +112,7 @@ export function CreateRunDialog({ open, onOpenChange, projectId, activeSuiteIds 
               type="submit"
               disabled={create.isPending || !suites.length || suiteBusy}
               data-tour="create-run-submit-btn"
+              data-cy="run-submit"
             >
               {create.isPending ? "Starting…" : "Start run"}
             </Button>

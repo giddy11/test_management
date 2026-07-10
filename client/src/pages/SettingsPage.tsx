@@ -124,7 +124,7 @@ function ProfileTab() {
       </Card>
 
       <div className="flex justify-end">
-        <Button type="submit" disabled={update.isPending || !isDirty}>
+        <Button type="submit" disabled={update.isPending || !isDirty} data-cy="profile-save">
           {update.isPending ? "Saving…" : "Save changes"}
         </Button>
       </div>
@@ -165,7 +165,9 @@ function SecurityTab() {
   })
 
   const onSubmit = (data: ChangePasswordPayload & { confirmPassword: string }) => {
-    if (data.newPassword !== data.confirmPassword) {
+    // The confirm field is controlled state, not registered with the form —
+    // compare against it directly (data.confirmPassword is always undefined).
+    if (data.newPassword !== confirmNew) {
       toast.error("New passwords do not match")
       return
     }
@@ -242,6 +244,7 @@ function SecurityTab() {
                 <Button
                   type="submit"
                   disabled={change.isPending || !confirmNew || newPassword !== confirmNew}
+                  data-cy="password-submit"
                 >
                   {change.isPending ? "Updating…" : "Update password"}
                 </Button>
@@ -320,15 +323,15 @@ export default function SettingsPage() {
 
       <Tabs defaultValue="profile">
         <TabsList>
-          <TabsTrigger value="profile" className="gap-1.5">
+          <TabsTrigger value="profile" className="gap-1.5" data-cy="settings-tab-profile">
             <User className="size-3.5" />
             Profile
           </TabsTrigger>
-          <TabsTrigger value="security" className="gap-1.5">
+          <TabsTrigger value="security" className="gap-1.5" data-cy="settings-tab-security">
             <Lock className="size-3.5" />
             Security
           </TabsTrigger>
-          <TabsTrigger value="help" className="gap-1.5">
+          <TabsTrigger value="help" className="gap-1.5" data-cy="settings-tab-help">
             <LifeBuoy className="size-3.5" />
             Help
           </TabsTrigger>

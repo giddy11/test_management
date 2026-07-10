@@ -1,0 +1,23 @@
+[
+  {
+    "id": "e2e-bug-1",
+    "projectId": "e2e-proj-1",
+    "title": "Login button unresponsive on Safari",
+    "description": "Clicking sign-in does nothing on Safari 17.",
+    "stepsToReproduce": ["Open the app in Safari", "Fill the login form", "Click sign in"],
+    "expectedBehavior": "User is signed in",
+    "actualBehavior": "Nothing happens",
+    "environment": "Safari 17 / macOS",
+    "severity": "Major",
+    "priority": "High",
+    "status": "Open",
+    "testCaseId": null,
+    "testRunId": null,
+    "reportedBy": { "id": "e2e-user-0001", "name": "Uche Tester" },
+    "assignedTo": null,
+    "resolvedAt": null,
+    "closedAt": null,
+    "statusUpdatedAt": null,
+    "createdAt": "2026-06-25T09:00:00.000Z"
+  }
+]

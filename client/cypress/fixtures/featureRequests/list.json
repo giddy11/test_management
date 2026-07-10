@@ -1,0 +1,36 @@
+[
+  {
+    "id": "e2e-fr-1",
+    "projectId": "e2e-proj-1",
+    "title": "Dark mode for reports",
+    "description": "Exported reports should respect the dark theme.",
+    "status": "under_review",
+    "category": "UI/UX",
+    "module": "Authentication",
+    "referenceLinks": [],
+    "submittedBy": { "id": "e2e-user-0001", "name": "Uche Tester" },
+    "upvoteCount": 4,
+    "hasVoted": false,
+    "commentCount": 2,
+    "adminResponse": null,
+    "statusUpdatedAt": null,
+    "createdAt": "2026-06-01T09:00:00.000Z"
+  },
+  {
+    "id": "e2e-fr-2",
+    "projectId": "e2e-proj-1",
+    "title": "Bulk import from TestRail",
+    "description": "Allow importing suites exported from TestRail.",
+    "status": "planned",
+    "category": null,
+    "module": null,
+    "referenceLinks": [],
+    "submittedBy": { "id": "e2e-user-0002", "name": "Bola Runner" },
+    "upvoteCount": 9,
+    "hasVoted": true,
+    "commentCount": 0,
+    "adminResponse": "On the roadmap for Q3.",
+    "statusUpdatedAt": "2026-06-20T09:00:00.000Z",
+    "createdAt": "2026-05-15T09:00:00.000Z"
+  }
+]

@@ -591,6 +591,8 @@ When adding a new frontend feature (e.g. `appointment`):
 [ ] 6. Add route                       App.tsx / router config
 [ ] 7. Write component render tests
 [ ] 8. Write endpoint mock tests
+[ ] 9. Add data-cy attributes          every interactive element the feature adds
+[ ] 10. Write Cypress E2E spec         cypress/e2e/appointments/appointments.cy.ts — see §20
 ```
 
 ---
@@ -627,6 +629,8 @@ AI agents building frontend features MUST:
 - Always paginate and handle `meta` from the backend
 - Use `React.memo` on list item components
 - Use `useMemo` for derived/filtered lists
+- Add `data-cy` attributes to every interactive element they create (buttons, inputs, links, menu items)
+- Write or extend a Cypress E2E spec for every user-facing feature — see §20
 
 AI agents MUST NOT:
 
@@ -636,6 +640,7 @@ AI agents MUST NOT:
 - Skip client-side validation on forms
 - Create a new utility if one already exists in `utils/`
 - Use native browser dialogs — see §19
+- Ship a feature without E2E coverage, or write E2E tests that hit a real API/database — see §20
 
 ---
 
@@ -709,8 +714,101 @@ const [value, setValue] = useState("");
 
 ---
 
-## 20. Final Principle
+## 20. End-to-End Testing (Cypress)
 
-> **"Pages display. Hooks decide. Endpoints fetch. Transport handles the wire. Modals replace dialogs."**
+Every user-facing feature ships with a Cypress E2E spec. The suite lives in the
+client alongside the app (`cypress/`, `cypress.config.ts`) and its full
+reference documentation is `client/cypress/README.md` — read it before writing
+tests.
+
+### 20.1 The Golden Rule — Stub First, Never Touch Real Data
+
+E2E tests are **fully network-stubbed** with `cy.intercept()`. They never call
+a real API and never read or write a real database. This is non-negotiable in
+projects where environments share a database (dev and prod share one here).
+
+To enforce it, tests run against the app started in a dedicated mode
+(`npm run dev:e2e` → `.env.e2e`) whose API URL points at a **dead local port**.
+A request a test forgot to stub fails instantly — it can never leak data.
+
+Stub responses must mirror the backend's `ApiResponse` envelope exactly
+(§4). Use the helpers in `cypress/support/api.ts`: `ok(data, meta?)`,
+`fail(message, statusCode)`, `listMeta(total)`.
+
+### 20.2 Folder & Naming Conventions
+
+```
+cypress/
+  e2e/<feature>/<journey>.cy.ts     one folder per feature area, kebab-case specs
+  fixtures/<domain>/<name>.json     stub payloads, grouped per domain
+  support/api.ts                    envelope builders + URL matchers
+  support/commands.ts               custom commands (typed)
+  support/e2e.ts                    global setup
+```
+
+### 20.3 Custom Commands — Use Them, Don't Reinvent Them
+
+| Command | Purpose |
+|---|---|
+| `cy.dataCy("id")` | The **only** sanctioned selector style |
+| `cy.login(role?, overrides?)` | Stubbed session for `"user"` / `"admin"` / `"superadmin"` — seeds tokens, stubs `/auth/me` + layout calls |
+| `cy.stubDashboard()` | Dashboard data stubs (`@overview`, `@recentRuns`, `@projects`) |
+| `cy.interceptApi(method, path, { body }, alias)` | Precise intercept for one `/api/v1` path |
+| `cy.logout()` / `cy.waitForLoader()` | Shared UI flows |
+| `cy.loginByApi(email, password)` | Real login via `cy.session()` — **live smoke specs only**, read-only |
+
+### 20.4 Selector Rules
+
+- Every interactive element gets a `data-cy` attribute at build time —
+  `data-cy="create-appointment-submit"` — added as an attribute only, never
+  changing behavior.
+- **Never** select by CSS hierarchy, nth-child, generated class names, or
+  visible text as a locator (asserting on text is fine; locating by it is not).
+
+### 20.5 Spec Skeleton
+
+```typescript
+// cypress/e2e/appointments/appointments.cy.ts
+import { ok, listMeta } from "../../support/api"
+
+describe("Appointments", () => {
+  beforeEach(() => {
+    cy.login("admin")
+    cy.fixture("appointments/list").then((rows) => {
+      cy.interceptApi("GET", "/appointments", { body: ok(rows, listMeta(rows.length)) }, "appointments")
+    })
+    cy.visit("/appointments")
+    cy.wait("@appointments")           // wait on aliases — never cy.wait(5000)
+  })
+
+  it("creates an appointment", () => {
+    cy.interceptApi("POST", "/appointments", { body: ok({ id: "e2e-appt-1" }) }, "create")
+    cy.dataCy("new-appointment").click()
+    cy.dataCy("appointment-title").type("Follow-up")
+    cy.dataCy("appointment-submit").click()
+    cy.wait("@create").its("request.body.title").should("eq", "Follow-up")
+    cy.contains("Appointment created").should("be.visible")
+  })
+})
+```
+
+### 20.6 E2E Rules
+
+- Stub **before** `cy.visit()`; wait on aliases, never on time.
+- Cover at minimum: the happy path, one validation failure, and one API error
+  (`fail(...)` + non-2xx `statusCode`) per journey.
+- Tests are independent — each one logs in and stubs everything it needs;
+  never depend on state left by a previous test.
+- Role-gated features get an access-control test (allowed role sees it,
+  blocked role is redirected).
+- Run `npm run e2e` before handing work over; all specs must pass.
+- Live-mode specs (real API) are opt-in via env credentials, read-only, and
+  live under `cypress/e2e/live/` — never add write operations there.
+
+---
+
+## 21. Final Principle
+
+> **"Pages display. Hooks decide. Endpoints fetch. Transport handles the wire. Modals replace dialogs. Cypress proves it all works."**
 
 This sequence is non-negotiable on every feature, for every client platform, on every project scaffolded from this guide.

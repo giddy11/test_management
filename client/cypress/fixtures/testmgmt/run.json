@@ -1,0 +1,12 @@
+{
+  "id": "e2e-run-1",
+  "name": "Release 1.4 run",
+  "projectId": "e2e-proj-1",
+  "suiteId": "3f2504e0-4f89-41d3-9a0c-0305e82c3301",
+  "status": "in_progress",
+  "createdById": "e2e-admin-0001",
+  "createdByName": "Ada Admin",
+  "testers": ["Uche Tester"],
+  "createdAt": "2026-07-01T09:00:00.000Z",
+  "summary": { "total": 2, "pass": 0, "fail": 0, "blocked": 0, "skipped": 0, "pending": 2 }
+}

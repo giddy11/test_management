@@ -1,0 +1,56 @@
+name: E2E (Cypress)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "client/**"
+      - ".github/workflows/e2e.yml"
+  pull_request:
+    paths:
+      - "client/**"
+      - ".github/workflows/e2e.yml"
+  workflow_dispatch: {}
+
+jobs:
+  cypress:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+
+      # Installs deps (npm ci), type-checks + builds the app, starts the dev
+      # server in e2e mode (stubbed API — no database is touched), waits for
+      # it, then runs the suite headlessly.
+      - name: Cypress run
+        uses: cypress-io/github-action@v6
+        with:
+          working-directory: client
+          build: npm run build
+          start: npm run dev:e2e
+          wait-on: "http://localhost:5173"
+          wait-on-timeout: 120
+          browser: chrome
+
+      - name: Upload screenshots (failures)
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: cypress-screenshots
+          path: client/cypress/screenshots
+          if-no-files-found: ignore
+
+      - name: Upload videos
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cypress-videos
+          path: client/cypress/videos
+          if-no-files-found: ignore

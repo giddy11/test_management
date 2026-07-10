@@ -63,7 +63,7 @@ export default function VerifyEmailPage() {
           error={errors.code?.message}
           {...register("code")}
         />
-        <Button type="submit" className="w-full" disabled={verify.isPending}>
+        <Button type="submit" className="w-full" disabled={verify.isPending} data-cy="verify-submit">
           {verify.isPending ? "Verifying…" : "Verify email"}
         </Button>
       </form>
@@ -73,6 +73,7 @@ export default function VerifyEmailPage() {
           type="button"
           onClick={onResend}
           disabled={resend.isPending}
+          data-cy="verify-resend"
           className="font-medium text-primary hover:underline disabled:opacity-50"
         >
           Resend code

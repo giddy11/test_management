@@ -69,7 +69,7 @@ export function ResultRow({ runId, result, caseTitle, projectId, suiteId, disabl
   const caseUrl = `/projects/${projectId}/suites/${suiteId}/cases/${result.testCaseId}`
 
   return (
-    <div className="rounded-lg border">
+    <div className="rounded-lg border" data-cy="result-row">
       {/* Main row */}
       <div className="flex flex-col gap-3 p-3 sm:flex-row sm:items-start sm:justify-between">
         {onToggle !== undefined && (
@@ -109,6 +109,7 @@ export function ResultRow({ runId, result, caseTitle, projectId, suiteId, disabl
                   key={s}
                   size="sm"
                   variant="outline"
+                  data-cy={`result-${s}`}
                   disabled={disabled || record.isPending}
                   onClick={() => setStatus(s)}
                   className={cn("h-7", active && "border-transparent text-white")}

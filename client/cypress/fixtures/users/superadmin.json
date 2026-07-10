@@ -1,0 +1,20 @@
+{
+  "id": "e2e-superadmin-0001",
+  "firstName": "Sade",
+  "lastName": "Root",
+  "name": "Sade Root",
+  "companyName": null,
+  "email": "sade.root@example.com",
+  "isEmailVerified": true,
+  "onboardingCompleted": true,
+  "role": "superadmin",
+  "isOrgOwner": false,
+  "provider": "local",
+  "avatarUrl": null,
+  "address": null,
+  "city": null,
+  "state": null,
+  "country": null,
+  "createdAt": "2026-01-01T09:00:00.000Z",
+  "lastSeenAt": null
+}

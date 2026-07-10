@@ -54,7 +54,7 @@ export function NotificationBell() {
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className="relative" aria-label="Notifications">
+        <Button variant="ghost" size="icon" className="relative" aria-label="Notifications" data-cy="notification-bell">
           <Bell className="size-4" />
           {count > 0 && (
             <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-medium text-white">
@@ -90,6 +90,7 @@ export function NotificationBell() {
             return (
               <button
                 key={n.id}
+                data-cy="notification-item"
                 onClick={() => onItem(n)}
                 className={cn(
                   "flex w-full items-start gap-2.5 border-b px-3 py-2.5 text-left transition-colors hover:bg-accent",

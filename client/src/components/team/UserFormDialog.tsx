@@ -144,7 +144,7 @@ export function UserFormDialog({ open, onOpenChange, editing }: Props) {
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={pending} data-tour="create-user-submit-btn">
+            <Button type="submit" disabled={pending} data-tour="create-user-submit-btn" data-cy="user-submit">
               {pending ? "Saving…" : isEdit ? "Save changes" : "Add user"}
             </Button>
           </DialogFooter>

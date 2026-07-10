@@ -1,0 +1,20 @@
+[
+  {
+    "id": "e2e-notif-1",
+    "type": "test_assigned",
+    "title": "You were assigned 3 test cases",
+    "body": "In suite Authentication",
+    "data": { "projectId": "e2e-proj-1", "suiteId": "3f2504e0-4f89-41d3-9a0c-0305e82c3301" },
+    "read": false,
+    "createdAt": "2026-07-10T07:30:00.000Z"
+  },
+  {
+    "id": "e2e-notif-2",
+    "type": "run_completed",
+    "title": "Release 1.4 run completed",
+    "body": "18/20 passed",
+    "data": { "projectId": "e2e-proj-1", "runId": "e2e-run-1" },
+    "read": true,
+    "createdAt": "2026-07-09T15:00:00.000Z"
+  }
+]

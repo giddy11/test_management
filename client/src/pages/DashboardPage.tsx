@@ -26,7 +26,7 @@ import type { LucideIcon } from "lucide-react"
 
 function StatCard({ icon: Icon, label, value }: { icon: LucideIcon; label: string; value: number }) {
   return (
-    <Card>
+    <Card data-cy={`stat-${label.toLowerCase().replace(/\s+/g, "-")}`}>
       <CardContent className="flex items-center gap-3 p-4">
         <div className="flex size-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
           <Icon className="size-5" />

@@ -222,7 +222,7 @@ export function BugFormDialog({ open, onOpenChange, projectId }: Props) {
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={create.isPending}>
+            <Button type="submit" disabled={create.isPending} data-cy="bug-submit">
               {create.isPending ? "Submitting…" : "Report bug"}
             </Button>
           </DialogFooter>

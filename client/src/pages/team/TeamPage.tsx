@@ -64,13 +64,14 @@ export default function TeamPage() {
           <h1 className="text-2xl font-semibold tracking-tight">Team</h1>
           <p className="text-sm text-muted-foreground">Manage users in your organisation.</p>
         </div>
-        <Button onClick={openAdd} className="w-full sm:w-auto" data-tour="add-user-btn">
+        <Button onClick={openAdd} className="w-full sm:w-auto" data-tour="add-user-btn" data-cy="add-user">
           <Plus className="mr-1 size-4" /> Add user
         </Button>
       </div>
 
       <Input
         placeholder="Search by name or email…"
+        data-cy="team-search"
         value={search}
         onChange={(e) => {
           setPage(1)
@@ -113,7 +114,7 @@ export default function TeamPage() {
               </TableRow>
             )}
             {users.map((u) => (
-              <TableRow key={u.id}>
+              <TableRow key={u.id} data-cy="user-row">
                 <TableCell className="font-medium">
                   <span className="inline-flex items-center gap-2">
                     <PresenceDot userId={u.id} className="ring-0" />
@@ -145,13 +146,13 @@ export default function TeamPage() {
                 <TableCell className="text-right">
                   {/* The org owner can only be edited by themselves — hide edit for others. */}
                   {(!u.isOrgOwner || u.id === me?.id) && (
-                    <Button variant="ghost" size="sm" onClick={() => openEdit(u)}>
+                    <Button variant="ghost" size="sm" data-cy="user-edit" onClick={() => openEdit(u)}>
                       <Pencil className="size-4" />
                     </Button>
                   )}
                   {/* The organisation owner can't be deactivated — hide the action. */}
                   {u.id !== me?.id && !u.isOrgOwner && (
-                    <Button variant="ghost" size="sm" onClick={() => setDeactivating(u)}>
+                    <Button variant="ghost" size="sm" data-cy="user-deactivate" onClick={() => setDeactivating(u)}>
                       <UserX className="size-4 text-destructive" />
                     </Button>
                   )}

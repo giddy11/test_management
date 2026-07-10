@@ -66,7 +66,7 @@ export function AppSidebar() {
             <SidebarMenu>
               {items.map((item) => (
                 <SidebarMenuItem key={item.to}>
-                  <NavLink to={item.to} data-tour={item.tourId} onClick={closeOnMobile}>
+                  <NavLink to={item.to} data-tour={item.tourId} data-cy={`nav-${item.to.slice(1)}`} onClick={closeOnMobile}>
                     {({ isActive }) => (
                       <SidebarMenuButton tooltip={item.title} isActive={isActive}>
                         <item.icon />
@@ -85,7 +85,7 @@ export function AppSidebar() {
             <SidebarMenu>
               {bottomItems.map((item) => (
                 <SidebarMenuItem key={item.to}>
-                  <NavLink to={item.to} data-tour={item.tourId} onClick={closeOnMobile}>
+                  <NavLink to={item.to} data-tour={item.tourId} data-cy={`nav-${item.to.slice(1)}`} onClick={closeOnMobile}>
                     {({ isActive }) => (
                       <SidebarMenuButton tooltip={item.title} isActive={isActive}>
                         <item.icon />
@@ -108,6 +108,7 @@ export function AppSidebar() {
                 <SidebarMenuButton
                   size="lg"
                   className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+                  data-cy="user-menu"
                 >
                   <Avatar className="size-8 rounded-lg">
                     <AvatarFallback className="rounded-lg">{initials || "U"}</AvatarFallback>
@@ -129,7 +130,7 @@ export function AppSidebar() {
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={logout}>
+                <DropdownMenuItem onClick={logout} data-cy="logout">
                   <LogOut className="mr-2 size-4" />
                   Log out
                 </DropdownMenuItem>

@@ -71,7 +71,7 @@ export function FeatureRequestsTab({ projectId }: { projectId: string }) {
             <SelectItem value="newest">Newest</SelectItem>
           </SelectContent>
         </Select>
-        <Button size="sm" onClick={() => setFormOpen(true)} className="sm:ml-auto">
+        <Button size="sm" onClick={() => setFormOpen(true)} className="sm:ml-auto" data-cy="new-feature-request">
           <Plus className="mr-1 size-4" /> New request
         </Button>
       </div>

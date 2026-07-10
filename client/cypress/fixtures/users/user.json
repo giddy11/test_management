@@ -1,0 +1,20 @@
+{
+  "id": "e2e-user-0001",
+  "firstName": "Uche",
+  "lastName": "Tester",
+  "name": "Uche Tester",
+  "companyName": "Acme QA",
+  "email": "uche.tester@example.com",
+  "isEmailVerified": true,
+  "onboardingCompleted": true,
+  "role": "user",
+  "isOrgOwner": false,
+  "provider": "local",
+  "avatarUrl": null,
+  "address": null,
+  "city": null,
+  "state": null,
+  "country": null,
+  "createdAt": "2026-01-15T09:00:00.000Z",
+  "lastSeenAt": null
+}

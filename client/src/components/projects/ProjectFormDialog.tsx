@@ -134,8 +134,8 @@ export function ProjectFormDialog({ open, onOpenChange, editing }: Props) {
           </DialogDescription>
         </DialogHeader>
         <form className="grid gap-4" onSubmit={handleSubmit(onSubmit)}>
-          <FormField id="name" label="Name" error={errors.name?.message} {...register("name")} />
-          <FormField id="description" label="Description (optional)" {...register("description")} />
+          <FormField id="name" label="Name" data-cy="project-name" error={errors.name?.message} {...register("name")} />
+          <FormField id="description" label="Description (optional)" data-cy="project-description" {...register("description")} />
 
           <div className="space-y-2">
             <Label>Members</Label>
@@ -226,7 +226,7 @@ export function ProjectFormDialog({ open, onOpenChange, editing }: Props) {
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={pending} data-tour="create-project-submit-btn">
+            <Button type="submit" disabled={pending} data-tour="create-project-submit-btn" data-cy="project-submit">
               {pending ? "Saving…" : isEdit ? "Save changes" : "Create project"}
             </Button>
           </DialogFooter>

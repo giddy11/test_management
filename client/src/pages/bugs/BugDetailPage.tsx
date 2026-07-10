@@ -62,10 +62,10 @@ export default function BugDetailPage() {
 
         {canManage && (
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => setManageOpen(true)}>
+            <Button variant="outline" onClick={() => setManageOpen(true)} data-cy="bug-manage">
               <Pencil className="mr-1 size-4" /> Manage
             </Button>
-            <Button variant="outline" onClick={() => setDeleteOpen(true)}>
+            <Button variant="outline" onClick={() => setDeleteOpen(true)} data-cy="bug-delete">
               <Trash2 className="mr-1 size-4 text-destructive" />
             </Button>
           </div>

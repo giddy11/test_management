@@ -89,7 +89,7 @@ export function BugManageDialog({ open, onOpenChange, bug }: Props) {
           <div className="grid gap-1.5">
             <Label>Status</Label>
             <Select value={status} onValueChange={(v) => setStatus(v as BugStatus)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectTrigger data-cy="bug-status"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {BUG_STATUSES.map((s) => (
                   <SelectItem key={s} value={s}>{BUG_STATUS_META[s].label}</SelectItem>
@@ -132,7 +132,7 @@ export function BugManageDialog({ open, onOpenChange, bug }: Props) {
           <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button type="button" onClick={onSubmit} disabled={manage.isPending}>
+          <Button type="button" onClick={onSubmit} disabled={manage.isPending} data-cy="bug-manage-save">
             {manage.isPending ? "Saving…" : "Save"}
           </Button>
         </DialogFooter>

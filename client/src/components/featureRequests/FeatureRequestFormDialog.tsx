@@ -126,7 +126,7 @@ export function FeatureRequestFormDialog({ open, onOpenChange, projectId }: Prop
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={create.isPending}>
+            <Button type="submit" disabled={create.isPending} data-cy="feature-request-submit">
               {create.isPending ? "Submitting…" : "Submit request"}
             </Button>
           </DialogFooter>

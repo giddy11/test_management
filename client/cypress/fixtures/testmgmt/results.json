@@ -1,0 +1,34 @@
+[
+  {
+    "id": "e2e-result-1",
+    "runId": "e2e-run-1",
+    "testCaseId": "e2e-case-1",
+    "caseTitle": "Valid login",
+    "caseDescription": "User signs in with correct credentials",
+    "casePriority": "High",
+    "caseSteps": ["Open the login page", "Enter valid credentials", "Click submit"],
+    "caseExpectedResult": "Dashboard is shown",
+    "caseTags": ["smoke"],
+    "status": null,
+    "actualResult": null,
+    "notes": null,
+    "executedById": null,
+    "executedAt": null
+  },
+  {
+    "id": "e2e-result-2",
+    "runId": "e2e-run-1",
+    "testCaseId": "e2e-case-2",
+    "caseTitle": "Invalid login shows error",
+    "caseDescription": null,
+    "casePriority": "Medium",
+    "caseSteps": ["Open the login page", "Enter a wrong password", "Click submit"],
+    "caseExpectedResult": "An error toast appears",
+    "caseTags": [],
+    "status": null,
+    "actualResult": null,
+    "notes": null,
+    "executedById": null,
+    "executedAt": null
+  }
+]

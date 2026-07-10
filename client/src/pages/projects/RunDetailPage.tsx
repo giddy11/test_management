@@ -161,12 +161,12 @@ export default function RunDetailPage() {
         </div>
         {completed ? (
           canManage && (
-            <Button variant="outline" onClick={toggleStatus} disabled={updateRun.isPending}>
+            <Button variant="outline" onClick={toggleStatus} disabled={updateRun.isPending} data-cy="run-reopen">
               <RotateCcw className="mr-1 size-4" /> Reopen
             </Button>
           )
         ) : (
-          <Button onClick={toggleStatus} disabled={updateRun.isPending}>
+          <Button onClick={toggleStatus} disabled={updateRun.isPending} data-cy="run-complete">
             <CheckCircle2 className="mr-1 size-4" /> Mark completed
           </Button>
         )}

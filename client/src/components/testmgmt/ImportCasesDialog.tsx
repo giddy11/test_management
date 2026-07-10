@@ -102,7 +102,7 @@ export function ImportCasesDialog({ open, onOpenChange, suiteId }: Props) {
         {!preview ? (
           <div className="space-y-4">
             <div className="flex flex-wrap items-center gap-2">
-              <Button variant="outline" size="sm" onClick={downloadTemplate}>
+              <Button variant="outline" size="sm" onClick={downloadTemplate} data-cy="import-template">
                 <Download className="mr-1 size-4" /> Download template
               </Button>
               <input
@@ -110,9 +110,10 @@ export function ImportCasesDialog({ open, onOpenChange, suiteId }: Props) {
                 type="file"
                 accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 hidden
+                data-cy="import-file"
                 onChange={onPick}
               />
-              <Button size="sm" disabled={upload.isPending} onClick={() => inputRef.current?.click()}>
+              <Button size="sm" disabled={upload.isPending} onClick={() => inputRef.current?.click()} data-cy="import-pick">
                 <Upload className="mr-1 size-4" /> {upload.isPending ? "Parsing…" : "Choose .xlsx file"}
               </Button>
               {fileName && (
@@ -223,7 +224,7 @@ export function ImportCasesDialog({ open, onOpenChange, suiteId }: Props) {
           {preview ? (
             <>
               <Button variant="ghost" onClick={reset}>Back</Button>
-              <Button onClick={onConfirm} disabled={confirm.isPending || preview.totalRows === 0}>
+              <Button onClick={onConfirm} disabled={confirm.isPending || preview.totalRows === 0} data-cy="import-confirm">
                 {confirm.isPending
                   ? "Importing…"
                   : preview.totalRows === 0

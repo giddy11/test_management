@@ -66,7 +66,7 @@ export default function ResetPasswordPage() {
           error={errors.newPassword?.message}
           {...register("newPassword")}
         />
-        <Button type="submit" className="w-full" disabled={reset.isPending}>
+        <Button type="submit" className="w-full" disabled={reset.isPending} data-cy="reset-submit">
           {reset.isPending ? "Resetting…" : "Reset password"}
         </Button>
       </form>

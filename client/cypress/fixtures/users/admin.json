@@ -1,0 +1,20 @@
+{
+  "id": "e2e-admin-0001",
+  "firstName": "Ada",
+  "lastName": "Admin",
+  "name": "Ada Admin",
+  "companyName": "Acme QA",
+  "email": "ada.admin@example.com",
+  "isEmailVerified": true,
+  "onboardingCompleted": true,
+  "role": "admin",
+  "isOrgOwner": true,
+  "provider": "local",
+  "avatarUrl": null,
+  "address": null,
+  "city": null,
+  "state": null,
+  "country": null,
+  "createdAt": "2026-01-10T09:00:00.000Z",
+  "lastSeenAt": null
+}

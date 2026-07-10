@@ -40,10 +40,11 @@ export default function ForgotPasswordPage() {
           type="email"
           autoComplete="email"
           placeholder="you@company.com"
+          data-cy="forgot-email"
           error={errors.email?.message}
           {...register("email")}
         />
-        <Button type="submit" className="w-full" disabled={forgot.isPending}>
+        <Button type="submit" className="w-full" disabled={forgot.isPending} data-cy="forgot-submit">
           {forgot.isPending ? "Sending…" : "Send reset code"}
         </Button>
       </form>

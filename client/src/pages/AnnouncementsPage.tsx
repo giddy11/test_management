@@ -165,6 +165,7 @@ function SiteBannerCard() {
                 size="sm"
                 onClick={() => deactivate.mutate()}
                 disabled={deactivate.isPending}
+                data-cy="banner-off"
               >
                 {deactivate.isPending ? "Turning off…" : "Turn off"}
               </Button>
@@ -222,6 +223,7 @@ function SiteBannerCard() {
                   !message.trim() ||
                   (audience === "custom" && recipientIds.size === 0)
                 }
+                data-cy="banner-on"
               >
                 {activate.isPending ? "Turning on…" : "Turn on"}
               </Button>
@@ -436,7 +438,7 @@ export default function AnnouncementsPage() {
               >
                 <Plus className="size-3.5" /> Add another update
               </Button>
-              <Button type="submit" disabled={publishAll.isPending || completeDrafts.length === 0}>
+              <Button type="submit" disabled={publishAll.isPending || completeDrafts.length === 0} data-cy="publish-updates">
                 {publishAll.isPending
                   ? "Publishing…"
                   : completeDrafts.length > 1
