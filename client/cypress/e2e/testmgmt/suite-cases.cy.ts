@@ -1,4 +1,4 @@
-import { listMeta, ok } from "../../support/api"
+import { apiPath, listMeta, ok } from "../../support/api"
 
 const PROJECT_ID = "e2e-proj-1"
 const SUITE_ID = "3f2504e0-4f89-41d3-9a0c-0305e82c3301"
@@ -86,6 +86,77 @@ describe("Suite detail — test cases", () => {
 
     cy.wait("@deleteCase")
     cy.contains("Test case deleted").should("be.visible")
+  })
+
+  it("keeps checked cases selected across pages so a bulk action can span more than one page", () => {
+    // 22 cases over two pages (limit 20) — enough to force pagination.
+    const makeCase = (id: string, title: string) => ({
+      id,
+      title,
+      description: null,
+      steps: ["Step"],
+      expectedResult: "OK",
+      priority: "Medium",
+      status: "Active",
+      suiteId: SUITE_ID,
+      assignees: [],
+      tags: [],
+      deadline: null,
+      attachmentCount: 0,
+      latestResultStatus: null,
+      createdAt: "2026-03-02T09:00:00.000Z",
+    })
+    const page1 = Array.from({ length: 20 }, (_, i) => makeCase(`page1-case-${i + 1}`, `Case ${i + 1}`))
+    const page2 = [makeCase("page2-case-1", "Case 21"), makeCase("page2-case-2", "Case 22")]
+
+    cy.intercept("GET", apiPath("/test-cases"), (req) => {
+      const onPage2 = req.query.page === "2"
+      req.reply({ statusCode: 200, body: ok(onPage2 ? page2 : page1, listMeta(22, onPage2 ? 2 : 1, 20)) })
+    }).as("casesPaged")
+    cy.fixture("projects/list").then((projects) => {
+      cy.interceptApi(
+        "GET",
+        `/projects/${PROJECT_ID}`,
+        { body: ok({ ...projects[0], members: [{ id: "e2e-user-0002", name: "Bola Runner", email: "bola.runner@example.com", role: "member" }] }) },
+        "project"
+      )
+    })
+
+    cy.visit(`/projects/${PROJECT_ID}/suites/${SUITE_ID}`)
+    cy.wait("@casesPaged")
+    cy.dataCy("case-row").should("have.length", 20)
+
+    cy.get('[aria-label="Select Case 1"]').click()
+    cy.get('[aria-label="Select Case 2"]').click()
+    cy.contains("Assignees (2)").should("be.visible")
+
+    cy.contains("button", "Next").click()
+    cy.wait("@casesPaged")
+    cy.dataCy("case-row").should("have.length", 2)
+
+    // The page-1 picks are still counted even though those rows aren't rendered anymore.
+    cy.contains("Assignees (2)").should("be.visible")
+    cy.get('[aria-label="Select Case 21"]').click()
+    cy.contains("Assignees (3)").should("be.visible")
+
+    cy.interceptApi(
+      "PATCH",
+      "/test-cases/assignees/bulk",
+      { body: ok({ assignedCount: 3 }) },
+      "bulkAssign"
+    )
+
+    cy.contains("Assignees (3)").click()
+    cy.wait("@project")
+    cy.contains("Manage assignees — 3 test cases").should("be.visible")
+    cy.get('[role="dialog"]').within(() => {
+      cy.contains("Bola Runner").click()
+      cy.contains("button", "Add to 3 cases").click()
+    })
+
+    cy.wait("@bulkAssign")
+      .its("request.body.caseIds")
+      .should("have.members", ["page1-case-1", "page1-case-2", "page2-case-1"])
   })
 
   it("hides management actions from regular users", () => {

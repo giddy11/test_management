@@ -73,9 +73,13 @@ export default function SuiteDetailPage() {
       onSuccess: () => toast.success("Export downloaded"),
     })
 
-  // selection (per page)
-  const [selected, setSelected] = useState<Set<string>>(new Set())
-  useEffect(() => setSelected(new Set()), [page, search, priority, status, runStatus])
+  // Selection persists across pages (keyed by id, storing the case itself so
+  // bulk actions still work for pages that are no longer loaded) — otherwise
+  // paging through more than one screen's worth of cases would silently drop
+  // the earlier page's picks. Only a filter/search change clears it, since
+  // that changes what "selected" is scoped to.
+  const [selected, setSelected] = useState<Map<string, TestCase>>(new Map())
+  useEffect(() => setSelected(new Map()), [search, priority, status, runStatus])
 
   const [formOpen, setFormOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
@@ -91,15 +95,15 @@ export default function SuiteDetailPage() {
   const allOnPageSelected = cases.length > 0 && cases.every((c) => selected.has(c.id))
   const toggleAll = () =>
     setSelected((prev) => {
-      const next = new Set(prev)
+      const next = new Map(prev)
       if (cases.every((c) => prev.has(c.id))) cases.forEach((c) => next.delete(c.id))
-      else cases.forEach((c) => next.add(c.id))
+      else cases.forEach((c) => next.set(c.id, c))
       return next
     })
-  const toggleOne = (id: string) =>
+  const toggleOne = (tc: TestCase) =>
     setSelected((prev) => {
-      const next = new Set(prev)
-      next.has(id) ? next.delete(id) : next.add(id)
+      const next = new Map(prev)
+      next.has(tc.id) ? next.delete(tc.id) : next.set(tc.id, tc)
       return next
     })
 
@@ -222,7 +226,7 @@ export default function SuiteDetailPage() {
                   <TableCell onClick={(e) => e.stopPropagation()}>
                     <Checkbox
                       checked={selected.has(tc.id)}
-                      onCheckedChange={() => toggleOne(tc.id)}
+                      onCheckedChange={() => toggleOne(tc)}
                       aria-label={`Select ${tc.title}`}
                     />
                   </TableCell>
@@ -340,12 +344,10 @@ export default function SuiteDetailPage() {
         open={bulkAssignOpen}
         onOpenChange={(o) => {
           setBulkAssignOpen(o)
-          if (!o) setSelected(new Set())
+          if (!o) setSelected(new Map())
         }}
         projectId={projectId}
-        bulkCases={cases
-          .filter((c) => selected.has(c.id))
-          .map((c) => ({ id: c.id, existingAssigneeIds: c.assignees.map((a) => a.id) }))}
+        bulkCases={[...selected.values()].map((c) => ({ id: c.id, existingAssigneeIds: c.assignees.map((a) => a.id) }))}
       />
 
       <ConfirmDialog
@@ -372,11 +374,11 @@ export default function SuiteDetailPage() {
         confirmLabel={`Delete ${selected.size}`}
         loading={bulkDel.isPending}
         onConfirm={() =>
-          bulkDel.mutate([...selected], {
+          bulkDel.mutate([...selected.keys()], {
             onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
             onSuccess: (res) => {
               toast.success(`Deleted ${res.deleted} test case${res.deleted === 1 ? "" : "s"}`)
-              setSelected(new Set())
+              setSelected(new Map())
               setBulkOpen(false)
             },
           })
