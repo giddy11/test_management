@@ -4,6 +4,21 @@ import type { CreateAppUpdateData } from "../repositories/appUpdate.repository";
 import type { Actor } from "../../../shared/types/actor";
 
 const { AuthRepository } = require("../../auth/repositories/auth.repository");
+const { getIO, emitToRoom, emitToUsers } = require("../../../infrastructure/realtime/socketServer");
+
+// Tells exactly the announcement's target audience to refetch their unseen
+// list live — global emit for "all", the shared "admins" room for "admins",
+// or a direct per-recipient push for "custom". Recipients with no open
+// socket simply pick it up on their next load, same as the site banner.
+function broadcastPublished(update: { audience: string; recipientIds?: string[] | null }) {
+  if (update.audience === "all") {
+    getIO()?.emit("app-update:published", {});
+  } else if (update.audience === "admins") {
+    emitToRoom("admins", "app-update:published", {});
+  } else {
+    emitToUsers(update.recipientIds ?? [], "app-update:published", {});
+  }
+}
 
 export class AppUpdateService {
   static Instance = new AppUpdateService();
@@ -20,15 +35,20 @@ export class AppUpdateService {
   }
 
   // Superadmin publishes an announcement, targeted at all users, all admins,
-  // or a hand-picked list; recipients will see it on next load.
+  // or a hand-picked list; a live socket push nudges recipients to refetch
+  // immediately, with next-load fetch as the fallback for anyone offline.
   async createUpdate(data: CreateAppUpdateData) {
-    return this.updateRepo.create(data);
+    const update = await this.updateRepo.create(data);
+    broadcastPublished(update);
+    return update;
   }
 
   // Publishes a batch of announcements in one action — e.g. a release's worth
   // of updates drafted together and published all at once.
   async createBulkUpdates(items: CreateAppUpdateData[]) {
-    return this.updateRepo.createMany(items);
+    const updates = await this.updateRepo.createMany(items);
+    updates.forEach(broadcastPublished);
+    return updates;
   }
 
   async fetchAll() {

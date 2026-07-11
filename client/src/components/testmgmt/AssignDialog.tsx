@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { useUsers } from "@/hooks/useUsers"
+import { useProject } from "@/hooks/useProjects"
 import { useAssignCase, useBulkAssignCases } from "@/hooks/useCases"
 import { ApiError } from "@/transport/http"
 import type { TestCase } from "@/types/testMgmt.types"
@@ -27,14 +27,15 @@ interface BulkCase {
 interface Props {
   open: boolean
   onOpenChange: (open: boolean) => void
+  projectId: string
   testCase?: TestCase | null   // single-case mode
   bulkCases?: BulkCase[]       // bulk mode — takes priority when provided
 }
 
-export function AssignDialog({ open, onOpenChange, testCase, bulkCases }: Props) {
+export function AssignDialog({ open, onOpenChange, projectId, testCase, bulkCases }: Props) {
   const isBulk = Boolean(bulkCases && bulkCases.length > 0)
-  const { data, isError, error } = useUsers({ limit: 100 })
-  const users = data?.data ?? []
+  const { data: project, isError, error } = useProject(projectId)
+  const users = project?.members ?? []
   const assign = useAssignCase()
   const bulkAssign = useBulkAssignCases()
 
@@ -185,7 +186,7 @@ export function AssignDialog({ open, onOpenChange, testCase, bulkCases }: Props)
             </p>
           )}
           {filtered.map((u) => {
-            const initials = `${u.firstName?.[0] ?? ""}${u.lastName?.[0] ?? ""}`.toUpperCase()
+            const initials = u.name.split(" ").map((p) => p[0]).slice(0, 2).join("").toUpperCase()
             return (
               <label
                 key={u.id}

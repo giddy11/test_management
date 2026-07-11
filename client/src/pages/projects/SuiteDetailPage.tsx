@@ -330,13 +330,19 @@ export default function SuiteDetailPage() {
 
       <CaseFormDialog open={formOpen} onOpenChange={setFormOpen} suiteId={suiteId} editing={editing} />
       <ImportCasesDialog open={importOpen} onOpenChange={setImportOpen} suiteId={suiteId} />
-      <AssignDialog open={Boolean(assigning)} onOpenChange={(o) => !o && setAssigning(null)} testCase={assigning} />
+      <AssignDialog
+        open={Boolean(assigning)}
+        onOpenChange={(o) => !o && setAssigning(null)}
+        projectId={projectId}
+        testCase={assigning}
+      />
       <AssignDialog
         open={bulkAssignOpen}
         onOpenChange={(o) => {
           setBulkAssignOpen(o)
           if (!o) setSelected(new Set())
         }}
+        projectId={projectId}
         bulkCases={cases
           .filter((c) => selected.has(c.id))
           .map((c) => ({ id: c.id, existingAssigneeIds: c.assignees.map((a) => a.id) }))}

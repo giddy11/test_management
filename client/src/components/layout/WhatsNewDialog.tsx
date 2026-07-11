@@ -14,6 +14,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { wrapCall } from "@/transport/http"
 import { useAuth } from "@/contexts/AuthContext"
+import { connectSocket } from "@/lib/socket"
 
 interface AppUpdate {
   id: string
@@ -43,6 +44,18 @@ export function WhatsNewDialog() {
     mutationFn: () => wrapCall<null>("POST", "/api/v1/app-updates/seen"),
     onSettled: () => qc.setQueryData(UNSEEN_KEY, []),
   })
+
+  // connectSocket() is idempotent — reuses the same connection PresenceProvider
+  // opens, rather than racing it to create a second one.
+  useEffect(() => {
+    if (!user) return
+    const socket = connectSocket()
+    const onPublished = () => qc.invalidateQueries({ queryKey: UNSEEN_KEY })
+    socket.on("app-update:published", onPublished)
+    return () => {
+      socket.off("app-update:published", onPublished)
+    }
+  }, [user, qc])
 
   useEffect(() => {
     if (updates.length > 0) setOpen(true)
