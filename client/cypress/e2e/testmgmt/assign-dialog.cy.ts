@@ -1,4 +1,4 @@
-import { listMeta, ok } from "../../support/api"
+import { fail, listMeta, ok } from "../../support/api"
 
 // Regression coverage for a bug where GET /api/v1/users was gated to
 // admin/superadmin only. Project team leads are plain app-role "user"s (their
@@ -118,6 +118,41 @@ describe("Assign dialog — project lead access", () => {
       .its("request.body")
       .should("deep.equal", { userIds: ["e2e-user-0002"], deadline: null })
     cy.contains("Assignees updated").should("be.visible")
+  })
+
+  it("surfaces an error and leaves assignees untouched when the target user is mid-run", () => {
+    // Server-side guard: a user currently executing a test run can't be
+    // handed new work until it completes (avoids distracting them mid-run).
+    cy.fixture("projects/list").then((projects) => {
+      cy.interceptApi(
+        "GET",
+        `/projects/${PROJECT_ID}`,
+        { body: ok({ ...projects[0], members: MEMBERS }) },
+        "project"
+      )
+    })
+    cy.interceptApi(
+      "PATCH",
+      "/test-cases/e2e-case-2/assignees",
+      { statusCode: 409, body: fail("Bola Runner is currently executing a test run and can't be assigned new work until it's completed", 409) },
+      "assignBlocked"
+    )
+
+    cy.visit(`/projects/${PROJECT_ID}/suites/${SUITE_ID}`)
+    cy.wait("@cases")
+
+    cy.contains('[data-cy="case-row"]', "Invalid login shows error").within(() => {
+      cy.dataCy("case-assign").click()
+    })
+    cy.wait("@project")
+    cy.get('[role="dialog"]').within(() => {
+      cy.contains("Bola Runner").click()
+      cy.contains("button", "Assign 1").click()
+    })
+
+    cy.wait("@assignBlocked")
+    // Scope to the toast — sonner also renders a hidden screen-reader copy.
+    cy.get("[data-sonner-toast]").should("contain.text", "currently executing a test run")
   })
 
   it("hides management actions entirely rather than crashing when the project can't be loaded", () => {

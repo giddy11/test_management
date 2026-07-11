@@ -41,6 +41,10 @@ function makeAuthRepo() {
   return { findUserById: jest.fn() };
 }
 
+function makeRunResultRepo() {
+  return { findBusyUserIds: jest.fn().mockResolvedValue(new Set()) };
+}
+
 const admin = { id: "owner-1", role: "admin", organizationId: "org-1" };
 const member = { id: "u-9", role: "user", organizationId: "org-1" };
 
@@ -57,13 +61,15 @@ describe("TestCaseService", () => {
   let tcRepo;
   let suiteService;
   let authRepo;
+  let runResultRepo;
   let service;
 
   beforeEach(() => {
     tcRepo = makeTcRepo();
     suiteService = makeSuiteService();
     authRepo = makeAuthRepo();
-    service = new TestCaseService(tcRepo, suiteService, authRepo);
+    runResultRepo = makeRunResultRepo();
+    service = new TestCaseService(tcRepo, suiteService, authRepo, runResultRepo);
   });
 
   describe("fetchTestCases", () => {
@@ -155,6 +161,37 @@ describe("TestCaseService", () => {
         service.assignUsers(admin, "tc-1", { userIds: ["ghost"] })
       ).rejects.toMatchObject({ statusCode: 404 });
     });
+
+    it("rejects assigning a user who is currently executing a test run", async () => {
+      tcRepo.findById.mockResolvedValue({ ...testCase, assignees: [] });
+      authRepo.findUserById.mockResolvedValue({
+        id: "u-9",
+        firstName: "Bola",
+        lastName: "Runner",
+        organizationId: "org-1",
+      });
+      runResultRepo.findBusyUserIds.mockResolvedValue(new Set(["u-9"]));
+
+      await expect(
+        service.assignUsers(admin, "tc-1", { userIds: ["u-9"] })
+      ).rejects.toMatchObject({ statusCode: 409 });
+      expect(tcRepo.setAssignees).not.toHaveBeenCalled();
+    });
+
+    it("does not re-check a user who is already assigned, even if now busy", async () => {
+      // u-9 is already on the case; re-saving (e.g. just to add a deadline)
+      // isn't a new distraction, so a busy status shouldn't block it.
+      tcRepo.findById.mockResolvedValue({ ...testCase, assignees: [{ id: "u-9" }] });
+      authRepo.findUserById.mockResolvedValue({ id: "u-9", organizationId: "org-1" });
+      tcRepo.setAssignees.mockImplementation(async (tc, users) => ({ ...tc, assignees: users }));
+      runResultRepo.findBusyUserIds.mockResolvedValue(new Set(["u-9"]));
+
+      await expect(
+        service.assignUsers(admin, "tc-1", { userIds: ["u-9"] })
+      ).resolves.toBeTruthy();
+      expect(runResultRepo.findBusyUserIds).not.toHaveBeenCalled();
+      expect(tcRepo.setAssignees).toHaveBeenCalled();
+    });
   });
 
   describe("bulkAssignUsers", () => {
@@ -220,6 +257,44 @@ describe("TestCaseService", () => {
         service.bulkAssignUsers(admin, { caseIds: ["tc-x"], userIds: ["u-9"] })
       ).rejects.toMatchObject({ statusCode: 404 });
       expect(tcRepo.addAssignees).not.toHaveBeenCalled();
+    });
+
+    it("rejects bulk-adding a user who is currently executing a test run", async () => {
+      runResultRepo.findBusyUserIds.mockResolvedValue(new Set(["u-9"]));
+
+      await expect(
+        service.bulkAssignUsers(admin, { caseIds: ["tc-1", "tc-2"], userIds: ["u-9"] })
+      ).rejects.toMatchObject({ statusCode: 409 });
+      expect(tcRepo.addAssignees).not.toHaveBeenCalled();
+    });
+
+    it("does not block a bulk 'remove' just because the user is busy", async () => {
+      runResultRepo.findBusyUserIds.mockResolvedValue(new Set(["u-9"]));
+
+      const result = await service.bulkAssignUsers(admin, {
+        caseIds: ["tc-1", "tc-2"],
+        userIds: ["u-9"],
+        mode: "remove",
+      });
+
+      expect(tcRepo.removeAssignees).toHaveBeenCalledWith(["tc-1", "tc-2"], ["u-9"]);
+      expect(result).toEqual({ assignedCount: 2, mode: "remove" });
+    });
+
+    it("does not re-check a user already assigned to every case in the selection", async () => {
+      // u-9 is already on both cases, so nothing new is being added — a busy
+      // status shouldn't block re-adding them (e.g. as part of a mixed batch).
+      tcRepo.findExistingAssigneePairs.mockResolvedValue(new Set(["tc-1:u-9", "tc-2:u-9"]));
+      runResultRepo.findBusyUserIds.mockResolvedValue(new Set(["u-9"]));
+
+      const result = await service.bulkAssignUsers(admin, {
+        caseIds: ["tc-1", "tc-2"],
+        userIds: ["u-9"],
+      });
+
+      expect(runResultRepo.findBusyUserIds).not.toHaveBeenCalled();
+      expect(tcRepo.addAssignees).toHaveBeenCalledWith(["tc-1", "tc-2"], ["u-9"]);
+      expect(result).toEqual({ assignedCount: 2, mode: "add" });
     });
   });
 

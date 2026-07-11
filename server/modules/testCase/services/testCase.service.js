@@ -2,6 +2,7 @@
 const { TestCaseRepository } = require("../repositories/testCase.repository");
 const { TestSuiteService } = require("../../testSuite/services/testSuite.service");
 const { AuthRepository } = require("../../auth/repositories/auth.repository");
+const { TestRunResultRepository } = require("../../testRunResult/repositories/testRunResult.repository");
 const { NotificationService } = require("../../notification/services/notification.service");
 const { ActivityService } = require("../../activity/services/activity.service");
 const { AppError } = require("../../../shared/errors/AppError");
@@ -26,11 +27,29 @@ class TestCaseService {
   constructor(
     tcRepo = TestCaseRepository.Instance,
     suiteService = TestSuiteService.Instance,
-    authRepo = AuthRepository.Instance
+    authRepo = AuthRepository.Instance,
+    runResultRepo = TestRunResultRepository.Instance
   ) {
     this.tcRepo = tcRepo;
     this.suiteService = suiteService;
     this.authRepo = authRepo;
+    this.runResultRepo = runResultRepo;
+  }
+
+  // Throws 409 if any of these users currently has a result recorded against
+  // a run that's still in progress — piling on a new assignment mid-run would
+  // distract them. Only call this with users being newly added; someone
+  // already on the case isn't a new distraction and stays exempt.
+  async assertNotBusy(users) {
+    if (!users.length) return;
+    const busyIds = await this.runResultRepo.findBusyUserIds(users.map((u) => u.id));
+    if (!busyIds.size) return;
+    const busyUsers = users.filter((u) => busyIds.has(u.id));
+    const verb = busyUsers.length === 1 ? "is" : "are";
+    throw new AppError(
+      `${userLabel(busyUsers)} ${verb} currently executing a test run and can't be assigned new work until it's completed`,
+      409
+    );
   }
 
   // A plain "user" only sees cases assigned to them; admins/superadmin see all.
@@ -139,13 +158,14 @@ class TestCaseService {
       users.push(user);
     }
 
+    const addedUsers = users.filter((u) => !before.has(u.id)); // newly assigned
+    await this.assertNotBusy(addedUsers);
+
     let saved = await this.tcRepo.setAssignees(tc, users.map((u) => ({ id: u.id })));
 
     if (deadline !== undefined) {
       saved = await this.tcRepo.update(saved.id, { deadline: deadline ?? null });
     }
-
-    const addedUsers = users.filter((u) => !before.has(u.id)); // newly assigned
 
     ActivityService.Instance.log(actor, {
       action: "test_case.assigned",
@@ -234,13 +254,16 @@ class TestCaseService {
       }
     }
 
+    const newlyAssignedUsers = users.filter((u) => newlyAssignedUserIds.has(u.id));
+    await this.assertNotBusy(newlyAssignedUsers);
+
     await this.tcRepo.addAssignees(validIds, userIds);
     if (deadline !== undefined) {
       await this.tcRepo.setDeadlineForMany(validIds, deadline ?? null);
     }
 
     // Actor excluded — nobody is notified about their own action.
-    const addedUsers = users.filter((u) => newlyAssignedUserIds.has(u.id) && u.id !== actor.id);
+    const addedUsers = newlyAssignedUsers.filter((u) => u.id !== actor.id);
     if (addedUsers.length) {
       const me = await this.authRepo.findUserById(actor.id);
       const assignedByName = me

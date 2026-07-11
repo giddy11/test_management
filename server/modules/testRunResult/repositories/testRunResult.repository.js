@@ -2,6 +2,7 @@
 const { AppDataSource } = require("../../../infrastructure/database/dataSource");
 const { TestRunResult } = require("../entities/testRunResult.entity");
 const { buildMeta, getOffset } = require("../../../shared/pagination/paginate");
+const { RunStatus } = require("../../../config/constants");
 
 class TestRunResultRepository {
   static Instance = new TestRunResultRepository();
@@ -103,6 +104,22 @@ class TestRunResultRepository {
       },
       { total: 0 }
     );
+  }
+
+  // Which of these users have recorded at least one result in a run that's
+  // still in progress — i.e. actively executing right now. There's no
+  // explicit "session" concept, so a still-open run they've touched is the
+  // best available proxy for "currently busy".
+  async findBusyUserIds(userIds) {
+    if (!userIds.length) return new Set();
+    const rows = await this.repo
+      .createQueryBuilder("result")
+      .innerJoin("result.run", "run")
+      .select("DISTINCT result.executedById", "userId")
+      .where("result.executedById IN (:...userIds)", { userIds })
+      .andWhere("run.status = :status", { status: RunStatus.IN_PROGRESS })
+      .getRawMany();
+    return new Set(rows.map((r) => r.userId));
   }
 }
 
