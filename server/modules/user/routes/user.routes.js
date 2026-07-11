@@ -11,11 +11,12 @@ const {
 } = require("../validators/user.schema");
 const { UserController } = require("../controllers/user.controller");
 
-// Company member management — admins and superadmins only.
+// Listing company members — any authenticated member (e.g. project leads picking
+// assignees) needs this; mutation routes below stay admin/superadmin only.
 router.get(
   "/",
   authMiddleware,
-  authorise("superadmin", "admin"),
+  authorise("superadmin", "admin", "user"),
   validate(fetchUsersSchema),
   UserController.fetchAll
 );

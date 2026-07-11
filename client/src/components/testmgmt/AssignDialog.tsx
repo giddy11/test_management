@@ -33,7 +33,7 @@ interface Props {
 
 export function AssignDialog({ open, onOpenChange, testCase, bulkCases }: Props) {
   const isBulk = Boolean(bulkCases && bulkCases.length > 0)
-  const { data } = useUsers({ limit: 100 })
+  const { data, isError, error } = useUsers({ limit: 100 })
   const users = data?.data ?? []
   const assign = useAssignCase()
   const bulkAssign = useBulkAssignCases()
@@ -174,7 +174,12 @@ export function AssignDialog({ open, onOpenChange, testCase, bulkCases }: Props)
         />
 
         <div className="max-h-60 space-y-1 overflow-y-auto">
-          {filtered.length === 0 && (
+          {isError && (
+            <p className="py-6 text-center text-sm text-destructive">
+              {error instanceof ApiError ? error.message : "Failed to load users."}
+            </p>
+          )}
+          {!isError && filtered.length === 0 && (
             <p className="py-6 text-center text-sm text-muted-foreground">
               {isRemove ? "No users are assigned to the selected cases." : "No users found."}
             </p>
