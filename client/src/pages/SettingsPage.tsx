@@ -1,22 +1,30 @@
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { useForm } from "react-hook-form"
 import { toast } from "sonner"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "react-router-dom"
 import { User, Lock, LifeBuoy } from "lucide-react"
+import { Country, State, City } from "country-state-city"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { AuthEndpoints } from "@/endpoints/auth.endpoints"
 import { ApiError } from "@/transport/http"
 import { useAuth } from "@/contexts/AuthContext"
 import { useGuideTour } from "@/hooks/useGuideTour"
 import { useUpdateOnboardingStatus } from "@/hooks/useOnboarding"
 import { useProjects } from "@/hooks/useProjects"
-import { ALL_GUIDES, DASHBOARD_GUIDE, SUITES_AND_RUNS_GUIDE, type TourGuide } from "@/lib/tourGuides"
+import { ALL_GUIDES, DASHBOARD_GUIDE, type TourGuide } from "@/lib/tourGuides"
 import { type ChangePasswordPayload, type UpdateProfilePayload } from "@/types/auth.types"
 
 // ── Profile tab ───────────────────────────────────────────────────────────────
@@ -28,6 +36,8 @@ function ProfileTab() {
   const {
     register,
     handleSubmit,
+    watch,
+    setValue,
     formState: { isDirty },
   } = useForm<UpdateProfilePayload>({
     defaultValues: {
@@ -40,6 +50,56 @@ function ProfileTab() {
       country: user?.country ?? "",
     },
   })
+
+  const countryName = watch("country")
+  const stateName = watch("state")
+  const cityName = watch("city")
+
+  // Country/state/city names are stored as free text, so an existing value
+  // that doesn't match the library's canonical name (e.g. entered before this
+  // dropdown existed) is kept as a selectable option instead of disappearing.
+  const countries = useMemo(() => {
+    const list = Country.getAllCountries()
+    if (countryName && !list.some((c) => c.name === countryName)) {
+      return [{ name: countryName, isoCode: "" }, ...list]
+    }
+    return list
+  }, [countryName])
+
+  const selectedCountry = countries.find((c) => c.name === countryName)
+
+  const states = useMemo(() => {
+    const list = selectedCountry?.isoCode ? State.getStatesOfCountry(selectedCountry.isoCode) : []
+    if (stateName && !list.some((s) => s.name === stateName)) {
+      return [{ name: stateName, isoCode: "", countryCode: selectedCountry?.isoCode ?? "" }, ...list]
+    }
+    return list
+  }, [selectedCountry, stateName])
+
+  const selectedState = states.find((s) => s.name === stateName)
+
+  const cities = useMemo(() => {
+    const list = selectedState?.isoCode && selectedCountry?.isoCode
+      ? City.getCitiesOfState(selectedCountry.isoCode, selectedState.isoCode)
+      : selectedCountry?.isoCode
+        ? (City.getCitiesOfCountry(selectedCountry.isoCode) ?? [])
+        : []
+    if (cityName && !list.some((c) => c.name === cityName)) {
+      return [{ name: cityName, countryCode: "", stateCode: "" }, ...list]
+    }
+    return list
+  }, [selectedCountry, selectedState, cityName])
+
+  const handleCountryChange = (name: string) => {
+    setValue("country", name, { shouldDirty: true })
+    setValue("state", "", { shouldDirty: true })
+    setValue("city", "", { shouldDirty: true })
+  }
+  const handleStateChange = (name: string) => {
+    setValue("state", name, { shouldDirty: true })
+    setValue("city", "", { shouldDirty: true })
+  }
+  const handleCityChange = (name: string) => setValue("city", name, { shouldDirty: true })
 
   const update = useMutation({
     mutationFn: (payload: UpdateProfilePayload) => AuthEndpoints.updateProfile(payload),
@@ -109,15 +169,42 @@ function ProfileTab() {
           <div className="grid gap-4 sm:grid-cols-3">
             <div className="space-y-1.5">
               <Label htmlFor="city">City</Label>
-              <Input id="city" {...register("city")} placeholder="Optional" />
+              <Select value={cityName || undefined} onValueChange={handleCityChange} disabled={!selectedCountry}>
+                <SelectTrigger id="city" className="w-full">
+                  <SelectValue placeholder={selectedCountry ? "Optional" : "Select a country first"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {cities.map((c) => (
+                    <SelectItem key={`${c.stateCode}-${c.name}`} value={c.name}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="state">State / Province</Label>
-              <Input id="state" {...register("state")} placeholder="Optional" />
+              <Select value={stateName || undefined} onValueChange={handleStateChange} disabled={!selectedCountry}>
+                <SelectTrigger id="state" className="w-full">
+                  <SelectValue placeholder={selectedCountry ? "Optional" : "Select a country first"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {states.map((s) => (
+                    <SelectItem key={s.isoCode || s.name} value={s.name}>{s.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="country">Country</Label>
-              <Input id="country" {...register("country")} placeholder="Optional" />
+              <Select value={countryName || undefined} onValueChange={handleCountryChange}>
+                <SelectTrigger id="country" className="w-full">
+                  <SelectValue placeholder="Optional" />
+                </SelectTrigger>
+                <SelectContent>
+                  {countries.map((c) => (
+                    <SelectItem key={c.isoCode || c.name} value={c.name}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
         </CardContent>
@@ -271,7 +358,7 @@ function HelpTab() {
 
   const handleStart = (guide: TourGuide) => {
     const onComplete = guide.id === DASHBOARD_GUIDE.id ? () => updateStatus.mutate(true) : undefined
-    if (guide.id === SUITES_AND_RUNS_GUIDE.id) {
+    if (guide.requiresProject) {
       const first = projectsData?.data[0]
       if (!first) {
         toast.error("Create a project first")
@@ -282,10 +369,21 @@ function HelpTab() {
     startTour(guide, onComplete)
   }
 
+  if (guides.length === 0) {
+    return (
+      <Card className="border-dashed">
+        <CardContent className="flex flex-col items-center gap-2 py-10 text-center">
+          <LifeBuoy className="size-7 text-muted-foreground" />
+          <p className="text-sm text-muted-foreground">No guides available for your role yet.</p>
+        </CardContent>
+      </Card>
+    )
+  }
+
   return (
     <div className="grid gap-4 sm:grid-cols-2">
       {guides.map((guide) => {
-        const disabled = guide.id === SUITES_AND_RUNS_GUIDE.id && !hasProject
+        const disabled = Boolean(guide.requiresProject) && !hasProject
         return (
           <Card key={guide.id}>
             <CardHeader className="flex flex-row items-start gap-3 space-y-0">

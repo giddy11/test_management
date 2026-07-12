@@ -78,7 +78,7 @@ export default function ProjectDetailPage() {
           <TabsTrigger value="runs" data-tour="runs-tab-trigger">Test Runs</TabsTrigger>
           <TabsTrigger value="feature-requests">Feature Requests</TabsTrigger>
           <TabsTrigger value="bugs">Bug Fixes</TabsTrigger>
-          <TabsTrigger value="feedback">Feedback</TabsTrigger>
+          <TabsTrigger value="feedback" data-tour="feedback-tab-trigger">Feedback</TabsTrigger>
         </TabsList>
         <TabsContent value="suites" className="mt-4">
           <SuitesTab

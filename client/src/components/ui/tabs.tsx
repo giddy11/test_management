@@ -1,6 +1,7 @@
 import * as React from "react"
 import { cva, type VariantProps } from "class-variance-authority"
 import { Tabs as TabsPrimitive } from "radix-ui"
+import { ChevronLeft, ChevronRight } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
@@ -44,13 +45,73 @@ function TabsList({
   ...props
 }: React.ComponentProps<typeof TabsPrimitive.List> &
   VariantProps<typeof tabsListVariants>) {
+  const listRef = React.useRef<HTMLDivElement>(null)
+  const [canScrollLeft, setCanScrollLeft] = React.useState(false)
+  const [canScrollRight, setCanScrollRight] = React.useState(false)
+
+  const updateScrollState = React.useCallback(() => {
+    const el = listRef.current
+    if (!el) return
+    setCanScrollLeft(el.scrollLeft > 0)
+    setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 1)
+  }, [])
+
+  React.useEffect(() => {
+    const el = listRef.current
+    if (!el) return
+    updateScrollState()
+    const observer = new ResizeObserver(updateScrollState)
+    observer.observe(el)
+    el.addEventListener("scroll", updateScrollState, { passive: true })
+    return () => {
+      observer.disconnect()
+      el.removeEventListener("scroll", updateScrollState)
+    }
+  }, [updateScrollState])
+
+  const scrollByAmount = (dir: -1 | 1) =>
+    listRef.current?.scrollBy({ left: dir * 120, behavior: "smooth" })
+
+  const showArrows = canScrollLeft || canScrollRight
+
   return (
-    <TabsPrimitive.List
-      data-slot="tabs-list"
-      data-variant={variant}
-      className={cn(tabsListVariants({ variant }), className)}
-      {...props}
-    />
+    <div className="relative flex min-w-0 items-center">
+      {showArrows && (
+        <button
+          type="button"
+          aria-label="Scroll tabs left"
+          tabIndex={-1}
+          disabled={!canScrollLeft}
+          onClick={() => scrollByAmount(-1)}
+          className="z-10 mr-0.5 flex shrink-0 items-center justify-center rounded-md p-0.5 text-muted-foreground transition-opacity hover:text-foreground disabled:pointer-events-none disabled:opacity-0"
+        >
+          <ChevronLeft className="size-3.5" />
+        </button>
+      )}
+      <TabsPrimitive.List
+        ref={listRef}
+        data-slot="tabs-list"
+        data-variant={variant}
+        className={cn(
+          tabsListVariants({ variant }),
+          "scrollbar-none",
+          className
+        )}
+        {...props}
+      />
+      {showArrows && (
+        <button
+          type="button"
+          aria-label="Scroll tabs right"
+          tabIndex={-1}
+          disabled={!canScrollRight}
+          onClick={() => scrollByAmount(1)}
+          className="z-10 ml-0.5 flex shrink-0 items-center justify-center rounded-md p-0.5 text-muted-foreground transition-opacity hover:text-foreground disabled:pointer-events-none disabled:opacity-0"
+        >
+          <ChevronRight className="size-3.5" />
+        </button>
+      )}
+    </div>
   )
 }
 

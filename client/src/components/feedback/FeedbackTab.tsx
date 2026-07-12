@@ -114,7 +114,7 @@ export function FeedbackTab({ projectId, canManage }: Props) {
   return (
     <div className="space-y-4">
       {isAdmin && (
-        <Card>
+        <Card data-tour="feedback-link-card">
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-base">
               <MessageSquareHeart className="size-4 text-primary" /> Public feedback form
