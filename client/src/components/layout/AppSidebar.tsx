@@ -1,5 +1,5 @@
 import { NavLink } from "react-router-dom"
-import { ChevronsUpDown, LogOut, FlaskConical } from "lucide-react"
+import { ChevronsUpDown, LogOut, FlaskConical, Eye } from "lucide-react"
 import {
   Sidebar,
   SidebarContent,
@@ -22,15 +22,17 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { useAuth } from "@/contexts/AuthContext"
+import { useAuth, PREVIEWABLE_ROLES } from "@/contexts/AuthContext"
 import { useLogout } from "@/hooks/useAuth"
 import { navForRole, navBottomForRole, ROLE_LABEL } from "@/components/layout/nav"
 
 export function AppSidebar() {
-  const { user } = useAuth()
+  const { user, realUser, isPreviewing, startPreview, exitPreview } = useAuth()
   const logout = useLogout()
   const { isMobile, setOpenMobile } = useSidebar()
-  if (!user) return null
+  if (!user || !realUser) return null
+
+  const previewOptions = isPreviewing ? [] : (PREVIEWABLE_ROLES[realUser.role] ?? [])
 
   const items = navForRole(user.role)
   const bottomItems = navBottomForRole(user.role)
@@ -129,6 +131,20 @@ export function AppSidebar() {
                     <span className="text-xs text-muted-foreground">{user.email}</span>
                   </div>
                 </DropdownMenuLabel>
+                {(previewOptions.length > 0 || isPreviewing) && <DropdownMenuSeparator />}
+                {isPreviewing ? (
+                  <DropdownMenuItem onClick={exitPreview} data-cy="exit-preview">
+                    <Eye className="mr-2 size-4" />
+                    Exit preview
+                  </DropdownMenuItem>
+                ) : (
+                  previewOptions.map((role) => (
+                    <DropdownMenuItem key={role} onClick={() => startPreview(role)} data-cy={`preview-as-${role}`}>
+                      <Eye className="mr-2 size-4" />
+                      Preview as {ROLE_LABEL[role]}
+                    </DropdownMenuItem>
+                  ))
+                )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={logout} data-cy="logout">
                   <LogOut className="mr-2 size-4" />
