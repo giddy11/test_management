@@ -507,9 +507,25 @@ const activePatients = useMemo(
 | Offset pagination | Web admin tables |
 
 ```typescript
+// hooks/useDebounce.ts — shared across all features, do not reimplement with setTimeout inline
+export function useDebounce<T>(value: T, delayMs: number): T {
+  const [debounced, setDebounced] = useState(value);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebounced(value), delayMs);
+    return () => clearTimeout(timer);
+  }, [value, delayMs]);
+
+  return debounced;
+}
+```
+
+```typescript
 // Debounced search example
 const [searchTerm, setSearchTerm] = useState("");
 const debouncedSearch = useDebounce(searchTerm, 300);
+
+useEffect(() => setPage(1), [debouncedSearch]); // reset pagination off the debounced value
 
 const { patients } = usePatients({ ownerId, search: debouncedSearch });
 ```
@@ -631,6 +647,7 @@ AI agents building frontend features MUST:
 - Use `useMemo` for derived/filtered lists
 - Add `data-cy` attributes to every interactive element they create (buttons, inputs, links, menu items)
 - Write or extend a Cypress E2E spec for every user-facing feature — see §20
+- Debounce every search input that drives an API call using the shared `useDebounce` hook (`hooks/useDebounce.ts`) — never fire a request on every keystroke. Default delay is 300ms; use a longer delay (e.g. 2000ms) where the query is expensive or the page is high-traffic. Reset `page` to `1` off the *debounced* value, not the raw input.
 
 AI agents MUST NOT:
 

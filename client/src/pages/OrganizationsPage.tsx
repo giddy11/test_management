@@ -1,7 +1,7 @@
 // Superadmin-only: read-only cross-org overview. There's no Organization
 // entity — each row is a group of users sharing an organizationId, named
 // after the org owner's company name (best effort, see useOrganizations).
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Building2 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -15,15 +15,19 @@ import {
 } from "@/components/ui/table"
 import { InlineLoader } from "@/components/shared/PageLoader"
 import { useOrganizations } from "@/hooks/useOrganizations"
+import { useDebounce } from "@/hooks/useDebounce"
 
 export default function OrganizationsPage() {
   const [search, setSearch] = useState("")
+  const debouncedSearch = useDebounce(search, 300)
   const [page, setPage] = useState(1)
+
+  useEffect(() => setPage(1), [debouncedSearch])
 
   const { data, isLoading, isError, error } = useOrganizations({
     page,
     limit: 20,
-    search: search || undefined,
+    search: debouncedSearch || undefined,
   })
 
   const organizations = data?.data ?? []
@@ -40,10 +44,7 @@ export default function OrganizationsPage() {
       <Input
         placeholder="Search by company, owner name, or email…"
         value={search}
-        onChange={(e) => {
-          setPage(1)
-          setSearch(e.target.value)
-        }}
+        onChange={(e) => setSearch(e.target.value)}
         className="max-w-xs"
       />
 

@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { Plus, Pencil, Trash2, FolderKanban, ChevronRight, Layers } from "lucide-react"
 import { toast } from "sonner"
@@ -9,6 +9,7 @@ import { ProjectFormDialog } from "@/components/projects/ProjectFormDialog"
 import { PageLoader } from "@/components/shared/PageLoader"
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog"
 import { useProjects, useDeleteProject } from "@/hooks/useProjects"
+import { useDebounce } from "@/hooks/useDebounce"
 import { useAuth } from "@/contexts/AuthContext"
 import { UserRole } from "@/types/auth.types"
 import type { Project } from "@/types/project.types"
@@ -18,12 +19,15 @@ export default function ProjectsPage() {
   const navigate = useNavigate()
   const canManage = user?.role === UserRole.ADMIN || user?.role === UserRole.SUPERADMIN
   const [search, setSearch] = useState("")
+  const debouncedSearch = useDebounce(search, 300)
   const [page, setPage] = useState(1)
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<Project | null>(null)
   const [deleting, setDeleting] = useState<Project | null>(null)
 
-  const { data, isLoading, isError, error } = useProjects({ page, limit: 12, search: search || undefined })
+  useEffect(() => setPage(1), [debouncedSearch])
+
+  const { data, isLoading, isError, error } = useProjects({ page, limit: 12, search: debouncedSearch || undefined })
   const remove = useDeleteProject()
 
   const openCreate = () => {
@@ -62,10 +66,7 @@ export default function ProjectsPage() {
         placeholder="Search projects…"
         data-cy="project-search"
         value={search}
-        onChange={(e) => {
-          setPage(1)
-          setSearch(e.target.value)
-        }}
+        onChange={(e) => setSearch(e.target.value)}
         className="max-w-xs"
       />
 

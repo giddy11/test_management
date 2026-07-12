@@ -15,6 +15,7 @@ import { RESULT_STATUSES, RESULT_META, type ResultStatus } from "@/lib/enums"
 import { cn } from "@/lib/utils"
 import { ApiError } from "@/transport/http"
 import { useCanManageProject } from "@/hooks/useProjects"
+import { useDebounce } from "@/hooks/useDebounce"
 
 export default function RunDetailPage() {
   const { projectId = "", runId = "" } = useParams()
@@ -22,7 +23,7 @@ export default function RunDetailPage() {
   const { data: run, isLoading } = useRun(runId)
   const [page, setPage] = useState(1)
   const [searchInput, setSearchInput] = useState("")
-  const [search, setSearch] = useState("")
+  const search = useDebounce(searchInput, 300)
   const { data: runResults } = useResults(runId, { page, search: search || undefined })
   const results = runResults?.data ?? []
   const meta = runResults?.meta
@@ -33,14 +34,7 @@ export default function RunDetailPage() {
   const [editingName, setEditingName] = useState(false)
   const [nameInput, setNameInput] = useState("")
 
-  // Debounce the search box
-  useEffect(() => {
-    const t = setTimeout(() => {
-      setSearch(searchInput)
-      setPage(1)
-    }, 300)
-    return () => clearTimeout(t)
-  }, [searchInput])
+  useEffect(() => setPage(1), [search])
 
   // Clear selection when navigating pages or search results change
   useEffect(() => { setSelected(new Set()) }, [page, search])

@@ -14,23 +14,18 @@ import { InlineLoader } from "@/components/shared/PageLoader"
 import { FeatureRequestCard } from "@/components/featureRequests/FeatureRequestCard"
 import { FeatureRequestFormDialog } from "@/components/featureRequests/FeatureRequestFormDialog"
 import { useFeatureRequests } from "@/hooks/useFeatureRequests"
+import { useDebounce } from "@/hooks/useDebounce"
 import { FEATURE_REQUEST_STATUSES, FEATURE_REQUEST_STATUS_META, type FeatureRequestStatus } from "@/lib/enums"
 
 export function FeatureRequestsTab({ projectId }: { projectId: string }) {
   const [searchInput, setSearchInput] = useState("")
-  const [search, setSearch] = useState("")
+  const search = useDebounce(searchInput, 300)
   const [status, setStatus] = useState<FeatureRequestStatus | undefined>()
   const [sort, setSort] = useState<"top" | "newest">("top")
   const [page, setPage] = useState(1)
   const [formOpen, setFormOpen] = useState(false)
 
-  useEffect(() => {
-    const t = setTimeout(() => {
-      setSearch(searchInput)
-      setPage(1)
-    }, 300)
-    return () => clearTimeout(t)
-  }, [searchInput])
+  useEffect(() => setPage(1), [search])
 
   const { data, isLoading, isError, error } = useFeatureRequests(projectId, {
     page,

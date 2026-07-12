@@ -14,22 +14,17 @@ import { InlineLoader } from "@/components/shared/PageLoader"
 import { BugCard } from "@/components/bugs/BugCard"
 import { BugFormDialog } from "@/components/bugs/BugFormDialog"
 import { useBugs } from "@/hooks/useBugs"
+import { useDebounce } from "@/hooks/useDebounce"
 import { BUG_STATUSES, BUG_STATUS_META, type BugStatus } from "@/lib/enums"
 
 export function BugsTab({ projectId }: { projectId: string }) {
   const [searchInput, setSearchInput] = useState("")
-  const [search, setSearch] = useState("")
+  const search = useDebounce(searchInput, 300)
   const [status, setStatus] = useState<BugStatus | undefined>()
   const [page, setPage] = useState(1)
   const [formOpen, setFormOpen] = useState(false)
 
-  useEffect(() => {
-    const t = setTimeout(() => {
-      setSearch(searchInput)
-      setPage(1)
-    }, 300)
-    return () => clearTimeout(t)
-  }, [searchInput])
+  useEffect(() => setPage(1), [search])
 
   const { data, isLoading, isError, error } = useBugs(projectId, {
     page,

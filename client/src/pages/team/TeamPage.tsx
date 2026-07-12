@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Plus, Pencil, UserX, Crown } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
@@ -17,6 +17,7 @@ import { ConfirmDialog } from "@/components/shared/ConfirmDialog"
 import { InlineLoader } from "@/components/shared/PageLoader"
 import { PresenceDot } from "@/components/shared/PresenceDot"
 import { useUsers, useDeactivateUser } from "@/hooks/useUsers"
+import { useDebounce } from "@/hooks/useDebounce"
 import { useAuth } from "@/contexts/AuthContext"
 import { usePresence } from "@/contexts/PresenceContext"
 import { ROLE_LABEL } from "@/components/layout/nav"
@@ -26,12 +27,17 @@ import type { User } from "@/types/auth.types"
 export default function TeamPage() {
   const { user: me } = useAuth()
   const [search, setSearch] = useState("")
+  const debouncedSearch = useDebounce(search, 2000)
   const [page, setPage] = useState(1)
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<User | null>(null)
   const [deactivating, setDeactivating] = useState<User | null>(null)
 
-  const { data, isLoading, isError, error } = useUsers({ page, limit: 20, search: search || undefined })
+  useEffect(() => {
+    setPage(1)
+  }, [debouncedSearch])
+
+  const { data, isLoading, isError, error } = useUsers({ page, limit: 20, search: debouncedSearch || undefined })
   const deactivate = useDeactivateUser()
   const { isOnline } = usePresence()
 
@@ -73,10 +79,7 @@ export default function TeamPage() {
         placeholder="Search by name or email…"
         data-cy="team-search"
         value={search}
-        onChange={(e) => {
-          setPage(1)
-          setSearch(e.target.value)
-        }}
+        onChange={(e) => setSearch(e.target.value)}
         className="max-w-xs"
       />
 

@@ -32,6 +32,7 @@ import { useSuite } from "@/hooks/useSuites"
 import { useCases, useDeleteCase, useBulkDeleteCases } from "@/hooks/useCases"
 import { useExportSuite } from "@/hooks/useExport"
 import { useCanManageProject } from "@/hooks/useProjects"
+import { useDebounce } from "@/hooks/useDebounce"
 import { TC_PRIORITIES, TC_STATUSES, RESULT_STATUSES, RESULT_META, type TcPriority, type TcStatus, type ResultStatus } from "@/lib/enums"
 import type { TestCase } from "@/types/testMgmt.types"
 
@@ -44,20 +45,13 @@ export default function SuiteDetailPage() {
 
   // filters + pagination
   const [searchInput, setSearchInput] = useState("")
-  const [search, setSearch] = useState("")
+  const search = useDebounce(searchInput, 300)
   const [priority, setPriority] = useState<TcPriority | undefined>()
   const [status, setStatus] = useState<TcStatus | undefined>()
   const [runStatus, setRunStatus] = useState<string | undefined>()
   const [page, setPage] = useState(1)
 
-  // debounce the search box
-  useEffect(() => {
-    const t = setTimeout(() => {
-      setSearch(searchInput)
-      setPage(1)
-    }, 300)
-    return () => clearTimeout(t)
-  }, [searchInput])
+  useEffect(() => setPage(1), [search])
 
   const { data, isLoading } = useCases(suiteId, { page, search: search || undefined, priority, status, runStatus })
   const cases = data?.data ?? []
