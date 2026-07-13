@@ -22,6 +22,7 @@ import OrganizationsPage from "@/pages/OrganizationsPage"
 import SettingsPage from "@/pages/SettingsPage"
 import PublicFeedbackPage from "@/pages/public/PublicFeedbackPage"
 import PublicFeedbackConfirmPage from "@/pages/public/PublicFeedbackConfirmPage"
+import DocsPage from "@/pages/docs/DocsPage"
 import AnnouncementsPage from "@/pages/AnnouncementsPage"
 import { UserRole } from "@/types/auth.types"
 
@@ -39,6 +40,9 @@ export default function App() {
           <Route path="/feedback/:token" element={<PublicFeedbackPage />} />
           {/* Public confirmation link from the "awaiting confirmation" status email */}
           <Route path="/feedback/:id/confirm" element={<PublicFeedbackConfirmPage />} />
+          {/* Public product documentation */}
+          <Route path="/docs" element={<DocsPage />} />
+          <Route path="/doc" element={<Navigate to="/docs" replace />} />
 
           {/* Authenticated */}
           <Route element={<ProtectedRoute />}>

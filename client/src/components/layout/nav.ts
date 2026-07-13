@@ -7,6 +7,7 @@ import {
   Megaphone,
   Settings,
   Activity,
+  BookOpen,
   type LucideIcon,
 } from "lucide-react"
 import { UserRole, type UserRole as Role } from "@/types/auth.types"
@@ -17,6 +18,7 @@ export interface NavItem {
   icon: LucideIcon
   roles?: Role[] // omitted = visible to everyone
   tourId?: string // used as the data-tour attribute for the onboarding tour
+  newTab?: boolean // open in a new tab (e.g. docs) so the user keeps their place
 }
 
 // Primary navigation — shown at the top of the sidebar.
@@ -31,6 +33,7 @@ export const NAV_ITEMS: NavItem[] = [
 // Secondary navigation — pinned to the bottom of the sidebar.
 export const NAV_BOTTOM_ITEMS: NavItem[] = [
   { title: "Activity", to: "/activity", icon: Activity, roles: [UserRole.SUPERADMIN, UserRole.ADMIN] },
+  { title: "Documentation", to: "/docs", icon: BookOpen, newTab: true },
   { title: "Settings", to: "/settings", icon: Settings, tourId: "nav-settings" },
 ]
 

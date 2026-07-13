@@ -87,9 +87,16 @@ export function AppSidebar() {
             <SidebarMenu>
               {bottomItems.map((item) => (
                 <SidebarMenuItem key={item.to}>
-                  <NavLink to={item.to} data-tour={item.tourId} data-cy={`nav-${item.to.slice(1)}`} onClick={closeOnMobile}>
+                  <NavLink
+                    to={item.to}
+                    target={item.newTab ? "_blank" : undefined}
+                    rel={item.newTab ? "noreferrer" : undefined}
+                    data-tour={item.tourId}
+                    data-cy={`nav-${item.to.slice(1)}`}
+                    onClick={closeOnMobile}
+                  >
                     {({ isActive }) => (
-                      <SidebarMenuButton tooltip={item.title} isActive={isActive}>
+                      <SidebarMenuButton tooltip={item.title} isActive={isActive && !item.newTab}>
                         <item.icon />
                         <span>{item.title}</span>
                       </SidebarMenuButton>
