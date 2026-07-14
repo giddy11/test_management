@@ -33,6 +33,9 @@ export const PREVIEWABLE_ROLES: Record<UserRole, UserRole[]> = {
   [UserRole.SUPERADMIN]: [UserRole.ADMIN, UserRole.USER],
   [UserRole.ADMIN]: [UserRole.USER],
   [UserRole.USER]: [],
+  // Supporters can't preview, and nobody previews as one — the portal is
+  // scoped to a real clientCompanyId a previewer wouldn't have.
+  [UserRole.IT_SUPPORT]: [],
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {

@@ -4,6 +4,8 @@ export const UserRole = {
   SUPERADMIN: "superadmin",
   ADMIN: "admin",
   USER: "user",
+  // External IT supporter at a client company — only sees the support portal.
+  IT_SUPPORT: "it_support",
 } as const
 
 export type UserRole = (typeof UserRole)[keyof typeof UserRole]
@@ -18,6 +20,8 @@ export interface User {
   isEmailVerified: boolean
   onboardingCompleted: boolean
   role: UserRole
+  // Set only on it_support accounts — the client company they belong to.
+  clientCompanyId?: string | null
   isOrgOwner?: boolean
   provider: string
   avatarUrl: string | null

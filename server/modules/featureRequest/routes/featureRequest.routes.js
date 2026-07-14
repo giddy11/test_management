@@ -17,13 +17,15 @@ const { FeatureRequestController } = require("../controllers/featureRequest.cont
 router.get(
   "/",
   authMiddleware,
+  authorise("superadmin", "admin", "user"),
   validate(fetchFeatureRequestsSchema),
   FeatureRequestController.fetchAll
 );
-router.get("/:id", authMiddleware, validate(idParamSchema), FeatureRequestController.fetchById);
+router.get("/:id", authMiddleware, authorise("superadmin", "admin", "user"), validate(idParamSchema), FeatureRequestController.fetchById);
 router.post(
   "/",
   authMiddleware,
+  authorise("superadmin", "admin", "user"),
   validate(createFeatureRequestSchema),
   FeatureRequestController.create
 );
@@ -41,23 +43,26 @@ router.delete(
   validate(idParamSchema),
   FeatureRequestController.remove
 );
-router.post("/:id/vote", authMiddleware, validate(idParamSchema), FeatureRequestController.vote);
+router.post("/:id/vote", authMiddleware, authorise("superadmin", "admin", "user"), validate(idParamSchema), FeatureRequestController.vote);
 
 router.get(
   "/:id/comments",
   authMiddleware,
+  authorise("superadmin", "admin", "user"),
   validate(fetchCommentsSchema),
   FeatureRequestController.fetchComments
 );
 router.post(
   "/:id/comments",
   authMiddleware,
+  authorise("superadmin", "admin", "user"),
   validate(commentSchema),
   FeatureRequestController.addComment
 );
 router.delete(
   "/:id/comments/:commentId",
   authMiddleware,
+  authorise("superadmin", "admin", "user"),
   validate(commentIdParamSchema),
   FeatureRequestController.removeComment
 );

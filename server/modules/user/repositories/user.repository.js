@@ -12,11 +12,14 @@ class UserRepository {
   }
 
   // organizationId omitted => unscoped (superadmin view).
+  // IT supporters (external client-company staff) never appear in team lists —
+  // they're managed from their client company, not the org's Team page.
   async fetchPaginated({ organizationId, page = 1, limit = 20, search }) {
     const offset = getOffset(page, limit);
     const qb = this.repo
       .createQueryBuilder("u")
       .where("u.deleted_at IS NULL")
+      .andWhere("u.role != 'it_support'")
       .orderBy("u.createdAt", "DESC")
       .skip(offset)
       .take(limit);
@@ -77,6 +80,19 @@ class UserRepository {
 
   async findByEmail(email) {
     return this.repo.findOne({ where: { email } });
+  }
+
+  // ── Client-company supporters (it_support accounts) ─────────────────────────
+  async findByClientCompany(clientCompanyId) {
+    return this.repo.find({
+      where: { clientCompanyId }, // indexed
+      order: { createdAt: "ASC" },
+      select: ["id", "firstName", "lastName", "email", "createdAt", "lastSeenAt"],
+    });
+  }
+
+  async countByClientCompany(clientCompanyId) {
+    return this.repo.count({ where: { clientCompanyId } });
   }
 
   // Cross-org overview for the superadmin's /platform page. There's no

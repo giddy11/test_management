@@ -8,6 +8,7 @@ import type {
   ManageFeedbackPayload,
   PublicFeedbackForm,
   SubmitPublicFeedbackPayload,
+  SupportQueueParams,
 } from "@/types/feedback.types"
 
 export const FeedbackEndpoints = {
@@ -25,6 +26,23 @@ export const FeedbackEndpoints = {
 
   setLink: (projectId: string, enabled: boolean) =>
     wrapCall<{ feedbackToken: string | null }>("POST", `/api/v1/feedback/projects/${projectId}/link`, { enabled }),
+
+  // IT support portal (it_support role) — the supporter's own company queue.
+  supportQueue: (params: SupportQueueParams) =>
+    wrapCall<Feedback[]>("GET", "/api/v1/support/feedback", params as unknown as Record<string, unknown>),
+
+  // Working-stage progression (logged → acknowledged → investigating).
+  supportUpdateStatus: (id: string, supportStatus: string) =>
+    wrapCall<Feedback>("PATCH", `/api/v1/support/feedback/${id}`, { supportStatus }),
+
+  supportHistory: (id: string) =>
+    wrapCall<FeedbackStatusHistoryEntry[]>("GET", `/api/v1/support/feedback/${id}/history`),
+
+  supportResolve: (id: string, note: string) =>
+    wrapCall<Feedback>("POST", `/api/v1/support/feedback/${id}/resolve`, { note }),
+
+  supportEscalate: (id: string, note?: string) =>
+    wrapCall<Feedback>("POST", `/api/v1/support/feedback/${id}/escalate`, note ? { note } : {}),
 
   // Public (unauthenticated)
   publicForm: (token: string) =>

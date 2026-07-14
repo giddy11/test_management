@@ -97,6 +97,10 @@ class UserService {
   async updateUser(actorId, id, data) {
     const actor = await this.loadActor(actorId);
     const target = await this.getUser(actorId, id);
+    // IT supporter accounts are managed from their client company, not here.
+    if (target.role === UserRole.IT_SUPPORT) {
+      throw new AppError("Supporter accounts are managed under their client company", 403);
+    }
     if (id === actorId && data.role && data.role !== target.role) {
       throw new AppError("You cannot change your own role", 400);
     }
@@ -120,6 +124,10 @@ class UserService {
     }
     const actor = await this.loadActor(actorId);
     const target = await this.getUser(actorId, id);
+    // IT supporter accounts are managed from their client company, not here.
+    if (target.role === UserRole.IT_SUPPORT) {
+      throw new AppError("Supporter accounts are managed under their client company", 403);
+    }
 
     // The account that created the organisation can never be blocked by another
     // admin — only a platform superadmin may (for moderation).

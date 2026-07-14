@@ -6,24 +6,25 @@ import { useMemo } from "react"
 import { CheckCircle2, Circle, Clock } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { formatDuration } from "@/lib/formatDuration"
-import {
-  FEEDBACK_STATUSES,
-  FEEDBACK_STATUS_LABELS,
-  type FeedbackStatus,
-  type FeedbackStatusHistoryEntry,
-} from "@/types/feedback.types"
+import { FEEDBACK_STATUSES, FEEDBACK_STATUS_LABELS } from "@/types/feedback.types"
+
+// Works for both tiers — product statuses by default, support statuses via props.
+interface TimelineEntry {
+  status: string
+  enteredAt: string
+}
 
 interface StageRow {
-  status: FeedbackStatus
+  status: string
   reached: boolean
   isCurrent: boolean
   enteredAt: string | null
   durationMs: number | null // time spent in this stage; null while pending or unreached
 }
 
-function buildRows(history: FeedbackStatusHistoryEntry[]): StageRow[] {
+function buildRows(history: TimelineEntry[], stages: string[]): StageRow[] {
   const now = Date.now()
-  return FEEDBACK_STATUSES.map((status) => {
+  return stages.map((status) => {
     // A stage can be skipped (e.g. assigning while "logged" jumps straight to
     // "assigned"), so a reached stage's position in `history` may not match
     // its position in FEEDBACK_STATUSES — look it up by its own index.
@@ -39,8 +40,18 @@ function buildRows(history: FeedbackStatusHistoryEntry[]): StageRow[] {
   })
 }
 
-export function FeedbackTimeline({ history }: { history: FeedbackStatusHistoryEntry[] }) {
-  const rows = useMemo(() => buildRows(history), [history])
+// Defaults render the product-team lifecycle; the support portal passes the
+// IT-tier stages/labels instead.
+export function FeedbackTimeline({
+  history,
+  stages = FEEDBACK_STATUSES,
+  labels = FEEDBACK_STATUS_LABELS,
+}: {
+  history: TimelineEntry[]
+  stages?: string[]
+  labels?: Record<string, string>
+}) {
+  const rows = useMemo(() => buildRows(history, stages), [history, stages])
 
   return (
     <ol className="space-y-0">
@@ -63,15 +74,28 @@ export function FeedbackTimeline({ history }: { history: FeedbackStatusHistoryEn
               <Circle className="size-4.5 text-muted-foreground/40" />
             )}
           </span>
-          <div className="flex min-w-0 flex-1 items-center justify-between gap-2">
-            <span
-              className={cn(
-                "text-sm font-medium",
-                !row.reached && "text-muted-foreground"
+          <div className="flex min-w-0 flex-1 items-start justify-between gap-2">
+            <div className="min-w-0">
+              <span
+                className={cn(
+                  "text-sm font-medium",
+                  !row.reached && "text-muted-foreground"
+                )}
+              >
+                {labels[row.status] ?? row.status}
+              </span>
+              {row.enteredAt && (
+                <p className="text-xs text-muted-foreground">
+                  {new Date(row.enteredAt).toLocaleString(undefined, {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                    hour: "numeric",
+                    minute: "2-digit",
+                  })}
+                </p>
               )}
-            >
-              {FEEDBACK_STATUS_LABELS[row.status]}
-            </span>
+            </div>
             {row.durationMs !== null && (
               <span className="shrink-0 text-xs text-muted-foreground">
                 {row.isCurrent ? `${formatDuration(row.durationMs)} so far` : formatDuration(row.durationMs)}

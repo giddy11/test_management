@@ -12,7 +12,14 @@ const { validate } = require("../../../shared/middleware/validate.middleware");
 const { authMiddleware } = require("../../../shared/middleware/auth.middleware");
 const { authorise } = require("../../../shared/middleware/authorise.middleware");
 
-router.get("/", authMiddleware, validate(fetchFeedbackSchema), FeedbackController.fetchAll);
+// projectId omitted => cross-project view (role-scoped in the service).
+router.get(
+  "/",
+  authMiddleware,
+  authorise("superadmin", "admin", "user"),
+  validate(fetchFeedbackSchema),
+  FeedbackController.fetchAll
+);
 
 // Status/assignment changes: admins + the project's team leads (service-enforced).
 router.patch(
@@ -26,6 +33,7 @@ router.patch(
 router.get(
   "/:id/history",
   authMiddleware,
+  authorise("superadmin", "admin", "user"),
   validate(feedbackIdParamSchema),
   FeedbackController.history
 );

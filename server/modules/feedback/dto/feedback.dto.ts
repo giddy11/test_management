@@ -4,9 +4,21 @@ import type { FeedbackStatusHistory } from "../entities/feedbackStatusHistory.en
 
 export function toFeedbackResponse(fb: Feedback | null) {
   if (!fb) return null;
+  const project = fb.project as { name?: string } | undefined;
   return {
     id: fb.id,
     projectId: fb.projectId,
+    // Present when the project relation was loaded (global cross-project mode).
+    projectName: project?.name ?? null,
+    clientCompanyId: fb.clientCompanyId ?? null,
+    clientCompanyName: fb.clientCompany?.name ?? null,
+    supportStatus: fb.supportStatus ?? null,
+    supportResponse: fb.supportResponse ?? null,
+    supportResolvedAt: fb.supportResolvedAt ?? null,
+    escalatedAt: fb.escalatedAt ?? null,
+    escalatedByName: fb.escalatedBy
+      ? [fb.escalatedBy.firstName, fb.escalatedBy.lastName].filter(Boolean).join(" ")
+      : null,
     type: fb.type,
     title: fb.title,
     description: fb.description,

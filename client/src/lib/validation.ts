@@ -62,8 +62,26 @@ export const projectSchema = z.object({
   description: z.string().max(2000).optional().or(z.literal("")),
 })
 
+export const clientCompanySchema = z.object({
+  name: z.string().min(1, "Company name is required").max(200),
+  contactEmail: z.string().email("Enter a valid email").optional().or(z.literal("")),
+})
+
+export const createSupporterSchema = z.object({
+  firstName: z.string().min(1, "First name is required").max(100),
+  lastName: z.string().min(1, "Last name is required").max(100),
+  email: z.string().email("Enter a valid email"),
+  password: z
+    .string()
+    .min(8, "At least 8 characters")
+    .regex(/[A-Z]/, "Must contain an uppercase letter")
+    .regex(/[0-9]/, "Must contain a number"),
+})
+
 export type LoginForm = z.infer<typeof loginSchema>
 export type RegisterForm = z.infer<typeof registerSchema>
+export type ClientCompanyForm = z.infer<typeof clientCompanySchema>
+export type CreateSupporterForm = z.infer<typeof createSupporterSchema>
 export type CreateUserForm = z.infer<typeof createUserSchema>
 export type EditUserForm = z.infer<typeof editUserSchema>
 export type ProjectForm = z.infer<typeof projectSchema>

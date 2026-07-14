@@ -18,6 +18,10 @@ const {
   sendBugStatusEmail,
   sendBugAssignedEmail,
 } = require("../../../shared/utils/mailer");
+const {
+  sendSupportQueueAlertEmail,
+  sendFeedbackEscalatedAlertEmail,
+} = require("../../../shared/utils/mail/support.mail");
 
 class NotificationService {
   static Instance = new NotificationService();
@@ -158,6 +162,68 @@ class NotificationService {
       sendFeedbackAssignedEmail(u.email, u.firstName, ctx.title, ctx.projectName, ctx.assignedByName, url, ctx.organizationId).catch(
         (e) => console.error("[notify] feedback-assigned email failed:", e.message)
       );
+    }
+  }
+
+  // A new item landed in a client company's IT support queue.
+  // Reuses FEEDBACK_NEW (no enum migration needed) — the URL disambiguates.
+  // ctx: { feedbackId, projectId, projectName, companyName, title, type, submitterName, organizationId }
+  async notifySupportQueueItem(supporters, ctx) {
+    if (!supporters.length) return;
+    const url = `${env.appUrl}/support`;
+    const typeLabel = String(ctx.type ?? "feedback").replace(/_/g, " ");
+    await this.repo.createMany(
+      supporters.map((u) => ({
+        userId: u.id,
+        type: NotificationType.FEEDBACK_NEW,
+        title: `New ${typeLabel} in your queue: ${ctx.title}`,
+        body: `${ctx.submitterName} submitted feedback about ${ctx.projectName}`,
+        data: { feedbackId: ctx.feedbackId, projectId: ctx.projectId, support: true },
+      }))
+    );
+    for (const u of supporters) {
+      sendSupportQueueAlertEmail(
+        u.email,
+        u.firstName,
+        ctx.title,
+        typeLabel,
+        ctx.projectName,
+        ctx.submitterName,
+        url,
+        ctx.organizationId
+      ).catch((e) => console.error("[notify] support-queue email failed:", e.message));
+    }
+  }
+
+  // A client company's IT support escalated an item to the product owner's team.
+  // ctx: { feedbackId, projectId, projectName, companyName, title, type,
+  //        escalatedByName, note, organizationId }
+  async notifyFeedbackEscalated(recipients, ctx) {
+    if (!recipients.length) return;
+    const url = `${env.appUrl}/projects/${ctx.projectId}?tab=feedback`;
+    const typeLabel = String(ctx.type ?? "feedback").replace(/_/g, " ");
+    await this.repo.createMany(
+      recipients.map((u) => ({
+        userId: u.id,
+        type: NotificationType.FEEDBACK_NEW,
+        title: `Feedback escalated: ${ctx.title}`,
+        body: `${ctx.escalatedByName} (IT support at ${ctx.companyName}) escalated this ${typeLabel} on ${ctx.projectName}`,
+        data: { feedbackId: ctx.feedbackId, projectId: ctx.projectId },
+      }))
+    );
+    for (const u of recipients) {
+      sendFeedbackEscalatedAlertEmail(
+        u.email,
+        u.firstName,
+        ctx.title,
+        typeLabel,
+        ctx.projectName,
+        ctx.companyName,
+        ctx.escalatedByName,
+        ctx.note ?? null,
+        url,
+        ctx.organizationId
+      ).catch((e) => console.error("[notify] escalation email failed:", e.message));
     }
   }
 

@@ -9,9 +9,29 @@ export type FeedbackStatus =
   | "awaiting_confirmation"
   | "closed"
 
+// IT-tier lifecycle for items submitted through a client company's form —
+// null for direct (project-token) submissions. Strictly sequential through
+// the working stages; resolved/escalated are terminal outcomes reached only
+// from "investigating".
+export type SupportStatus =
+  | "logged"
+  | "acknowledged"
+  | "investigating"
+  | "resolved"
+  | "escalated"
+
 export interface Feedback {
   id: string
   projectId: string
+  // Present when the backend loaded the project relation (global view).
+  projectName: string | null
+  clientCompanyId: string | null
+  clientCompanyName: string | null
+  supportStatus: SupportStatus | null
+  supportResponse: string | null
+  supportResolvedAt: string | null
+  escalatedAt: string | null
+  escalatedByName: string | null
   type: FeedbackType
   title: string
   description: string
@@ -29,10 +49,19 @@ export interface Feedback {
 }
 
 export interface FetchFeedbackParams {
-  projectId: string
+  // Omitted => cross-project view, scoped by role on the backend.
+  projectId?: string
   page?: number
   limit?: number
   status?: FeedbackStatus
+  type?: FeedbackType
+  search?: string
+}
+
+export interface SupportQueueParams {
+  page?: number
+  limit?: number
+  supportStatus?: SupportStatus
   type?: FeedbackType
   search?: string
 }
@@ -56,6 +85,9 @@ export interface SubmitPublicFeedbackPayload {
 
 export interface PublicFeedbackForm {
   projectName: string
+  // Set when the form link belongs to a client company — their IT support
+  // triages the submission first.
+  clientCompanyName: string | null
   suites: { id: string; name: string }[]
 }
 
@@ -101,4 +133,24 @@ export const FEEDBACK_TYPE_LABELS: Record<FeedbackType, string> = {
   feature_request: "Feature request",
   bug: "Bug",
   complaint: "Complaint",
+}
+
+export const SUPPORT_STATUSES: SupportStatus[] = [
+  "logged",
+  "acknowledged",
+  "investigating",
+  "resolved",
+  "escalated",
+]
+
+// The stages a supporter advances through manually — the two terminal
+// outcomes are reached via the resolve/escalate actions instead.
+export const SUPPORT_PROGRESSION: SupportStatus[] = ["logged", "acknowledged", "investigating"]
+
+export const SUPPORT_STATUS_LABELS: Record<SupportStatus, string> = {
+  logged: "Logged",
+  acknowledged: "Acknowledged",
+  investigating: "Investigating",
+  resolved: "Resolved locally",
+  escalated: "Escalated",
 }

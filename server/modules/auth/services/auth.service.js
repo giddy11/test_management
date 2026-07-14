@@ -40,6 +40,7 @@ class AuthService {
       email: user.email,
       role: user.role,
       organizationId: user.organizationId ?? null,
+      clientCompanyId: user.clientCompanyId ?? null,
     };
     const accessToken = signAccessToken(payload);
     const refreshToken = signRefreshToken({ id: user.id });

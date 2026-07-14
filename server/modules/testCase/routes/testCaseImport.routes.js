@@ -12,7 +12,7 @@ const {
 const { TestCaseImportController } = require("../controllers/testCaseImport.controller");
 
 // 1) Download the pre-formatted template
-router.get("/template", authMiddleware, TestCaseImportController.downloadTemplate);
+router.get("/template", authMiddleware, authorise("superadmin", "admin", "user"), TestCaseImportController.downloadTemplate);
 
 // 2) Upload the filled sheet → parse + preview
 router.post(
@@ -28,6 +28,7 @@ router.post(
 router.get(
   "/import/:importId",
   authMiddleware,
+  authorise("superadmin", "admin", "user"),
   validate(importIdParamSchema),
   TestCaseImportController.preview
 );

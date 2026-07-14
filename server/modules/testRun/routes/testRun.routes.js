@@ -12,14 +12,15 @@ const {
 } = require("../validators/testRun.schema");
 const { TestRunController } = require("../controllers/testRun.controller");
 
-router.get("/", authMiddleware, validate(fetchTestRunsSchema), TestRunController.fetchAll);
+router.get("/", authMiddleware, authorise("superadmin", "admin", "user"), validate(fetchTestRunsSchema), TestRunController.fetchAll);
 router.get(
   "/active-status",
   authMiddleware,
+  authorise("superadmin", "admin", "user"),
   validate(fetchActiveStatusSchema),
   TestRunController.fetchActiveStatus
 );
-router.get("/:id", authMiddleware, validate(idParamSchema), TestRunController.fetchById);
+router.get("/:id", authMiddleware, authorise("superadmin", "admin", "user"), validate(idParamSchema), TestRunController.fetchById);
 router.post(
   "/",
   authMiddleware,

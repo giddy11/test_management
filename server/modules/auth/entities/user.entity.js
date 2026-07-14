@@ -51,6 +51,13 @@ const User = new EntitySchema({
       type: "uuid",
       nullable: true,
     },
+    // Set only on it_support accounts — the client company (client_companies.id)
+    // whose feedback queue this supporter works.
+    clientCompanyId: {
+      name: "client_company_id",
+      type: "uuid",
+      nullable: true,
+    },
     // ── Address ──────────────────────────────────────────────────────────────
     address: {
       type: "text",
@@ -130,6 +137,7 @@ const User = new EntitySchema({
     { name: "idx_users_email", columns: ["email"], unique: true },
     { name: "idx_users_google_id", columns: ["googleId"] },
     { name: "idx_users_organization_id", columns: ["organizationId"] },
+    { name: "idx_users_client_company_id", columns: ["clientCompanyId"] },
   ],
 });
 

@@ -2,11 +2,16 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { FeedbackEndpoints } from "@/endpoints/feedback.endpoints"
 import { ApiError } from "@/transport/http"
-import type { FetchFeedbackParams, ManageFeedbackPayload } from "@/types/feedback.types"
+import type {
+  FetchFeedbackParams,
+  ManageFeedbackPayload,
+  SupportQueueParams,
+} from "@/types/feedback.types"
 
 const FEEDBACK_KEY = "feedback"
 const PROJECTS_KEY = "projects"
 
+// projectId omitted => the cross-project view (backend scopes by role).
 export function useFeedback(params: FetchFeedbackParams) {
   return useQuery({
     queryKey: [FEEDBACK_KEY, params],
@@ -15,7 +20,6 @@ export function useFeedback(params: FetchFeedbackParams) {
       if (!res.success) throw new ApiError(res.message, res.statusCode)
       return { data: res.data ?? [], meta: res.meta }
     },
-    enabled: Boolean(params.projectId),
   })
 }
 
@@ -51,6 +55,67 @@ export function useFeedbackHistory(feedbackId: string, enabled: boolean) {
       return res.data ?? []
     },
     enabled: enabled && Boolean(feedbackId),
+  })
+}
+
+// ── IT support portal (it_support role) ─────────────────────────────────────
+
+export function useSupportQueue(params: SupportQueueParams) {
+  return useQuery({
+    queryKey: [FEEDBACK_KEY, "support", params],
+    queryFn: async () => {
+      const res = await FeedbackEndpoints.supportQueue(params)
+      if (!res.success) throw new ApiError(res.message, res.statusCode)
+      return { data: res.data ?? [], meta: res.meta }
+    },
+  })
+}
+
+export function useUpdateSupportStatus() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, supportStatus }: { id: string; supportStatus: string }) => {
+      const res = await FeedbackEndpoints.supportUpdateStatus(id, supportStatus)
+      if (!res.success || !res.data) throw new ApiError(res.message, res.statusCode, res.errors)
+      return res.data
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: [FEEDBACK_KEY] }),
+  })
+}
+
+export function useSupportHistory(feedbackId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: [FEEDBACK_KEY, "support", feedbackId, "history"],
+    queryFn: async () => {
+      const res = await FeedbackEndpoints.supportHistory(feedbackId)
+      if (!res.success) throw new ApiError(res.message, res.statusCode)
+      return res.data ?? []
+    },
+    enabled: enabled && Boolean(feedbackId),
+  })
+}
+
+export function useResolveSupportItem() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, note }: { id: string; note: string }) => {
+      const res = await FeedbackEndpoints.supportResolve(id, note)
+      if (!res.success || !res.data) throw new ApiError(res.message, res.statusCode, res.errors)
+      return res.data
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: [FEEDBACK_KEY] }),
+  })
+}
+
+export function useEscalateSupportItem() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, note }: { id: string; note?: string }) => {
+      const res = await FeedbackEndpoints.supportEscalate(id, note)
+      if (!res.success || !res.data) throw new ApiError(res.message, res.statusCode, res.errors)
+      return res.data
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: [FEEDBACK_KEY] }),
   })
 }
 

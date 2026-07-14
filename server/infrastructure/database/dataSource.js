@@ -44,8 +44,14 @@ const {
 const {
   FeedbackStatusHistory,
 } = require("../../modules/feedback/entities/feedbackStatusHistory.entity");
+const {
+  FeedbackSupportStatusHistory,
+} = require("../../modules/feedback/entities/feedbackSupportStatusHistory.entity");
 const { BugAttachment } = require("../../modules/bug/entities/bugAttachment.entity");
 const { SiteBanner } = require("../../modules/siteBanner/entities/siteBanner.entity");
+const {
+  ClientCompany,
+} = require("../../modules/clientCompany/entities/clientCompany.entity");
 
 const AppDataSource = new DataSource({
   type: "postgres",
@@ -80,7 +86,9 @@ const AppDataSource = new DataSource({
     Feedback,
     FeedbackAttachment,
     FeedbackStatusHistory,
+    FeedbackSupportStatusHistory,
     SiteBanner,
+    ClientCompany,
   ],
   migrations: ["infrastructure/database/migrations/*.{js,ts}"],
 });

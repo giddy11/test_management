@@ -27,13 +27,49 @@ export const submitFeedbackSchema = z.object({
 
 export const fetchFeedbackSchema = z.object({
   query: z.object({
-    projectId: z.string().uuid(),
+    // Optional — omitted means the cross-project view (scoped by role in the service).
+    projectId: z.string().uuid().optional(),
     page: z.coerce.number().int().min(1).default(1),
     limit: z.coerce.number().int().min(1).max(100).default(20),
     status: z.enum(feedbackStatuses).optional(),
     type: z.enum(feedbackTypes).optional(),
     search: z.string().optional(),
   }),
+});
+
+// ── IT support portal (it_support role) ─────────────────────────────────────
+const supportStatuses = enums.supportStatus as [string, ...string[]];
+
+export const supportQueueSchema = z.object({
+  query: z.object({
+    page: z.coerce.number().int().min(1).default(1),
+    limit: z.coerce.number().int().min(1).max(100).default(20),
+    supportStatus: z.enum(supportStatuses).optional(),
+    type: z.enum(feedbackTypes).optional(),
+    search: z.string().optional(),
+  }),
+});
+
+// Working-stage progression only (logged → acknowledged → investigating);
+// resolved/escalated go through their dedicated endpoints.
+export const updateSupportStatusSchema = z.object({
+  params: z.object({ id: z.string().uuid() }),
+  body: z.object({ supportStatus: z.enum(supportStatuses) }),
+});
+
+export const supportItemParamSchema = z.object({
+  params: z.object({ id: z.string().uuid() }),
+});
+
+export const resolveSupportSchema = z.object({
+  params: z.object({ id: z.string().uuid() }),
+  // The note is required — it goes in the resolution email to the end user.
+  body: z.object({ note: z.string().min(1).max(3000) }),
+});
+
+export const escalateSupportSchema = z.object({
+  params: z.object({ id: z.string().uuid() }),
+  body: z.object({ note: z.string().max(3000).optional() }),
 });
 
 export const manageFeedbackSchema = z.object({

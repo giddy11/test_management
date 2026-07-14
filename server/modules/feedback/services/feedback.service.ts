@@ -5,10 +5,13 @@
 import { randomUUID } from "crypto";
 import { FeedbackRepository } from "../repositories/feedback.repository";
 import { FeedbackStatusHistoryRepository } from "../repositories/feedbackStatusHistory.repository";
+import { FeedbackSupportStatusHistoryRepository } from "../repositories/feedbackSupportStatusHistory.repository";
 import { ProjectRepository } from "../../project/repositories/project.repository";
 import { ProjectMemberRepository } from "../../project/repositories/projectMember.repository";
 import { ProjectService } from "../../project/services/project.service";
+import { ClientCompanyRepository } from "../../clientCompany/repositories/clientCompany.repository";
 import type { Actor } from "../../../shared/types/actor";
+import type { Feedback } from "../entities/feedback.entity";
 
 const { AuthRepository } = require("../../auth/repositories/auth.repository");
 const { NotificationService } = require("../../notification/services/notification.service");
@@ -23,7 +26,7 @@ const {
   sendFeedbackConfirmationReceivedEmail,
 } = require("../../../shared/utils/mailer");
 const { AppError } = require("../../../shared/errors/AppError");
-const { UserRole, FeedbackStatus } = require("../../../config/constants");
+const { UserRole, FeedbackStatus, SupportStatus } = require("../../../config/constants");
 const { env } = require("../../../config/env");
 
 // The lifecycle is strictly ordered — Object.freeze preserves declaration order.
@@ -99,14 +102,31 @@ export class FeedbackService {
 
   // ── Public form (unauthenticated) ───────────────────────────────────────────
 
+  // A form token belongs either to the project itself (direct feedback to the
+  // product team) or to one of its client companies (feedback routed to that
+  // company's IT support queue first).
+  private async resolveFormToken(token: string) {
+    const project = await this.projectRepo.findByFeedbackToken(token);
+    if (project) return { project, company: null as { id: string; name: string } | null };
+    const company = await ClientCompanyRepository.Instance.findByFeedbackToken(token);
+    if (company && !company.deletedAt) {
+      const companyProject = await this.projectRepo.findById(company.projectId);
+      if (companyProject && !companyProject.deletedAt) {
+        return { project: companyProject, company };
+      }
+    }
+    throw new AppError("This feedback form is not available", 404);
+  }
+
   // The form page shows which product the feedback is for, and its suites so
   // the submitter can (optionally) point at the module their feedback concerns.
   async getPublicForm(token: string) {
-    const project = await this.projectRepo.findByFeedbackToken(token);
-    if (!project) throw new AppError("This feedback form is not available", 404);
+    const { project, company } = await this.resolveFormToken(token);
     const suites = await TestSuiteRepository.Instance.findAllByProject(project.id);
     return {
       projectName: project.name,
+      // Present for company-token forms — the page can show who'll triage it.
+      clientCompanyName: company?.name ?? null,
       suites: suites.map((s: { id: string; name: string }) => ({ id: s.id, name: s.name })),
     };
   }
@@ -124,11 +144,14 @@ export class FeedbackService {
     },
     imageBuffers: Buffer[] = []
   ) {
-    const project = await this.projectRepo.findByFeedbackToken(token);
-    if (!project) throw new AppError("This feedback form is not available", 404);
+    const { project, company } = await this.resolveFormToken(token);
 
     const fb = await this.feedbackRepo.create({
       projectId: project.id,
+      // Company-token submissions start in the company's IT queue — invisible
+      // to the product org until escalated.
+      clientCompanyId: company?.id ?? null,
+      supportStatus: company ? SupportStatus.LOGGED : null,
       type: data.type,
       title: data.title,
       description: data.description,
@@ -139,9 +162,22 @@ export class FeedbackService {
       status: FeedbackStatus.LOGGED,
     });
 
-    this.historyRepo
-      .create({ feedbackId: fb.id, status: FeedbackStatus.LOGGED, enteredAt: fb.createdAt })
-      .catch((e: Error) => console.error("[feedback] history entry failed:", e.message));
+    // The product owner's stage timeline starts at submission for direct items,
+    // but only at escalation for company items (see FeedbackSupportService).
+    // Company items get their own IT-tier timeline, starting at "logged".
+    if (!company) {
+      this.historyRepo
+        .create({ feedbackId: fb.id, status: FeedbackStatus.LOGGED, enteredAt: fb.createdAt })
+        .catch((e: Error) => console.error("[feedback] history entry failed:", e.message));
+    } else {
+      FeedbackSupportStatusHistoryRepository.Instance.create({
+        feedbackId: fb.id,
+        status: SupportStatus.LOGGED,
+        enteredAt: fb.createdAt,
+      }).catch((e: Error) =>
+        console.error("[feedback] support history entry failed:", e.message)
+      );
+    }
 
     // Screenshots (optional) — uploaded before the response so a submitter
     // never sees "success" while their images silently failed.
@@ -168,6 +204,16 @@ export class FeedbackService {
       fb.title,
       project.organizationId
     ).catch((e: Error) => console.error("[feedback] received email failed:", e.message));
+
+    if (company) {
+      // Company-token submission: alert that company's IT supporters only —
+      // the product org hears about it if/when IT support escalates.
+      const { FeedbackSupportService } = require("./feedbackSupport.service");
+      FeedbackSupportService.Instance.notifyQueueItem(company, fb, project).catch((e: Error) =>
+        console.error("[feedback] support-queue notify failed:", e.message)
+      );
+      return { id: fb.id };
+    }
 
     // Alert the project's admins + members in-app and by email.
     Promise.all([
@@ -202,9 +248,56 @@ export class FeedbackService {
 
   // ── Authenticated (project members/admins) ──────────────────────────────────
 
-  async fetchFeedback(actor: Actor, params: { projectId: string } & Record<string, unknown>) {
-    await this.projectService.getProject(actor, params.projectId);
-    return this.feedbackRepo.fetchPaginated(params as any);
+  async fetchFeedback(actor: Actor, params: { projectId?: string } & Record<string, unknown>) {
+    // Supporters have their own queue endpoints — the triage list is the
+    // product org's view.
+    if (actor.role === UserRole.IT_SUPPORT) {
+      throw new AppError("IT supporters use the support queue", 403);
+    }
+
+    if (params.projectId) {
+      await this.projectService.getProject(actor, params.projectId);
+      return this.feedbackRepo.fetchPaginated(params as any);
+    }
+
+    // Cross-project view: superadmin sees all orgs, admins their org, plain
+    // users only projects they're members of.
+    if (actor.role === UserRole.SUPERADMIN) {
+      return this.feedbackRepo.fetchPaginated(params as any);
+    }
+    if (actor.role === UserRole.ADMIN) {
+      return this.feedbackRepo.fetchPaginated({
+        ...params,
+        organizationId: actor.organizationId ?? undefined,
+      } as any);
+    }
+    return this.feedbackRepo.fetchPaginated({ ...params, restrictedUserId: actor.id } as any);
+  }
+
+  // Items still sitting in (or resolved by) a client company's IT queue don't
+  // exist as far as the product org is concerned.
+  private assertVisibleToOrg(fb: Feedback | null): asserts fb is Feedback {
+    if (!fb || fb.deletedAt) throw new AppError("Feedback not found", 404);
+    if (fb.clientCompanyId && fb.supportStatus !== SupportStatus.ESCALATED) {
+      throw new AppError("Feedback not found", 404);
+    }
+  }
+
+  // Post-escalation, the escalating IT supporter is the contact for all
+  // lifecycle emails (they relay to their end users). Direct submissions keep
+  // emailing the original submitter.
+  private async resolveEmailRecipient(fb: Feedback): Promise<{ email: string; name: string }> {
+    if (fb.escalatedById) {
+      const supporter =
+        fb.escalatedBy ?? (await this.authRepo.findUserById(fb.escalatedById));
+      if (supporter) {
+        return {
+          email: supporter.email,
+          name: [supporter.firstName, supporter.lastName].filter(Boolean).join(" "),
+        };
+      }
+    }
+    return { email: fb.submitterEmail, name: fb.submitterName };
   }
 
   async manageFeedback(
@@ -213,7 +306,7 @@ export class FeedbackService {
     data: { status?: string; assignedToIds?: string[]; adminResponse?: string | null }
   ) {
     const fb = await this.feedbackRepo.findById(id);
-    if (!fb || fb.deletedAt) throw new AppError("Feedback not found", 404);
+    this.assertVisibleToOrg(fb);
     const project = await this.projectService.getProject(actor, fb.projectId);
 
     // Admins/superadmins and the project's team lead can do anything here.
@@ -280,13 +373,15 @@ export class FeedbackService {
       metadata: { projectId: fb.projectId },
     });
 
-    // Email the external submitter about the stage change.
+    // Email the external contact about the stage change — the original
+    // submitter for direct items, the escalating IT supporter for escalated ones.
     if (updated && patch.status && patch.status !== fb.status) {
       const copy = STATUS_EMAIL_COPY[updated.status];
       if (copy) {
+        const recipient = await this.resolveEmailRecipient(fb);
         sendFeedbackStatusEmail(
-          fb.submitterEmail,
-          fb.submitterName,
+          recipient.email,
+          recipient.name,
           project.name,
           fb.title,
           updated.status,
@@ -323,7 +418,7 @@ export class FeedbackService {
   // bar as reassignment, since removing an item is a management decision.
   async deleteFeedback(actor: Actor, id: string): Promise<void> {
     const fb = await this.feedbackRepo.findById(id);
-    if (!fb || fb.deletedAt) throw new AppError("Feedback not found", 404);
+    this.assertVisibleToOrg(fb);
     const project = await this.projectService.getProject(actor, fb.projectId);
     await this.projectService.assertCanManageProject(actor, fb.projectId);
 
@@ -342,7 +437,7 @@ export class FeedbackService {
   // durations from consecutive entries.
   async getFeedbackTimeline(actor: Actor, id: string) {
     const fb = await this.feedbackRepo.findById(id);
-    if (!fb || fb.deletedAt) throw new AppError("Feedback not found", 404);
+    this.assertVisibleToOrg(fb);
     await this.projectService.getProject(actor, fb.projectId);
     return this.historyRepo.findByFeedback(id);
   }
@@ -355,13 +450,16 @@ export class FeedbackService {
     const fb = await this.feedbackRepo.findById(id);
     if (!fb || fb.deletedAt) throw new AppError("This feedback link is no longer valid", 404);
     const project = await this.projectRepo.findById(fb.projectId);
+    // Company items link back to the company's form, direct items to the
+    // project's — null if since disabled.
+    const backLinkToken = fb.clientCompanyId
+      ? fb.clientCompany?.feedbackToken ?? null
+      : project?.feedbackToken ?? null;
     return {
       projectName: project?.name ?? "",
       title: fb.title,
       status: fb.status,
-      // Lets the confirmation page link back to the project's public feedback
-      // form — null if the project has since disabled it.
-      feedbackToken: project?.feedbackToken ?? null,
+      feedbackToken: backLinkToken,
     };
   }
 
@@ -404,10 +502,12 @@ export class FeedbackService {
       }
     );
 
-    // Let the submitter know their verdict was recorded — fire-and-forget.
+    // Let the contact know their verdict was recorded — the escalating IT
+    // supporter for escalated items, else the original submitter. Fire-and-forget.
+    const recipient = await this.resolveEmailRecipient(fb);
     sendFeedbackConfirmationReceivedEmail(
-      fb.submitterEmail,
-      fb.submitterName,
+      recipient.email,
+      recipient.name,
       project?.name ?? "",
       fb.title,
       confirmed,

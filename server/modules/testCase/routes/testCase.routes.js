@@ -13,8 +13,8 @@ const {
 } = require("../validators/testCase.schema");
 const { TestCaseController } = require("../controllers/testCase.controller");
 
-router.get("/", authMiddleware, validate(fetchTestCasesSchema), TestCaseController.fetchAll);
-router.get("/:id", authMiddleware, validate(idParamSchema), TestCaseController.fetchById);
+router.get("/", authMiddleware, authorise("superadmin", "admin", "user"), validate(fetchTestCasesSchema), TestCaseController.fetchAll);
+router.get("/:id", authMiddleware, authorise("superadmin", "admin", "user"), validate(idParamSchema), TestCaseController.fetchById);
 router.post(
   "/",
   authMiddleware,

@@ -1,0 +1,337 @@
+// modules/feedback/tests/feedbackSupport.service.spec.ts
+
+// Keep tests hermetic — never touch SMTP.
+jest.mock("../../../shared/utils/mail/support.mail", () => ({
+  sendSupporterInviteEmail: jest.fn().mockResolvedValue(undefined),
+  sendSupportQueueAlertEmail: jest.fn().mockResolvedValue(undefined),
+  sendSupportStatusEmail: jest.fn().mockResolvedValue(undefined),
+  sendSupportResolutionEmail: jest.fn().mockResolvedValue(undefined),
+  sendFeedbackEscalatedAlertEmail: jest.fn().mockResolvedValue(undefined),
+}));
+
+import { FeedbackSupportService } from "../services/feedbackSupport.service";
+
+const { UserRole, FeedbackStatus, SupportStatus } = require("../../../config/constants");
+
+function makeFeedbackRepo() {
+  return {
+    fetchPaginated: jest.fn().mockResolvedValue({ data: [], meta: {} }),
+    findById: jest.fn(),
+    update: jest.fn(),
+  };
+}
+
+function makeHistoryRepo() {
+  return { create: jest.fn().mockResolvedValue({}) };
+}
+
+function makeSupportHistoryRepo() {
+  return {
+    create: jest.fn().mockResolvedValue({}),
+    findByFeedback: jest.fn().mockResolvedValue([]),
+  };
+}
+
+function makeCompanyRepo() {
+  return {
+    findById: jest.fn().mockResolvedValue({ id: "cc-1", name: "Client Co" }),
+  };
+}
+
+function makeProjectRepo() {
+  return {
+    findById: jest
+      .fn()
+      .mockResolvedValue({ id: "proj-1", name: "Product A", organizationId: "org-1" }),
+  };
+}
+
+function makeMemberRepo() {
+  return { findMemberUsers: jest.fn().mockResolvedValue([]) };
+}
+
+function makeAuthRepo() {
+  return {
+    findByRole: jest.fn().mockResolvedValue([]),
+    findByRoleAndOrg: jest.fn().mockResolvedValue([]),
+    findUserById: jest
+      .fn()
+      .mockResolvedValue({ id: "sup-1", firstName: "Sam", lastName: "Support" }),
+  };
+}
+
+function makeUserRepo() {
+  return { findByClientCompany: jest.fn().mockResolvedValue([]) };
+}
+
+function makeNotificationService() {
+  return {
+    notifyFeedbackEscalated: jest.fn().mockResolvedValue(undefined),
+    notifySupportQueueItem: jest.fn().mockResolvedValue(undefined),
+  };
+}
+
+const supporter = { id: "sup-1", role: UserRole.IT_SUPPORT, clientCompanyId: "cc-1", organizationId: "org-1" };
+const admin = { id: "admin-1", role: UserRole.ADMIN, organizationId: "org-1" };
+
+const loggedItem = {
+  id: "fb-1",
+  projectId: "proj-1",
+  clientCompanyId: "cc-1",
+  supportStatus: SupportStatus.LOGGED,
+  status: FeedbackStatus.LOGGED,
+  type: "bug",
+  title: "Broken export",
+  submitterName: "End User",
+  submitterEmail: "user@client.co",
+  deletedAt: null,
+};
+
+const investigatingItem = { ...loggedItem, supportStatus: SupportStatus.INVESTIGATING };
+
+const flush = () => new Promise((resolve) => setImmediate(resolve));
+
+describe("FeedbackSupportService", () => {
+  let feedbackRepo: any;
+  let historyRepo: any;
+  let supportHistoryRepo: any;
+  let companyRepo: any;
+  let projectRepo: any;
+  let memberRepo: any;
+  let authRepo: any;
+  let userRepo: any;
+  let notificationService: any;
+  let service: FeedbackSupportService;
+
+  beforeEach(() => {
+    feedbackRepo = makeFeedbackRepo();
+    historyRepo = makeHistoryRepo();
+    supportHistoryRepo = makeSupportHistoryRepo();
+    companyRepo = makeCompanyRepo();
+    projectRepo = makeProjectRepo();
+    memberRepo = makeMemberRepo();
+    authRepo = makeAuthRepo();
+    userRepo = makeUserRepo();
+    notificationService = makeNotificationService();
+    service = new FeedbackSupportService(
+      feedbackRepo,
+      historyRepo,
+      companyRepo,
+      projectRepo,
+      memberRepo,
+      authRepo,
+      userRepo,
+      notificationService,
+      supportHistoryRepo
+    );
+  });
+
+  describe("fetchQueue", () => {
+    it("rejects non-supporter roles", async () => {
+      await expect(service.fetchQueue(admin, {})).rejects.toMatchObject({ statusCode: 403 });
+    });
+
+    it("scopes the queue to the supporter's own company", async () => {
+      await service.fetchQueue(supporter, { page: 2, supportStatus: "logged" });
+      expect(feedbackRepo.fetchPaginated).toHaveBeenCalledWith(
+        expect.objectContaining({ clientCompanyId: "cc-1", page: 2, supportStatus: "logged" })
+      );
+    });
+  });
+
+  describe("updateStatus", () => {
+    it("advances one working stage and records + emails it", async () => {
+      feedbackRepo.findById.mockResolvedValue(loggedItem);
+      feedbackRepo.update.mockResolvedValue({
+        ...loggedItem,
+        supportStatus: SupportStatus.ACKNOWLEDGED,
+      });
+
+      await service.updateStatus(supporter, "fb-1", SupportStatus.ACKNOWLEDGED);
+
+      expect(feedbackRepo.update).toHaveBeenCalledWith("fb-1", {
+        supportStatus: SupportStatus.ACKNOWLEDGED,
+      });
+      expect(supportHistoryRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ feedbackId: "fb-1", status: SupportStatus.ACKNOWLEDGED })
+      );
+      const { sendSupportStatusEmail } = require("../../../shared/utils/mail/support.mail");
+      expect(sendSupportStatusEmail).toHaveBeenCalledWith(
+        "user@client.co",
+        "End User",
+        "Client Co",
+        "Product A",
+        "Broken export",
+        expect.any(String),
+        expect.any(String),
+        "org-1"
+      );
+    });
+
+    it("422s on a skipped stage (logged → investigating)", async () => {
+      feedbackRepo.findById.mockResolvedValue(loggedItem);
+      await expect(
+        service.updateStatus(supporter, "fb-1", SupportStatus.INVESTIGATING)
+      ).rejects.toMatchObject({ statusCode: 422 });
+      expect(feedbackRepo.update).not.toHaveBeenCalled();
+    });
+
+    it("422s when asked to set a terminal stage directly", async () => {
+      feedbackRepo.findById.mockResolvedValue(investigatingItem);
+      await expect(
+        service.updateStatus(supporter, "fb-1", SupportStatus.RESOLVED)
+      ).rejects.toMatchObject({ statusCode: 422 });
+    });
+  });
+
+  describe("resolveLocally", () => {
+    it("404s on another company's item", async () => {
+      feedbackRepo.findById.mockResolvedValue({ ...investigatingItem, clientCompanyId: "cc-other" });
+      await expect(service.resolveLocally(supporter, "fb-1", "note")).rejects.toMatchObject({
+        statusCode: 404,
+      });
+    });
+
+    it("409s on an already-terminal item", async () => {
+      feedbackRepo.findById.mockResolvedValue({
+        ...loggedItem,
+        supportStatus: SupportStatus.ESCALATED,
+      });
+      await expect(service.resolveLocally(supporter, "fb-1", "note")).rejects.toMatchObject({
+        statusCode: 409,
+      });
+    });
+
+    it("422s before the item reaches investigating", async () => {
+      feedbackRepo.findById.mockResolvedValue(loggedItem);
+      await expect(service.resolveLocally(supporter, "fb-1", "note")).rejects.toMatchObject({
+        statusCode: 422,
+      });
+    });
+
+    it("resolves an investigating item with the note", async () => {
+      feedbackRepo.findById.mockResolvedValue(investigatingItem);
+      feedbackRepo.update.mockResolvedValue({
+        ...investigatingItem,
+        supportStatus: SupportStatus.RESOLVED,
+      });
+
+      await service.resolveLocally(supporter, "fb-1", "Restart the app");
+
+      expect(feedbackRepo.update).toHaveBeenCalledWith(
+        "fb-1",
+        expect.objectContaining({
+          supportStatus: SupportStatus.RESOLVED,
+          supportResponse: "Restart the app",
+          supportResolvedAt: expect.any(Date),
+        })
+      );
+      expect(supportHistoryRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ feedbackId: "fb-1", status: SupportStatus.RESOLVED })
+      );
+      // Local resolutions never create product-team history rows.
+      expect(historyRepo.create).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("escalate", () => {
+    it("409s when already escalated", async () => {
+      feedbackRepo.findById.mockResolvedValue({
+        ...loggedItem,
+        supportStatus: SupportStatus.ESCALATED,
+      });
+      await expect(service.escalate(supporter, "fb-1")).rejects.toMatchObject({
+        statusCode: 409,
+      });
+    });
+
+    it("422s before the item reaches investigating", async () => {
+      feedbackRepo.findById.mockResolvedValue(loggedItem);
+      await expect(service.escalate(supporter, "fb-1")).rejects.toMatchObject({
+        statusCode: 422,
+      });
+    });
+
+    it("escalates an investigating item and starts the product-team timeline", async () => {
+      feedbackRepo.findById.mockResolvedValue(investigatingItem);
+      feedbackRepo.update.mockResolvedValue({
+        ...investigatingItem,
+        supportStatus: SupportStatus.ESCALATED,
+      });
+
+      await service.escalate(supporter, "fb-1", "Beyond our access");
+
+      expect(feedbackRepo.update).toHaveBeenCalledWith(
+        "fb-1",
+        expect.objectContaining({
+          supportStatus: SupportStatus.ESCALATED,
+          supportResponse: "Beyond our access",
+          escalatedAt: expect.any(Date),
+          escalatedById: "sup-1",
+        })
+      );
+      // The "logged" history row is created at escalation, not submission —
+      // IT-queue dwell time never counts against the product team.
+      expect(historyRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          feedbackId: "fb-1",
+          status: FeedbackStatus.LOGGED,
+        })
+      );
+      // The IT-tier timeline records the escalation too.
+      expect(supportHistoryRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ feedbackId: "fb-1", status: SupportStatus.ESCALATED })
+      );
+    });
+
+    it("notifies the product org's deduped recipients", async () => {
+      const orgAdmin = { id: "admin-1", email: "a@org.com", firstName: "Ada" };
+      feedbackRepo.findById.mockResolvedValue(investigatingItem);
+      feedbackRepo.update.mockResolvedValue({
+        ...investigatingItem,
+        supportStatus: SupportStatus.ESCALATED,
+      });
+      authRepo.findByRoleAndOrg.mockResolvedValue([orgAdmin]);
+      memberRepo.findMemberUsers.mockResolvedValue([orgAdmin]); // duplicate — must dedupe
+
+      await service.escalate(supporter, "fb-1");
+      await flush(); // fan-out is fire-and-forget
+
+      expect(notificationService.notifyFeedbackEscalated).toHaveBeenCalledTimes(1);
+      const [recipients, ctx] = notificationService.notifyFeedbackEscalated.mock.calls[0];
+      expect(recipients).toHaveLength(1);
+      expect(ctx).toMatchObject({
+        feedbackId: "fb-1",
+        companyName: "Client Co",
+        escalatedByName: "Sam Support",
+      });
+    });
+  });
+
+  describe("notifyQueueItem", () => {
+    it("alerts the company's supporters", async () => {
+      const sup = { id: "sup-2", email: "s@client.co", firstName: "Sue" };
+      userRepo.findByClientCompany.mockResolvedValue([sup]);
+
+      await service.notifyQueueItem(
+        { id: "cc-1", name: "Client Co" },
+        loggedItem as any,
+        { id: "proj-1", name: "Product A", organizationId: "org-1" }
+      );
+
+      expect(notificationService.notifySupportQueueItem).toHaveBeenCalledWith(
+        [sup],
+        expect.objectContaining({ feedbackId: "fb-1", companyName: "Client Co" })
+      );
+    });
+
+    it("does nothing when the company has no supporters", async () => {
+      await service.notifyQueueItem(
+        { id: "cc-1", name: "Client Co" },
+        loggedItem as any,
+        { id: "proj-1", name: "Product A" }
+      );
+      expect(notificationService.notifySupportQueueItem).not.toHaveBeenCalled();
+    });
+  });
+});

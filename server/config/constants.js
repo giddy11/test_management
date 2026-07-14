@@ -5,6 +5,10 @@ const UserRole = Object.freeze({
   SUPERADMIN: "superadmin", // the developer/platform owner
   ADMIN: "admin", // the company admin who registered the account
   USER: "user", // a member added by the company admin
+  // External IT supporter belonging to a client company that uses one of the
+  // org's products. Sees only their company's feedback queue (/support) —
+  // locked out of projects, dashboards, and triage.
+  IT_SUPPORT: "it_support",
 });
 
 // Role a user holds inside a single project (distinct from their app-wide UserRole).
@@ -67,6 +71,20 @@ const FeedbackStatus = Object.freeze({
   CLOSED: "closed",
 });
 
+// Lifecycle of a feedback item within a client company's IT support queue —
+// the end user is emailed at every stage change, mirroring the product flow.
+// Null on direct (project-token) submissions. Strictly ordered progression
+// logged → acknowledged → investigating, then one of two terminal outcomes:
+// resolved (fixed locally) or escalated (handed to the product team — the only
+// state visible to the product owner's triage).
+const SupportStatus = Object.freeze({
+  LOGGED: "logged",
+  ACKNOWLEDGED: "acknowledged",
+  INVESTIGATING: "investigating",
+  RESOLVED: "resolved",
+  ESCALATED: "escalated",
+});
+
 const NotificationType = Object.freeze({
   PROJECT_MEMBER_ADDED: "project_member_added",
   FEEDBACK_NEW: "feedback_new",
@@ -119,6 +137,7 @@ module.exports = {
   ProjectMemberRole,
   FeedbackType,
   FeedbackStatus,
+  SupportStatus,
   TestCasePriority,
   TestCaseStatus,
   RunStatus,
@@ -135,6 +154,7 @@ module.exports = {
     projectMemberRole: Object.values(ProjectMemberRole),
     feedbackType: Object.values(FeedbackType),
     feedbackStatus: Object.values(FeedbackStatus),
+    supportStatus: Object.values(SupportStatus),
     testCasePriority: Object.values(TestCasePriority),
     testCaseStatus: Object.values(TestCaseStatus),
     runStatus: Object.values(RunStatus),

@@ -128,6 +128,9 @@ export default function PublicFeedbackPage() {
               <CardDescription>
                 Spotted a bug, want a feature, or have a concern? Tell the team — you'll get
                 email updates as they work on it.
+                {form.clientCompanyName && (
+                  <> Your report goes to <strong>{form.clientCompanyName}</strong>'s IT support team first.</>
+                )}
               </CardDescription>
             </CardHeader>
             <CardContent>

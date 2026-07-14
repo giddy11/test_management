@@ -14,6 +14,7 @@ const { BugAttachmentController } = require("../controllers/bugAttachment.contro
 router.get(
   "/:id/attachments",
   authMiddleware,
+  authorise("superadmin", "admin", "user"),
   validate(bugIdParamSchema),
   BugAttachmentController.list
 );

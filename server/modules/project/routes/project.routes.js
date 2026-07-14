@@ -11,9 +11,9 @@ const {
 } = require("../validators/project.schema");
 const { ProjectController } = require("../controllers/project.controller");
 
-router.get("/", authMiddleware, validate(fetchProjectsSchema), ProjectController.fetchAll);
-router.get("/:id", authMiddleware, validate(idParamSchema), ProjectController.fetchById);
-router.get("/:id/export", authMiddleware, validate(idParamSchema), ProjectController.exportProject);
+router.get("/", authMiddleware, authorise("superadmin", "admin", "user"), validate(fetchProjectsSchema), ProjectController.fetchAll);
+router.get("/:id", authMiddleware, authorise("superadmin", "admin", "user"), validate(idParamSchema), ProjectController.fetchById);
+router.get("/:id/export", authMiddleware, authorise("superadmin", "admin", "user"), validate(idParamSchema), ProjectController.exportProject);
 router.post(
   "/",
   authMiddleware,

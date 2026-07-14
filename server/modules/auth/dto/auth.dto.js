@@ -16,6 +16,7 @@ function toUserResponse(user) {
     isOrgOwner: user.isOrgOwner ?? false,
     provider: user.provider,
     organizationId: user.organizationId ?? null,
+    clientCompanyId: user.clientCompanyId ?? null,
     avatarUrl: user.avatarUrl ?? null,
     address: user.address ?? null,
     city: user.city ?? null,

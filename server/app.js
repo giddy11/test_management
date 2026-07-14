@@ -34,6 +34,8 @@ const siteBannerRoutes = require("./modules/siteBanner/routes/siteBanner.routes"
 const organizationRoutes = require("./modules/organization/routes/organization.routes");
 const feedbackRoutes = require("./modules/feedback/routes/feedback.routes");
 const publicFeedbackRoutes = require("./modules/feedback/routes/publicFeedback.routes");
+const feedbackSupportRoutes = require("./modules/feedback/routes/feedbackSupport.routes");
+const clientCompanyRoutes = require("./modules/clientCompany/routes/clientCompany.routes");
 
 function createApp() {
   const app = express();
@@ -76,6 +78,8 @@ function createApp() {
   api.use("/site-banner", siteBannerRoutes);
   api.use("/organizations", organizationRoutes);
   api.use("/feedback", feedbackRoutes);
+  api.use("/support/feedback", feedbackSupportRoutes); // it_support role only
+  api.use("/client-companies", clientCompanyRoutes); // admin-only management
   api.use("/public/feedback", publicFeedbackRoutes); // unauthenticated, token-gated
   app.use("/api/v1", api);
 

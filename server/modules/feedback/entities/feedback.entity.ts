@@ -9,6 +9,21 @@ const { FeedbackStatus } = require("../../../config/constants");
 export interface Feedback {
   id: string;
   projectId: string;
+  // Set when submitted through a client company's form token. While
+  // supportStatus !== "escalated" the item is visible ONLY to that company's
+  // IT supporters — never to the product owner's triage.
+  clientCompanyId: string | null;
+  // IT-tier state (SupportStatus: open/resolved/escalated) — null on direct
+  // submissions. Orthogonal to `status`, which is the product owner's lifecycle.
+  supportStatus: string | null;
+  // The IT supporter's note — local-resolution message to the end user, or
+  // escalation context for the product team. Distinct from adminResponse.
+  supportResponse: string | null;
+  supportResolvedAt: Date | null;
+  escalatedAt: Date | null;
+  // Supporter who escalated — post-escalation lifecycle emails go to them,
+  // not the original submitter.
+  escalatedById: string | null;
   type: string; // FeedbackType
   title: string;
   description: string;
@@ -29,6 +44,8 @@ export interface Feedback {
   createdAt: Date;
   deletedAt: Date | null;
   project?: unknown;
+  clientCompany?: { id: string; name: string; feedbackToken?: string | null } | null;
+  escalatedBy?: { id: string; firstName: string; lastName: string | null; email: string } | null;
   // A feedback item can be assigned to several project members at once.
   assignees?: { id: string; firstName: string; lastName: string | null; email: string }[];
   attachments?: { id: string; url: string; publicId: string }[];
@@ -46,6 +63,37 @@ const Feedback = new EntitySchema<Feedback>({
     projectId: {
       name: "project_id",
       type: "uuid",
+    },
+    clientCompanyId: {
+      name: "client_company_id",
+      type: "uuid",
+      nullable: true,
+    },
+    supportStatus: {
+      name: "support_status",
+      type: "varchar",
+      length: 20,
+      nullable: true,
+    },
+    supportResponse: {
+      name: "support_response",
+      type: "text",
+      nullable: true,
+    },
+    supportResolvedAt: {
+      name: "support_resolved_at",
+      type: "timestamptz",
+      nullable: true,
+    },
+    escalatedAt: {
+      name: "escalated_at",
+      type: "timestamptz",
+      nullable: true,
+    },
+    escalatedById: {
+      name: "escalated_by_id",
+      type: "uuid",
+      nullable: true,
     },
     type: {
       type: "varchar",
@@ -119,6 +167,20 @@ const Feedback = new EntitySchema<Feedback>({
       joinColumn: { name: "project_id" },
       onDelete: "CASCADE",
     },
+    clientCompany: {
+      type: "many-to-one",
+      target: "ClientCompany",
+      joinColumn: { name: "client_company_id" },
+      onDelete: "SET NULL",
+      nullable: true,
+    },
+    escalatedBy: {
+      type: "many-to-one",
+      target: "User",
+      joinColumn: { name: "escalated_by_id" },
+      onDelete: "SET NULL",
+      nullable: true,
+    },
     // A feedback item can be assigned to several project members at once.
     assignees: {
       type: "many-to-many",
@@ -137,6 +199,11 @@ const Feedback = new EntitySchema<Feedback>({
   },
   indices: [
     { name: "idx_feedback_project_status_created", columns: ["projectId", "status", "createdAt"] },
+    // The IT support queue: a company's items filtered by support state.
+    {
+      name: "idx_feedback_company_support_created",
+      columns: ["clientCompanyId", "supportStatus", "createdAt"],
+    },
   ],
 });
 

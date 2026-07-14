@@ -388,6 +388,12 @@ async function sendBugAssignedEmail(to, firstName, title, url, organizationId) {
 module.exports = {
   emailLayout,
   verifyTransport,
+  // Building blocks for domain mail files (shared/utils/mail/*) — the layout,
+  // transport, and helpers stay defined here only.
+  send,
+  resolveFooterEmail,
+  ctaButton,
+  escapeAndLineBreak,
   sendVerificationEmail,
   sendPasswordResetEmail,
   sendWelcomeEmail,

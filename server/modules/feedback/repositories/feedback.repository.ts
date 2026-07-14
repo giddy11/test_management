@@ -7,12 +7,22 @@ import { AppDataSource } from "../../../infrastructure/database/dataSource";
 const { buildMeta, getOffset } = require("../../../shared/pagination/paginate");
 
 export interface FetchFeedbackParams {
-  projectId: string;
+  // Omitted => cross-project (global) mode, scoped by organizationId /
+  // restrictedUserId below.
+  projectId?: string;
   page?: number;
   limit?: number;
   status?: string;
   type?: string;
   search?: string;
+  // IT-queue mode: only this client company's items (all support states unless
+  // supportStatus narrows it). Bypasses the escalated-only visibility rule.
+  clientCompanyId?: string;
+  supportStatus?: string;
+  // Global-mode scoping: admins see their org's projects...
+  organizationId?: string;
+  // ...plain users only projects they're members of.
+  restrictedUserId?: string;
 }
 
 export class FeedbackRepository {
@@ -26,17 +36,58 @@ export class FeedbackRepository {
     this.attachmentRepo = AppDataSource.getRepository(FeedbackAttachment);
   }
 
-  async fetchPaginated({ projectId, page = 1, limit = 20, status, type, search }: FetchFeedbackParams) {
+  async fetchPaginated({
+    projectId,
+    page = 1,
+    limit = 20,
+    status,
+    type,
+    search,
+    clientCompanyId,
+    supportStatus,
+    organizationId,
+    restrictedUserId,
+  }: FetchFeedbackParams) {
     const offset = getOffset(page, limit);
     const qb = this.repo
       .createQueryBuilder("fb")
       .leftJoinAndSelect("fb.assignees", "assignee")
       .leftJoinAndSelect("fb.attachments", "attachment")
-      .where("fb.project_id = :projectId", { projectId }) // indexed
-      .andWhere("fb.deleted_at IS NULL")
+      .leftJoinAndSelect("fb.clientCompany", "clientCompany")
+      .leftJoinAndSelect("fb.escalatedBy", "escalatedBy")
+      .where("fb.deleted_at IS NULL")
       .orderBy("fb.createdAt", "DESC")
       .skip(offset)
       .take(limit);
+
+    if (clientCompanyId) {
+      // IT-queue mode — a company's supporters see all their items regardless
+      // of escalation state.
+      qb.andWhere("fb.client_company_id = :clientCompanyId", { clientCompanyId }); // indexed
+      if (supportStatus) qb.andWhere("fb.support_status = :supportStatus", { supportStatus });
+    } else {
+      // Product-owner views never see un-escalated client-company items.
+      qb.andWhere("(fb.client_company_id IS NULL OR fb.support_status = 'escalated')");
+    }
+
+    if (projectId) {
+      qb.andWhere("fb.project_id = :projectId", { projectId }); // indexed
+    } else if (!clientCompanyId) {
+      // Global (cross-project) mode — join the project for name + org scoping.
+      qb.leftJoinAndSelect("fb.project", "project").andWhere("project.deleted_at IS NULL");
+      if (organizationId) {
+        qb.andWhere("project.organization_id = :organizationId", { organizationId }); // indexed
+      }
+      if (restrictedUserId) {
+        qb.andWhere(
+          `EXISTS (
+            SELECT 1 FROM project_members pm
+            WHERE pm.project_id = fb.project_id AND pm.user_id = :restrictedUserId
+          )`,
+          { restrictedUserId }
+        );
+      }
+    }
 
     if (status) qb.andWhere("fb.status = :status", { status });
     if (type) qb.andWhere("fb.type = :type", { type });
@@ -54,7 +105,7 @@ export class FeedbackRepository {
   async findById(id: string): Promise<Feedback | null> {
     return this.repo.findOne({
       where: { id },
-      relations: { assignees: true, attachments: true },
+      relations: { assignees: true, attachments: true, clientCompany: true, escalatedBy: true },
     });
   }
 
@@ -74,7 +125,7 @@ export class FeedbackRepository {
 
   async update(
     id: string,
-    patch: Partial<Omit<Feedback, "project" | "assignees">>
+    patch: Partial<Omit<Feedback, "project" | "assignees" | "clientCompany" | "escalatedBy">>
   ): Promise<Feedback | null> {
     await this.repo.update(id, patch);
     return this.findById(id);

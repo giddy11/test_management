@@ -15,7 +15,7 @@ const { TestRunResultController } = require("../controllers/testRunResult.contro
 const { TestCaseAttachmentController } = require("../../testCase/controllers/testCaseAttachment.controller");
 const { attachmentParamsSchema } = require("../../testCase/validators/testCaseAttachment.schema");
 
-router.get("/", authMiddleware, validate(fetchResultsSchema), TestRunResultController.fetchAll);
+router.get("/", authMiddleware, authorise("superadmin", "admin", "user"), validate(fetchResultsSchema), TestRunResultController.fetchAll);
 // /bulk must be registered before /:id so Express doesn't treat "bulk" as a UUID param.
 router.patch(
   "/bulk",
@@ -24,7 +24,7 @@ router.patch(
   validate(bulkUpdateSchema),
   TestRunResultController.bulkUpdate
 );
-router.get("/:id", authMiddleware, validate(idParamSchema), TestRunResultController.fetchById);
+router.get("/:id", authMiddleware, authorise("superadmin", "admin", "user"), validate(idParamSchema), TestRunResultController.fetchById);
 router.post(
   "/",
   authMiddleware,
@@ -48,7 +48,7 @@ router.delete(
 );
 
 // Attachments scoped to a specific run result
-router.get("/:id/attachments", authMiddleware, validate(idParamSchema), TestCaseAttachmentController.listForResult);
+router.get("/:id/attachments", authMiddleware, authorise("superadmin", "admin", "user"), validate(idParamSchema), TestCaseAttachmentController.listForResult);
 router.post(
   "/:id/attachments",
   authMiddleware,

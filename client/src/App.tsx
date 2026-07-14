@@ -24,7 +24,11 @@ import PublicFeedbackPage from "@/pages/public/PublicFeedbackPage"
 import PublicFeedbackConfirmPage from "@/pages/public/PublicFeedbackConfirmPage"
 import DocsPage from "@/pages/docs/DocsPage"
 import AnnouncementsPage from "@/pages/AnnouncementsPage"
+import AllFeedbackPage from "@/pages/feedback/AllFeedbackPage"
+import SupportQueuePage from "@/pages/support/SupportQueuePage"
 import { UserRole } from "@/types/auth.types"
+
+const INTERNAL_ROLES = [UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.USER]
 
 export default function App() {
   return (
@@ -51,16 +55,31 @@ export default function App() {
 
             {/* Everything below requires a verified email */}
             <Route element={<RequireVerified />}>
+              {/* Reachable by every authenticated role, including IT supporters */}
               <Route element={<DashboardLayout />}>
-                <Route path="/dashboard" element={<DashboardPage />} />
-                <Route path="/projects" element={<ProjectsPage />} />
-                <Route path="/projects/:projectId" element={<ProjectDetailPage />} />
-                <Route path="/projects/:projectId/suites/:suiteId" element={<SuiteDetailPage />} />
-                <Route path="/projects/:projectId/suites/:suiteId/cases/:caseId" element={<TestCaseDetailPage />} />
-                <Route path="/projects/:projectId/runs/:runId" element={<RunDetailPage />} />
-                <Route path="/projects/:projectId/feature-requests/:id" element={<FeatureRequestDetailPage />} />
-                <Route path="/projects/:projectId/bugs/:id" element={<BugDetailPage />} />
                 <Route path="/settings" element={<SettingsPage />} />
+              </Route>
+
+              {/* Internal (product-org) roles only */}
+              <Route element={<ProtectedRoute roles={INTERNAL_ROLES} />}>
+                <Route element={<DashboardLayout />}>
+                  <Route path="/dashboard" element={<DashboardPage />} />
+                  <Route path="/projects" element={<ProjectsPage />} />
+                  <Route path="/projects/:projectId" element={<ProjectDetailPage />} />
+                  <Route path="/projects/:projectId/suites/:suiteId" element={<SuiteDetailPage />} />
+                  <Route path="/projects/:projectId/suites/:suiteId/cases/:caseId" element={<TestCaseDetailPage />} />
+                  <Route path="/projects/:projectId/runs/:runId" element={<RunDetailPage />} />
+                  <Route path="/projects/:projectId/feature-requests/:id" element={<FeatureRequestDetailPage />} />
+                  <Route path="/projects/:projectId/bugs/:id" element={<BugDetailPage />} />
+                  <Route path="/all-feedback" element={<AllFeedbackPage />} />
+                </Route>
+              </Route>
+
+              {/* IT support portal — external client-company supporters */}
+              <Route element={<ProtectedRoute roles={[UserRole.IT_SUPPORT]} />}>
+                <Route element={<DashboardLayout />}>
+                  <Route path="/support" element={<SupportQueuePage />} />
+                </Route>
               </Route>
 
               <Route element={<ProtectedRoute roles={[UserRole.SUPERADMIN, UserRole.ADMIN]} />}>

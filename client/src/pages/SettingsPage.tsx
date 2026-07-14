@@ -79,11 +79,14 @@ function ProfileTab() {
   const selectedState = states.find((s) => s.name === stateName)
 
   const cities = useMemo(() => {
-    const list = selectedState?.isoCode && selectedCountry?.isoCode
+    const raw = selectedState?.isoCode && selectedCountry?.isoCode
       ? City.getCitiesOfState(selectedCountry.isoCode, selectedState.isoCode)
       : selectedCountry?.isoCode
         ? (City.getCitiesOfCountry(selectedCountry.isoCode) ?? [])
         : []
+    // The same city name can appear under multiple states/regions (e.g. Nigeria
+    // has two towns named "Daura") — dedupe by name since only the name is stored.
+    const list = Array.from(new Map(raw.map((c) => [c.name, c])).values())
     if (cityName && !list.some((c) => c.name === cityName)) {
       return [{ name: cityName, countryCode: "", stateCode: "" }, ...list]
     }
@@ -175,7 +178,7 @@ function ProfileTab() {
                 </SelectTrigger>
                 <SelectContent>
                   {cities.map((c) => (
-                    <SelectItem key={`${c.stateCode}-${c.name}`} value={c.name}>{c.name}</SelectItem>
+                    <SelectItem key={c.name} value={c.name}>{c.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>

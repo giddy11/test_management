@@ -16,6 +16,7 @@ const {
 router.get(
   "/:id/attachments",
   authMiddleware,
+  authorise("superadmin", "admin", "user"),
   validate(testCaseIdParamSchema),
   TestCaseAttachmentController.list
 );
