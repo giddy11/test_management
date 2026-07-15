@@ -36,6 +36,7 @@ const feedbackRoutes = require("./modules/feedback/routes/feedback.routes");
 const publicFeedbackRoutes = require("./modules/feedback/routes/publicFeedback.routes");
 const feedbackSupportRoutes = require("./modules/feedback/routes/feedbackSupport.routes");
 const clientCompanyRoutes = require("./modules/clientCompany/routes/clientCompany.routes");
+const supportChatRoutes = require("./modules/supportChat/routes/supportChat.routes");
 
 function createApp() {
   const app = express();
@@ -80,6 +81,7 @@ function createApp() {
   api.use("/feedback", feedbackRoutes);
   api.use("/support/feedback", feedbackSupportRoutes); // it_support role only
   api.use("/client-companies", clientCompanyRoutes); // admin-only management
+  api.use("/support-chat", supportChatRoutes); // in-app user <-> super-admin chat
   api.use("/public/feedback", publicFeedbackRoutes); // unauthenticated, token-gated
   app.use("/api/v1", api);
 

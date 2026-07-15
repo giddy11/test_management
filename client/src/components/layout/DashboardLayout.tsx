@@ -12,6 +12,7 @@ import { WhatsNewDialog } from "@/components/layout/WhatsNewDialog"
 import { SiteBannerBar } from "@/components/layout/SiteBannerBar"
 import { PreviewBanner } from "@/components/layout/PreviewBanner"
 import { PresenceProvider } from "@/contexts/PresenceContext"
+import { SupportChatWidget } from "@/components/support-chat/SupportChatWidget"
 
 export function DashboardLayout() {
   return (
@@ -34,6 +35,7 @@ export function DashboardLayout() {
             <Outlet />
           </main>
           <WhatsNewDialog />
+          <SupportChatWidget />
         </SidebarInset>
       </SidebarProvider>
     </PresenceProvider>

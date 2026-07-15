@@ -110,6 +110,15 @@ const NotificationType = Object.freeze({
   BUG_REPORTED: "bug_reported",
   BUG_ASSIGNED: "bug_assigned",
   BUG_STATUS_CHANGED: "bug_status_changed",
+  // In-app support chat: a user messaged the super admins, or a super admin replied.
+  SUPPORT_CHAT_MESSAGE: "support_chat_message",
+  SUPPORT_CHAT_REPLY: "support_chat_reply",
+});
+
+// Lifecycle of an in-app support-chat conversation.
+const SupportChatStatus = Object.freeze({
+  OPEN: "open",
+  CLOSED: "closed",
 });
 
 const FeatureRequestStatus = Object.freeze({
@@ -158,6 +167,7 @@ module.exports = {
   AuthProvider,
   OtpType,
   NotificationType,
+  SupportChatStatus,
   FeatureRequestStatus,
   BugSeverity,
   BugPriority,
@@ -176,6 +186,7 @@ module.exports = {
     authProvider: Object.values(AuthProvider),
     otpType: Object.values(OtpType),
     notificationType: Object.values(NotificationType),
+    supportChatStatus: Object.values(SupportChatStatus),
     featureRequestStatus: Object.values(FeatureRequestStatus),
     bugSeverity: Object.values(BugSeverity),
     bugPriority: Object.values(BugPriority),

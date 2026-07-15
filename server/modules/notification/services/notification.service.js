@@ -400,6 +400,38 @@ class NotificationService {
     }
   }
 
+  // A user sent a message in the in-app support chat — alert every super admin.
+  // In-app only (no email): support chat is a live, presence-driven channel.
+  // ctx: { conversationId, senderName, preview }
+  async notifyNewSupportChatMessage(admins, ctx) {
+    const users = Array.isArray(admins) ? admins : [admins];
+    if (!users.length) return;
+    await this.repo.createMany(
+      users.map((u) => ({
+        userId: u.id,
+        type: NotificationType.SUPPORT_CHAT_MESSAGE,
+        title: `New support message from ${ctx.senderName}`,
+        body: ctx.preview,
+        data: { conversationId: ctx.conversationId, support: true },
+      }))
+    );
+  }
+
+  // A super admin replied — notify the user who owns the conversation. In-app only.
+  // ctx: { conversationId, preview }
+  async notifySupportChatReply(user, ctx) {
+    if (!user) return;
+    await this.repo.createMany([
+      {
+        userId: user.id,
+        type: NotificationType.SUPPORT_CHAT_REPLY,
+        title: "Support replied to your message",
+        body: ctx.preview,
+        data: { conversationId: ctx.conversationId, support: true },
+      },
+    ]);
+  }
+
   // ctx: { bugId, projectId, title }
   async notifyBugAssigned(user, ctx) {
     const url = `${env.appUrl}/projects/${ctx.projectId}/bugs/${ctx.bugId}`;

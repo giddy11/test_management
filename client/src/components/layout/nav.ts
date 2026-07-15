@@ -6,6 +6,7 @@ import {
   Building2,
   Megaphone,
   MessageSquareHeart,
+  MessagesSquare,
   Headset,
   Settings,
   Activity,
@@ -35,6 +36,7 @@ export const NAV_ITEMS: NavItem[] = [
   { title: "Team", to: "/team", icon: Users, roles: [UserRole.SUPERADMIN, UserRole.ADMIN], tourId: "nav-team" },
   { title: "Organisations", to: "/platform", icon: Building2, roles: [UserRole.SUPERADMIN] },
   { title: "Announcements", to: "/announcements", icon: Megaphone, roles: [UserRole.SUPERADMIN] },
+  { title: "Support inbox", to: "/support-inbox", icon: MessagesSquare, roles: [UserRole.SUPERADMIN] },
 ]
 
 // Secondary navigation — pinned to the bottom of the sidebar.

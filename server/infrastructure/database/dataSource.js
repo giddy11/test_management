@@ -52,6 +52,12 @@ const { SiteBanner } = require("../../modules/siteBanner/entities/siteBanner.ent
 const {
   ClientCompany,
 } = require("../../modules/clientCompany/entities/clientCompany.entity");
+const {
+  SupportChatConversation,
+} = require("../../modules/supportChat/entities/supportChatConversation.entity");
+const {
+  SupportChatSettings,
+} = require("../../modules/supportChat/entities/supportChatSettings.entity");
 
 const AppDataSource = new DataSource({
   type: "postgres",
@@ -89,6 +95,8 @@ const AppDataSource = new DataSource({
     FeedbackSupportStatusHistory,
     SiteBanner,
     ClientCompany,
+    SupportChatConversation,
+    SupportChatSettings,
   ],
   migrations: ["infrastructure/database/migrations/*.{js,ts}"],
 });

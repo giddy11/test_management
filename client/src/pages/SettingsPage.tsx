@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form"
 import { toast } from "sonner"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "react-router-dom"
-import { User, Lock, LifeBuoy } from "lucide-react"
+import { User, Lock, LifeBuoy, MessagesSquare, Power, PowerOff } from "lucide-react"
 import { Country, State, City } from "country-state-city"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -25,7 +25,9 @@ import { useGuideTour } from "@/hooks/useGuideTour"
 import { useUpdateOnboardingStatus } from "@/hooks/useOnboarding"
 import { useProjects } from "@/hooks/useProjects"
 import { ALL_GUIDES, DASHBOARD_GUIDE, type TourGuide } from "@/lib/tourGuides"
-import { type ChangePasswordPayload, type UpdateProfilePayload } from "@/types/auth.types"
+import { Badge } from "@/components/ui/badge"
+import { UserRole, type ChangePasswordPayload, type UpdateProfilePayload } from "@/types/auth.types"
+import { useSupportChatSettings, useSetSupportChatEnabled } from "@/hooks/useSupportChat"
 
 // ── Profile tab ───────────────────────────────────────────────────────────────
 
@@ -410,9 +412,69 @@ function HelpTab() {
   )
 }
 
+// ── Admin tab (superadmin only) ─────────────────────────────────────────────────
+
+function AdminTab() {
+  const { data: settings, isLoading } = useSupportChatSettings()
+  const setEnabled = useSetSupportChatEnabled()
+  const enabled = settings?.enabled ?? true
+
+  const toggle = () => {
+    const next = !enabled
+    setEnabled.mutate(next, {
+      onSuccess: () =>
+        toast.success(next ? "Support chat enabled for users" : "Support chat disabled for users"),
+      onError: (e) =>
+        toast.error(e instanceof ApiError ? e.message : "Couldn't update the setting"),
+    })
+  }
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                Support chat
+                {!isLoading && (
+                  <Badge variant={enabled ? "default" : "secondary"}>
+                    {enabled ? "On" : "Off"}
+                  </Badge>
+                )}
+              </CardTitle>
+              <CardDescription>
+                The floating chat widget users use to message the admin team. When off, the widget is
+                hidden for everyone and new messages are blocked. Existing conversations stay in the
+                support inbox.
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <Button variant="outline" onClick={toggle} disabled={isLoading || setEnabled.isPending}>
+            {enabled ? (
+              <>
+                <PowerOff className="size-4" /> Disable for users
+              </>
+            ) : (
+              <>
+                <Power className="size-4" /> Enable for users
+              </>
+            )}
+          </Button>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function SettingsPage() {
+  const { user } = useAuth()
+  const isSuperadmin = user?.role === UserRole.SUPERADMIN
+
   return (
     <div className="space-y-6">
       <div>
@@ -436,6 +498,12 @@ export default function SettingsPage() {
             <LifeBuoy className="size-3.5" />
             Help
           </TabsTrigger>
+          {isSuperadmin && (
+            <TabsTrigger value="admin" className="gap-1.5" data-cy="settings-tab-admin">
+              <MessagesSquare className="size-3.5" />
+              Admin
+            </TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent value="profile" className="mt-4">
@@ -449,6 +517,12 @@ export default function SettingsPage() {
         <TabsContent value="help" className="mt-4">
           <HelpTab />
         </TabsContent>
+
+        {isSuperadmin && (
+          <TabsContent value="admin" className="mt-4">
+            <AdminTab />
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   )

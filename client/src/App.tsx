@@ -27,6 +27,7 @@ import AnnouncementsPage from "@/pages/AnnouncementsPage"
 import AllFeedbackPage from "@/pages/feedback/AllFeedbackPage"
 import SupportQueuePage from "@/pages/support/SupportQueuePage"
 import SupportActivityPage from "@/pages/support/SupportActivityPage"
+import SupportInboxPage from "@/pages/support/SupportInboxPage"
 import { UserRole } from "@/types/auth.types"
 
 const INTERNAL_ROLES = [UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.USER]
@@ -95,6 +96,7 @@ export default function App() {
                 <Route element={<DashboardLayout />}>
                   <Route path="/platform" element={<OrganizationsPage />} />
                 <Route path="/announcements" element={<AnnouncementsPage />} />
+                <Route path="/support-inbox" element={<SupportInboxPage />} />
                 </Route>
               </Route>
             </Route>
