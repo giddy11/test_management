@@ -21,6 +21,13 @@ const ActivityLog = new EntitySchema({
       type: "uuid",
       nullable: true,
     },
+    // Set when the event belongs to a client company's IT support tier —
+    // scopes what an it_support actor is allowed to see in their activity log.
+    clientCompanyId: {
+      name: "client_company_id",
+      type: "uuid",
+      nullable: true,
+    },
     action: {
       type: "varchar",
       length: 60, // e.g. project.created, test_case.assigned
@@ -60,6 +67,7 @@ const ActivityLog = new EntitySchema({
   },
   indices: [
     { name: "idx_activity_org_created", columns: ["organizationId", "createdAt"] },
+    { name: "idx_activity_company_created", columns: ["clientCompanyId", "createdAt"] },
   ],
 });
 

@@ -3,6 +3,7 @@ import { wrapCall, uploadFilesWithFields } from "@/transport/http"
 import type {
   Feedback,
   FeedbackConfirmationContext,
+  FeedbackSeverity,
   FeedbackStatusHistoryEntry,
   FetchFeedbackParams,
   ManageFeedbackPayload,
@@ -41,8 +42,14 @@ export const FeedbackEndpoints = {
   supportResolve: (id: string, note: string) =>
     wrapCall<Feedback>("POST", `/api/v1/support/feedback/${id}/resolve`, { note }),
 
-  supportEscalate: (id: string, note?: string) =>
-    wrapCall<Feedback>("POST", `/api/v1/support/feedback/${id}/escalate`, note ? { note } : {}),
+  supportEscalate: (id: string, severity: FeedbackSeverity, note?: string) =>
+    wrapCall<Feedback>("POST", `/api/v1/support/feedback/${id}/escalate`, {
+      severity,
+      ...(note ? { note } : {}),
+    }),
+
+  supportNotifySubmitter: (id: string, note: string) =>
+    wrapCall<Feedback>("POST", `/api/v1/support/feedback/${id}/notify-submitter`, { note }),
 
   // Public (unauthenticated)
   publicForm: (token: string) =>

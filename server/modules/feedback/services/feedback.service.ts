@@ -373,9 +373,14 @@ export class FeedbackService {
       metadata: { projectId: fb.projectId },
     });
 
-    // Email the external contact about the stage change — the original
-    // submitter for direct items, the escalating IT supporter for escalated ones.
-    if (updated && patch.status && patch.status !== fb.status) {
+    // Closing an escalated item is handled separately below (notifies the
+    // supporter, not the generic "your feedback is now X" copy) — everything
+    // else emails the external contact about the stage change as usual: the
+    // original submitter for direct items, the escalating IT supporter for
+    // escalated ones (mid-workflow stages still reach the supporter this way).
+    const isEscalatedClose =
+      patch.status === FeedbackStatus.CLOSED && Boolean(fb.escalatedById);
+    if (updated && patch.status && patch.status !== fb.status && !isEscalatedClose) {
       const copy = STATUS_EMAIL_COPY[updated.status];
       if (copy) {
         const recipient = await this.resolveEmailRecipient(fb);
@@ -391,6 +396,25 @@ export class FeedbackService {
           project.organizationId
         ).catch((e: Error) => console.error("[feedback] status email failed:", e.message));
       }
+    }
+
+    // An escalated item was just closed — the escalating supporter is
+    // notified (in-app + email) since they're the one who has to relay the
+    // fix to their end user; the end user never sees this transition directly.
+    if (updated && isEscalatedClose && patch.status !== fb.status) {
+      const supporter =
+        fb.escalatedBy ?? (await this.authRepo.findUserById(fb.escalatedById));
+      this.notificationService
+        .notifyFeedbackClosedForSupporter(supporter, {
+          feedbackId: fb.id,
+          projectId: fb.projectId,
+          projectName: project.name,
+          companyName: fb.clientCompany?.name ?? "your company",
+          title: fb.title,
+          adminResponse: updated.adminResponse ?? null,
+          organizationId: project.organizationId,
+        })
+        .catch((e: Error) => console.error("[feedback] closed-supporter notify failed:", e.message));
     }
 
     // Notify newly-assigned users (in-app + email), fire-and-forget. The actor

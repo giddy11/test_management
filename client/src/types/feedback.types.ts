@@ -20,6 +20,10 @@ export type SupportStatus =
   | "resolved"
   | "escalated"
 
+// Set by IT support when they escalate an item — tells the product team how
+// urgent it is. Null until escalated.
+export type FeedbackSeverity = "low" | "medium" | "high" | "critical"
+
 export interface Feedback {
   id: string
   projectId: string
@@ -32,6 +36,10 @@ export interface Feedback {
   supportResolvedAt: string | null
   escalatedAt: string | null
   escalatedByName: string | null
+  severity: FeedbackSeverity | null
+  // Set once IT support has told the original end user an escalated item was
+  // fixed — a deliberate relay step, not automatic. Null until they do.
+  submitterNotifiedAt: string | null
   type: FeedbackType
   title: string
   description: string
@@ -153,4 +161,13 @@ export const SUPPORT_STATUS_LABELS: Record<SupportStatus, string> = {
   investigating: "Investigating",
   resolved: "Resolved locally",
   escalated: "Escalated",
+}
+
+export const FEEDBACK_SEVERITIES: FeedbackSeverity[] = ["low", "medium", "high", "critical"]
+
+export const FEEDBACK_SEVERITY_LABELS: Record<FeedbackSeverity, string> = {
+  low: "Low",
+  medium: "Medium",
+  high: "High",
+  critical: "Critical",
 }

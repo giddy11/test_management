@@ -21,6 +21,7 @@ jest.mock("../controllers/feedbackSupport.controller", () => ({
     history: jest.fn((req: any, res: any) => res.status(200).json({})),
     resolve: jest.fn((req: any, res: any) => res.status(200).json({})),
     escalate: jest.fn((req: any, res: any) => res.status(200).json({})),
+    notifySubmitter: jest.fn((req: any, res: any) => res.status(200).json({})),
   },
 }));
 jest.mock("../controllers/feedback.controller", () => ({
@@ -63,6 +64,7 @@ describe("feedbackSupport.routes — role wiring", () => {
     ["/:id/history", "get"],
     ["/:id/resolve", "post"],
     ["/:id/escalate", "post"],
+    ["/:id/notify-submitter", "post"],
   ];
 
   it("admits it_support on every portal route", () => {

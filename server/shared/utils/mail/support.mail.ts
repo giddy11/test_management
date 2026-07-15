@@ -119,6 +119,7 @@ export async function sendFeedbackEscalatedAlertEmail(
   productName: string,
   companyName: string,
   escalatedByName: string,
+  severityLabel: string,
   note: string | null,
   url: string,
   organizationId?: string | null
@@ -130,13 +131,45 @@ export async function sendFeedbackEscalatedAlertEmail(
     : "";
   const body = `
     <h1 style="margin:0 0 12px;font-size:20px;font-weight:700;color:#0f172a">Feedback escalated to your team</h1>
-    <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.65">Hi ${firstName}, ${escalatedByName} (IT support at <strong>${companyName}</strong>) escalated the ${typeLabel} <strong>${title}</strong> on <strong>${productName}</strong> — their team couldn't resolve it locally.</p>
+    <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.65">Hi ${firstName}, ${escalatedByName} (IT support at <strong>${companyName}</strong>) escalated the ${typeLabel} <strong>${title}</strong> on <strong>${productName}</strong> — their team couldn't resolve it locally. Severity: <strong>${severityLabel}</strong>.</p>
     ${noteBox}
     ${ctaButton(url, "Open project")}`;
   return send({
     to,
-    subject: `Feedback escalated — ${title} — ${productName}`,
+    subject: `Feedback escalated (${severityLabel}) — ${title} — ${productName}`,
     html: emailLayout(body, await resolveFooterEmail(organizationId)),
-    text: `${escalatedByName} (IT support at ${companyName}) escalated "${title}" (${typeLabel}) on ${productName}.${note ? ` Note: ${note}` : ""}`,
+    text: `${escalatedByName} (IT support at ${companyName}) escalated "${title}" (${typeLabel}) on ${productName}. Severity: ${severityLabel}.${note ? ` Note: ${note}` : ""}`,
+  });
+}
+
+// ── The product team closed an item this supporter escalated ────────────────
+// The true end user never sees product-team stage emails post-escalation — this
+// tells the supporter it's done so they know to relay the fix themselves.
+export async function sendFeedbackClosedSupporterEmail(
+  to: string,
+  firstName: string,
+  companyName: string,
+  productName: string,
+  title: string,
+  adminResponse: string | null,
+  url: string,
+  organizationId?: string | null
+) {
+  const noteBox = adminResponse
+    ? `<div style="background:#f8fafc;border-left:3px solid #6366f1;border-radius:0 6px 6px 0;padding:14px 16px;margin:0 0 24px">
+        <p style="margin:0;font-size:14px;color:#374151"><strong>Note from the product team:</strong><br>${escapeAndLineBreak(adminResponse)}</p>
+      </div>`
+    : "";
+  const body = `
+    <h1 style="margin:0 0 12px;font-size:20px;font-weight:700;color:#0f172a">Escalated feedback closed</h1>
+    <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.65">Hi ${firstName}, the product team closed <strong>${title}</strong> on <strong>${productName}</strong> — the item you escalated from <strong>${companyName}</strong>'s support queue.</p>
+    ${noteBox}
+    <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.65">Your end user won't hear about this automatically — let them know it's fixed from your support queue.</p>
+    ${ctaButton(url, "Open support queue")}`;
+  return send({
+    to,
+    subject: `Closed — ${title} — ${productName}`,
+    html: emailLayout(body, await resolveFooterEmail(organizationId)),
+    text: `The product team closed "${title}" on ${productName} — the item you escalated from ${companyName}'s support queue.${adminResponse ? ` Note: ${adminResponse}` : ""} Let your end user know it's fixed from your support queue: ${url}`,
   });
 }

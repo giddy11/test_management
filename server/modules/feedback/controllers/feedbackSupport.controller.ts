@@ -70,11 +70,27 @@ export class FeedbackSupportController {
       const updated = await FeedbackSupportService.Instance.escalate(
         req.user,
         req.validated.params.id,
+        req.validated.body.severity,
         req.validated.body.note
       );
       res
         .status(200)
         .json(ApiResponse.ok("Feedback escalated to the product team", toFeedbackResponse(updated)));
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  static async notifySubmitter(req: any, res: any, next: any) {
+    try {
+      const updated = await FeedbackSupportService.Instance.notifySubmitterFixed(
+        req.user,
+        req.validated.params.id,
+        req.validated.body.note
+      );
+      res
+        .status(200)
+        .json(ApiResponse.ok("Submitter notified — they've been emailed", toFeedbackResponse(updated)));
     } catch (err) {
       next(err);
     }

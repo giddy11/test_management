@@ -21,6 +21,7 @@ const {
 const {
   sendSupportQueueAlertEmail,
   sendFeedbackEscalatedAlertEmail,
+  sendFeedbackClosedSupporterEmail,
 } = require("../../../shared/utils/mail/support.mail");
 
 class NotificationService {
@@ -197,16 +198,19 @@ class NotificationService {
 
   // A client company's IT support escalated an item to the product owner's team.
   // ctx: { feedbackId, projectId, projectName, companyName, title, type,
-  //        escalatedByName, note, organizationId }
+  //        escalatedByName, severity, note, organizationId }
   async notifyFeedbackEscalated(recipients, ctx) {
     if (!recipients.length) return;
     const url = `${env.appUrl}/projects/${ctx.projectId}?tab=feedback`;
     const typeLabel = String(ctx.type ?? "feedback").replace(/_/g, " ");
+    const severityLabel = ctx.severity
+      ? ctx.severity.charAt(0).toUpperCase() + ctx.severity.slice(1)
+      : "Unknown";
     await this.repo.createMany(
       recipients.map((u) => ({
         userId: u.id,
         type: NotificationType.FEEDBACK_NEW,
-        title: `Feedback escalated: ${ctx.title}`,
+        title: `Feedback escalated (${severityLabel}): ${ctx.title}`,
         body: `${ctx.escalatedByName} (IT support at ${ctx.companyName}) escalated this ${typeLabel} on ${ctx.projectName}`,
         data: { feedbackId: ctx.feedbackId, projectId: ctx.projectId },
       }))
@@ -220,11 +224,40 @@ class NotificationService {
         ctx.projectName,
         ctx.companyName,
         ctx.escalatedByName,
+        severityLabel,
         ctx.note ?? null,
         url,
         ctx.organizationId
       ).catch((e) => console.error("[notify] escalation email failed:", e.message));
     }
+  }
+
+  // The product team closed an item this supporter escalated — the true end
+  // user never sees product-team stage emails, so this tells the supporter to
+  // relay the fix themselves.
+  // ctx: { feedbackId, projectId, projectName, companyName, title, adminResponse, organizationId }
+  async notifyFeedbackClosedForSupporter(supporter, ctx) {
+    if (!supporter) return;
+    const url = `${env.appUrl}/support`;
+    await this.repo.createMany([
+      {
+        userId: supporter.id,
+        type: NotificationType.FEEDBACK_CLOSED_SUPPORTER,
+        title: `Closed: ${ctx.title}`,
+        body: `The product team closed the escalated item "${ctx.title}" on ${ctx.projectName} — let your user know it's fixed.`,
+        data: { feedbackId: ctx.feedbackId, projectId: ctx.projectId },
+      },
+    ]);
+    sendFeedbackClosedSupporterEmail(
+      supporter.email,
+      supporter.firstName,
+      ctx.companyName,
+      ctx.projectName,
+      ctx.title,
+      ctx.adminResponse ?? null,
+      url,
+      ctx.organizationId
+    ).catch((e) => console.error("[notify] closed-supporter email failed:", e.message));
   }
 
   // The submitter used the confirmation link to close or reopen a feedback item.

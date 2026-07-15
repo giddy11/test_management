@@ -8,6 +8,7 @@ import {
   supportItemParamSchema,
   resolveSupportSchema,
   escalateSupportSchema,
+  notifySubmitterSchema,
 } from "../validators/feedback.schema";
 
 const router = require("express").Router();
@@ -42,6 +43,12 @@ router.post(
   ...supportOnly,
   validate(escalateSupportSchema),
   FeedbackSupportController.escalate
+);
+router.post(
+  "/:id/notify-submitter",
+  ...supportOnly,
+  validate(notifySubmitterSchema),
+  FeedbackSupportController.notifySubmitter
 );
 
 module.exports = router;

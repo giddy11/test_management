@@ -240,14 +240,14 @@ describe("FeedbackSupportService", () => {
         ...loggedItem,
         supportStatus: SupportStatus.ESCALATED,
       });
-      await expect(service.escalate(supporter, "fb-1")).rejects.toMatchObject({
+      await expect(service.escalate(supporter, "fb-1", "high")).rejects.toMatchObject({
         statusCode: 409,
       });
     });
 
     it("422s before the item reaches investigating", async () => {
       feedbackRepo.findById.mockResolvedValue(loggedItem);
-      await expect(service.escalate(supporter, "fb-1")).rejects.toMatchObject({
+      await expect(service.escalate(supporter, "fb-1", "high")).rejects.toMatchObject({
         statusCode: 422,
       });
     });
@@ -259,7 +259,7 @@ describe("FeedbackSupportService", () => {
         supportStatus: SupportStatus.ESCALATED,
       });
 
-      await service.escalate(supporter, "fb-1", "Beyond our access");
+      await service.escalate(supporter, "fb-1", "critical", "Beyond our access");
 
       expect(feedbackRepo.update).toHaveBeenCalledWith(
         "fb-1",
@@ -268,6 +268,7 @@ describe("FeedbackSupportService", () => {
           supportResponse: "Beyond our access",
           escalatedAt: expect.any(Date),
           escalatedById: "sup-1",
+          severity: "critical",
         })
       );
       // The "logged" history row is created at escalation, not submission —
@@ -294,7 +295,7 @@ describe("FeedbackSupportService", () => {
       authRepo.findByRoleAndOrg.mockResolvedValue([orgAdmin]);
       memberRepo.findMemberUsers.mockResolvedValue([orgAdmin]); // duplicate — must dedupe
 
-      await service.escalate(supporter, "fb-1");
+      await service.escalate(supporter, "fb-1", "medium");
       await flush(); // fan-out is fire-and-forget
 
       expect(notificationService.notifyFeedbackEscalated).toHaveBeenCalledTimes(1);
@@ -304,7 +305,73 @@ describe("FeedbackSupportService", () => {
         feedbackId: "fb-1",
         companyName: "Client Co",
         escalatedByName: "Sam Support",
+        severity: "medium",
       });
+    });
+  });
+
+  describe("notifySubmitterFixed", () => {
+    const escalatedClosedItem = {
+      ...loggedItem,
+      supportStatus: SupportStatus.ESCALATED,
+      status: FeedbackStatus.CLOSED,
+      submitterNotifiedAt: null,
+    };
+
+    it("422s when the item was never escalated", async () => {
+      feedbackRepo.findById.mockResolvedValue({
+        ...loggedItem,
+        status: FeedbackStatus.CLOSED,
+      });
+      await expect(
+        service.notifySubmitterFixed(supporter, "fb-1", "Fixed!")
+      ).rejects.toMatchObject({ statusCode: 422 });
+    });
+
+    it("422s while the product team hasn't closed it yet", async () => {
+      feedbackRepo.findById.mockResolvedValue({
+        ...loggedItem,
+        supportStatus: SupportStatus.ESCALATED,
+        status: FeedbackStatus.INVESTIGATING,
+      });
+      await expect(
+        service.notifySubmitterFixed(supporter, "fb-1", "Fixed!")
+      ).rejects.toMatchObject({ statusCode: 422 });
+    });
+
+    it("409s if the submitter was already notified", async () => {
+      feedbackRepo.findById.mockResolvedValue({
+        ...escalatedClosedItem,
+        submitterNotifiedAt: new Date(),
+      });
+      await expect(
+        service.notifySubmitterFixed(supporter, "fb-1", "Fixed!")
+      ).rejects.toMatchObject({ statusCode: 409 });
+    });
+
+    it("emails the submitter and records the notified timestamp", async () => {
+      feedbackRepo.findById.mockResolvedValue(escalatedClosedItem);
+      feedbackRepo.update.mockResolvedValue({
+        ...escalatedClosedItem,
+        submitterNotifiedAt: new Date(),
+      });
+
+      await service.notifySubmitterFixed(supporter, "fb-1", "All fixed now!");
+
+      expect(feedbackRepo.update).toHaveBeenCalledWith(
+        "fb-1",
+        expect.objectContaining({ submitterNotifiedAt: expect.any(Date) })
+      );
+      const { sendSupportResolutionEmail } = require("../../../shared/utils/mail/support.mail");
+      expect(sendSupportResolutionEmail).toHaveBeenCalledWith(
+        "user@client.co",
+        "End User",
+        "Client Co",
+        "Product A",
+        "Broken export",
+        "All fixed now!",
+        "org-1"
+      );
     });
   });
 

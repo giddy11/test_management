@@ -29,6 +29,7 @@ import { FeedbackTimeline } from "@/components/feedback/FeedbackTimeline"
 import { ApiError } from "@/transport/http"
 import type { ProjectMember } from "@/types/project.types"
 import {
+  FEEDBACK_SEVERITY_LABELS,
   FEEDBACK_STATUSES,
   FEEDBACK_STATUS_LABELS,
   type Feedback,
@@ -50,6 +51,10 @@ export function FeedbackManageDialog({
   const { data: history = [] } = useFeedbackHistory(feedback?.id ?? "", Boolean(feedback))
   const [status, setStatus] = useState<FeedbackStatus | "">("")
   const [assigneeIds, setAssigneeIds] = useState<Set<string>>(new Set())
+  // Once an item already has assignees, the checklist stays locked behind this
+  // checkbox — so reviewing an item doesn't risk accidentally adding/removing
+  // an assignee. Unassigned items skip the gate; there's nothing to disturb.
+  const [editAssignees, setEditAssignees] = useState(false)
   const [response, setResponse] = useState("")
   // The note is opt-in — it goes in the email, and most updates don't need one.
   const [includeNote, setIncludeNote] = useState(false)
@@ -60,6 +65,7 @@ export function FeedbackManageDialog({
     setLastId(feedback.id)
     setStatus(feedback.status)
     setAssigneeIds(new Set(feedback.assignees.map((a) => a.id)))
+    setEditAssignees(feedback.assignees.length === 0)
     setResponse(feedback.adminResponse ?? "")
     setIncludeNote(Boolean(feedback.adminResponse))
   }
@@ -94,8 +100,9 @@ export function FeedbackManageDialog({
           status: status || undefined,
           // Reassigning is a management action — assignees can update status
           // and leave a note, but the backend rejects this field from them.
-          // Only sent while the picker is visible (stage ≥ assigned).
-          assignedToIds: canReassign && showAssignees ? [...assigneeIds] : undefined,
+          // Only sent while the picker is visible (stage ≥ assigned) and
+          // actually editable (unassigned, or "Change assignees" was checked).
+          assignedToIds: canReassign && showAssignees && editAssignees ? [...assigneeIds] : undefined,
           // Unchecking the note box clears any previous note.
           adminResponse: includeNote ? response || null : null,
         },
@@ -125,10 +132,15 @@ export function FeedbackManageDialog({
           <div className="grid gap-4">
             {feedback.escalatedAt && (
               <div className="rounded-md border-l-3 border-primary bg-primary/10 px-3 py-2">
-                <p className="text-xs font-medium text-primary">
+                <p className="flex flex-wrap items-center gap-2 text-xs font-medium text-primary">
                   Escalated from {feedback.clientCompanyName ?? "a client company"}
                   {feedback.escalatedByName && <> by {feedback.escalatedByName}</>} ·{" "}
                   {new Date(feedback.escalatedAt).toLocaleDateString()}
+                  {feedback.severity && (
+                    <Badge variant="outline" className="border-primary/40 text-primary">
+                      {FEEDBACK_SEVERITY_LABELS[feedback.severity]} severity
+                    </Badge>
+                  )}
                 </p>
                 {feedback.supportResponse && (
                   <p className="mt-0.5 whitespace-pre-line text-sm">{feedback.supportResponse}</p>
@@ -213,8 +225,38 @@ export function FeedbackManageDialog({
                 <p className="text-sm text-muted-foreground">
                   This project has no members yet — add members to assign feedback.
                 </p>
+              ) : !editAssignees ? (
+                <>
+                  <div className="flex flex-wrap gap-1">
+                    {feedback.assignees.map((a) => (
+                      <Badge key={a.id} variant="secondary" className="text-xs">
+                        {a.name}
+                      </Badge>
+                    ))}
+                  </div>
+                  <label className="flex cursor-pointer items-center gap-2">
+                    <Checkbox
+                      checked={editAssignees}
+                      onCheckedChange={(v) => setEditAssignees(Boolean(v))}
+                    />
+                    <span className="text-sm">Change assignees</span>
+                  </label>
+                </>
               ) : (
                 <>
+                  {feedback.assignees.length > 0 && (
+                    <label className="flex cursor-pointer items-center gap-2">
+                      <Checkbox
+                        checked={editAssignees}
+                        onCheckedChange={(v) => {
+                          const next = Boolean(v)
+                          setEditAssignees(next)
+                          if (!next) setAssigneeIds(new Set(feedback.assignees.map((a) => a.id)))
+                        }}
+                      />
+                      <span className="text-sm">Change assignees</span>
+                    </label>
+                  )}
                   <div className="max-h-40 space-y-1 overflow-y-auto rounded-md border p-1">
                     {members.map((m) => {
                       const initials = m.name

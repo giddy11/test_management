@@ -25,10 +25,12 @@ import { useAuth } from "@/contexts/AuthContext"
 import { UserRole } from "@/types/auth.types"
 import { ApiError } from "@/transport/http"
 import {
+  FEEDBACK_SEVERITY_LABELS,
   FEEDBACK_STATUSES,
   FEEDBACK_STATUS_LABELS,
   FEEDBACK_TYPE_LABELS,
   type Feedback,
+  type FeedbackSeverity,
   type FeedbackStatus,
   type FeedbackType,
 } from "@/types/feedback.types"
@@ -41,6 +43,13 @@ const STATUS_VARIANT: Record<FeedbackStatus, "default" | "secondary" | "outline"
   resolved: "default",
   awaiting_confirmation: "default",
   closed: "outline",
+}
+
+const SEVERITY_VARIANT: Record<FeedbackSeverity, "default" | "secondary" | "outline" | "destructive"> = {
+  low: "outline",
+  medium: "secondary",
+  high: "default",
+  critical: "destructive",
 }
 
 export default function AllFeedbackPage() {
@@ -164,6 +173,11 @@ export default function AllFeedbackPage() {
                 <Badge variant="outline">{FEEDBACK_TYPE_LABELS[fb.type]}</Badge>
                 {fb.clientCompanyName && (
                   <Badge variant="secondary">via {fb.clientCompanyName} IT</Badge>
+                )}
+                {fb.severity && (
+                  <Badge variant={SEVERITY_VARIANT[fb.severity]}>
+                    {FEEDBACK_SEVERITY_LABELS[fb.severity]}
+                  </Badge>
                 )}
                 {fb.attachments.length > 0 && (
                   <Badge variant="secondary">{fb.attachments.length} 📎</Badge>

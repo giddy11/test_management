@@ -53,12 +53,29 @@ export class ClientCompanyService {
     );
   }
 
+  // A contact email must be unique across every client company in the
+  // application, and must not already belong to a user account (org member
+  // or supporter).
+  private async assertContactEmailAvailable(email: string, excludeCompanyId?: string) {
+    const existingCompany = await this.companyRepo.findByEmail(email);
+    if (existingCompany && existingCompany.id !== excludeCompanyId) {
+      throw new AppError("A client company with this contact email already exists", 409);
+    }
+    const existingUser = await this.userRepo.findByEmail(email);
+    if (existingUser) {
+      throw new AppError("This email already belongs to a user account", 409);
+    }
+  }
+
   async createCompany(
     actor: Actor,
     projectId: string,
     data: { name: string; contactEmail?: string | null }
   ) {
     const project = await this.projectService.getProject(actor, projectId);
+    if (data.contactEmail) {
+      await this.assertContactEmailAvailable(data.contactEmail);
+    }
     const company = await this.companyRepo.create({
       projectId,
       name: data.name,
@@ -69,6 +86,7 @@ export class ClientCompanyService {
       summary: `Added client company "${company.name}" to project "${project.name}"`,
       entityType: "client_company",
       entityId: company.id,
+      clientCompanyId: company.id,
       metadata: { projectId },
     });
     return company;
@@ -80,6 +98,9 @@ export class ClientCompanyService {
     data: { name?: string; contactEmail?: string | null }
   ) {
     const company = await this.getAccessible(actor, id);
+    if (data.contactEmail && data.contactEmail !== company.contactEmail) {
+      await this.assertContactEmailAvailable(data.contactEmail, company.id);
+    }
     const patch: Partial<ClientCompany> = {};
     if (data.name !== undefined) patch.name = data.name;
     if (data.contactEmail !== undefined) patch.contactEmail = data.contactEmail;
@@ -101,6 +122,7 @@ export class ClientCompanyService {
       summary: `Deleted client company "${company.name}"`,
       entityType: "client_company",
       entityId: company.id,
+      clientCompanyId: company.id,
       metadata: { projectId: company.projectId },
     });
   }
@@ -162,6 +184,7 @@ export class ClientCompanyService {
       summary: `Added IT supporter ${user.firstName} ${user.lastName} to "${company.name}"`,
       entityType: "client_company",
       entityId: company.id,
+      clientCompanyId: company.id,
       metadata: { projectId: company.projectId, userId: user.id },
     });
 
@@ -185,6 +208,7 @@ export class ClientCompanyService {
       summary: `Removed IT supporter ${user.firstName} ${user.lastName} from "${company.name}"`,
       entityType: "client_company",
       entityId: company.id,
+      clientCompanyId: company.id,
       metadata: { projectId: company.projectId, userId: user.id },
     });
   }

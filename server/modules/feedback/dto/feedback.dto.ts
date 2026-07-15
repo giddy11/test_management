@@ -19,6 +19,8 @@ export function toFeedbackResponse(fb: Feedback | null) {
     escalatedByName: fb.escalatedBy
       ? [fb.escalatedBy.firstName, fb.escalatedBy.lastName].filter(Boolean).join(" ")
       : null,
+    severity: fb.severity ?? null,
+    submitterNotifiedAt: fb.submitterNotifiedAt ?? null,
     type: fb.type,
     title: fb.title,
     description: fb.description,

@@ -29,6 +29,16 @@ export class ClientCompanyRepository {
     return this.repo.findOne({ where: { feedbackToken } }); // indexed
   }
 
+  // Case-insensitive match across the whole application — used to reject
+  // duplicate contact emails when creating/renaming a client company.
+  async findByEmail(email: string): Promise<ClientCompany | null> {
+    return this.repo
+      .createQueryBuilder("company")
+      .where("LOWER(company.contact_email) = LOWER(:email)", { email })
+      .andWhere("company.deleted_at IS NULL")
+      .getOne();
+  }
+
   async create(data: Partial<ClientCompany>): Promise<ClientCompany> {
     return this.repo.save(this.repo.create(data));
   }

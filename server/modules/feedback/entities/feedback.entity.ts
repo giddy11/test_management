@@ -24,6 +24,13 @@ export interface Feedback {
   // Supporter who escalated — post-escalation lifecycle emails go to them,
   // not the original submitter.
   escalatedById: string | null;
+  // Set by IT support when they escalate — tells the product team how urgent
+  // it is. Null until escalated.
+  severity: string | null; // FeedbackSeverity
+  // Set when IT support tells the original end user an escalated item was
+  // fixed — the true submitter never sees product-team stage emails, so this
+  // is a deliberate relay step, not automatic. Null until they do.
+  submitterNotifiedAt: Date | null;
   type: string; // FeedbackType
   title: string;
   description: string;
@@ -93,6 +100,16 @@ const Feedback = new EntitySchema<Feedback>({
     escalatedById: {
       name: "escalated_by_id",
       type: "uuid",
+      nullable: true,
+    },
+    severity: {
+      type: "varchar",
+      length: 20,
+      nullable: true,
+    },
+    submitterNotifiedAt: {
+      name: "submitter_notified_at",
+      type: "timestamptz",
       nullable: true,
     },
     type: {

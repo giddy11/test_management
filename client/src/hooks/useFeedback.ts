@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { FeedbackEndpoints } from "@/endpoints/feedback.endpoints"
 import { ApiError } from "@/transport/http"
 import type {
+  FeedbackSeverity,
   FetchFeedbackParams,
   ManageFeedbackPayload,
   SupportQueueParams,
@@ -110,8 +111,22 @@ export function useResolveSupportItem() {
 export function useEscalateSupportItem() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async ({ id, note }: { id: string; note?: string }) => {
-      const res = await FeedbackEndpoints.supportEscalate(id, note)
+    mutationFn: async (
+      { id, severity, note }: { id: string; severity: FeedbackSeverity; note?: string }
+    ) => {
+      const res = await FeedbackEndpoints.supportEscalate(id, severity, note)
+      if (!res.success || !res.data) throw new ApiError(res.message, res.statusCode, res.errors)
+      return res.data
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: [FEEDBACK_KEY] }),
+  })
+}
+
+export function useNotifySubmitterFixed() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, note }: { id: string; note: string }) => {
+      const res = await FeedbackEndpoints.supportNotifySubmitter(id, note)
       if (!res.success || !res.data) throw new ApiError(res.message, res.statusCode, res.errors)
       return res.data
     },

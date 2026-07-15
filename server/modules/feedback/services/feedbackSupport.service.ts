@@ -192,6 +192,7 @@ export class FeedbackSupportService {
       summary: `IT support moved "${fb.title}" to ${nextStatus} for "${company?.name}"`,
       entityType: "feedback",
       entityId: fb.id,
+      clientCompanyId: fb.clientCompanyId,
       metadata: { projectId: fb.projectId, clientCompanyId: fb.clientCompanyId },
     });
 
@@ -253,6 +254,7 @@ export class FeedbackSupportService {
       summary: `IT support resolved "${fb.title}" locally for "${company?.name}"`,
       entityType: "feedback",
       entityId: fb.id,
+      clientCompanyId: fb.clientCompanyId,
       metadata: { projectId: fb.projectId, clientCompanyId: fb.clientCompanyId },
     });
 
@@ -261,7 +263,7 @@ export class FeedbackSupportService {
 
   // Hand the item to the product owner's team. From here it enters the normal
   // triage workflow at "logged" and becomes visible to the product org.
-  async escalate(actor: Actor, id: string, note?: string) {
+  async escalate(actor: Actor, id: string, severity: string, note?: string) {
     const fb = await this.getOwnItem(actor, id);
     this.assertReadyForOutcome(fb, "escalate");
 
@@ -271,6 +273,7 @@ export class FeedbackSupportService {
       supportResponse: note?.trim() || null,
       escalatedAt,
       escalatedById: actor.id,
+      severity,
     });
 
     // The product owner's timeline starts now — not when the end user first
@@ -301,6 +304,7 @@ export class FeedbackSupportService {
       summary: `IT support at "${company?.name}" escalated "${fb.title}" on "${project?.name}"`,
       entityType: "feedback",
       entityId: fb.id,
+      clientCompanyId: fb.clientCompanyId,
       metadata: { projectId: fb.projectId, clientCompanyId: fb.clientCompanyId },
     });
 
@@ -328,12 +332,58 @@ export class FeedbackSupportService {
             title: fb.title,
             type: fb.type,
             escalatedByName,
+            severity,
             note: note?.trim() || null,
             organizationId: project?.organizationId ?? null,
           });
         }
       })
       .catch((e: Error) => console.error("[support] escalation notify failed:", e.message));
+
+    return updated;
+  }
+
+  // Relays a fix to the true end user after the product team closes an
+  // escalated item — deliberate, not automatic, since the submitter never
+  // sees product-team stage emails once escalated (the supporter is the
+  // contact for those instead). Can only be done once.
+  async notifySubmitterFixed(actor: Actor, id: string, note: string) {
+    const fb = await this.getOwnItem(actor, id);
+    if (fb.supportStatus !== SupportStatus.ESCALATED) {
+      throw new AppError("Only escalated items can be relayed to the submitter this way", 422);
+    }
+    if (fb.status !== FeedbackStatus.CLOSED) {
+      throw new AppError("Wait for the product team to close this before notifying your user", 422);
+    }
+    if (fb.submitterNotifiedAt) {
+      throw new AppError("The submitter has already been notified", 409);
+    }
+
+    const updated = await this.feedbackRepo.update(fb.id, { submitterNotifiedAt: new Date() });
+
+    const [project, company] = await Promise.all([
+      this.projectRepo.findById(fb.projectId),
+      this.companyRepo.findById(fb.clientCompanyId as string),
+    ]);
+
+    sendSupportResolutionEmail(
+      fb.submitterEmail,
+      fb.submitterName,
+      company?.name ?? "your company",
+      project?.name ?? "",
+      fb.title,
+      note,
+      project?.organizationId ?? null
+    ).catch((e: Error) => console.error("[support] submitter-notify email failed:", e.message));
+
+    ActivityService.Instance.log(actor, {
+      action: "feedback.support_submitter_notified",
+      summary: `IT support told the submitter "${fb.title}" is fixed`,
+      entityType: "feedback",
+      entityId: fb.id,
+      clientCompanyId: fb.clientCompanyId,
+      metadata: { projectId: fb.projectId },
+    });
 
     return updated;
   }

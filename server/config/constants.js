@@ -85,11 +85,23 @@ const SupportStatus = Object.freeze({
   ESCALATED: "escalated",
 });
 
+// Set by IT support when they escalate an item — tells the product team how
+// urgent it is. Null until escalated; never set on direct submissions.
+const FeedbackSeverity = Object.freeze({
+  LOW: "low",
+  MEDIUM: "medium",
+  HIGH: "high",
+  CRITICAL: "critical",
+});
+
 const NotificationType = Object.freeze({
   PROJECT_MEMBER_ADDED: "project_member_added",
   FEEDBACK_NEW: "feedback_new",
   FEEDBACK_ASSIGNED: "feedback_assigned",
   FEEDBACK_CONFIRMED: "feedback_confirmed",
+  // The product team closed an item the IT supporter escalated — tells them
+  // to relay the fix to their end user.
+  FEEDBACK_CLOSED_SUPPORTER: "feedback_closed_supporter",
   TEST_ASSIGNED: "test_assigned",
   RUN_COMPLETED: "run_completed",
   FEATURE_REQUEST_STATUS_CHANGED: "feature_request_status_changed",
@@ -138,6 +150,7 @@ module.exports = {
   FeedbackType,
   FeedbackStatus,
   SupportStatus,
+  FeedbackSeverity,
   TestCasePriority,
   TestCaseStatus,
   RunStatus,
@@ -155,6 +168,7 @@ module.exports = {
     feedbackType: Object.values(FeedbackType),
     feedbackStatus: Object.values(FeedbackStatus),
     supportStatus: Object.values(SupportStatus),
+    feedbackSeverity: Object.values(FeedbackSeverity),
     testCasePriority: Object.values(TestCasePriority),
     testCaseStatus: Object.values(TestCaseStatus),
     runStatus: Object.values(RunStatus),

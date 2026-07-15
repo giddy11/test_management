@@ -39,6 +39,7 @@ export const fetchFeedbackSchema = z.object({
 
 // ── IT support portal (it_support role) ─────────────────────────────────────
 const supportStatuses = enums.supportStatus as [string, ...string[]];
+const feedbackSeverities = enums.feedbackSeverity as [string, ...string[]];
 
 export const supportQueueSchema = z.object({
   query: z.object({
@@ -69,7 +70,18 @@ export const resolveSupportSchema = z.object({
 
 export const escalateSupportSchema = z.object({
   params: z.object({ id: z.string().uuid() }),
-  body: z.object({ note: z.string().max(3000).optional() }),
+  // Severity is required — it's how the product team triages what lands in
+  // their queue from IT support.
+  body: z.object({
+    severity: z.enum(feedbackSeverities),
+    note: z.string().max(3000).optional(),
+  }),
+});
+
+export const notifySubmitterSchema = z.object({
+  params: z.object({ id: z.string().uuid() }),
+  // The note is required — it goes in the email telling the end user it's fixed.
+  body: z.object({ note: z.string().min(1).max(3000) }),
 });
 
 export const manageFeedbackSchema = z.object({

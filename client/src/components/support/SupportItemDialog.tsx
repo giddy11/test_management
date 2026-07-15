@@ -3,12 +3,13 @@
 // emailed at every stage change — and only from Investigating can the item be
 // resolved locally (required note, emailed) or escalated to the product team.
 import { useState } from "react"
-import { ArrowUpRight, CheckCircle2 } from "lucide-react"
+import { ArrowUpRight, CheckCircle2, MailCheck } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   Dialog,
   DialogContent,
@@ -28,18 +29,22 @@ import { ConfirmDialog } from "@/components/shared/ConfirmDialog"
 import { FeedbackTimeline } from "@/components/feedback/FeedbackTimeline"
 import {
   useEscalateSupportItem,
+  useNotifySubmitterFixed,
   useResolveSupportItem,
   useSupportHistory,
   useUpdateSupportStatus,
 } from "@/hooks/useFeedback"
 import { ApiError } from "@/transport/http"
 import {
+  FEEDBACK_SEVERITIES,
+  FEEDBACK_SEVERITY_LABELS,
   FEEDBACK_STATUS_LABELS,
   FEEDBACK_TYPE_LABELS,
   SUPPORT_PROGRESSION,
   SUPPORT_STATUSES,
   SUPPORT_STATUS_LABELS,
   type Feedback,
+  type FeedbackSeverity,
   type SupportStatus,
 } from "@/types/feedback.types"
 
@@ -52,17 +57,24 @@ export function SupportItemDialog({ feedback, onOpenChange }: Props) {
   const updateStatus = useUpdateSupportStatus()
   const resolve = useResolveSupportItem()
   const escalate = useEscalateSupportItem()
+  const notifySubmitter = useNotifySubmitterFixed()
   const { data: history = [] } = useSupportHistory(feedback?.id ?? "", Boolean(feedback))
   const [stage, setStage] = useState<SupportStatus | "">("")
+  const [wantsNote, setWantsNote] = useState(false)
   const [note, setNote] = useState("")
+  const [severity, setSeverity] = useState<FeedbackSeverity | "">("")
   const [confirmEscalate, setConfirmEscalate] = useState(false)
+  const [notifyNote, setNotifyNote] = useState("")
 
   // Reset local state when a new item is opened.
   const [lastId, setLastId] = useState<string | null>(null)
   if (feedback && feedback.id !== lastId) {
     setLastId(feedback.id)
     setStage(feedback.supportStatus ?? "")
+    setWantsNote(false)
     setNote("")
+    setSeverity("")
+    setNotifyNote("")
   }
 
   const current = feedback?.supportStatus ?? null
@@ -71,6 +83,11 @@ export function SupportItemDialog({ feedback, onOpenChange }: Props) {
   const nextStage = currentIndex >= 0 ? SUPPORT_PROGRESSION[currentIndex + 1] : undefined
   const canConclude = current === "investigating"
   const isStageSelectable = (s: SupportStatus) => s === current || s === nextStage
+  // The true end user never sees product-team stage emails post-escalation —
+  // once the product team closes it, relaying the fix is a deliberate,
+  // one-time action here rather than something that happens automatically.
+  const readyToNotifySubmitter =
+    current === "escalated" && feedback?.status === "closed" && !feedback?.submitterNotifiedAt
 
   const onError = (e: unknown) => toast.error(e instanceof ApiError ? e.message : "Failed")
 
@@ -87,8 +104,8 @@ export function SupportItemDialog({ feedback, onOpenChange }: Props) {
 
   const doResolve = () => {
     if (!feedback) return
-    if (!note.trim()) {
-      toast.error("Add a note — it's emailed to the person who reported this")
+    if (!wantsNote || !note.trim()) {
+      toast.error("Check \"Add a note\" and write a message — it's required to resolve, and it's emailed to the submitter")
       return
     }
     resolve.mutate(
@@ -104,15 +121,33 @@ export function SupportItemDialog({ feedback, onOpenChange }: Props) {
   }
 
   const doEscalate = () => {
-    if (!feedback) return
+    if (!feedback || !severity) return
     escalate.mutate(
-      { id: feedback.id, note: note.trim() || undefined },
+      { id: feedback.id, severity, note: note.trim() || undefined },
       {
         onError,
         onSuccess: () => {
           toast.success("Escalated — the product team has been notified")
           setConfirmEscalate(false)
           onOpenChange(false)
+        },
+      }
+    )
+  }
+
+  const doNotifySubmitter = () => {
+    if (!feedback) return
+    if (!notifyNote.trim()) {
+      toast.error("Add a note — it's emailed to the submitter")
+      return
+    }
+    notifySubmitter.mutate(
+      { id: feedback.id, note: notifyNote.trim() },
+      {
+        onError,
+        onSuccess: () => {
+          toast.success("Submitter notified — they've been emailed")
+          setNotifyNote("")
         },
       }
     )
@@ -186,6 +221,41 @@ export function SupportItemDialog({ feedback, onOpenChange }: Props) {
               </div>
             )}
 
+            {current === "escalated" && feedback.status === "closed" && (
+              <div className="grid gap-1.5">
+                {!readyToNotifySubmitter ? (
+                  <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                    <MailCheck className="size-3.5 shrink-0" />
+                    You told {feedback.submitterName} this is fixed on{" "}
+                    {new Date(feedback.submitterNotifiedAt as string).toLocaleDateString()}
+                  </p>
+                ) : (
+                  <>
+                    <Label htmlFor="notify-submitter-note">
+                      The product team closed this — let {feedback.submitterName} know it's fixed
+                    </Label>
+                    <Textarea
+                      id="notify-submitter-note"
+                      rows={3}
+                      maxLength={3000}
+                      placeholder="This note is emailed to the submitter…"
+                      value={notifyNote}
+                      onChange={(e) => setNotifyNote(e.target.value)}
+                    />
+                    <Button
+                      size="sm"
+                      className="justify-self-start"
+                      onClick={doNotifySubmitter}
+                      disabled={notifySubmitter.isPending}
+                    >
+                      <MailCheck className="mr-1 size-3.5" />
+                      {notifySubmitter.isPending ? "Notifying…" : "Notify submitter — it's fixed"}
+                    </Button>
+                  </>
+                )}
+              </div>
+            )}
+
             {isActive && (
               <>
                 <div className="grid gap-1.5">
@@ -217,17 +287,56 @@ export function SupportItemDialog({ feedback, onOpenChange }: Props) {
                   </p>
                 </div>
 
+                {canConclude && (
+                  <div className="grid gap-1.5">
+                    <Label>Severity (required to escalate)</Label>
+                    <Select
+                      value={severity}
+                      onValueChange={(v) => setSeverity(v as FeedbackSeverity)}
+                    >
+                      <SelectTrigger><SelectValue placeholder="Pick a severity" /></SelectTrigger>
+                      <SelectContent>
+                        {FEEDBACK_SEVERITIES.map((s) => (
+                          <SelectItem key={s} value={s}>{FEEDBACK_SEVERITY_LABELS[s]}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      Tells the product team how urgent this is — not shown to the submitter.
+                    </p>
+                  </div>
+                )}
+
                 <div className="grid gap-1.5">
-                  <Label htmlFor="support-note">
-                    Note — required to resolve (emailed to the submitter), optional when escalating
-                  </Label>
-                  <Textarea
-                    id="support-note"
-                    rows={3}
-                    maxLength={3000}
-                    value={note}
-                    onChange={(e) => setNote(e.target.value)}
-                  />
+                  <label className="flex cursor-pointer items-start gap-2">
+                    <Checkbox
+                      className="mt-0.5"
+                      checked={wantsNote}
+                      onCheckedChange={(checked) => {
+                        const next = checked === true
+                        setWantsNote(next)
+                        if (!next) setNote("")
+                      }}
+                    />
+                    <span className="text-sm">
+                      Add a note
+                      <span className="block text-xs font-normal text-muted-foreground">
+                        Required to resolve — emailed straight to the submitter. Optional when
+                        escalating — stays internal for your product team, the submitter is not
+                        emailed it.
+                      </span>
+                    </span>
+                  </label>
+                  {wantsNote && (
+                    <Textarea
+                      id="support-note"
+                      rows={3}
+                      maxLength={3000}
+                      autoFocus
+                      value={note}
+                      onChange={(e) => setNote(e.target.value)}
+                    />
+                  )}
                 </div>
               </>
             )}
@@ -241,8 +350,14 @@ export function SupportItemDialog({ feedback, onOpenChange }: Props) {
               <Button
                 variant="outline"
                 onClick={() => setConfirmEscalate(true)}
-                disabled={escalate.isPending || !canConclude}
-                title={canConclude ? undefined : "Move the item to Investigating first"}
+                disabled={escalate.isPending || !canConclude || !severity}
+                title={
+                  !canConclude
+                    ? "Move the item to Investigating first"
+                    : !severity
+                      ? "Pick a severity first"
+                      : undefined
+                }
               >
                 <ArrowUpRight className="mr-1 size-3.5" /> Escalate
               </Button>

@@ -40,6 +40,7 @@ export const NAV_ITEMS: NavItem[] = [
 // Secondary navigation — pinned to the bottom of the sidebar.
 export const NAV_BOTTOM_ITEMS: NavItem[] = [
   { title: "Activity", to: "/activity", icon: Activity, roles: [UserRole.SUPERADMIN, UserRole.ADMIN] },
+  { title: "Activity", to: "/support/activity", icon: Activity, roles: [UserRole.IT_SUPPORT] },
   { title: "Documentation", to: "/docs", icon: BookOpen, newTab: true },
   { title: "Settings", to: "/settings", icon: Settings, tourId: "nav-settings" },
 ]

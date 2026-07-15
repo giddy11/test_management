@@ -32,10 +32,12 @@ import { useAuth } from "@/contexts/AuthContext"
 import { UserRole } from "@/types/auth.types"
 import { ApiError } from "@/transport/http"
 import {
+  FEEDBACK_SEVERITY_LABELS,
   FEEDBACK_STATUSES,
   FEEDBACK_STATUS_LABELS,
   FEEDBACK_TYPE_LABELS,
   type Feedback,
+  type FeedbackSeverity,
   type FeedbackStatus,
 } from "@/types/feedback.types"
 
@@ -47,6 +49,13 @@ const STATUS_VARIANT: Record<FeedbackStatus, "default" | "secondary" | "outline"
   resolved: "default",
   awaiting_confirmation: "default",
   closed: "outline",
+}
+
+const SEVERITY_VARIANT: Record<FeedbackSeverity, "default" | "secondary" | "outline" | "destructive"> = {
+  low: "outline",
+  medium: "secondary",
+  high: "default",
+  critical: "destructive",
 }
 
 interface Props {
@@ -169,6 +178,11 @@ export function FeedbackTab({ projectId, canManage }: Props) {
                 )}
                 {fb.clientCompanyName && (
                   <Badge variant="secondary">via {fb.clientCompanyName} IT</Badge>
+                )}
+                {fb.severity && (
+                  <Badge variant={SEVERITY_VARIANT[fb.severity]}>
+                    {FEEDBACK_SEVERITY_LABELS[fb.severity]}
+                  </Badge>
                 )}
                 {fb.attachments.length > 0 && (
                   <Badge variant="secondary">{fb.attachments.length} 📎</Badge>

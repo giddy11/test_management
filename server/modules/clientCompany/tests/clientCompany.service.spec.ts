@@ -17,6 +17,7 @@ function makeCompanyRepo() {
     fetchByProject: jest.fn().mockResolvedValue([]),
     findById: jest.fn(),
     findByFeedbackToken: jest.fn(),
+    findByEmail: jest.fn().mockResolvedValue(null),
     create: jest.fn(),
     save: jest.fn(),
     update: jest.fn(),
@@ -76,6 +77,59 @@ describe("ClientCompanyService", () => {
 
       expect(projectService.getProject).toHaveBeenCalledWith(admin, "proj-1");
       expect(rows).toEqual([{ company, supporterCount: 3 }]);
+    });
+  });
+
+  describe("createCompany", () => {
+    it("creates the company when the email is unused in the application", async () => {
+      companyRepo.create.mockResolvedValue({ ...company, contactEmail: "a@b.com" });
+
+      const created = await service.createCompany(admin, "proj-1", {
+        name: "Client Co",
+        contactEmail: "a@b.com",
+      });
+
+      expect(companyRepo.findByEmail).toHaveBeenCalledWith("a@b.com");
+      expect(created.contactEmail).toBe("a@b.com");
+    });
+
+    it("409s when another company anywhere in the app already uses the email", async () => {
+      companyRepo.findByEmail.mockResolvedValue({ ...company, id: "cc-2", projectId: "proj-2" });
+
+      await expect(
+        service.createCompany(admin, "proj-1", { name: "Client Co 2", contactEmail: "a@b.com" })
+      ).rejects.toMatchObject({ statusCode: 409 });
+      expect(companyRepo.create).not.toHaveBeenCalled();
+    });
+
+    it("409s when the email already belongs to a user account", async () => {
+      userRepo.findByEmail.mockResolvedValue({ id: "user-9" });
+
+      await expect(
+        service.createCompany(admin, "proj-1", { name: "Client Co", contactEmail: "staff@org.com" })
+      ).rejects.toMatchObject({ statusCode: 409 });
+      expect(companyRepo.create).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("updateCompany", () => {
+    it("409s when renaming the email to one already used by another company", async () => {
+      companyRepo.findById.mockResolvedValue(company);
+      companyRepo.findByEmail.mockResolvedValue({ ...company, id: "cc-2", projectId: "proj-2" });
+
+      await expect(
+        service.updateCompany(admin, "cc-1", { contactEmail: "taken@b.com" })
+      ).rejects.toMatchObject({ statusCode: 409 });
+      expect(companyRepo.update).not.toHaveBeenCalled();
+    });
+
+    it("allows saving when the email is unchanged", async () => {
+      companyRepo.findById.mockResolvedValue({ ...company, contactEmail: "a@b.com" });
+
+      await service.updateCompany(admin, "cc-1", { contactEmail: "a@b.com" });
+
+      expect(companyRepo.findByEmail).not.toHaveBeenCalled();
+      expect(companyRepo.update).toHaveBeenCalledWith("cc-1", { contactEmail: "a@b.com" });
     });
   });
 
