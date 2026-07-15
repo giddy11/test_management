@@ -22,7 +22,9 @@ const {
   sendSupportQueueAlertEmail,
   sendFeedbackEscalatedAlertEmail,
   sendFeedbackClosedSupporterEmail,
+  sendSupportChatOfflineAlertEmail,
 } = require("../../../shared/utils/mail/support.mail");
+const { hasOnlineSuperAdmin } = require("../../../infrastructure/realtime/socketServer");
 
 class NotificationService {
   static Instance = new NotificationService();
@@ -401,7 +403,9 @@ class NotificationService {
   }
 
   // A user sent a message in the in-app support chat — alert every super admin.
-  // In-app only (no email): support chat is a live, presence-driven channel.
+  // In-app is always created; email only goes out when no super admin is
+  // currently online to see it live (support chat is otherwise a
+  // presence-driven channel, and always-emailing every message would be noisy).
   // ctx: { conversationId, senderName, preview }
   async notifyNewSupportChatMessage(admins, ctx) {
     const users = Array.isArray(admins) ? admins : [admins];
@@ -415,6 +419,19 @@ class NotificationService {
         data: { conversationId: ctx.conversationId, support: true },
       }))
     );
+    if (!hasOnlineSuperAdmin()) {
+      const url = `${env.appUrl}/support-inbox`;
+      for (const u of users) {
+        sendSupportChatOfflineAlertEmail(
+          u.email,
+          u.firstName,
+          ctx.senderName,
+          ctx.preview,
+          url,
+          u.organizationId
+        ).catch((e) => console.error("[notify] support-chat-offline email failed:", e.message));
+      }
+    }
   }
 
   // A super admin replied — notify the user who owns the conversation. In-app only.

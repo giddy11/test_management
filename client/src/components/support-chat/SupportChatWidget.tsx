@@ -94,7 +94,7 @@ export function SupportChatWidget() {
                   <div key={m.id} className={cn("flex flex-col", mine ? "items-end" : "items-start")}>
                     {!mine && (
                       <span className="mb-0.5 px-1 text-[0.7rem] font-medium text-muted-foreground">
-                        {m.author?.name || "Support"}
+                        Support
                       </span>
                     )}
                     <div

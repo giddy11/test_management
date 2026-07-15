@@ -110,6 +110,30 @@ export async function sendSupportResolutionEmail(
   });
 }
 
+// ── In-app support chat message, no super admin online to see it live ───────
+export async function sendSupportChatOfflineAlertEmail(
+  to: string,
+  firstName: string,
+  senderName: string,
+  preview: string,
+  url: string,
+  organizationId?: string | null
+) {
+  const body = `
+    <h1 style="margin:0 0 12px;font-size:20px;font-weight:700;color:#0f172a">New support chat message</h1>
+    <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.65">Hi ${firstName}, ${senderName} sent a message in the in-app support chat while no admin was online:</p>
+    <div style="background:#f8fafc;border-left:3px solid #6366f1;border-radius:0 6px 6px 0;padding:14px 16px;margin:0 0 24px">
+      <p style="margin:0;font-size:14px;color:#374151">${escapeAndLineBreak(preview)}</p>
+    </div>
+    ${ctaButton(url, "Open support inbox")}`;
+  return send({
+    to,
+    subject: `New support message from ${senderName} — TestMate`,
+    html: emailLayout(body, await resolveFooterEmail(organizationId)),
+    text: `${senderName} sent a message in the in-app support chat while no admin was online: "${preview}". Reply at: ${url}`,
+  });
+}
+
 // ── Escalation alert to the product owner's team ─────────────────────────────
 export async function sendFeedbackEscalatedAlertEmail(
   to: string,

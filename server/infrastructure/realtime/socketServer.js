@@ -154,4 +154,13 @@ function emitToUsers(userIds, event, payload) {
   }
 }
 
-module.exports = { initSocketServer, getIO, emitToRoom, emitToUsers };
+// Is any super admin currently connected? Used to decide whether a live,
+// presence-driven channel (like the support chat) needs to fall back to email.
+function hasOnlineSuperAdmin() {
+  for (const entry of presence.values()) {
+    if (entry.role === UserRole.SUPERADMIN && entry.sockets.size > 0) return true;
+  }
+  return false;
+}
+
+module.exports = { initSocketServer, getIO, emitToRoom, emitToUsers, hasOnlineSuperAdmin };
