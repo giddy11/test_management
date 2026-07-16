@@ -18,6 +18,12 @@ function hashToken(token) {
   return crypto.createHash("sha256").update(token).digest("hex");
 }
 
+// Partner integration API keys: a prefixed, high-entropy bearer secret shown
+// once at generation/rotation. Only its hashToken() hash is ever persisted.
+function generateApiKey() {
+  return `tmk_${crypto.randomBytes(32).toString("base64url")}`;
+}
+
 // Cryptographically-random N-digit numeric one-time code (default 6 digits).
 function generateOtp(digits = 6) {
   const max = 10 ** digits;
@@ -25,4 +31,4 @@ function generateOtp(digits = 6) {
   return String(n).padStart(digits, "0");
 }
 
-module.exports = { hashPassword, comparePassword, hashToken, generateOtp };
+module.exports = { hashPassword, comparePassword, hashToken, generateOtp, generateApiKey };

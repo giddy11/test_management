@@ -15,6 +15,10 @@ export interface Project {
   suiteCount: number
   members?: ProjectMember[]
   feedbackToken?: string | null
+  // Safe metadata only — the raw integration API key is never returned here,
+  // only once from the generate/rotate call itself.
+  integrationApiKeyLastFour?: string | null
+  integrationApiKeyCreatedAt?: string | null
   createdAt: string
 }
 

@@ -28,6 +28,15 @@ export const FeedbackEndpoints = {
   setLink: (projectId: string, enabled: boolean) =>
     wrapCall<{ feedbackToken: string | null }>("POST", `/api/v1/feedback/projects/${projectId}/link`, { enabled }),
 
+  // Generate/rotate (enabled: true, raw apiKey returned once) or revoke
+  // (enabled: false) a project's partner integration API key.
+  setIntegrationKey: (projectId: string, enabled: boolean) =>
+    wrapCall<{ apiKey: string | null; lastFour: string | null; createdAt: string | null }>(
+      "POST",
+      `/api/v1/feedback/projects/${projectId}/integration-key`,
+      { enabled }
+    ),
+
   // IT support portal (it_support role) — the supporter's own company queue.
   supportQueue: (params: SupportQueueParams) =>
     wrapCall<Feedback[]>("GET", "/api/v1/support/feedback", params as unknown as Record<string, unknown>),

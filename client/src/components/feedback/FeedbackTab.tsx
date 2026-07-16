@@ -26,6 +26,7 @@ import {
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog"
 import { FeedbackManageDialog } from "@/components/feedback/FeedbackManageDialog"
 import { ClientCompaniesCard } from "@/components/feedback/ClientCompaniesCard"
+import { IntegrationApiKeyCard } from "@/components/feedback/IntegrationApiKeyCard"
 import { useDeleteFeedback, useFeedback, useSetFeedbackLink } from "@/hooks/useFeedback"
 import { useProject } from "@/hooks/useProjects"
 import { useAuth } from "@/contexts/AuthContext"
@@ -143,6 +144,8 @@ export function FeedbackTab({ projectId, canManage }: Props) {
         </Card>
       )}
 
+      {isAdmin && <IntegrationApiKeyCard projectId={projectId} />}
+
       {isAdmin && <ClientCompaniesCard projectId={projectId} />}
 
       <div className="flex items-center justify-between gap-2">
@@ -178,6 +181,9 @@ export function FeedbackTab({ projectId, canManage }: Props) {
                 )}
                 {fb.clientCompanyName && (
                   <Badge variant="secondary">via {fb.clientCompanyName} IT</Badge>
+                )}
+                {fb.source === "integration" && (
+                  <Badge variant="secondary">Via API</Badge>
                 )}
                 {fb.severity && (
                   <Badge variant={SEVERITY_VARIANT[fb.severity]}>

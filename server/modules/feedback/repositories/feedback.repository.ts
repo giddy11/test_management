@@ -23,6 +23,8 @@ export interface FetchFeedbackParams {
   organizationId?: string;
   // ...plain users only projects they're members of.
   restrictedUserId?: string;
+  // Integration lookup: exact-match a submitter's own tickets (their "history").
+  submitterEmail?: string;
 }
 
 export class FeedbackRepository {
@@ -47,6 +49,7 @@ export class FeedbackRepository {
     supportStatus,
     organizationId,
     restrictedUserId,
+    submitterEmail,
   }: FetchFeedbackParams) {
     const offset = getOffset(page, limit);
     const qb = this.repo
@@ -91,6 +94,7 @@ export class FeedbackRepository {
 
     if (status) qb.andWhere("fb.status = :status", { status });
     if (type) qb.andWhere("fb.type = :type", { type });
+    if (submitterEmail) qb.andWhere("fb.submitter_email = :submitterEmail", { submitterEmail });
     if (search) {
       qb.andWhere("(fb.title ILIKE :search OR fb.submitter_email ILIKE :search)", {
         search: `%${search}%`,
@@ -111,6 +115,14 @@ export class FeedbackRepository {
 
   async create(data: Partial<Feedback>): Promise<Feedback> {
     return this.repo.save(this.repo.create(data));
+  }
+
+  // Idempotency lookup for integration ticket creation.
+  async findByProjectAndExternalRef(
+    projectId: string,
+    externalRef: string
+  ): Promise<Feedback | null> {
+    return this.repo.findOne({ where: { projectId, externalRef } });
   }
 
   async addAttachments(

@@ -12,6 +12,7 @@ import { ProjectService } from "../../project/services/project.service";
 import { ClientCompanyRepository } from "../../clientCompany/repositories/clientCompany.repository";
 import type { Actor } from "../../../shared/types/actor";
 import type { Feedback } from "../entities/feedback.entity";
+import type { Project } from "../../project/entities/project.entity";
 
 const { AuthRepository } = require("../../auth/repositories/auth.repository");
 const { NotificationService } = require("../../notification/services/notification.service");
@@ -26,8 +27,9 @@ const {
   sendFeedbackConfirmationReceivedEmail,
 } = require("../../../shared/utils/mailer");
 const { AppError } = require("../../../shared/errors/AppError");
-const { UserRole, FeedbackStatus, SupportStatus } = require("../../../config/constants");
+const { UserRole, FeedbackStatus, FeedbackSource, SupportStatus } = require("../../../config/constants");
 const { env } = require("../../../config/env");
+const { hashToken, generateApiKey } = require("../../../shared/utils/password");
 
 // The lifecycle is strictly ordered — Object.freeze preserves declaration order.
 const FEEDBACK_STATUS_ORDER: string[] = Object.values(FeedbackStatus);
@@ -131,6 +133,93 @@ export class FeedbackService {
     };
   }
 
+  // Shared by the public form and the integration endpoint — creates the row
+  // and its first history entry. Channel-specific bits (suite selection,
+  // screenshots, company routing, rate-limit tier) stay in the caller.
+  private async createFeedbackCore(
+    project: Project,
+    data: {
+      type: string;
+      title: string;
+      description: string;
+      suiteName?: string | null;
+      submitterName: string;
+      submitterEmail: string;
+      submitterPhone?: string;
+      clientCompanyId?: string | null;
+      supportStatus?: string | null;
+      source: string;
+      externalRef?: string | null;
+    }
+  ): Promise<Feedback> {
+    const fb = await this.feedbackRepo.create({
+      projectId: project.id,
+      clientCompanyId: data.clientCompanyId ?? null,
+      supportStatus: data.supportStatus ?? null,
+      type: data.type,
+      title: data.title,
+      description: data.description,
+      suiteName: data.suiteName ?? null,
+      submitterName: data.submitterName,
+      submitterEmail: data.submitterEmail,
+      submitterPhone: data.submitterPhone ?? null,
+      status: FeedbackStatus.LOGGED,
+      source: data.source,
+      externalRef: data.externalRef ?? null,
+    });
+
+    // The product owner's stage timeline starts at submission for direct items,
+    // but only at escalation for company items (see FeedbackSupportService).
+    // Company items get their own IT-tier timeline, starting at "logged".
+    if (!data.clientCompanyId) {
+      this.historyRepo
+        .create({ feedbackId: fb.id, status: FeedbackStatus.LOGGED, enteredAt: fb.createdAt })
+        .catch((e: Error) => console.error("[feedback] history entry failed:", e.message));
+    } else {
+      FeedbackSupportStatusHistoryRepository.Instance.create({
+        feedbackId: fb.id,
+        status: SupportStatus.LOGGED,
+        enteredAt: fb.createdAt,
+      }).catch((e: Error) =>
+        console.error("[feedback] support history entry failed:", e.message)
+      );
+    }
+
+    return fb;
+  }
+
+  // Alert the project's admins + members in-app and by email — direct
+  // (product-team-facing) submissions only, never company-routed ones (those
+  // notify the company's IT supporters instead, see resolveFormToken callers).
+  private notifyProjectTeamOfNewFeedback(project: Project, fb: Feedback): void {
+    Promise.all([
+      this.authRepo.findByRole(UserRole.SUPERADMIN),
+      project.organizationId
+        ? this.authRepo.findByRoleAndOrg(UserRole.ADMIN, project.organizationId)
+        : Promise.resolve([]),
+      this.memberRepo.findMemberUsers(project.id),
+    ])
+      .then(([superadmins, orgAdmins, members]: any[]) => {
+        const recipients = [
+          ...new Map(
+            [...superadmins, ...orgAdmins, ...members].map((u: any) => [u.id, u])
+          ).values(),
+        ];
+        if (recipients.length) {
+          return this.notificationService.notifyNewFeedback(recipients, {
+            feedbackId: fb.id,
+            projectId: project.id,
+            projectName: project.name,
+            title: fb.title,
+            type: fb.type,
+            submitterName: fb.submitterName,
+            organizationId: project.organizationId,
+          });
+        }
+      })
+      .catch((e: Error) => console.error("[feedback] new-feedback notify failed:", e.message));
+  }
+
   async submitPublic(
     token: string,
     data: {
@@ -146,38 +235,12 @@ export class FeedbackService {
   ) {
     const { project, company } = await this.resolveFormToken(token);
 
-    const fb = await this.feedbackRepo.create({
-      projectId: project.id,
-      // Company-token submissions start in the company's IT queue — invisible
-      // to the product org until escalated.
+    const fb = await this.createFeedbackCore(project, {
+      ...data,
       clientCompanyId: company?.id ?? null,
       supportStatus: company ? SupportStatus.LOGGED : null,
-      type: data.type,
-      title: data.title,
-      description: data.description,
-      suiteName: data.suiteName ?? null,
-      submitterName: data.submitterName,
-      submitterEmail: data.submitterEmail,
-      submitterPhone: data.submitterPhone ?? null,
-      status: FeedbackStatus.LOGGED,
+      source: FeedbackSource.PUBLIC_FORM,
     });
-
-    // The product owner's stage timeline starts at submission for direct items,
-    // but only at escalation for company items (see FeedbackSupportService).
-    // Company items get their own IT-tier timeline, starting at "logged".
-    if (!company) {
-      this.historyRepo
-        .create({ feedbackId: fb.id, status: FeedbackStatus.LOGGED, enteredAt: fb.createdAt })
-        .catch((e: Error) => console.error("[feedback] history entry failed:", e.message));
-    } else {
-      FeedbackSupportStatusHistoryRepository.Instance.create({
-        feedbackId: fb.id,
-        status: SupportStatus.LOGGED,
-        enteredAt: fb.createdAt,
-      }).catch((e: Error) =>
-        console.error("[feedback] support history entry failed:", e.message)
-      );
-    }
 
     // Screenshots (optional) — uploaded before the response so a submitter
     // never sees "success" while their images silently failed.
@@ -215,35 +278,134 @@ export class FeedbackService {
       return { id: fb.id };
     }
 
-    // Alert the project's admins + members in-app and by email.
-    Promise.all([
-      this.authRepo.findByRole(UserRole.SUPERADMIN),
-      project.organizationId
-        ? this.authRepo.findByRoleAndOrg(UserRole.ADMIN, project.organizationId)
-        : Promise.resolve([]),
-      this.memberRepo.findMemberUsers(project.id),
-    ])
-      .then(([superadmins, orgAdmins, members]: any[]) => {
-        const recipients = [
-          ...new Map(
-            [...superadmins, ...orgAdmins, ...members].map((u: any) => [u.id, u])
-          ).values(),
-        ];
-        if (recipients.length) {
-          return this.notificationService.notifyNewFeedback(recipients, {
-            feedbackId: fb.id,
-            projectId: project.id,
-            projectName: project.name,
-            title: fb.title,
-            type: fb.type,
-            submitterName: fb.submitterName,
-            organizationId: project.organizationId,
-          });
-        }
-      })
-      .catch((e: Error) => console.error("[feedback] new-feedback notify failed:", e.message));
+    this.notifyProjectTeamOfNewFeedback(project, fb);
 
     return { id: fb.id };
+  }
+
+  // ── Partner integration API (server-to-server, x-api-key auth) ──────────────
+
+  // Integration tickets are always direct-to-product-team — no client-company
+  // routing concept applies to a partner's own backend integration.
+  async createIntegrationTicket(
+    project: Project,
+    data: {
+      type: string;
+      title: string;
+      description: string;
+      submitterName: string;
+      submitterEmail: string;
+      submitterPhone?: string;
+      externalRef?: string;
+    }
+  ): Promise<{ feedback: Feedback; created: boolean }> {
+    if (data.externalRef) {
+      const existing = await this.feedbackRepo.findByProjectAndExternalRef(
+        project.id,
+        data.externalRef
+      );
+      if (existing) return { feedback: existing, created: false };
+    }
+
+    let fb: Feedback;
+    try {
+      fb = await this.createFeedbackCore(project, {
+        ...data,
+        clientCompanyId: null,
+        supportStatus: null,
+        source: FeedbackSource.INTEGRATION,
+        externalRef: data.externalRef ?? null,
+      });
+    } catch (err: any) {
+      // Race: two concurrent retries with the same externalRef both passed the
+      // check above — the unique partial index rejects the loser. Return the
+      // winner instead of erroring, preserving idempotency under retry.
+      if (data.externalRef && err?.code === "23505") {
+        const existing = await this.feedbackRepo.findByProjectAndExternalRef(
+          project.id,
+          data.externalRef
+        );
+        if (existing) return { feedback: existing, created: false };
+      }
+      throw err;
+    }
+
+    sendFeedbackReceivedEmail(
+      fb.submitterEmail,
+      fb.submitterName,
+      project.name,
+      fb.title,
+      project.organizationId
+    ).catch((e: Error) => console.error("[feedback] received email failed:", e.message));
+
+    this.notifyProjectTeamOfNewFeedback(project, fb);
+
+    return { feedback: fb, created: true };
+  }
+
+  // Same "not visible until escalated" rule as assertVisibleToOrg, plus a
+  // project-scope check since the caller here is an API key, not an actor
+  // with org-wide access.
+  private assertVisibleToIntegration(
+    fb: Feedback | null,
+    projectId: string
+  ): asserts fb is Feedback {
+    if (!fb || fb.deletedAt || fb.projectId !== projectId) {
+      throw new AppError("Ticket not found", 404);
+    }
+    if (fb.clientCompanyId && fb.supportStatus !== SupportStatus.ESCALATED) {
+      throw new AppError("Ticket not found", 404);
+    }
+  }
+
+  async getIntegrationTicket(project: Project, id: string): Promise<Feedback> {
+    const fb = await this.feedbackRepo.findById(id);
+    this.assertVisibleToIntegration(fb, project.id);
+    return fb;
+  }
+
+  // A submitter's ticket history for this project — not limited to
+  // integration-sourced tickets, since the point is "everything this person
+  // has raised," matching how the internal team already sees both sources.
+  async listIntegrationTickets(
+    project: Project,
+    params: { submitterEmail: string; page?: number; limit?: number }
+  ) {
+    return this.feedbackRepo.fetchPaginated({ projectId: project.id, ...params });
+  }
+
+  // ── Integration API key management (admin) ──────────────────────────────────
+
+  async setIntegrationApiKey(actor: Actor, projectId: string, enabled: boolean) {
+    const project = await this.projectService.getProject(actor, projectId);
+    if (!enabled) {
+      project.integrationApiKeyHash = null;
+      project.integrationApiKeyLastFour = null;
+      project.integrationApiKeyCreatedAt = null;
+      await this.projectRepo.save(project);
+      return { apiKey: null, lastFour: null, createdAt: null };
+    }
+
+    const rawKey = generateApiKey();
+    project.integrationApiKeyHash = hashToken(rawKey);
+    project.integrationApiKeyLastFour = rawKey.slice(-4);
+    project.integrationApiKeyCreatedAt = new Date();
+    await this.projectRepo.save(project);
+
+    ActivityService.Instance.log(actor, {
+      action: "feedback.integration_key_rotated",
+      summary: `Rotated the partner integration API key for project "${project.name}"`,
+      entityType: "project",
+      entityId: project.id,
+      metadata: { projectId: project.id },
+    });
+
+    // Raw key is returned exactly once — only the hash is ever persisted.
+    return {
+      apiKey: rawKey,
+      lastFour: project.integrationApiKeyLastFour,
+      createdAt: project.integrationApiKeyCreatedAt,
+    };
   }
 
   // ── Authenticated (project members/admins) ──────────────────────────────────

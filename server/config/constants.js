@@ -60,6 +60,13 @@ const FeedbackType = Object.freeze({
   COMPLAINT: "complaint",
 });
 
+// How a feedback/ticket item was created — the public browser form, or a
+// partner's server-to-server integration (see modules/feedback/routes/integrationFeedback.routes.ts).
+const FeedbackSource = Object.freeze({
+  PUBLIC_FORM: "public_form",
+  INTEGRATION: "integration",
+});
+
 // Lifecycle of external feedback — the submitter is emailed at every stage.
 const FeedbackStatus = Object.freeze({
   LOGGED: "logged",
@@ -158,6 +165,7 @@ module.exports = {
   ProjectMemberRole,
   FeedbackType,
   FeedbackStatus,
+  FeedbackSource,
   SupportStatus,
   FeedbackSeverity,
   TestCasePriority,
@@ -177,6 +185,7 @@ module.exports = {
     projectMemberRole: Object.values(ProjectMemberRole),
     feedbackType: Object.values(FeedbackType),
     feedbackStatus: Object.values(FeedbackStatus),
+    feedbackSource: Object.values(FeedbackSource),
     supportStatus: Object.values(SupportStatus),
     feedbackSeverity: Object.values(FeedbackSeverity),
     testCasePriority: Object.values(TestCasePriority),

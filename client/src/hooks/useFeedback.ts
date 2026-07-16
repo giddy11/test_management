@@ -146,3 +146,16 @@ export function useSetFeedbackLink() {
     onSuccess: () => qc.invalidateQueries({ queryKey: [PROJECTS_KEY] }),
   })
 }
+
+export function useSetIntegrationApiKey() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ projectId, enabled }: { projectId: string; enabled: boolean }) => {
+      const res = await FeedbackEndpoints.setIntegrationKey(projectId, enabled)
+      if (!res.success || !res.data) throw new ApiError(res.message, res.statusCode, res.errors)
+      return res.data
+    },
+    // The safe metadata (last four / createdAt) lives on the project detail.
+    onSuccess: () => qc.invalidateQueries({ queryKey: [PROJECTS_KEY] }),
+  })
+}

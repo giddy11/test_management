@@ -5,6 +5,7 @@ import {
   manageFeedbackSchema,
   feedbackIdParamSchema,
   feedbackLinkSchema,
+  integrationApiKeySchema,
 } from "../validators/feedback.schema";
 
 const router = require("express").Router();
@@ -55,6 +56,15 @@ router.post(
   authorise("superadmin", "admin"),
   validate(feedbackLinkSchema),
   FeedbackController.setLink
+);
+
+// Generate/rotate/revoke a project's partner integration API key — admins only.
+router.post(
+  "/projects/:id/integration-key",
+  authMiddleware,
+  authorise("superadmin", "admin"),
+  validate(integrationApiKeySchema),
+  FeedbackController.setIntegrationKey
 );
 
 module.exports = router;

@@ -4,7 +4,7 @@
 // the submitter is emailed at every stage transition.
 import { EntitySchema } from "typeorm";
 
-const { FeedbackStatus } = require("../../../config/constants");
+const { FeedbackStatus, FeedbackSource } = require("../../../config/constants");
 
 export interface Feedback {
   id: string;
@@ -32,6 +32,13 @@ export interface Feedback {
   // is a deliberate relay step, not automatic. Null until they do.
   submitterNotifiedAt: Date | null;
   type: string; // FeedbackType
+  // How this item was created — the public browser form, or a partner's
+  // server-to-server integration. See FeedbackSource.
+  source: string;
+  // The partner's own correlation id for their request (integration source
+  // only). Unique per project when set — lets a create-call be retried
+  // safely without producing duplicate tickets.
+  externalRef: string | null;
   title: string;
   description: string;
   // Optional module/suite of the project the feedback relates to (suite name
@@ -115,6 +122,17 @@ const Feedback = new EntitySchema<Feedback>({
     type: {
       type: "varchar",
       length: 30,
+    },
+    source: {
+      type: "varchar",
+      length: 20,
+      default: FeedbackSource.PUBLIC_FORM,
+    },
+    externalRef: {
+      name: "external_ref",
+      type: "varchar",
+      length: 120,
+      nullable: true,
     },
     title: {
       type: "varchar",
@@ -220,6 +238,14 @@ const Feedback = new EntitySchema<Feedback>({
     {
       name: "idx_feedback_company_support_created",
       columns: ["clientCompanyId", "supportStatus", "createdAt"],
+    },
+    // Idempotency key for integration ticket creation — a partner retrying a
+    // create call with the same externalRef gets the same ticket back.
+    {
+      name: "idx_feedback_project_external_ref",
+      columns: ["projectId", "externalRef"],
+      unique: true,
+      where: "external_ref IS NOT NULL",
     },
   ],
 });

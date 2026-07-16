@@ -28,4 +28,4 @@ const apiRateLimiter = buildLimiter({
   message: "Too many requests, please try again later",
 });
 
-module.exports = { authRateLimiter, apiRateLimiter };
+module.exports = { authRateLimiter, apiRateLimiter, buildLimiter };

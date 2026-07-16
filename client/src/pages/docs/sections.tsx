@@ -19,6 +19,7 @@ import {
   Settings,
   ShieldCheck,
   Users,
+  Webhook,
   type LucideIcon,
 } from "lucide-react"
 import shotDashboard from "@/assets/docs/dashboard.png"
@@ -97,6 +98,20 @@ function Chip({ className, children }: { className: string; children: ReactNode 
       {children}
     </span>
   )
+}
+
+/** Multi-line code sample (curl, JSON). */
+function CodeBlock({ children }: { children: ReactNode }) {
+  return (
+    <pre className="my-2 overflow-x-auto rounded-md bg-muted p-3 text-xs">
+      <code>{children}</code>
+    </pre>
+  )
+}
+
+/** Inline code — a field name, header, or short value. */
+function Code({ children }: { children: ReactNode }) {
+  return <code className="rounded bg-muted px-1.5 py-0.5 text-xs">{children}</code>
 }
 
 const chipSlate = "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300"
@@ -568,6 +583,76 @@ const ALL_SECTIONS: DocSection[] = [
     ),
   },
   {
+    id: "partner-integration",
+    title: "Partner integration API",
+    icon: Webhook,
+    summary: "Let another product create and check tickets programmatically.",
+    body: (
+      <div className="space-y-4">
+        <P>
+          Instead of (or alongside) the public ticket link, another product — say, a partner
+          company's own website — can raise tickets on a user's behalf and let that same user
+          check their status, without ever leaving the partner's app. This is a{" "}
+          <Strong>server-to-server</Strong> API: the partner's backend calls TestMate and renders
+          the result itself.
+        </P>
+        <H3>Getting an API key</H3>
+        <P>
+          From a project's <Strong>Tickets</Strong> tab, admins can generate an{" "}
+          <Strong>Integration API key</Strong> under its own card, separate from the public form
+          link. The raw key is shown <Strong>once</Strong>, at generation or rotation — store it
+          on the partner's side; TestMate only ever keeps a hash of it. Revoking a key
+          immediately breaks any integration still using it.
+        </P>
+        <P>Every request authenticates with the key in an <Code>x-api-key</Code> header.</P>
+        <H3>Create a ticket</H3>
+        <P><Code>POST /api/v1/integrations/tickets</Code></P>
+        <CodeBlock>{`curl -X POST https://<your-domain>/api/v1/integrations/tickets \\
+  -H "x-api-key: <key>" -H "Content-Type: application/json" \\
+  -d '{
+    "type": "bug",
+    "title": "Export fails",
+    "description": "CSV export returns a 500",
+    "submitterName": "Jane Doe",
+    "submitterEmail": "jane@example.com",
+    "externalRef": "PARTNER-1001"
+  }'`}</CodeBlock>
+        <P>
+          <Code>externalRef</Code> is optional — it's the partner's own id for the request. If a
+          create call is retried with the same <Code>externalRef</Code>, TestMate returns the{" "}
+          <Strong>original</Strong> ticket instead of creating a duplicate, so a network retry is
+          always safe.
+        </P>
+        <H3>Check a ticket's status, or list a submitter's history</H3>
+        <P><Code>GET /api/v1/integrations/tickets/:id</Code> — a single ticket.</P>
+        <P>
+          <Code>GET /api/v1/integrations/tickets?submitterEmail=jane@example.com</Code> — every
+          ticket that submitter has raised in this project (their "history").
+        </P>
+        <H3>Customer-facing status</H3>
+        <P>
+          These endpoints intentionally return a <Strong>simplified status</Strong>, not TestMate's
+          internal triage stages — so a user never sees something as finished while your team is
+          still reviewing or double-checking it:
+        </P>
+        <UL>
+          <li><Chip className={chipSlate}>received</Chip> — logged, not yet started.</li>
+          <li>
+            <Chip className={chipBlue}>in_progress</Chip> — anywhere from acknowledged through a
+            claimed fix (internal <Chip className={chipGreen}>Resolved</Chip> deliberately still
+            reads as <Chip className={chipBlue}>in_progress</Chip> here — it hasn't been confirmed
+            with the submitter yet).
+          </li>
+          <li>
+            <Chip className={chipAmber}>pending_your_confirmation</Chip> — the team believes it's
+            fixed and is waiting on the submitter to confirm.
+          </li>
+          <li><Chip className={chipGreen}>resolved</Chip> — closed, confirmed or otherwise final.</li>
+        </UL>
+      </div>
+    ),
+  },
+  {
     id: "team",
     title: "Team management",
     icon: Users,
@@ -720,7 +805,7 @@ const group = (label: string, ids: string[]): DocGroup => ({
 export const DOC_GROUPS: DocGroup[] = [
   group("Getting started", ["introduction", "getting-started", "roles"]),
   group("Core testing workflow", ["dashboard", "projects", "suites-and-cases", "test-runs"]),
-  group("Tracking & tickets", ["bugs", "feature-requests", "feedback-portal"]),
+  group("Tracking & tickets", ["bugs", "feature-requests", "feedback-portal", "partner-integration"]),
   group("Administration", ["team", "activity"]),
   group("Help", ["announcements", "settings", "faq"]),
 ]

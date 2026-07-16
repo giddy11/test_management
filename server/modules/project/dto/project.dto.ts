@@ -33,6 +33,9 @@ export function toProjectResponse(project: Project | null) {
       : undefined,
     suiteCount: project.suiteCount ?? 0,
     feedbackToken: project.feedbackToken ?? null,
+    // Safe metadata only — integrationApiKeyHash is never exposed.
+    integrationApiKeyLastFour: project.integrationApiKeyLastFour ?? null,
+    integrationApiKeyCreatedAt: project.integrationApiKeyCreatedAt ?? null,
     createdAt: project.createdAt,
   };
 }

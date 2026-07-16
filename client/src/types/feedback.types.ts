@@ -1,5 +1,9 @@
 export type FeedbackType = "feature_request" | "bug" | "complaint"
 
+// How a ticket was created — the public browser form, or a partner's
+// server-to-server integration (see IntegrationApiKeyCard / partner docs).
+export type FeedbackSource = "public_form" | "integration"
+
 export type FeedbackStatus =
   | "logged"
   | "acknowledged"
@@ -29,6 +33,9 @@ export interface Feedback {
   projectId: string
   // Present when the backend loaded the project relation (global view).
   projectName: string | null
+  source: FeedbackSource
+  // The partner's own correlation id — set only on integration-sourced tickets.
+  externalRef: string | null
   clientCompanyId: string | null
   clientCompanyName: string | null
   supportStatus: SupportStatus | null
@@ -141,6 +148,11 @@ export const FEEDBACK_TYPE_LABELS: Record<FeedbackType, string> = {
   feature_request: "Feature request",
   bug: "Bug",
   complaint: "Complaint",
+}
+
+export const FEEDBACK_SOURCE_LABELS: Record<FeedbackSource, string> = {
+  public_form: "Public form",
+  integration: "Via API",
 }
 
 export const SUPPORT_STATUSES: SupportStatus[] = [
