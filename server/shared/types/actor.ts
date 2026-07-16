@@ -6,4 +6,6 @@ export interface Actor {
   organizationId?: string | null;
   // Set only for it_support actors — the client company they belong to.
   clientCompanyId?: string | null;
+  // Set only for it_support actors — can assign queue items to teammates.
+  isSupportLead?: boolean;
 }

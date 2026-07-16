@@ -12,6 +12,7 @@ export type NotificationType =
   | "feedback_assigned"
   | "feedback_confirmed"
   | "feedback_closed_supporter"
+  | "support_item_assigned"
   | "support_chat_message"
   | "support_chat_reply"
 
@@ -30,6 +31,9 @@ export interface AppNotification {
     feedbackId?: string
     role?: string
     status?: string
+    // Set on notifications meant for the IT support portal (/support) rather
+    // than the internal /projects views — see NotificationBell's linkFor.
+    support?: boolean
   } | null
   read: boolean
   createdAt: string

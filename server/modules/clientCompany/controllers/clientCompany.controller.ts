@@ -118,4 +118,18 @@ export class ClientCompanyController {
       next(err);
     }
   }
+
+  static async setSupporterLead(req: any, res: any, next: any) {
+    try {
+      const user = await ClientCompanyService.Instance.setSupporterLead(
+        req.user,
+        req.validated.params.id,
+        req.validated.params.userId,
+        req.validated.body.isSupportLead
+      );
+      res.status(200).json(ApiResponse.ok("Supporter updated", user && toSupporterResponse(user)));
+    } catch (err) {
+      next(err);
+    }
+  }
 }

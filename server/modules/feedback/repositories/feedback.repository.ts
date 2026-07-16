@@ -19,6 +19,10 @@ export interface FetchFeedbackParams {
   // supportStatus narrows it). Bypasses the escalated-only visibility rule.
   clientCompanyId?: string;
   supportStatus?: string;
+  // IT-queue mode only: narrow to one supporter's assigned items, or to
+  // items nobody has been routed to yet.
+  assignedSupporterId?: string;
+  unassigned?: boolean;
   // Global-mode scoping: admins see their org's projects...
   organizationId?: string;
   // ...plain users only projects they're members of.
@@ -47,6 +51,8 @@ export class FeedbackRepository {
     search,
     clientCompanyId,
     supportStatus,
+    assignedSupporterId,
+    unassigned,
     organizationId,
     restrictedUserId,
     submitterEmail,
@@ -58,6 +64,7 @@ export class FeedbackRepository {
       .leftJoinAndSelect("fb.attachments", "attachment")
       .leftJoinAndSelect("fb.clientCompany", "clientCompany")
       .leftJoinAndSelect("fb.escalatedBy", "escalatedBy")
+      .leftJoinAndSelect("fb.assignedSupporter", "assignedSupporter")
       .where("fb.deleted_at IS NULL")
       .orderBy("fb.createdAt", "DESC")
       .skip(offset)
@@ -68,6 +75,9 @@ export class FeedbackRepository {
       // of escalation state.
       qb.andWhere("fb.client_company_id = :clientCompanyId", { clientCompanyId }); // indexed
       if (supportStatus) qb.andWhere("fb.support_status = :supportStatus", { supportStatus });
+      if (unassigned) qb.andWhere("fb.assigned_supporter_id IS NULL");
+      else if (assignedSupporterId)
+        qb.andWhere("fb.assigned_supporter_id = :assignedSupporterId", { assignedSupporterId }); // indexed
     } else {
       // Product-owner views never see un-escalated client-company items.
       qb.andWhere("(fb.client_company_id IS NULL OR fb.support_status = 'escalated')");
@@ -109,7 +119,13 @@ export class FeedbackRepository {
   async findById(id: string): Promise<Feedback | null> {
     return this.repo.findOne({
       where: { id },
-      relations: { assignees: true, attachments: true, clientCompany: true, escalatedBy: true },
+      relations: {
+        assignees: true,
+        attachments: true,
+        clientCompany: true,
+        escalatedBy: true,
+        assignedSupporter: true,
+      },
     });
   }
 
@@ -137,7 +153,9 @@ export class FeedbackRepository {
 
   async update(
     id: string,
-    patch: Partial<Omit<Feedback, "project" | "assignees" | "clientCompany" | "escalatedBy">>
+    patch: Partial<
+      Omit<Feedback, "project" | "assignees" | "clientCompany" | "escalatedBy" | "assignedSupporter">
+    >
   ): Promise<Feedback | null> {
     await this.repo.update(id, patch);
     return this.findById(id);

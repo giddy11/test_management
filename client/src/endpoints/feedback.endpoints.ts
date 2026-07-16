@@ -11,6 +11,7 @@ import type {
   SubmitPublicFeedbackPayload,
   SupportQueueParams,
 } from "@/types/feedback.types"
+import type { Supporter } from "@/types/clientCompany.types"
 
 export const FeedbackEndpoints = {
   fetchAll: (params: FetchFeedbackParams) =>
@@ -40,6 +41,15 @@ export const FeedbackEndpoints = {
   // IT support portal (it_support role) — the supporter's own company queue.
   supportQueue: (params: SupportQueueParams) =>
     wrapCall<Feedback[]>("GET", "/api/v1/support/feedback", params as unknown as Record<string, unknown>),
+
+  // Leads only (server-enforced) — teammates within the supporter's own company.
+  supportTeammates: () =>
+    wrapCall<Supporter[]>("GET", "/api/v1/support/feedback/teammates"),
+
+  // Leads only (server-enforced) — route an item to a teammate, or pass
+  // supporterId: null to unassign.
+  supportAssign: (id: string, supporterId: string | null) =>
+    wrapCall<Feedback>("PATCH", `/api/v1/support/feedback/${id}/assign`, { supporterId }),
 
   // Working-stage progression (logged → acknowledged → investigating).
   supportUpdateStatus: (id: string, supportStatus: string) =>

@@ -76,6 +76,7 @@ export const createSupporterSchema = z.object({
     .min(8, "At least 8 characters")
     .regex(/[A-Z]/, "Must contain an uppercase letter")
     .regex(/[0-9]/, "Must contain a number"),
+  isSupportLead: z.boolean().optional(),
 })
 
 export type LoginForm = z.infer<typeof loginSchema>

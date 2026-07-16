@@ -17,6 +17,7 @@ export interface SupporterResponseDTO {
   lastName: string | null;
   name: string;
   email: string;
+  isSupportLead: boolean;
   createdAt: Date;
   lastSeenAt: Date | null;
 }
@@ -41,6 +42,7 @@ export function toSupporterResponse(user: {
   firstName: string;
   lastName: string | null;
   email: string;
+  isSupportLead?: boolean;
   createdAt: Date;
   lastSeenAt?: Date | null;
 }): SupporterResponseDTO {
@@ -50,6 +52,7 @@ export function toSupporterResponse(user: {
     lastName: user.lastName ?? null,
     name: [user.firstName, user.lastName].filter(Boolean).join(" "),
     email: user.email,
+    isSupportLead: user.isSupportLead ?? false,
     createdAt: user.createdAt,
     lastSeenAt: user.lastSeenAt ?? null,
   };

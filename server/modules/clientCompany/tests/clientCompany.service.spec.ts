@@ -38,6 +38,7 @@ function makeUserRepo() {
     findByEmail: jest.fn().mockResolvedValue(null),
     findById: jest.fn(),
     create: jest.fn(),
+    update: jest.fn(),
     softDelete: jest.fn(),
     findByClientCompany: jest.fn().mockResolvedValue([]),
     countByClientCompany: jest.fn().mockResolvedValue(0),
@@ -210,6 +211,64 @@ describe("ClientCompanyService", () => {
       await expect(service.createSupporter(admin, "cc-1", payload)).rejects.toMatchObject({
         statusCode: 409,
       });
+    });
+
+    it("defaults isSupportLead to false when not provided", async () => {
+      companyRepo.findById.mockResolvedValue(company);
+      userRepo.create.mockImplementation(async (d: any) => ({ id: "u-9", ...d }));
+
+      await service.createSupporter(admin, "cc-1", payload);
+
+      expect(userRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ isSupportLead: false })
+      );
+    });
+
+    it("creates a lead supporter when isSupportLead is true", async () => {
+      companyRepo.findById.mockResolvedValue(company);
+      userRepo.create.mockImplementation(async (d: any) => ({ id: "u-9", ...d }));
+
+      const user = await service.createSupporter(admin, "cc-1", { ...payload, isSupportLead: true });
+
+      expect(userRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ isSupportLead: true })
+      );
+      expect((user as any).isSupportLead).toBe(true);
+    });
+  });
+
+  describe("setSupporterLead", () => {
+    it("404s when the target isn't a supporter of this company", async () => {
+      companyRepo.findById.mockResolvedValue(company);
+      userRepo.findById.mockResolvedValue({
+        id: "u-1",
+        role: UserRole.USER,
+        clientCompanyId: null,
+        deletedAt: null,
+      });
+
+      await expect(service.setSupporterLead(admin, "cc-1", "u-1", true)).rejects.toMatchObject({
+        statusCode: 404,
+      });
+      expect(userRepo.update).not.toHaveBeenCalled();
+    });
+
+    it("promotes a supporter to lead", async () => {
+      companyRepo.findById.mockResolvedValue(company);
+      userRepo.findById.mockResolvedValue({
+        id: "u-9",
+        firstName: "Sam",
+        lastName: "Support",
+        role: UserRole.IT_SUPPORT,
+        clientCompanyId: "cc-1",
+        deletedAt: null,
+      });
+      userRepo.update.mockResolvedValue({ id: "u-9", isSupportLead: true });
+
+      const updated = await service.setSupporterLead(admin, "cc-1", "u-9", true);
+
+      expect(userRepo.update).toHaveBeenCalledWith("u-9", { isSupportLead: true });
+      expect((updated as any).isSupportLead).toBe(true);
     });
   });
 

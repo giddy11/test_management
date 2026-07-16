@@ -148,7 +148,13 @@ export class ClientCompanyService {
   async createSupporter(
     actor: Actor,
     id: string,
-    data: { firstName: string; lastName: string; email: string; password: string }
+    data: {
+      firstName: string;
+      lastName: string;
+      email: string;
+      password: string;
+      isSupportLead?: boolean;
+    }
   ) {
     const company = await this.getAccessible(actor, id);
     const project: any = await this.projectService.getProject(actor, company.projectId);
@@ -167,6 +173,7 @@ export class ClientCompanyService {
       clientCompanyId: company.id,
       provider: AuthProvider.LOCAL,
       isEmailVerified: true, // created by an admin — no self-verification needed
+      isSupportLead: data.isSupportLead ?? false,
     });
 
     sendSupporterInviteEmail(
@@ -211,5 +218,32 @@ export class ClientCompanyService {
       clientCompanyId: company.id,
       metadata: { projectId: company.projectId, userId: user.id },
     });
+  }
+
+  // Promote/demote a supporter to lead — leads can assign incoming queue
+  // items to their teammates within the same company.
+  async setSupporterLead(actor: Actor, id: string, userId: string, isSupportLead: boolean) {
+    const company = await this.getAccessible(actor, id);
+    const user = await this.userRepo.findById(userId);
+    if (
+      !user ||
+      user.deletedAt ||
+      user.role !== UserRole.IT_SUPPORT ||
+      user.clientCompanyId !== company.id
+    ) {
+      throw new AppError("Supporter not found in this company", 404);
+    }
+    const updated = await this.userRepo.update(user.id, { isSupportLead });
+    ActivityService.Instance.log(actor, {
+      action: "client_company.supporter_lead_changed",
+      summary: isSupportLead
+        ? `Made ${user.firstName} ${user.lastName} an IT support lead at "${company.name}"`
+        : `Removed ${user.firstName} ${user.lastName} as IT support lead at "${company.name}"`,
+      entityType: "client_company",
+      entityId: company.id,
+      clientCompanyId: company.id,
+      metadata: { projectId: company.projectId, userId: user.id },
+    });
+    return updated;
   }
 }

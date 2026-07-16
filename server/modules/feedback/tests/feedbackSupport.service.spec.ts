@@ -7,6 +7,7 @@ jest.mock("../../../shared/utils/mail/support.mail", () => ({
   sendSupportStatusEmail: jest.fn().mockResolvedValue(undefined),
   sendSupportResolutionEmail: jest.fn().mockResolvedValue(undefined),
   sendFeedbackEscalatedAlertEmail: jest.fn().mockResolvedValue(undefined),
+  sendSupportItemAssignedEmail: jest.fn().mockResolvedValue(undefined),
 }));
 
 import { FeedbackSupportService } from "../services/feedbackSupport.service";
@@ -61,17 +62,28 @@ function makeAuthRepo() {
 }
 
 function makeUserRepo() {
-  return { findByClientCompany: jest.fn().mockResolvedValue([]) };
+  return {
+    findByClientCompany: jest.fn().mockResolvedValue([]),
+    findById: jest.fn(),
+  };
 }
 
 function makeNotificationService() {
   return {
     notifyFeedbackEscalated: jest.fn().mockResolvedValue(undefined),
     notifySupportQueueItem: jest.fn().mockResolvedValue(undefined),
+    notifySupportItemAssigned: jest.fn().mockResolvedValue(undefined),
   };
 }
 
 const supporter = { id: "sup-1", role: UserRole.IT_SUPPORT, clientCompanyId: "cc-1", organizationId: "org-1" };
+const lead = {
+  id: "lead-1",
+  role: UserRole.IT_SUPPORT,
+  clientCompanyId: "cc-1",
+  organizationId: "org-1",
+  isSupportLead: true,
+};
 const admin = { id: "admin-1", role: UserRole.ADMIN, organizationId: "org-1" };
 
 const loggedItem = {
@@ -372,6 +384,77 @@ describe("FeedbackSupportService", () => {
         "All fixed now!",
         "org-1"
       );
+    });
+  });
+
+  describe("listTeammates", () => {
+    it("403s for a non-lead supporter", async () => {
+      await expect(service.listTeammates(supporter)).rejects.toMatchObject({ statusCode: 403 });
+      expect(userRepo.findByClientCompany).not.toHaveBeenCalled();
+    });
+
+    it("returns the company's supporters for a lead", async () => {
+      userRepo.findByClientCompany.mockResolvedValue([{ id: "sup-2" }]);
+      const rows = await service.listTeammates(lead);
+      expect(userRepo.findByClientCompany).toHaveBeenCalledWith("cc-1");
+      expect(rows).toEqual([{ id: "sup-2" }]);
+    });
+  });
+
+  describe("assignToSupporter", () => {
+    it("403s for a non-lead supporter", async () => {
+      await expect(service.assignToSupporter(supporter, "fb-1", "sup-2")).rejects.toMatchObject({
+        statusCode: 403,
+      });
+      expect(feedbackRepo.findById).not.toHaveBeenCalled();
+    });
+
+    it("404s when the target isn't a supporter of the same company", async () => {
+      feedbackRepo.findById.mockResolvedValue(loggedItem);
+      userRepo.findById.mockResolvedValue({
+        id: "sup-2",
+        role: UserRole.IT_SUPPORT,
+        clientCompanyId: "cc-other",
+        deletedAt: null,
+      });
+      await expect(service.assignToSupporter(lead, "fb-1", "sup-2")).rejects.toMatchObject({
+        statusCode: 404,
+      });
+      expect(feedbackRepo.update).not.toHaveBeenCalled();
+    });
+
+    it("assigns the item and notifies the supporter", async () => {
+      feedbackRepo.findById.mockResolvedValue(loggedItem);
+      userRepo.findById.mockResolvedValue({
+        id: "sup-2",
+        firstName: "Sue",
+        lastName: "Support",
+        email: "sue@client.co",
+        role: UserRole.IT_SUPPORT,
+        clientCompanyId: "cc-1",
+        deletedAt: null,
+      });
+      feedbackRepo.update.mockResolvedValue({ ...loggedItem, assignedSupporterId: "sup-2" });
+
+      await service.assignToSupporter(lead, "fb-1", "sup-2");
+      await flush(); // notify is fire-and-forget
+
+      expect(feedbackRepo.update).toHaveBeenCalledWith("fb-1", { assignedSupporterId: "sup-2" });
+      expect(notificationService.notifySupportItemAssigned).toHaveBeenCalledWith(
+        expect.objectContaining({ id: "sup-2" }),
+        expect.objectContaining({ feedbackId: "fb-1", companyName: "Client Co" })
+      );
+    });
+
+    it("unassigns when supporterId is null, without notifying anyone", async () => {
+      feedbackRepo.findById.mockResolvedValue({ ...loggedItem, assignedSupporterId: "sup-2" });
+      feedbackRepo.update.mockResolvedValue({ ...loggedItem, assignedSupporterId: null });
+
+      await service.assignToSupporter(lead, "fb-1", null);
+
+      expect(feedbackRepo.update).toHaveBeenCalledWith("fb-1", { assignedSupporterId: null });
+      expect(userRepo.findById).not.toHaveBeenCalled();
+      expect(notificationService.notifySupportItemAssigned).not.toHaveBeenCalled();
     });
   });
 

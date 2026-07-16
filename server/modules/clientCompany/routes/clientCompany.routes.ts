@@ -9,6 +9,7 @@ import {
   clientCompanyLinkSchema,
   createSupporterSchema,
   supporterParamSchema,
+  setSupporterLeadSchema,
 } from "../validators/clientCompany.schema";
 
 const router = require("express").Router();
@@ -41,6 +42,12 @@ router.delete(
   ...adminOnly,
   validate(supporterParamSchema),
   ClientCompanyController.removeSupporter
+);
+router.patch(
+  "/:id/supporters/:userId/lead",
+  ...adminOnly,
+  validate(setSupporterLeadSchema),
+  ClientCompanyController.setSupporterLead
 );
 
 module.exports = router;

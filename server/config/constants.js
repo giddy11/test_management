@@ -109,6 +109,8 @@ const NotificationType = Object.freeze({
   // The product team closed an item the IT supporter escalated — tells them
   // to relay the fix to their end user.
   FEEDBACK_CLOSED_SUPPORTER: "feedback_closed_supporter",
+  // An IT support lead routed a queue item to a teammate.
+  SUPPORT_ITEM_ASSIGNED: "support_item_assigned",
   TEST_ASSIGNED: "test_assigned",
   RUN_COMPLETED: "run_completed",
   FEATURE_REQUEST_STATUS_CHANGED: "feature_request_status_changed",

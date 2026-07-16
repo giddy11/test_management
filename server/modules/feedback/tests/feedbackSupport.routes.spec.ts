@@ -17,7 +17,9 @@ jest.mock("../../../shared/middleware/validate.middleware", () => ({
 jest.mock("../controllers/feedbackSupport.controller", () => ({
   FeedbackSupportController: {
     fetchQueue: jest.fn((req: any, res: any) => res.status(200).json({})),
+    teammates: jest.fn((req: any, res: any) => res.status(200).json({})),
     updateStatus: jest.fn((req: any, res: any) => res.status(200).json({})),
+    assign: jest.fn((req: any, res: any) => res.status(200).json({})),
     history: jest.fn((req: any, res: any) => res.status(200).json({})),
     resolve: jest.fn((req: any, res: any) => res.status(200).json({})),
     escalate: jest.fn((req: any, res: any) => res.status(200).json({})),
@@ -61,7 +63,9 @@ function invoke(handler: any, role?: string) {
 describe("feedbackSupport.routes — role wiring", () => {
   const routes: [string, string][] = [
     ["/", "get"],
+    ["/teammates", "get"],
     ["/:id", "patch"],
+    ["/:id/assign", "patch"],
     ["/:id/history", "get"],
     ["/:id/resolve", "post"],
     ["/:id/escalate", "post"],

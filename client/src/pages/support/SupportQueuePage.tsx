@@ -15,7 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { SupportItemDialog } from "@/components/support/SupportItemDialog"
-import { useSupportQueue } from "@/hooks/useFeedback"
+import { useSupportQueue, useSupportTeammates } from "@/hooks/useFeedback"
 import { useAuth } from "@/contexts/AuthContext"
 import {
   FEEDBACK_STATUS_LABELS,
@@ -30,16 +30,27 @@ import {
 
 export default function SupportQueuePage() {
   const { user } = useAuth()
+  const isLead = Boolean(user?.isSupportLead)
   const [tab, setTab] = useState<SupportStatus>("logged")
   const [typeFilter, setTypeFilter] = useState<string>("all")
+  const [assignedFilter, setAssignedFilter] = useState<string>("all")
   const [page, setPage] = useState(1)
   const [viewing, setViewing] = useState<Feedback | null>(null)
+
+  const { data: teammates = [] } = useSupportTeammates(isLead)
 
   const { data, isLoading } = useSupportQueue({
     page,
     limit: 20,
     supportStatus: tab,
     type: typeFilter === "all" ? undefined : (typeFilter as FeedbackType),
+    ...(assignedFilter === "unassigned"
+      ? { unassigned: true }
+      : assignedFilter === "mine"
+        ? { assignedSupporterId: user?.id }
+        : assignedFilter !== "all"
+          ? { assignedSupporterId: assignedFilter }
+          : {}),
   })
 
   const items = data?.data ?? []
@@ -74,6 +85,20 @@ export default function SupportQueuePage() {
             ))}
           </SelectContent>
         </Select>
+        <Select value={assignedFilter} onValueChange={(v) => { setAssignedFilter(v); setPage(1) }}>
+          <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Everyone</SelectItem>
+            <SelectItem value="unassigned">Unassigned</SelectItem>
+            <SelectItem value="mine">Assigned to me</SelectItem>
+            {isLead &&
+              teammates
+                .filter((t) => t.id !== user?.id)
+                .map((t) => (
+                  <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                ))}
+          </SelectContent>
+        </Select>
       </div>
 
       {isLoading && <p className="text-sm text-muted-foreground">Loading queue…</p>}
@@ -99,6 +124,11 @@ export default function SupportQueuePage() {
                 )}
                 {fb.attachments.length > 0 && (
                   <Badge variant="secondary">{fb.attachments.length} 📎</Badge>
+                )}
+                {fb.assignedSupporterName && (
+                  <Badge variant="outline" className="text-muted-foreground">
+                    Assigned: {fb.assignedSupporterName}
+                  </Badge>
                 )}
                 {fb.supportStatus === "escalated" && (
                   <Badge variant="default">

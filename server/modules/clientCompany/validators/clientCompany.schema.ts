@@ -47,6 +47,8 @@ export const createSupporterSchema = z.object({
       .max(64)
       .regex(/[A-Z]/, "Must contain an uppercase letter")
       .regex(/[0-9]/, "Must contain a number"),
+    // Leads can assign incoming queue items to other supporters in the company.
+    isSupportLead: z.boolean().optional(),
   }),
 });
 
@@ -55,4 +57,12 @@ export const supporterParamSchema = z.object({
     id: z.string().uuid(),
     userId: z.string().uuid(),
   }),
+});
+
+export const setSupporterLeadSchema = z.object({
+  params: z.object({
+    id: z.string().uuid(),
+    userId: z.string().uuid(),
+  }),
+  body: z.object({ isSupportLead: z.boolean() }),
 });

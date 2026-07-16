@@ -22,6 +22,8 @@ export interface User {
   role: UserRole
   // Set only on it_support accounts — the client company they belong to.
   clientCompanyId?: string | null
+  // Set only on it_support accounts — can assign queue items to teammates.
+  isSupportLead?: boolean
   isOrgOwner?: boolean
   provider: string
   avatarUrl: string | null

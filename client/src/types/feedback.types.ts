@@ -43,6 +43,10 @@ export interface Feedback {
   supportResolvedAt: string | null
   escalatedAt: string | null
   escalatedByName: string | null
+  // Set by an IT support lead to route this item to a specific teammate —
+  // independent of supportStatus.
+  assignedSupporterId: string | null
+  assignedSupporterName: string | null
   severity: FeedbackSeverity | null
   // Set once IT support has told the original end user an escalated item was
   // fixed — a deliberate relay step, not automatic. Null until they do.
@@ -79,6 +83,8 @@ export interface SupportQueueParams {
   supportStatus?: SupportStatus
   type?: FeedbackType
   search?: string
+  assignedSupporterId?: string
+  unassigned?: boolean
 }
 
 export interface ManageFeedbackPayload {

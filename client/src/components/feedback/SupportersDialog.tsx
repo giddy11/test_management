@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { Trash2, UserPlus } from "lucide-react"
+import { ShieldCheck, Trash2, UserPlus } from "lucide-react"
 import { toast } from "sonner"
 import {
   Dialog,
@@ -13,10 +13,17 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Checkbox } from "@/components/ui/checkbox"
 import { FormField } from "@/components/shared/FormField"
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog"
-import { useCreateSupporter, useRemoveSupporter, useSupporters } from "@/hooks/useClientCompanies"
+import {
+  useCreateSupporter,
+  useRemoveSupporter,
+  useSetSupporterLead,
+  useSupporters,
+} from "@/hooks/useClientCompanies"
 import { createSupporterSchema, type CreateSupporterForm } from "@/lib/validation"
 import { ApiError } from "@/transport/http"
 import type { ClientCompany, Supporter } from "@/types/clientCompany.types"
@@ -31,8 +38,10 @@ export function SupportersDialog({ company, onOpenChange }: Props) {
   const { data: supporters = [], isLoading } = useSupporters(companyId, Boolean(company))
   const createSupporter = useCreateSupporter(companyId)
   const removeSupporter = useRemoveSupporter(companyId)
+  const setLead = useSetSupporterLead(companyId)
   const [adding, setAdding] = useState(false)
   const [removing, setRemoving] = useState<Supporter | null>(null)
+  const [wantsLead, setWantsLead] = useState(false)
 
   const {
     register,
@@ -42,14 +51,31 @@ export function SupportersDialog({ company, onOpenChange }: Props) {
   } = useForm<CreateSupporterForm>({ resolver: zodResolver(createSupporterSchema) })
 
   const onSubmit = (values: CreateSupporterForm) => {
-    createSupporter.mutate(values, {
-      onError: (e) => toast.error(e instanceof ApiError ? e.message : "Something went wrong"),
-      onSuccess: () => {
-        toast.success("Supporter added — their sign-in details have been emailed to them")
-        reset()
-        setAdding(false)
-      },
-    })
+    createSupporter.mutate(
+      { ...values, isSupportLead: wantsLead },
+      {
+        onError: (e) => toast.error(e instanceof ApiError ? e.message : "Something went wrong"),
+        onSuccess: () => {
+          toast.success("Supporter added — their sign-in details have been emailed to them")
+          reset()
+          setWantsLead(false)
+          setAdding(false)
+        },
+      }
+    )
+  }
+
+  const toggleLead = (s: Supporter) => {
+    setLead.mutate(
+      { userId: s.id, isSupportLead: !s.isSupportLead },
+      {
+        onError: (e) => toast.error(e instanceof ApiError ? e.message : "Something went wrong"),
+        onSuccess: () =>
+          toast.success(
+            s.isSupportLead ? `${s.name} is no longer a lead` : `${s.name} is now an IT support lead`
+          ),
+      }
+    )
   }
 
   const initials = (name: string) =>
@@ -78,13 +104,29 @@ export function SupportersDialog({ company, onOpenChange }: Props) {
                 <AvatarFallback className="text-xs">{initials(s.name)}</AvatarFallback>
               </Avatar>
               <div className="min-w-0 flex-1">
-                <div className="truncate text-sm font-medium">{s.name}</div>
+                <div className="flex items-center gap-1.5">
+                  <span className="truncate text-sm font-medium">{s.name}</span>
+                  {s.isSupportLead && (
+                    <Badge variant="secondary" className="shrink-0 gap-1 text-[10px]">
+                      <ShieldCheck className="size-3" /> Lead
+                    </Badge>
+                  )}
+                </div>
                 <div className="truncate text-xs text-muted-foreground">{s.email}</div>
               </div>
               <Button
                 size="sm"
                 variant="ghost"
-                className="size-7 p-0 text-destructive hover:text-destructive"
+                className="h-7 shrink-0 px-2 text-xs"
+                disabled={setLead.isPending}
+                onClick={() => toggleLead(s)}
+              >
+                {s.isSupportLead ? "Remove lead" : "Make lead"}
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="size-7 shrink-0 p-0 text-destructive hover:text-destructive"
                 onClick={() => setRemoving(s)}
               >
                 <Trash2 className="size-3.5" />
@@ -107,8 +149,26 @@ export function SupportersDialog({ company, onOpenChange }: Props) {
               error={errors.password?.message}
               {...register("password")}
             />
+            <label className="flex cursor-pointer items-center gap-2">
+              <Checkbox checked={wantsLead} onCheckedChange={(c) => setWantsLead(c === true)} />
+              <span className="text-sm">
+                Make IT support lead
+                <span className="block text-xs font-normal text-muted-foreground">
+                  Leads can assign incoming tickets to other supporters in this company.
+                </span>
+              </span>
+            </label>
             <div className="flex justify-end gap-2">
-              <Button type="button" size="sm" variant="ghost" onClick={() => setAdding(false)}>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  setAdding(false)
+                  setWantsLead(false)
+                  reset()
+                }}
+              >
                 Cancel
               </Button>
               <Button type="submit" size="sm" disabled={createSupporter.isPending}>

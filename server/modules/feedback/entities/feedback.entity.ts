@@ -24,6 +24,10 @@ export interface Feedback {
   // Supporter who escalated — post-escalation lifecycle emails go to them,
   // not the original submitter.
   escalatedById: string | null;
+  // Set by an IT support lead to route this item to a specific supporter
+  // within their company. Independent of supportStatus — a lead can assign
+  // an item the moment it lands, before any triage stage is reached.
+  assignedSupporterId: string | null;
   // Set by IT support when they escalate — tells the product team how urgent
   // it is. Null until escalated.
   severity: string | null; // FeedbackSeverity
@@ -60,6 +64,7 @@ export interface Feedback {
   project?: unknown;
   clientCompany?: { id: string; name: string; feedbackToken?: string | null } | null;
   escalatedBy?: { id: string; firstName: string; lastName: string | null; email: string } | null;
+  assignedSupporter?: { id: string; firstName: string; lastName: string | null; email: string } | null;
   // A feedback item can be assigned to several project members at once.
   assignees?: { id: string; firstName: string; lastName: string | null; email: string }[];
   attachments?: { id: string; url: string; publicId: string }[];
@@ -106,6 +111,11 @@ const Feedback = new EntitySchema<Feedback>({
     },
     escalatedById: {
       name: "escalated_by_id",
+      type: "uuid",
+      nullable: true,
+    },
+    assignedSupporterId: {
+      name: "assigned_supporter_id",
       type: "uuid",
       nullable: true,
     },
@@ -216,6 +226,13 @@ const Feedback = new EntitySchema<Feedback>({
       onDelete: "SET NULL",
       nullable: true,
     },
+    assignedSupporter: {
+      type: "many-to-one",
+      target: "User",
+      joinColumn: { name: "assigned_supporter_id" },
+      onDelete: "SET NULL",
+      nullable: true,
+    },
     // A feedback item can be assigned to several project members at once.
     assignees: {
       type: "many-to-many",
@@ -239,6 +256,8 @@ const Feedback = new EntitySchema<Feedback>({
       name: "idx_feedback_company_support_created",
       columns: ["clientCompanyId", "supportStatus", "createdAt"],
     },
+    // "Assigned to me" / reassignment filters within a company's queue.
+    { name: "idx_feedback_assigned_supporter", columns: ["assignedSupporterId"] },
     // Idempotency key for integration ticket creation — a partner retrying a
     // create call with the same externalRef gets the same ticket back.
     {

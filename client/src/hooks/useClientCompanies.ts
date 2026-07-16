@@ -103,3 +103,15 @@ export function useRemoveSupporter(companyId: string) {
     onSuccess: () => qc.invalidateQueries({ queryKey: [COMPANIES_KEY] }),
   })
 }
+
+export function useSetSupporterLead(companyId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ userId, isSupportLead }: { userId: string; isSupportLead: boolean }) => {
+      const res = await ClientCompanyEndpoints.setSupporterLead(companyId, userId, isSupportLead)
+      if (!res.success || !res.data) throw new ApiError(res.message, res.statusCode, res.errors)
+      return res.data
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: [COMPANIES_KEY] }),
+  })
+}

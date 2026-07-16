@@ -110,6 +110,29 @@ export async function sendSupportResolutionEmail(
   });
 }
 
+// ── An IT support lead routed a queue item to a teammate ────────────────────
+export async function sendSupportItemAssignedEmail(
+  to: string,
+  firstName: string,
+  title: string,
+  companyName: string,
+  productName: string,
+  assignedByName: string,
+  url: string,
+  organizationId?: string | null
+) {
+  const body = `
+    <h1 style="margin:0 0 12px;font-size:20px;font-weight:700;color:#0f172a">A ticket has been assigned to you</h1>
+    <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.65">Hi ${firstName}, ${assignedByName} assigned you <strong>${title}</strong> (about <strong>${productName}</strong>) in ${companyName}'s support queue.</p>
+    ${ctaButton(url, "Open support queue")}`;
+  return send({
+    to,
+    subject: `Ticket assigned to you — ${title} — TestMate`,
+    html: emailLayout(body, await resolveFooterEmail(organizationId)),
+    text: `${assignedByName} assigned you "${title}" (about ${productName}) in ${companyName}'s support queue.`,
+  });
+}
+
 // ── In-app support chat message, no super admin online to see it live ───────
 export async function sendSupportChatOfflineAlertEmail(
   to: string,

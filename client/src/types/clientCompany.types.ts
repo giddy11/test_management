@@ -17,6 +17,8 @@ export interface Supporter {
   lastName: string | null
   name: string
   email: string
+  // Leads can assign incoming queue items to other supporters in the company.
+  isSupportLead: boolean
   createdAt: string
   lastSeenAt: string | null
 }
@@ -37,4 +39,5 @@ export interface CreateSupporterPayload {
   lastName: string
   email: string
   password: string
+  isSupportLead?: boolean
 }

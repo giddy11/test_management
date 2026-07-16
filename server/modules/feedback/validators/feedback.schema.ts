@@ -48,7 +48,16 @@ export const supportQueueSchema = z.object({
     supportStatus: z.enum(supportStatuses).optional(),
     type: z.enum(feedbackTypes).optional(),
     search: z.string().optional(),
+    assignedSupporterId: z.string().uuid().optional(),
+    unassigned: z.coerce.boolean().optional(),
   }),
+});
+
+// Leads only — see FeedbackSupportService.assignToSupporter. supporterId:
+// null unassigns the item.
+export const assignSupportItemSchema = z.object({
+  params: z.object({ id: z.string().uuid() }),
+  body: z.object({ supporterId: z.string().uuid().nullable() }),
 });
 
 // Working-stage progression only (logged → acknowledged → investigating);

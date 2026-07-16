@@ -1,6 +1,7 @@
 // modules/feedback/controllers/feedbackSupport.controller.ts
 import { FeedbackSupportService } from "../services/feedbackSupport.service";
 import { toFeedbackResponse, toFeedbackTimelineResponse } from "../dto/feedback.dto";
+import { toSupporterResponse } from "../../clientCompany/dto/clientCompany.dto";
 
 const { ApiResponse } = require("../../../shared/response/apiResponse");
 
@@ -16,6 +17,28 @@ export class FeedbackSupportController {
         .json(
           ApiResponse.ok("Support queue fetched", result.data.map(toFeedbackResponse), result.meta)
         );
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  static async teammates(req: any, res: any, next: any) {
+    try {
+      const users = await FeedbackSupportService.Instance.listTeammates(req.user);
+      res.status(200).json(ApiResponse.ok("Teammates fetched", users.map(toSupporterResponse)));
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  static async assign(req: any, res: any, next: any) {
+    try {
+      const updated = await FeedbackSupportService.Instance.assignToSupporter(
+        req.user,
+        req.validated.params.id,
+        req.validated.body.supporterId
+      );
+      res.status(200).json(ApiResponse.ok("Ticket assigned", toFeedbackResponse(updated)));
     } catch (err) {
       next(err);
     }

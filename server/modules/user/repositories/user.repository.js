@@ -87,7 +87,7 @@ class UserRepository {
     return this.repo.find({
       where: { clientCompanyId }, // indexed
       order: { createdAt: "ASC" },
-      select: ["id", "firstName", "lastName", "email", "createdAt", "lastSeenAt"],
+      select: ["id", "firstName", "lastName", "email", "createdAt", "lastSeenAt", "isSupportLead"],
     });
   }
 

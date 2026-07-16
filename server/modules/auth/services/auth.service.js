@@ -41,6 +41,7 @@ class AuthService {
       role: user.role,
       organizationId: user.organizationId ?? null,
       clientCompanyId: user.clientCompanyId ?? null,
+      isSupportLead: user.isSupportLead ?? false,
     };
     const accessToken = signAccessToken(payload);
     const refreshToken = signRefreshToken({ id: user.id });

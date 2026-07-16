@@ -9,6 +9,7 @@ import {
   resolveSupportSchema,
   escalateSupportSchema,
   notifySubmitterSchema,
+  assignSupportItemSchema,
 } from "../validators/feedback.schema";
 
 const router = require("express").Router();
@@ -19,12 +20,21 @@ const { authorise } = require("../../../shared/middleware/authorise.middleware")
 const supportOnly = [authMiddleware, authorise("it_support")];
 
 router.get("/", ...supportOnly, validate(supportQueueSchema), FeedbackSupportController.fetchQueue);
+// Leads only (service-enforced) — the teammate list for the assign dropdown.
+router.get("/teammates", ...supportOnly, FeedbackSupportController.teammates);
 // Working-stage progression (logged → acknowledged → investigating), strictly sequential.
 router.patch(
   "/:id",
   ...supportOnly,
   validate(updateSupportStatusSchema),
   FeedbackSupportController.updateStatus
+);
+// Leads only (service-enforced) — route an item to a teammate, or unassign.
+router.patch(
+  "/:id/assign",
+  ...supportOnly,
+  validate(assignSupportItemSchema),
+  FeedbackSupportController.assign
 );
 router.get(
   "/:id/history",

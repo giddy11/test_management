@@ -30,6 +30,7 @@ function linkFor(n: AppNotification): string {
   // A user message to the admins opens the inbox; a reply to a user has no page
   // (they read it in the floater) so it falls through to the dashboard.
   if (n.type === "support_chat_message") return "/support-inbox"
+  if (d.support) return "/support"
   if (d.caseId && d.projectId && d.suiteId)
     return `/projects/${d.projectId}/suites/${d.suiteId}/cases/${d.caseId}`
   if (d.runId && d.projectId) return `/projects/${d.projectId}/runs/${d.runId}`

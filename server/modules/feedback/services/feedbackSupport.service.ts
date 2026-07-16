@@ -71,6 +71,8 @@ export interface SupportQueueParams {
   supportStatus?: string;
   type?: string;
   search?: string;
+  assignedSupporterId?: string;
+  unassigned?: boolean;
 }
 
 export class FeedbackSupportService {
@@ -129,6 +131,15 @@ export class FeedbackSupportService {
   async fetchQueue(actor: Actor, params: SupportQueueParams) {
     const clientCompanyId = this.requireCompany(actor);
     return this.feedbackRepo.fetchPaginated({ ...params, clientCompanyId });
+  }
+
+  // Lets a lead pick a teammate to route a queue item to.
+  async listTeammates(actor: Actor) {
+    const companyId = this.requireCompany(actor);
+    if (!actor.isSupportLead) {
+      throw new AppError("Only IT support leads can view the teammate list", 403);
+    }
+    return this.userRepo.findByClientCompany(companyId);
   }
 
   // IT-tier stage timeline (logged → … ) for one of the supporter's own items.
@@ -339,6 +350,67 @@ export class FeedbackSupportService {
         }
       })
       .catch((e: Error) => console.error("[support] escalation notify failed:", e.message));
+
+    return updated;
+  }
+
+  // A lead routes a queue item to a teammate — independent of its working
+  // stage, so incoming items can be distributed as soon as they land. Pass
+  // supporterId: null to unassign.
+  async assignToSupporter(actor: Actor, id: string, supporterId: string | null) {
+    if (!actor.isSupportLead) {
+      throw new AppError("Only IT support leads can assign queue items", 403);
+    }
+    const fb = await this.getOwnItem(actor, id);
+
+    let supporter: any = null;
+    if (supporterId) {
+      supporter = await this.userRepo.findById(supporterId);
+      if (
+        !supporter ||
+        supporter.deletedAt ||
+        supporter.role !== UserRole.IT_SUPPORT ||
+        supporter.clientCompanyId !== fb.clientCompanyId
+      ) {
+        throw new AppError("Supporter not found in this company", 404);
+      }
+    }
+
+    const updated = await this.feedbackRepo.update(fb.id, { assignedSupporterId: supporterId });
+
+    const [project, company, assignedBy] = await Promise.all([
+      this.projectRepo.findById(fb.projectId),
+      this.companyRepo.findById(fb.clientCompanyId as string),
+      this.authRepo.findUserById(actor.id),
+    ]);
+    const assignedByName = assignedBy
+      ? [assignedBy.firstName, assignedBy.lastName].filter(Boolean).join(" ")
+      : "Your team lead";
+
+    ActivityService.Instance.log(actor, {
+      action: "feedback.support_assigned",
+      summary: supporter
+        ? `Assigned "${fb.title}" to ${supporter.firstName} ${supporter.lastName} for "${company?.name}"`
+        : `Unassigned "${fb.title}" for "${company?.name}"`,
+      entityType: "feedback",
+      entityId: fb.id,
+      clientCompanyId: fb.clientCompanyId,
+      metadata: { projectId: fb.projectId, clientCompanyId: fb.clientCompanyId, supporterId },
+    });
+
+    if (supporter) {
+      this.notificationService
+        .notifySupportItemAssigned(supporter, {
+          feedbackId: fb.id,
+          projectId: fb.projectId,
+          projectName: project?.name ?? "",
+          companyName: company?.name ?? "",
+          title: fb.title,
+          assignedByName,
+          organizationId: project?.organizationId ?? null,
+        })
+        .catch((e: Error) => console.error("[support] assignment notify failed:", e.message));
+    }
 
     return updated;
   }

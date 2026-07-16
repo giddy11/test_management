@@ -72,6 +72,31 @@ export function useSupportQueue(params: SupportQueueParams) {
   })
 }
 
+// Leads only — the teammate list for the assign dropdown.
+export function useSupportTeammates(enabled: boolean) {
+  return useQuery({
+    queryKey: [FEEDBACK_KEY, "support", "teammates"],
+    queryFn: async () => {
+      const res = await FeedbackEndpoints.supportTeammates()
+      if (!res.success) throw new ApiError(res.message, res.statusCode)
+      return res.data ?? []
+    },
+    enabled,
+  })
+}
+
+export function useAssignSupportItem() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, supporterId }: { id: string; supporterId: string | null }) => {
+      const res = await FeedbackEndpoints.supportAssign(id, supporterId)
+      if (!res.success || !res.data) throw new ApiError(res.message, res.statusCode, res.errors)
+      return res.data
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: [FEEDBACK_KEY] }),
+  })
+}
+
 export function useUpdateSupportStatus() {
   const qc = useQueryClient()
   return useMutation({

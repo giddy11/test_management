@@ -32,4 +32,9 @@ export const ClientCompanyEndpoints = {
 
   removeSupporter: (id: string, userId: string) =>
     wrapCall<null>("DELETE", `/api/v1/client-companies/${id}/supporters/${userId}`),
+
+  setSupporterLead: (id: string, userId: string, isSupportLead: boolean) =>
+    wrapCall<Supporter>("PATCH", `/api/v1/client-companies/${id}/supporters/${userId}/lead`, {
+      isSupportLead,
+    }),
 }

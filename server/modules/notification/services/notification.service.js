@@ -22,6 +22,7 @@ const {
   sendSupportQueueAlertEmail,
   sendFeedbackEscalatedAlertEmail,
   sendFeedbackClosedSupporterEmail,
+  sendSupportItemAssignedEmail,
   sendSupportChatOfflineAlertEmail,
 } = require("../../../shared/utils/mail/support.mail");
 const { hasOnlineSuperAdmin } = require("../../../infrastructure/realtime/socketServer");
@@ -181,7 +182,7 @@ class NotificationService {
         type: NotificationType.FEEDBACK_NEW,
         title: `New ${typeLabel} in your queue: ${ctx.title}`,
         body: `${ctx.submitterName} submitted feedback about ${ctx.projectName}`,
-        data: { feedbackId: ctx.feedbackId, projectId: ctx.projectId, support: true },
+        data: { feedbackId: ctx.feedbackId, projectId: ctx.projectId, support: true }, // routes to /support — see NotificationBell.linkFor
       }))
     );
     for (const u of supporters) {
@@ -247,7 +248,7 @@ class NotificationService {
         type: NotificationType.FEEDBACK_CLOSED_SUPPORTER,
         title: `Closed: ${ctx.title}`,
         body: `The product team closed the escalated item "${ctx.title}" on ${ctx.projectName} — let your user know it's fixed.`,
-        data: { feedbackId: ctx.feedbackId, projectId: ctx.projectId },
+        data: { feedbackId: ctx.feedbackId, projectId: ctx.projectId, support: true },
       },
     ]);
     sendFeedbackClosedSupporterEmail(
@@ -260,6 +261,32 @@ class NotificationService {
       url,
       ctx.organizationId
     ).catch((e) => console.error("[notify] closed-supporter email failed:", e.message));
+  }
+
+  // An IT support lead routed a queue item to a teammate within their company.
+  // ctx: { feedbackId, projectId, projectName, companyName, title, assignedByName, organizationId }
+  async notifySupportItemAssigned(supporter, ctx) {
+    if (!supporter) return;
+    const url = `${env.appUrl}/support`;
+    await this.repo.createMany([
+      {
+        userId: supporter.id,
+        type: NotificationType.SUPPORT_ITEM_ASSIGNED,
+        title: `Ticket assigned to you: ${ctx.title}`,
+        body: `${ctx.assignedByName} assigned you this ticket in ${ctx.companyName}'s queue`,
+        data: { feedbackId: ctx.feedbackId, projectId: ctx.projectId, support: true },
+      },
+    ]);
+    sendSupportItemAssignedEmail(
+      supporter.email,
+      supporter.firstName,
+      ctx.title,
+      ctx.companyName,
+      ctx.projectName,
+      ctx.assignedByName,
+      url,
+      ctx.organizationId ?? null
+    ).catch((e) => console.error("[notify] support-item-assigned email failed:", e.message));
   }
 
   // The submitter used the confirmation link to close or reopen a feedback item.

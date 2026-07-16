@@ -58,6 +58,13 @@ const User = new EntitySchema({
       type: "uuid",
       nullable: true,
     },
+    // Set only on it_support accounts — a lead can assign incoming queue items
+    // to other supporters within the same client company.
+    isSupportLead: {
+      name: "is_support_lead",
+      type: "boolean",
+      default: false,
+    },
     // ── Address ──────────────────────────────────────────────────────────────
     address: {
       type: "text",

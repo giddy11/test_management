@@ -28,12 +28,15 @@ import {
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog"
 import { FeedbackTimeline } from "@/components/feedback/FeedbackTimeline"
 import {
+  useAssignSupportItem,
   useEscalateSupportItem,
   useNotifySubmitterFixed,
   useResolveSupportItem,
   useSupportHistory,
+  useSupportTeammates,
   useUpdateSupportStatus,
 } from "@/hooks/useFeedback"
+import { useAuth } from "@/contexts/AuthContext"
 import { ApiError } from "@/transport/http"
 import {
   FEEDBACK_SEVERITIES,
@@ -54,11 +57,15 @@ interface Props {
 }
 
 export function SupportItemDialog({ feedback, onOpenChange }: Props) {
+  const { user } = useAuth()
+  const isLead = Boolean(user?.isSupportLead)
   const updateStatus = useUpdateSupportStatus()
   const resolve = useResolveSupportItem()
   const escalate = useEscalateSupportItem()
   const notifySubmitter = useNotifySubmitterFixed()
+  const assign = useAssignSupportItem()
   const { data: history = [] } = useSupportHistory(feedback?.id ?? "", Boolean(feedback))
+  const { data: teammates = [] } = useSupportTeammates(isLead && Boolean(feedback))
   const [stage, setStage] = useState<SupportStatus | "">("")
   const [wantsNote, setWantsNote] = useState(false)
   const [note, setNote] = useState("")
@@ -153,6 +160,14 @@ export function SupportItemDialog({ feedback, onOpenChange }: Props) {
     )
   }
 
+  const onAssign = (value: string) => {
+    if (!feedback) return
+    assign.mutate(
+      { id: feedback.id, supporterId: value === "unassigned" ? null : value },
+      { onError, onSuccess: () => toast.success("Ticket assigned") }
+    )
+  }
+
   return (
     <Dialog open={Boolean(feedback)} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
@@ -193,6 +208,32 @@ export function SupportItemDialog({ feedback, onOpenChange }: Props) {
                 ))}
               </div>
             )}
+
+            <div className="grid gap-1.5">
+              <Label>Assigned to</Label>
+              {isLead ? (
+                <Select
+                  value={feedback.assignedSupporterId ?? "unassigned"}
+                  onValueChange={onAssign}
+                  disabled={assign.isPending}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="unassigned">Unassigned</SelectItem>
+                    {teammates.map((t) => (
+                      <SelectItem key={t.id} value={t.id}>
+                        {t.name}
+                        {t.isSupportLead ? " (Lead)" : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  {feedback.assignedSupporterName ?? "Unassigned"}
+                </p>
+              )}
+            </div>
 
             {history.length > 0 && (
               <div className="grid gap-1.5">
