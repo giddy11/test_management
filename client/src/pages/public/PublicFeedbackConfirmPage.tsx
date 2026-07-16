@@ -104,7 +104,7 @@ export default function PublicFeedbackConfirmPage() {
               }
             >
               <ArrowLeft className="mr-1.5 size-4" />
-              Back to feedback form
+              Back to ticket form
             </Button>
           </CardContent>
         ) : askingReason ? (
@@ -159,7 +159,7 @@ export default function PublicFeedbackConfirmPage() {
                 {context.projectName} — is this resolved?
               </CardTitle>
               <CardDescription>
-                The team believes your feedback <strong>{context.title}</strong> has been
+                The team believes your ticket <strong>{context.title}</strong> has been
                 resolved. Let them know if that's right.
               </CardDescription>
             </CardHeader>

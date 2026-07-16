@@ -61,7 +61,7 @@ export function SupportersDialog({ company, onOpenChange }: Props) {
         <DialogHeader>
           <DialogTitle>IT supporters — {company?.name}</DialogTitle>
           <DialogDescription>
-            Supporter accounts sign in to TestMate and see only this company's feedback queue —
+            Supporter accounts sign in to TestMate and see only this company's ticket queue —
             they resolve what they can and escalate the rest to your team.
           </DialogDescription>
         </DialogHeader>

@@ -98,7 +98,7 @@ export function FeedbackTab({ projectId, canManage }: Props) {
       {
         onError: (e) => toast.error(e instanceof ApiError ? e.message : "Failed"),
         onSuccess: ({ feedbackToken }) =>
-          toast.success(feedbackToken ? "Public feedback form enabled" : "Public feedback form disabled"),
+          toast.success(feedbackToken ? "Public ticket form enabled" : "Public ticket form disabled"),
       }
     )
   }
@@ -115,7 +115,7 @@ export function FeedbackTab({ projectId, canManage }: Props) {
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-base">
-              <MessageSquareHeart className="size-4 text-primary" /> Public feedback form
+              <MessageSquareHeart className="size-4 text-primary" /> Public ticket form
             </CardTitle>
             <CardDescription>
               Share (or embed) this link in your application so end users — even those not on
@@ -157,11 +157,11 @@ export function FeedbackTab({ projectId, canManage }: Props) {
         </Select>
       </div>
 
-      {isLoading && <p className="text-sm text-muted-foreground">Loading feedback…</p>}
+      {isLoading && <p className="text-sm text-muted-foreground">Loading tickets…</p>}
       {!isLoading && items.length === 0 && (
         <Card className="border-dashed">
           <CardContent className="py-10 text-center text-sm text-muted-foreground">
-            No external feedback yet{statusFilter !== "all" ? " for this status" : ""}.
+            No tickets yet{statusFilter !== "all" ? " for this status" : ""}.
           </CardContent>
         </Card>
       )}
@@ -244,7 +244,7 @@ export function FeedbackTab({ projectId, canManage }: Props) {
       <ConfirmDialog
         open={Boolean(deleting)}
         onOpenChange={(o) => !o && setDeleting(null)}
-        title="Delete feedback"
+        title="Delete ticket"
         description={`"${deleting?.title}" will be permanently removed. This cannot be undone.`}
         confirmLabel="Delete"
         loading={deleteFeedback.isPending}
@@ -253,7 +253,7 @@ export function FeedbackTab({ projectId, canManage }: Props) {
           deleteFeedback.mutate(deleting.id, {
             onError: (e) => toast.error(e instanceof ApiError ? e.message : "Failed"),
             onSuccess: () => {
-              toast.success("Feedback deleted")
+              toast.success("Ticket deleted")
               setDeleting(null)
             },
           })

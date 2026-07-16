@@ -41,8 +41,8 @@ export function ClientCompaniesCard({ projectId }: { projectId: string }) {
         onSuccess: ({ feedbackToken }) =>
           toast.success(
             feedbackToken
-              ? `Feedback form for ${company.name} enabled`
-              : `Feedback form for ${company.name} disabled`
+              ? `Ticket form for ${company.name} enabled`
+              : `Ticket form for ${company.name} disabled`
           ),
       }
     )
@@ -60,8 +60,8 @@ export function ClientCompaniesCard({ projectId }: { projectId: string }) {
           <Building2 className="size-4 text-primary" /> Client companies
         </CardTitle>
         <CardDescription>
-          Companies using this product with their own IT support. Their users' feedback goes to
-          that company's support queue first — you only see what their IT team escalates.
+          Companies using this product with their own IT support. Their users' tickets go to
+          that company's ticket queue first — you only see what their IT team escalates.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-2">
@@ -110,7 +110,7 @@ export function ClientCompaniesCard({ projectId }: { projectId: string }) {
                 </>
               ) : (
                 <Button size="sm" variant="outline" onClick={() => toggleLink(c, true)} disabled={setLink.isPending}>
-                  <Link2 className="mr-1 size-3.5" /> Enable feedback form
+                  <Link2 className="mr-1 size-3.5" /> Enable ticket form
                 </Button>
               )}
               <Button size="sm" variant="ghost" onClick={() => setManagingSupporters(c)}>

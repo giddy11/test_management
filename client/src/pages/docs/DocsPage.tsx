@@ -269,7 +269,7 @@ export default function DocsPage() {
             <h1 className="text-3xl font-bold tracking-tight">TestMate Documentation</h1>
             <p className="mt-2 text-lg text-muted-foreground">
               Everything you need to plan tests, execute runs, and track bugs, feature requests,
-              and feedback with your team.
+              and tickets with your team.
             </p>
           </div>
 

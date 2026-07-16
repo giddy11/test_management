@@ -39,7 +39,7 @@ const initials = (name: string) =>
   name.split(" ").map((p) => p[0]).slice(0, 2).join("").toUpperCase()
 
 const ENTITY_TYPES = [
-  { value: "feedback", label: "Feedback" },
+  { value: "feedback", label: "Ticket" },
   { value: "client_company", label: "Company" },
 ]
 

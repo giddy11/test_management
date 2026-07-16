@@ -115,16 +115,16 @@ export const ADD_TEAM_MEMBER_GUIDE: TourGuide = {
 
 export const SHARE_FEEDBACK_LINK_GUIDE: TourGuide = {
   id: "share-feedback-link",
-  title: "Share a feedback link",
+  title: "Share a ticket link",
   description: "Let people outside your company submit bugs and feature requests without a TestMate account.",
   icon: MessageSquareHeart,
   roles: [UserRole.ADMIN, UserRole.SUPERADMIN],
   requiresProject: true,
   steps: [
-    { id: "sf-welcome", title: "Share a feedback link",
+    { id: "sf-welcome", title: "Share a ticket link",
       description: "Every project has a public link you can share with people outside your company — end users, clients, testers — so they can report bugs and feature requests without signing up for TestMate." },
     { id: "sf-feedback-tab", target: '[data-tour="feedback-tab-trigger"]', side: "bottom", align: "center",
-      advanceOnClick: true, title: "Open the Feedback tab", description: "Click \"Feedback\" to manage your project's public link." },
+      advanceOnClick: true, title: "Open the Tickets tab", description: "Click \"Tickets\" to manage your project's public link." },
     { id: "sf-link-card", target: '[data-tour="feedback-link-card"]', side: "top", align: "start",
       title: "Enable & copy the link", description: "Click \"Enable public form\", then \"Copy link\" and share it however you like — embedded in your app, by email, or in a support page. Submitters get email updates as you work each item." },
     { id: "sf-done", title: "That's it!", description: "You can disable the link anytime from the same card." },

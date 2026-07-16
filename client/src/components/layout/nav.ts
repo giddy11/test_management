@@ -31,8 +31,8 @@ export interface NavItem {
 export const NAV_ITEMS: NavItem[] = [
   { title: "Dashboard", to: "/dashboard", icon: LayoutDashboard, roles: INTERNAL_ROLES, tourId: "nav-dashboard" },
   { title: "Projects", to: "/projects", icon: FolderKanban, roles: INTERNAL_ROLES, tourId: "nav-projects" },
-  { title: "All feedback", to: "/all-feedback", icon: MessageSquareHeart, roles: INTERNAL_ROLES },
-  { title: "Support queue", to: "/support", icon: Headset, roles: [UserRole.IT_SUPPORT] },
+  { title: "All tickets", to: "/all-feedback", icon: MessageSquareHeart, roles: INTERNAL_ROLES },
+  { title: "Ticket queue", to: "/support", icon: Headset, roles: [UserRole.IT_SUPPORT] },
   { title: "Team", to: "/team", icon: Users, roles: [UserRole.SUPERADMIN, UserRole.ADMIN], tourId: "nav-team" },
   { title: "Organisations", to: "/platform", icon: Building2, roles: [UserRole.SUPERADMIN] },
   { title: "Announcements", to: "/announcements", icon: Megaphone, roles: [UserRole.SUPERADMIN] },

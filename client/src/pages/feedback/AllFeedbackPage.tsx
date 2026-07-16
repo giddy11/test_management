@@ -104,10 +104,10 @@ export default function AllFeedbackPage() {
     <div className="space-y-4">
       <div>
         <h1 className="flex items-center gap-2 text-2xl font-semibold">
-          <MessageSquareHeart className="size-6 text-primary" /> All feedback
+          <MessageSquareHeart className="size-6 text-primary" /> All tickets
         </h1>
         <p className="text-sm text-muted-foreground">
-          External feedback across every product you have access to — filter by product, status,
+          Tickets raised across every product you have access to — filter by product, status,
           or type instead of opening each project.
         </p>
       </div>
@@ -154,11 +154,11 @@ export default function AllFeedbackPage() {
         )}
       </div>
 
-      {isLoading && <p className="text-sm text-muted-foreground">Loading feedback…</p>}
+      {isLoading && <p className="text-sm text-muted-foreground">Loading tickets…</p>}
       {!isLoading && items.length === 0 && (
         <Card className="border-dashed">
           <CardContent className="py-10 text-center text-sm text-muted-foreground">
-            No feedback found{hasFilters ? " for these filters" : ""}.
+            No tickets found{hasFilters ? " for these filters" : ""}.
           </CardContent>
         </Card>
       )}
@@ -238,7 +238,7 @@ export default function AllFeedbackPage() {
       <ConfirmDialog
         open={Boolean(deleting)}
         onOpenChange={(o) => !o && setDeleting(null)}
-        title="Delete feedback"
+        title="Delete ticket"
         description={`"${deleting?.title}" will be permanently removed. This cannot be undone.`}
         confirmLabel="Delete"
         loading={deleteFeedback.isPending}
@@ -247,7 +247,7 @@ export default function AllFeedbackPage() {
           deleteFeedback.mutate(deleting.id, {
             onError: (e) => toast.error(e instanceof ApiError ? e.message : "Failed"),
             onSuccess: () => {
-              toast.success("Feedback deleted")
+              toast.success("Ticket deleted")
               setDeleting(null)
             },
           })

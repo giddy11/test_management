@@ -11,6 +11,9 @@ export type NotificationType =
   | "feedback_new"
   | "feedback_assigned"
   | "feedback_confirmed"
+  | "feedback_closed_supporter"
+  | "support_chat_message"
+  | "support_chat_reply"
 
 export interface AppNotification {
   id: string

@@ -403,7 +403,7 @@ export default function AnnouncementsPage() {
                   <Input
                     id={`ann-title-${draft.key}`}
                     maxLength={200}
-                    placeholder="New: public feedback forms for your projects"
+                    placeholder="New: public ticket forms for your projects"
                     value={draft.title}
                     onChange={(e) => updateDraft(draft.key, { title: e.target.value })}
                   />
@@ -414,7 +414,7 @@ export default function AnnouncementsPage() {
                     id={`ann-body-${draft.key}`}
                     maxLength={5000}
                     rows={5}
-                    placeholder={"- Projects now have a shareable public feedback form\n- Team leads can manage everything inside their project\n- Bug fixes and performance improvements"}
+                    placeholder={"- Projects now have a shareable public ticket form\n- Team leads can manage everything inside their project\n- Bug fixes and performance improvements"}
                     value={draft.body}
                     onChange={(e) => updateDraft(draft.key, { body: e.target.value })}
                   />

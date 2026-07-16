@@ -110,7 +110,7 @@ export function FeedbackManageDialog({
       {
         onError: (e) => toast.error(e instanceof ApiError ? e.message : "Failed"),
         onSuccess: () => {
-          toast.success("Feedback updated — the submitter will be emailed if the stage changed")
+          toast.success("Ticket updated — the submitter will be emailed if the stage changed")
           onOpenChange(false)
         },
       }
@@ -121,7 +121,7 @@ export function FeedbackManageDialog({
     <Dialog open={Boolean(feedback)} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Manage feedback</DialogTitle>
+          <DialogTitle>Manage ticket</DialogTitle>
           <DialogDescription>
             {feedback?.title} — from {feedback?.submitterName}
             {feedback?.submitterPhone && <> · {feedback.submitterPhone}</>}
@@ -223,7 +223,7 @@ export function FeedbackManageDialog({
                 )
               ) : members.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  This project has no members yet — add members to assign feedback.
+                  This project has no members yet — add members to assign the ticket.
                 </p>
               ) : !editAssignees ? (
                 <>

@@ -119,13 +119,13 @@ const ALL_SECTIONS: DocSection[] = [
         <P>
           <Strong>TestMate</Strong> is a test management platform for software teams. It gives your
           organisation one place to plan testing work, execute it, and track everything that falls
-          out of it — bugs, feature requests, and feedback from the people using your product.
+          out of it — bugs, feature requests, and tickets from the people using your product.
         </P>
         <P>Everything in TestMate lives inside your organisation and is organised as:</P>
         <UL>
           <li>
             <Strong>Projects</Strong> — the top-level container, usually one per product or product
-            area. Each project holds test suites, test runs, feature requests, bugs, and feedback.
+            area. Each project holds test suites, test runs, feature requests, bugs, and tickets.
           </li>
           <li>
             <Strong>Test suites</Strong> — groups of related test cases inside a project (for
@@ -142,7 +142,7 @@ const ALL_SECTIONS: DocSection[] = [
         </UL>
         <P>
           Around that core, TestMate adds bug tracking, feature requests with voting and comments, a
-          public feedback portal for external users, team management, an activity log, and a
+          public ticket portal for external users, team management, an activity log, and a
           dashboard that rolls all of it up.
         </P>
         <Screenshot caption="TestMate at a glance — the dashboard after signing in" src={shotDashboard} />
@@ -298,7 +298,7 @@ const ALL_SECTIONS: DocSection[] = [
           <li><Strong>Test Runs</Strong> — executions of those suites.</li>
           <li><Strong>Feature Requests</Strong> — ideas and improvements, with voting and comments.</li>
           <li><Strong>Bug Fixes</Strong> — reported bugs and their lifecycle.</li>
-          <li><Strong>Feedback</Strong> — submissions from the public feedback portal.</li>
+          <li><Strong>Tickets</Strong> — submissions from the public ticket portal.</li>
         </UL>
       </div>
     ),
@@ -531,27 +531,27 @@ const ALL_SECTIONS: DocSection[] = [
   },
   {
     id: "feedback-portal",
-    title: "Public feedback portal",
+    title: "Public ticket portal",
     icon: MessageSquare,
-    summary: "Collecting feedback from people outside your organisation.",
+    summary: "Collecting tickets from people outside your organisation.",
     body: (
       <div className="space-y-4">
         <P>
-          Every project can have a <Strong>public feedback link</Strong> — a token-gated form that
+          Every project can have a <Strong>public ticket link</Strong> — a token-gated form that
           external users (customers, stakeholders, beta testers) can open{" "}
           <Strong>without a TestMate account</Strong>. Share the link from the project’s{" "}
-          <Strong>Feedback</Strong> tab.
+          <Strong>Tickets</Strong> tab.
         </P>
         <H3>What submitters see</H3>
         <P>
-          The form asks for the feedback type — <Strong>Feature request</Strong>,{" "}
+          The form asks for the ticket type — <Strong>Feature request</Strong>,{" "}
           <Strong>Bug</Strong>, or <Strong>Complaint</Strong> — a title and description, the product
           area it relates to, their name, email, optional phone number, and optional screenshots.
         </P>
-        <Screenshot caption="The public feedback form external users see" src={shotFeedbackPortal} />
+        <Screenshot caption="The public ticket form external users see" src={shotFeedbackPortal} />
         <H3>Lifecycle & email updates</H3>
         <P>
-          Submissions land in the project’s Feedback tab where your team manages them through{" "}
+          Submissions land in the project’s Tickets tab where your team manages them through{" "}
           <Chip className={chipSlate}>Logged</Chip> → <Chip className={chipBlue}>Acknowledged</Chip>{" "}
           → <Chip className={chipViolet}>Assigned</Chip> →{" "}
           <Chip className={chipAmber}>Investigating</Chip> → <Chip className={chipGreen}>Resolved</Chip>{" "}
@@ -561,7 +561,7 @@ const ALL_SECTIONS: DocSection[] = [
         <P>
           The submitter is kept in the loop by email as the status changes. When a fix reaches{" "}
           <Strong>Awaiting confirmation</Strong>, they get a link to confirm the issue is resolved —
-          or to reopen it with a reason if it isn’t. Feedback can be assigned to team members, and a
+          or to reopen it with a reason if it isn’t. Tickets can be assigned to team members, and a
           timeline shows how long it spent in each stage.
         </P>
       </div>
@@ -677,10 +677,10 @@ const ALL_SECTIONS: DocSection[] = [
         <div>
           <H3>Can people outside my organisation report issues?</H3>
           <P>
-            Yes — share the project’s public feedback link. Submitters don’t need an account and get
-            email updates as their feedback progresses. See{" "}
+            Yes — share the project’s public ticket link. Submitters don’t need an account and get
+            email updates as their ticket progresses. See{" "}
             <a href="#feedback-portal" className="font-medium text-primary hover:underline">
-              Public feedback portal
+              Public ticket portal
             </a>.
           </P>
         </div>
@@ -720,7 +720,7 @@ const group = (label: string, ids: string[]): DocGroup => ({
 export const DOC_GROUPS: DocGroup[] = [
   group("Getting started", ["introduction", "getting-started", "roles"]),
   group("Core testing workflow", ["dashboard", "projects", "suites-and-cases", "test-runs"]),
-  group("Tracking & feedback", ["bugs", "feature-requests", "feedback-portal"]),
+  group("Tracking & tickets", ["bugs", "feature-requests", "feedback-portal"]),
   group("Administration", ["team", "activity"]),
   group("Help", ["announcements", "settings", "faq"]),
 ]

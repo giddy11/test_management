@@ -49,10 +49,10 @@ export default function SupportQueuePage() {
     <div className="space-y-4">
       <div>
         <h1 className="flex items-center gap-2 text-2xl font-semibold">
-          <Headset className="size-6 text-primary" /> Support queue
+          <Headset className="size-6 text-primary" /> Ticket queue
         </h1>
         <p className="text-sm text-muted-foreground">
-          Feedback from {user?.companyName ?? "your company"}'s users. Resolve what you can
+          Tickets from {user?.companyName ?? "your company"}'s users. Resolve what you can
           locally — escalate to the product team what you can't.
         </p>
       </div>

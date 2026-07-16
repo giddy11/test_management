@@ -91,7 +91,7 @@ export function ClientCompanyFormDialog({ projectId, open, onOpenChange, editing
           <DialogDescription>
             {isEdit
               ? "Update this client company's details."
-              : "A company using this product. Its IT support team triages their users' feedback before anything reaches you."}
+              : "A company using this product. Its IT support team triages their users' tickets before anything reaches you."}
           </DialogDescription>
         </DialogHeader>
 

@@ -100,7 +100,7 @@ export default function PublicFeedbackPage() {
           </CardContent>
         ) : isError || !form ? (
           <CardContent className="py-16 text-center">
-            <p className="text-sm font-medium">This feedback form is not available.</p>
+            <p className="text-sm font-medium">This ticket form is not available.</p>
             <p className="mt-1 text-sm text-muted-foreground">
               The link may have been disabled — please contact the team that shared it with you.
             </p>
@@ -110,7 +110,7 @@ export default function PublicFeedbackPage() {
             <CheckCircle2 className="mx-auto size-10 text-green-600" />
             <p className="mt-3 text-base font-semibold">Thank you!</p>
             <p className="mt-1 text-sm text-muted-foreground">
-              Your feedback for {form.projectName} has been logged. We've emailed you a
+              Your ticket for {form.projectName} has been logged. We've emailed you a
               confirmation at <span className="font-medium">{email}</span> and will keep you
               posted as it progresses.
             </p>
@@ -123,7 +123,7 @@ export default function PublicFeedbackPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <MessageSquareHeart className="size-5 text-primary" />
-                {form.projectName} — feedback
+                {form.projectName} — Raise a Ticket
               </CardTitle>
               <CardDescription>
                 Spotted a bug, want a feature, or have a concern? Tell the team — you'll get
@@ -152,7 +152,7 @@ export default function PublicFeedbackPage() {
                 </div>
 
                 <div className="grid gap-1.5">
-                  <Label>What kind of feedback?</Label>
+                  <Label>What kind of ticket?</Label>
                   <Select value={type} onValueChange={(v) => setType(v as FeedbackType)}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
@@ -235,7 +235,7 @@ export default function PublicFeedbackPage() {
                 </div>
 
                 <Button type="submit" disabled={submitting}>
-                  {submitting ? "Submitting…" : "Send feedback"}
+                  {submitting ? "Submitting…" : "Raise ticket"}
                 </Button>
               </form>
             </CardContent>
