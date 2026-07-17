@@ -7,6 +7,7 @@ const {
   createFeatureRequestSchema,
   updateStatusSchema,
   idParamSchema,
+  codeParamSchema,
   fetchFeatureRequestsSchema,
   commentSchema,
   fetchCommentsSchema,
@@ -20,6 +21,13 @@ router.get(
   authorise("superadmin", "admin", "user"),
   validate(fetchFeatureRequestsSchema),
   FeatureRequestController.fetchAll
+);
+router.get(
+  "/by-code/:code",
+  authMiddleware,
+  authorise("superadmin", "admin", "user"),
+  validate(codeParamSchema),
+  FeatureRequestController.fetchByCode
 );
 router.get("/:id", authMiddleware, authorise("superadmin", "admin", "user"), validate(idParamSchema), FeatureRequestController.fetchById);
 router.post(

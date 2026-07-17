@@ -31,4 +31,21 @@ function generateOtp(digits = 6) {
   return String(n).padStart(digits, "0");
 }
 
-module.exports = { hashPassword, comparePassword, hashToken, generateOtp, generateApiKey };
+// One-off password for an account TestMate creates on someone else's behalf
+// (e.g. a provisioned IT support lead) — emailed once via the invite, never
+// shown in any UI. Satisfies createSupporterSchema's policy (8+ chars, an
+// uppercase letter, a digit) so it'd also pass if ever submitted through that
+// same form.
+function generateTempPassword() {
+  const body = crypto.randomBytes(9).toString("base64url"); // ~12 chars, mixed case
+  return `Tm1${body}`;
+}
+
+module.exports = {
+  hashPassword,
+  comparePassword,
+  hashToken,
+  generateOtp,
+  generateApiKey,
+  generateTempPassword,
+};

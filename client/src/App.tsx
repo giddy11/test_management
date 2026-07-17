@@ -72,7 +72,10 @@ export default function App() {
                   <Route path="/projects/:projectId/suites/:suiteId/cases/:caseId" element={<TestCaseDetailPage />} />
                   <Route path="/projects/:projectId/runs/:runId" element={<RunDetailPage />} />
                   <Route path="/projects/:projectId/feature-requests/:id" element={<FeatureRequestDetailPage />} />
+                  {/* Shareable permalink by reference code (e.g. "FR-014") instead of the uuid */}
+                  <Route path="/projects/:projectId/feature-requests/ref/:code" element={<FeatureRequestDetailPage />} />
                   <Route path="/projects/:projectId/bugs/:id" element={<BugDetailPage />} />
+                  <Route path="/projects/:projectId/bugs/ref/:code" element={<BugDetailPage />} />
                   <Route path="/all-feedback" element={<AllFeedbackPage />} />
                 </Route>
               </Route>

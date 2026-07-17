@@ -15,6 +15,8 @@ export const FeatureRequestEndpoints = {
   fetchAll: (params: { projectId: string; page?: number; limit?: number; status?: string; category?: string; search?: string; sort?: "top" | "newest" }) =>
     wrapCall<FeatureRequest[]>("GET", "/api/v1/feature-requests", obj(params)),
   fetchById: (id: string) => wrapCall<FeatureRequest>("GET", `/api/v1/feature-requests/${id}`),
+  fetchByCode: (code: string) =>
+    wrapCall<FeatureRequest>("GET", `/api/v1/feature-requests/by-code/${code}`),
   create: (payload: CreateFeatureRequestPayload) =>
     wrapCall<FeatureRequest>("POST", "/api/v1/feature-requests", obj(payload)),
   updateStatus: (id: string, payload: UpdateFeatureRequestStatusPayload) =>

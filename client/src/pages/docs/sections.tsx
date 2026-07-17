@@ -751,6 +751,68 @@ async function reportIssue(req) {
     ),
   },
   {
+    id: "company-provisioning",
+    title: "Company provisioning API",
+    icon: Webhook,
+    summary: "Auto-create a client company (+ IT support lead) when it signs up on your side.",
+    body: (
+      <div className="space-y-4">
+        <P>
+          Setting up a new client company by hand — the company record, then its first IT support
+          account — is fine for a handful of companies, but doesn't scale if your own product signs
+          up new customers on its own. This <Strong>server-to-server</Strong> endpoint lets your
+          backend call TestMate the moment one of your customers registers, creating both in one
+          call: the <Strong>client company</Strong> and its first{" "}
+          <Strong>IT support lead</Strong> account.
+        </P>
+        <P>
+          Unlike the{" "}
+          <a href="#partner-integration" className="font-medium text-primary hover:underline">
+            partner integration API
+          </a>{" "}
+          above, this endpoint takes no API key — the request identifies its target project
+          directly with <Code>projectId</Code>.
+        </P>
+        <H3>Provision a company</H3>
+        <P><Code>POST /api/v1/integrations/companies</Code></P>
+        <CodeBlock>{`curl -X POST https://<your-domain>/api/v1/integrations/companies \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "projectId": "<project id>",
+    "name": "Acme Corp",
+    "contactEmail": "billing@acme.com",
+    "supportLead": {
+      "email": "sam.support@acme.com"
+    }
+  }'`}</CodeBlock>
+        <P>
+          <Code>contactEmail</Code> is optional; <Code>supportLead</Code> is required —{" "}
+          <Strong>email only</Strong>, nothing else to collect on your side. That person's
+          TestMate account is created immediately as the company's IT support lead, with a display
+          name derived from the email's local part (e.g. <Code>sam.support@acme.com</Code> becomes
+          "Sam Support") — cosmetic only, and the lead can change it later from their own profile.
+          They get an email with a login link and a temporary password; TestMate never returns a
+          password in the API response.
+        </P>
+        <P>
+          The response includes the new <Code>company</Code> and <Code>supportLead</Code> account.
+          Ticket creation for the new company still goes through its own{" "}
+          <a href="#partner-integration" className="font-medium text-primary hover:underline">
+            partner integration API
+          </a>{" "}
+          key, generated separately from the company's row in the admin UI — provisioning doesn't
+          create one automatically.
+        </P>
+        <H3>Security notes</H3>
+        <UL>
+          <li>This endpoint has no credential check — anyone who knows (or guesses) a <Code>projectId</Code> can create companies and IT support logins inside that project. Treat the URL itself as sensitive, and don't expose it to untrusted clients.</li>
+          <li>Only call it from your backend — never from frontend JavaScript or a mobile app bundle, where the request (and your <Code>projectId</Code>) would be visible to anyone.</li>
+          <li>There's no <Code>externalRef</Code>-style idempotency here (unlike ticket creation) — a same-email retry after an uncertain response (e.g. a timeout) fails with a <Code>409</Code> rather than safely returning the original company, so don't blindly re-POST on failure without checking first.</li>
+        </UL>
+      </div>
+    ),
+  },
+  {
     id: "team",
     title: "Team management",
     icon: Users,
@@ -903,7 +965,7 @@ const group = (label: string, ids: string[]): DocGroup => ({
 export const DOC_GROUPS: DocGroup[] = [
   group("Getting started", ["introduction", "getting-started", "roles"]),
   group("Core testing workflow", ["dashboard", "projects", "suites-and-cases", "test-runs"]),
-  group("Tracking & tickets", ["bugs", "feature-requests", "feedback-portal", "partner-integration"]),
+  group("Tracking & tickets", ["bugs", "feature-requests", "feedback-portal", "partner-integration", "company-provisioning"]),
   group("Administration", ["team", "activity"]),
   group("Help", ["announcements", "settings", "faq"]),
 ]

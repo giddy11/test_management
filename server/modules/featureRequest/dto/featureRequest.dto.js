@@ -1,10 +1,12 @@
 // modules/featureRequest/dto/featureRequest.dto.js
+const { formatReferenceCode } = require("../../../shared/utils/referenceCode");
 
 function toFeatureRequestResponse(fr, extra = {}) {
   if (!fr) return null;
   const submitter = fr.submittedBy;
   return {
     id: fr.id,
+    referenceCode: formatReferenceCode("FR", fr.requestNumber),
     projectId: fr.projectId,
     title: fr.title,
     description: fr.description,

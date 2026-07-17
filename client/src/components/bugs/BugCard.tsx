@@ -27,6 +27,7 @@ export const BugCard = memo(function BugCard({ bug }: { bug: Bug }) {
         <div className="min-w-0 flex-1 space-y-1.5">
           <CardHeader className="p-0">
             <div className="flex flex-wrap items-center gap-2">
+              <span className="font-mono text-xs text-muted-foreground">{bug.referenceCode}</span>
               <CardTitle className="text-base">{bug.title}</CardTitle>
               <BugStatusBadge value={bug.status} />
               <BugSeverityBadge value={bug.severity} />

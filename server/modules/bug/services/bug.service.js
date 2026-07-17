@@ -11,6 +11,7 @@ const {
   ProjectMemberRepository,
 } = require("../../project/repositories/projectMember.repository");
 const { AppError } = require("../../../shared/errors/AppError");
+const { parseReferenceCode } = require("../../../shared/utils/referenceCode");
 const { UserRole, BugStatus } = require("../../../config/constants");
 
 class BugService {
@@ -56,6 +57,18 @@ class BugService {
 
   async getBug(actor, id) {
     return this.getAccessible(actor, id);
+  }
+
+  // Same as getAccessible but resolves via the human-readable reference code
+  // (e.g. "BF-014") instead of the uuid — backs the /by-code deep link used
+  // by the "share link" button on the bug detail page.
+  async getBugByCode(actor, code) {
+    const bugNumber = parseReferenceCode("BF", code);
+    if (bugNumber == null) throw new AppError("Bug not found", 404);
+    const bug = await this.bugRepo.findByNumber(bugNumber);
+    if (!bug || bug.deletedAt) throw new AppError("Bug not found", 404);
+    await this.projectService.getProject(actor, bug.projectId);
+    return bug;
   }
 
   // Confirms an optional testCaseId/testRunId actually belongs to the same

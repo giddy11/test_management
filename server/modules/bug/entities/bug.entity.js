@@ -17,6 +17,13 @@ const Bug = new EntitySchema({
       name: "project_id",
       type: "uuid",
     },
+    // Human-readable sequential id shown as "BF-014" (see shared/utils/referenceCode)
+    // instead of the raw uuid, same idea as Feedback.ticketNumber.
+    bugNumber: {
+      name: "bug_number",
+      type: "int",
+      generated: "increment",
+    },
     title: {
       type: "varchar",
       length: 200,
@@ -150,6 +157,7 @@ const Bug = new EntitySchema({
     { name: "idx_bugs_reported_by", columns: ["reportedById"] },
     { name: "idx_bugs_test_case", columns: ["testCaseId"] },
     { name: "idx_bugs_test_run", columns: ["testRunId"] },
+    { name: "idx_bugs_bug_number", columns: ["bugNumber"], unique: true },
   ],
 });
 

@@ -36,6 +36,20 @@ class FeatureRequestController {
     }
   }
 
+  static async fetchByCode(req, res, next) {
+    try {
+      const { request, extra } = await FeatureRequestService.Instance.getFeatureRequestByCode(
+        req.user,
+        req.validated.params.code
+      );
+      res
+        .status(200)
+        .json(ApiResponse.ok("Feature request fetched", toFeatureRequestResponse(request, extra)));
+    } catch (err) {
+      next(err);
+    }
+  }
+
   static async create(req, res, next) {
     try {
       const fr = await FeatureRequestService.Instance.createFeatureRequest(

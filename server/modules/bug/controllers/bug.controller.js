@@ -24,6 +24,15 @@ class BugController {
     }
   }
 
+  static async fetchByCode(req, res, next) {
+    try {
+      const bug = await BugService.Instance.getBugByCode(req.user, req.validated.params.code);
+      res.status(200).json(ApiResponse.ok("Bug fetched", toBugResponse(bug)));
+    } catch (err) {
+      next(err);
+    }
+  }
+
   static async create(req, res, next) {
     try {
       const bug = await BugService.Instance.createBug(req.user, req.validated.body);

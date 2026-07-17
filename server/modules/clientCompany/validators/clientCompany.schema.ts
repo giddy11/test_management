@@ -59,6 +59,22 @@ export const createSupporterSchema = z.object({
   }),
 });
 
+// Server-to-server company provisioning — unauthenticated, so the caller
+// identifies the target project directly instead of via a resolved key.
+// supportLead is email-only — TestMate derives a display name from it
+// (see ClientCompanyService.nameFromEmail) so the partner doesn't have to
+// collect/forward a name just to call this endpoint.
+export const integrationProvisionCompanySchema = z.object({
+  body: z.object({
+    projectId: z.string().uuid(),
+    name: z.string().min(1).max(200),
+    contactEmail: z.string().email().max(255).optional(),
+    supportLead: z.object({
+      email: z.string().email(),
+    }),
+  }),
+});
+
 export const supporterParamSchema = z.object({
   params: z.object({
     id: z.string().uuid(),

@@ -40,6 +40,10 @@ class FeatureRequestRepository {
     return this.repo.findOne({ where: { id }, relations: { submittedBy: true } });
   }
 
+  async findByNumber(requestNumber) {
+    return this.repo.findOne({ where: { requestNumber }, relations: { submittedBy: true } });
+  }
+
   async create(data) {
     return this.repo.save(this.repo.create(data));
   }

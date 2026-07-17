@@ -36,6 +36,10 @@ const idParamSchema = z.object({
   params: z.object({ id: z.string().uuid() }),
 });
 
+const codeParamSchema = z.object({
+  params: z.object({ code: z.string().regex(/^BF-\d+$/i, "Invalid reference code") }),
+});
+
 const fetchBugsSchema = z.object({
   query: z.object({
     projectId: z.string().uuid(),
@@ -53,5 +57,6 @@ module.exports = {
   createBugSchema,
   manageBugSchema,
   idParamSchema,
+  codeParamSchema,
   fetchBugsSchema,
 };

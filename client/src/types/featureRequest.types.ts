@@ -3,6 +3,7 @@ import type { FeatureRequestStatus } from "@/lib/enums"
 
 export interface FeatureRequest {
   id: string
+  referenceCode: string
   projectId: string
   title: string
   description: string

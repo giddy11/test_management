@@ -17,6 +17,13 @@ const FeatureRequest = new EntitySchema({
       name: "project_id",
       type: "uuid",
     },
+    // Human-readable sequential id shown as "FR-014" (see shared/utils/referenceCode)
+    // instead of the raw uuid, same idea as Feedback.ticketNumber.
+    requestNumber: {
+      name: "request_number",
+      type: "int",
+      generated: "increment",
+    },
     title: {
       type: "varchar",
       length: 200,
@@ -106,6 +113,7 @@ const FeatureRequest = new EntitySchema({
     { name: "idx_feature_requests_project_status_created", columns: ["projectId", "status", "createdAt"] },
     { name: "idx_feature_requests_submitted_by", columns: ["submittedById"] },
     { name: "idx_feature_requests_project_upvote_count", columns: ["projectId", "upvoteCount"] },
+    { name: "idx_feature_requests_request_number", columns: ["requestNumber"], unique: true },
   ],
 });
 

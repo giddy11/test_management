@@ -49,6 +49,13 @@ class BugRepository {
     });
   }
 
+  async findByNumber(bugNumber) {
+    return this.repo.findOne({
+      where: { bugNumber },
+      relations: { reportedBy: true, assignedTo: true },
+    });
+  }
+
   async create(data) {
     return this.repo.save(this.repo.create(data));
   }

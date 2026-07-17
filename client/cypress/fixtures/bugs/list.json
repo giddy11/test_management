@@ -1,6 +1,7 @@
 [
   {
     "id": "e2e-bug-1",
+    "referenceCode": "BF-001",
     "projectId": "e2e-proj-1",
     "title": "Login button unresponsive on Safari",
     "description": "Clicking sign-in does nothing on Safari 17.",

@@ -37,6 +37,7 @@ const publicFeedbackRoutes = require("./modules/feedback/routes/publicFeedback.r
 const feedbackSupportRoutes = require("./modules/feedback/routes/feedbackSupport.routes");
 const integrationFeedbackRoutes = require("./modules/feedback/routes/integrationFeedback.routes");
 const clientCompanyRoutes = require("./modules/clientCompany/routes/clientCompany.routes");
+const integrationClientCompanyRoutes = require("./modules/clientCompany/routes/integrationClientCompany.routes");
 const supportChatRoutes = require("./modules/supportChat/routes/supportChat.routes");
 
 function createApp() {
@@ -85,6 +86,7 @@ function createApp() {
   api.use("/support-chat", supportChatRoutes); // in-app user <-> super-admin chat
   api.use("/public/feedback", publicFeedbackRoutes); // unauthenticated, token-gated
   api.use("/integrations/tickets", integrationFeedbackRoutes); // x-api-key, server-to-server
+  api.use("/integrations/companies", integrationClientCompanyRoutes); // x-api-key, server-to-server
   app.use("/api/v1", api);
 
   // 404 + centralised error handling

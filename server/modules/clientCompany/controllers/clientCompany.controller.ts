@@ -103,6 +103,21 @@ export class ClientCompanyController {
     }
   }
 
+  // ── Partner integration API (server-to-server, unauthenticated) ────────────
+  static async integrationProvision(req: any, res: any, next: any) {
+    try {
+      const result = await ClientCompanyService.Instance.provisionCompany(req.validated.body);
+      res.status(201).json(
+        ApiResponse.created("Client company provisioned", {
+          company: toClientCompanyResponse(result.company),
+          supportLead: toSupporterResponse(result.supportLead),
+        })
+      );
+    } catch (err) {
+      next(err);
+    }
+  }
+
   static async listSupporters(req: any, res: any, next: any) {
     try {
       const users = await ClientCompanyService.Instance.listSupporters(

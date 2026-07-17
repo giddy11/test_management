@@ -3,6 +3,7 @@ import type { BugSeverity, BugPriority, BugStatus } from "@/lib/enums"
 
 export interface Bug {
   id: string
+  referenceCode: string
   projectId: string
   title: string
   description: string

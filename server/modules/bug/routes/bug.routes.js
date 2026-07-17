@@ -7,11 +7,19 @@ const {
   createBugSchema,
   manageBugSchema,
   idParamSchema,
+  codeParamSchema,
   fetchBugsSchema,
 } = require("../validators/bug.schema");
 const { BugController } = require("../controllers/bug.controller");
 
 router.get("/", authMiddleware, authorise("superadmin", "admin", "user"), validate(fetchBugsSchema), BugController.fetchAll);
+router.get(
+  "/by-code/:code",
+  authMiddleware,
+  authorise("superadmin", "admin", "user"),
+  validate(codeParamSchema),
+  BugController.fetchByCode
+);
 router.get("/:id", authMiddleware, authorise("superadmin", "admin", "user"), validate(idParamSchema), BugController.fetchById);
 router.post("/", authMiddleware, authorise("superadmin", "admin", "user"), validate(createBugSchema), BugController.create);
 router.patch(

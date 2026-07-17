@@ -1,4 +1,5 @@
 // modules/bug/dto/bug.dto.js
+const { formatReferenceCode } = require("../../../shared/utils/referenceCode");
 
 function userSummary(user) {
   if (!user) return null;
@@ -9,6 +10,7 @@ function toBugResponse(bug) {
   if (!bug) return null;
   return {
     id: bug.id,
+    referenceCode: formatReferenceCode("BF", bug.bugNumber),
     projectId: bug.projectId,
     title: bug.title,
     description: bug.description,

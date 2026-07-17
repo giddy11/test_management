@@ -12,6 +12,7 @@ const {
   ProjectMemberRepository,
 } = require("../../project/repositories/projectMember.repository");
 const { AppError } = require("../../../shared/errors/AppError");
+const { parseReferenceCode } = require("../../../shared/utils/referenceCode");
 const { UserRole, FeatureRequestStatus } = require("../../../config/constants");
 
 class FeatureRequestService {
@@ -72,6 +73,19 @@ class FeatureRequestService {
 
   async getFeatureRequest(actor, id) {
     const fr = await this.getAccessible(actor, id);
+    const [{ extra }] = await this.annotate(actor, [fr]);
+    return { request: fr, extra };
+  }
+
+  // Same as getFeatureRequest but resolves via the human-readable reference
+  // code (e.g. "FR-014") instead of the uuid — backs the /by-code deep link
+  // used by the "share link" button on the feature request detail page.
+  async getFeatureRequestByCode(actor, code) {
+    const requestNumber = parseReferenceCode("FR", code);
+    if (requestNumber == null) throw new AppError("Feature request not found", 404);
+    const fr = await this.frRepo.findByNumber(requestNumber);
+    if (!fr || fr.deletedAt) throw new AppError("Feature request not found", 404);
+    await this.projectService.getProject(actor, fr.projectId);
     const [{ extra }] = await this.annotate(actor, [fr]);
     return { request: fr, extra };
   }

@@ -473,4 +473,76 @@ describe("ClientCompanyService", () => {
       ).rejects.toMatchObject({ statusCode: 403 });
     });
   });
+
+  describe("provisionCompany", () => {
+    const payload = {
+      projectId: "proj-1",
+      name: "Acme Corp",
+      supportLead: { email: "sam.support@acme.com" },
+    };
+
+    it("creates the company and its lead, deriving a name from the email", async () => {
+      companyRepo.create.mockResolvedValue({ ...company, id: "cc-9", name: "Acme Corp" });
+      userRepo.create.mockImplementation(async (d: any) => ({ id: "u-9", ...d }));
+
+      const result = await service.provisionCompany(payload);
+
+      expect(projectRepo.findById).toHaveBeenCalledWith("proj-1");
+      expect(companyRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ projectId: "proj-1", name: "Acme Corp" })
+      );
+      expect(userRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          firstName: "Sam",
+          lastName: "Support",
+          email: "sam.support@acme.com",
+          role: UserRole.IT_SUPPORT,
+          clientCompanyId: "cc-9",
+          isSupportLead: true,
+          isEmailVerified: true,
+        })
+      );
+      expect(result.supportLead.id).toBe("u-9");
+    });
+
+    it("falls back to a generic first name when the email has no usable local part", async () => {
+      companyRepo.create.mockResolvedValue({ ...company, id: "cc-9", name: "Acme Corp" });
+      userRepo.create.mockImplementation(async (d: any) => ({ id: "u-9", ...d }));
+
+      await service.provisionCompany({
+        projectId: "proj-1",
+        name: "Acme Corp",
+        supportLead: { email: "a@acme.com" },
+      });
+
+      expect(userRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ firstName: "A", lastName: "" })
+      );
+    });
+
+    it("404s when the project doesn't exist or is deleted", async () => {
+      projectRepo.findById.mockResolvedValue(null);
+
+      await expect(service.provisionCompany(payload)).rejects.toMatchObject({ statusCode: 404 });
+      expect(companyRepo.create).not.toHaveBeenCalled();
+    });
+
+    it("409s when the support lead's email already belongs to a user account", async () => {
+      userRepo.findByEmail.mockResolvedValue({ id: "existing" });
+
+      await expect(service.provisionCompany(payload)).rejects.toMatchObject({
+        statusCode: 409,
+      });
+      expect(companyRepo.create).not.toHaveBeenCalled();
+    });
+
+    it("409s when the contact email is already in use", async () => {
+      companyRepo.findByEmail.mockResolvedValue({ id: "cc-2" });
+
+      await expect(
+        service.provisionCompany({ ...payload, contactEmail: "taken@b.com" })
+      ).rejects.toMatchObject({ statusCode: 409 });
+      expect(companyRepo.create).not.toHaveBeenCalled();
+    });
+  });
 });

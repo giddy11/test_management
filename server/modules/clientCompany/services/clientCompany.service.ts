@@ -13,7 +13,12 @@ const { UserRepository } = require("../../user/repositories/user.repository");
 const { ActivityService } = require("../../activity/services/activity.service");
 const { AppError } = require("../../../shared/errors/AppError");
 const { UserRole, AuthProvider } = require("../../../config/constants");
-const { hashPassword, hashToken, generateApiKey } = require("../../../shared/utils/password");
+const {
+  hashPassword,
+  hashToken,
+  generateApiKey,
+  generateTempPassword,
+} = require("../../../shared/utils/password");
 const { sendSupporterInviteEmail } = require("../../../shared/utils/mail/support.mail");
 const { env } = require("../../../config/env");
 
@@ -204,6 +209,78 @@ export class ClientCompanyService {
       lastFour: company.integrationApiKeyLastFour,
       createdAt: company.integrationApiKeyCreatedAt,
     };
+  }
+
+  // A support lead provisioned server-to-server arrives as just an email —
+  // derive a display name from its local part (e.g. "sam.support" -> "Sam
+  // Support") since firstName/lastName are NOT NULL columns on User. Purely
+  // cosmetic; the lead can change it later from their own profile.
+  private nameFromEmail(email: string): { firstName: string; lastName: string } {
+    const localPart = email.split("@")[0] ?? "";
+    const words = localPart
+      .split(/[.\-_+]+/)
+      .filter(Boolean)
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1));
+    const [firstName = "Support", ...rest] = words;
+    return { firstName, lastName: rest.join(" ") };
+  }
+
+  // ── Server-to-server company provisioning (no auth — see route comment) ────
+  // A partner's own backend calls this the moment one of their customers signs
+  // up, creating the ClientCompany and its first IT support lead in one shot —
+  // no TestMate admin has to do either step by hand. No actor here — this is
+  // machine traffic, same convention as FeedbackService.createIntegrationTicket
+  // (no activity log entry, since there's no human to attribute it to).
+  async provisionCompany(data: {
+    projectId: string;
+    name: string;
+    contactEmail?: string | null;
+    supportLead: { email: string };
+  }) {
+    const project = await this.projectRepo.findById(data.projectId);
+    if (!project || project.deletedAt) throw new AppError("Project not found", 404);
+
+    if (data.contactEmail) {
+      await this.assertContactEmailAvailable(data.contactEmail);
+    }
+    const existingLead = await this.userRepo.findByEmail(data.supportLead.email);
+    if (existingLead) {
+      throw new AppError("An account with this email already exists", 409);
+    }
+
+    const company = await this.companyRepo.create({
+      projectId: project.id,
+      name: data.name,
+      contactEmail: data.contactEmail ?? null,
+    });
+
+    const tempPassword = generateTempPassword();
+    const { firstName, lastName } = this.nameFromEmail(data.supportLead.email);
+    const supportLead = await this.userRepo.create({
+      firstName,
+      lastName,
+      email: data.supportLead.email,
+      password: await hashPassword(tempPassword),
+      role: UserRole.IT_SUPPORT,
+      companyName: company.name,
+      organizationId: project.organizationId ?? null,
+      clientCompanyId: company.id,
+      provider: AuthProvider.LOCAL,
+      isEmailVerified: true, // provisioned server-to-server — no self-verification needed
+      isSupportLead: true,
+    });
+
+    sendSupporterInviteEmail(
+      supportLead.email,
+      supportLead.firstName,
+      company.name,
+      project.name,
+      tempPassword,
+      `${env.appUrl}/login`,
+      project.organizationId ?? null
+    ).catch((e: Error) => console.error("[clientCompany] provisioning invite failed:", e.message));
+
+    return { company, supportLead };
   }
 
   // ── Supporter accounts ───────────────────────────────────────────────────────

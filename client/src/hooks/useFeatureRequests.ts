@@ -39,6 +39,18 @@ export function useFeatureRequest(id: string) {
   })
 }
 
+export function useFeatureRequestByCode(code: string) {
+  return useQuery({
+    queryKey: [FEATURE_REQUESTS_KEY, "detail-by-code", code],
+    queryFn: async () => {
+      const res = await FeatureRequestEndpoints.fetchByCode(code)
+      if (!res.success || !res.data) throw new ApiError(res.message, res.statusCode)
+      return res.data
+    },
+    enabled: Boolean(code),
+  })
+}
+
 export function useCreateFeatureRequest() {
   const qc = useQueryClient()
   return useMutation({

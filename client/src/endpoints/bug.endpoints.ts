@@ -16,6 +16,7 @@ export const BugEndpoints = {
     search?: string
   }) => wrapCall<Bug[]>("GET", "/api/v1/bugs", obj(params)),
   fetchById: (id: string) => wrapCall<Bug>("GET", `/api/v1/bugs/${id}`),
+  fetchByCode: (code: string) => wrapCall<Bug>("GET", `/api/v1/bugs/by-code/${code}`),
   create: (payload: CreateBugPayload) => wrapCall<Bug>("POST", "/api/v1/bugs", obj(payload)),
   manage: (id: string, payload: ManageBugPayload) =>
     wrapCall<Bug>("PATCH", `/api/v1/bugs/${id}`, obj(payload)),

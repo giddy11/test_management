@@ -40,6 +40,18 @@ export function useBug(id: string) {
   })
 }
 
+export function useBugByCode(code: string) {
+  return useQuery({
+    queryKey: [BUGS_KEY, "detail-by-code", code],
+    queryFn: async () => {
+      const res = await BugEndpoints.fetchByCode(code)
+      if (!res.success || !res.data) throw new ApiError(res.message, res.statusCode)
+      return res.data
+    },
+    enabled: Boolean(code),
+  })
+}
+
 export function useCreateBug() {
   const qc = useQueryClient()
   return useMutation({

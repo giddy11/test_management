@@ -1,6 +1,7 @@
 [
   {
     "id": "e2e-fr-1",
+    "referenceCode": "FR-001",
     "projectId": "e2e-proj-1",
     "title": "Dark mode for reports",
     "description": "Exported reports should respect the dark theme.",
@@ -18,6 +19,7 @@
   },
   {
     "id": "e2e-fr-2",
+    "referenceCode": "FR-002",
     "projectId": "e2e-proj-1",
     "title": "Bulk import from TestRail",
     "description": "Allow importing suites exported from TestRail.",

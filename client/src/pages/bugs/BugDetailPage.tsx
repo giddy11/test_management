@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { Link, useNavigate, useParams } from "react-router-dom"
-import { ChevronLeft, Pencil, Trash2, ExternalLink } from "lucide-react"
+import { ChevronLeft, Pencil, Trash2, ExternalLink, Share2 } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
@@ -9,7 +9,7 @@ import { ConfirmDialog } from "@/components/shared/ConfirmDialog"
 import { BugSeverityBadge, BugPriorityBadge, BugStatusBadge } from "@/components/shared/StatusBadge"
 import { BugManageDialog } from "@/components/bugs/BugManageDialog"
 import { BugAttachmentsSection } from "@/components/bugs/BugAttachmentsSection"
-import { useBug, useDeleteBug } from "@/hooks/useBugs"
+import { useBug, useBugByCode, useDeleteBug } from "@/hooks/useBugs"
 import { useCase } from "@/hooks/useCases"
 import { useCanManageProject } from "@/hooks/useProjects"
 import { ApiError } from "@/transport/http"
@@ -28,17 +28,25 @@ function LinkedTestCase({ projectId, testCaseId }: { projectId: string; testCase
 }
 
 export default function BugDetailPage() {
-  const { projectId = "", id = "" } = useParams()
+  const { projectId = "", id, code } = useParams()
   const navigate = useNavigate()
   const canManage = useCanManageProject(projectId)
 
-  const { data: bug, isLoading } = useBug(id)
+  const byId = useBug(id ?? "")
+  const byCode = useBugByCode(code ?? "")
+  const { data: bug, isLoading } = code ? byCode : byId
   const del = useDeleteBug()
   const [manageOpen, setManageOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
 
   if (isLoading) return <PageLoader />
   if (!bug) return null
+
+  const handleShare = () => {
+    const url = `${window.location.origin}/projects/${projectId}/bugs/ref/${bug.referenceCode}`
+    navigator.clipboard.writeText(url)
+    toast.success("Link copied to clipboard")
+  }
 
   return (
     <div className="space-y-6">
@@ -49,6 +57,7 @@ export default function BugDetailPage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <div className="flex flex-wrap items-center gap-2">
+            <span className="font-mono text-xs text-muted-foreground">{bug.referenceCode}</span>
             <h1 className="text-2xl font-semibold tracking-tight">{bug.title}</h1>
             <BugStatusBadge value={bug.status} />
             <BugSeverityBadge value={bug.severity} />
@@ -60,16 +69,21 @@ export default function BugDetailPage() {
           </p>
         </div>
 
-        {canManage && (
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={() => setManageOpen(true)} data-cy="bug-manage">
-              <Pencil className="mr-1 size-4" /> Manage
-            </Button>
-            <Button variant="outline" onClick={() => setDeleteOpen(true)} data-cy="bug-delete">
-              <Trash2 className="mr-1 size-4 text-destructive" />
-            </Button>
-          </div>
-        )}
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={handleShare} data-cy="bug-share">
+            <Share2 className="mr-1 size-4" /> Share
+          </Button>
+          {canManage && (
+            <>
+              <Button variant="outline" onClick={() => setManageOpen(true)} data-cy="bug-manage">
+                <Pencil className="mr-1 size-4" /> Manage
+              </Button>
+              <Button variant="outline" onClick={() => setDeleteOpen(true)} data-cy="bug-delete">
+                <Trash2 className="mr-1 size-4 text-destructive" />
+              </Button>
+            </>
+          )}
+        </div>
       </div>
 
       <p className="whitespace-pre-wrap text-sm leading-relaxed">{bug.description}</p>

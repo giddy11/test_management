@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { Link, useNavigate, useParams } from "react-router-dom"
-import { ChevronLeft, Pencil, Trash2, ExternalLink } from "lucide-react"
+import { ChevronLeft, Pencil, Trash2, ExternalLink, Share2 } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -12,22 +12,30 @@ import { VoteButton } from "@/components/featureRequests/VoteButton"
 import { StatusUpdateDialog } from "@/components/featureRequests/StatusUpdateDialog"
 import { CommentThread } from "@/components/featureRequests/CommentThread"
 import { FeatureRequestAttachmentsSection } from "@/components/featureRequests/FeatureRequestAttachmentsSection"
-import { useFeatureRequest, useDeleteFeatureRequest } from "@/hooks/useFeatureRequests"
+import { useFeatureRequest, useFeatureRequestByCode, useDeleteFeatureRequest } from "@/hooks/useFeatureRequests"
 import { useCanManageProject } from "@/hooks/useProjects"
 import { ApiError } from "@/transport/http"
 
 export default function FeatureRequestDetailPage() {
-  const { projectId = "", id = "" } = useParams()
+  const { projectId = "", id, code } = useParams()
   const navigate = useNavigate()
   const canManage = useCanManageProject(projectId)
 
-  const { data: request, isLoading } = useFeatureRequest(id)
+  const byId = useFeatureRequest(id ?? "")
+  const byCode = useFeatureRequestByCode(code ?? "")
+  const { data: request, isLoading } = code ? byCode : byId
   const del = useDeleteFeatureRequest()
   const [statusOpen, setStatusOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
 
   if (isLoading) return <PageLoader />
   if (!request) return null
+
+  const handleShare = () => {
+    const url = `${window.location.origin}/projects/${projectId}/feature-requests/ref/${request.referenceCode}`
+    navigator.clipboard.writeText(url)
+    toast.success("Link copied to clipboard")
+  }
 
   return (
     <div className="space-y-6">
@@ -40,6 +48,7 @@ export default function FeatureRequestDetailPage() {
           <VoteButton requestId={request.id} upvoteCount={request.upvoteCount} hasVoted={request.hasVoted} />
           <div>
             <div className="flex flex-wrap items-center gap-2">
+              <span className="font-mono text-xs text-muted-foreground">{request.referenceCode}</span>
               <h1 className="text-2xl font-semibold tracking-tight">{request.title}</h1>
               <FeatureRequestStatusBadge value={request.status} />
               {request.category && <Badge variant="outline">{request.category}</Badge>}
@@ -51,16 +60,21 @@ export default function FeatureRequestDetailPage() {
           </div>
         </div>
 
-        {canManage && (
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={() => setStatusOpen(true)} data-cy="fr-update-status">
-              <Pencil className="mr-1 size-4" /> Update status
-            </Button>
-            <Button variant="outline" onClick={() => setDeleteOpen(true)} data-cy="fr-delete">
-              <Trash2 className="mr-1 size-4 text-destructive" />
-            </Button>
-          </div>
-        )}
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={handleShare} data-cy="fr-share">
+            <Share2 className="mr-1 size-4" /> Share
+          </Button>
+          {canManage && (
+            <>
+              <Button variant="outline" onClick={() => setStatusOpen(true)} data-cy="fr-update-status">
+                <Pencil className="mr-1 size-4" /> Update status
+              </Button>
+              <Button variant="outline" onClick={() => setDeleteOpen(true)} data-cy="fr-delete">
+                <Trash2 className="mr-1 size-4 text-destructive" />
+              </Button>
+            </>
+          )}
+        </div>
       </div>
 
       <p className="whitespace-pre-wrap text-sm leading-relaxed">{request.description}</p>
