@@ -599,7 +599,8 @@ const ALL_SECTIONS: DocSection[] = [
         </P>
         <P>
           This endpoint takes no API key — the request identifies its target project directly
-          with <Code>projectId</Code>.
+          with <Code>projectId</Code>. An admin can copy a project's id from the small "Project
+          ID" row under its name at the top of the project page.
         </P>
         <H3>Provision a company</H3>
         <P><Code>POST /api/v1/integrations/companies</Code></P>

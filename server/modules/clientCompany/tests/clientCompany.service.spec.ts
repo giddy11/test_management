@@ -50,6 +50,7 @@ function makeUserRepo() {
     softDelete: jest.fn(),
     findByClientCompany: jest.fn().mockResolvedValue([]),
     countByClientCompany: jest.fn().mockResolvedValue(0),
+    clearPrimarySupportLead: jest.fn(),
   };
 }
 
@@ -347,7 +348,7 @@ describe("ClientCompanyService", () => {
       expect(userRepo.update).not.toHaveBeenCalled();
     });
 
-    it("promotes a supporter to lead", async () => {
+    it("promotes a supporter to lead (company already has a lead — not primary)", async () => {
       companyRepo.findById.mockResolvedValue(company);
       userRepo.findById.mockResolvedValue({
         id: "u-9",
@@ -357,12 +358,125 @@ describe("ClientCompanyService", () => {
         clientCompanyId: "cc-1",
         deletedAt: null,
       });
+      userRepo.findByClientCompany.mockResolvedValue([
+        { id: "other-lead", isSupportLead: true },
+      ]);
       userRepo.update.mockResolvedValue({ id: "u-9", isSupportLead: true });
 
       const updated = await service.setSupporterLead(admin, "cc-1", "u-9", true);
 
       expect(userRepo.update).toHaveBeenCalledWith("u-9", { isSupportLead: true });
       expect((updated as any).isSupportLead).toBe(true);
+    });
+
+    it("auto-promotes to primary when it's the company's first-ever lead", async () => {
+      companyRepo.findById.mockResolvedValue(company);
+      userRepo.findById.mockResolvedValue({
+        id: "u-9",
+        firstName: "Sam",
+        lastName: "Support",
+        role: UserRole.IT_SUPPORT,
+        clientCompanyId: "cc-1",
+        deletedAt: null,
+      });
+      userRepo.findByClientCompany.mockResolvedValue([]); // no existing leads
+      userRepo.update.mockResolvedValue({ id: "u-9", isSupportLead: true, isPrimarySupportLead: true });
+
+      await service.setSupporterLead(admin, "cc-1", "u-9", true);
+
+      expect(userRepo.update).toHaveBeenCalledWith("u-9", {
+        isSupportLead: true,
+        isPrimarySupportLead: true,
+      });
+    });
+
+    it("clears primary status when the primary lead is demoted", async () => {
+      companyRepo.findById.mockResolvedValue(company);
+      userRepo.findById.mockResolvedValue({
+        id: "u-9",
+        firstName: "Sam",
+        lastName: "Support",
+        role: UserRole.IT_SUPPORT,
+        clientCompanyId: "cc-1",
+        isSupportLead: true,
+        isPrimarySupportLead: true,
+        deletedAt: null,
+      });
+      userRepo.findByClientCompany.mockResolvedValue([
+        { id: "u-9", isSupportLead: true },
+        { id: "other", isSupportLead: true },
+      ]);
+      userRepo.update.mockResolvedValue({ id: "u-9", isSupportLead: false });
+
+      await service.setSupporterLead(admin, "cc-1", "u-9", false);
+
+      expect(userRepo.update).toHaveBeenCalledWith("u-9", {
+        isSupportLead: false,
+        isPrimarySupportLead: false,
+      });
+    });
+
+    it("403s a peer lead trying to change the primary lead's status", async () => {
+      const peerLead = {
+        id: "peer-lead-1",
+        role: UserRole.IT_SUPPORT,
+        clientCompanyId: "cc-1",
+        isSupportLead: true,
+      };
+      companyRepo.findById.mockResolvedValue(company);
+      userRepo.findById.mockResolvedValue({
+        id: "primary-1",
+        role: UserRole.IT_SUPPORT,
+        clientCompanyId: "cc-1",
+        isSupportLead: true,
+        isPrimarySupportLead: true,
+        deletedAt: null,
+      });
+
+      await expect(
+        service.setSupporterLead(peerLead as any, "cc-1", "primary-1", false)
+      ).rejects.toMatchObject({ statusCode: 403 });
+      expect(userRepo.update).not.toHaveBeenCalled();
+    });
+
+    it("allows an admin to change the primary lead's status", async () => {
+      companyRepo.findById.mockResolvedValue(company);
+      userRepo.findById.mockResolvedValue({
+        id: "primary-1",
+        role: UserRole.IT_SUPPORT,
+        clientCompanyId: "cc-1",
+        isSupportLead: true,
+        isPrimarySupportLead: true,
+        deletedAt: null,
+      });
+      userRepo.findByClientCompany.mockResolvedValue([
+        { id: "primary-1", isSupportLead: true },
+        { id: "other", isSupportLead: true },
+      ]);
+      userRepo.update.mockResolvedValue({ id: "primary-1", isSupportLead: false });
+
+      await service.setSupporterLead(admin, "cc-1", "primary-1", false);
+
+      expect(userRepo.update).toHaveBeenCalledWith("primary-1", {
+        isSupportLead: false,
+        isPrimarySupportLead: false,
+      });
+    });
+
+    it("403s a lead trying to change their own lead status", async () => {
+      const lead = {
+        id: "sup-lead-1",
+        role: UserRole.IT_SUPPORT,
+        clientCompanyId: "cc-1",
+        isSupportLead: true,
+      };
+      companyRepo.findById.mockResolvedValue(company);
+      userRepo.findById.mockResolvedValue({ ...lead, deletedAt: null });
+
+      await expect(
+        service.setSupporterLead(lead as any, "cc-1", "sup-lead-1", false)
+      ).rejects.toMatchObject({ statusCode: 403 });
+      expect(userRepo.update).not.toHaveBeenCalled();
     });
   });
 
@@ -395,6 +509,125 @@ describe("ClientCompanyService", () => {
 
       await service.removeSupporter(admin, "cc-1", "u-9");
       expect(userRepo.softDelete).toHaveBeenCalledWith("u-9");
+    });
+
+    it("403s a lead trying to remove their own account", async () => {
+      const lead = {
+        id: "sup-lead-1",
+        role: UserRole.IT_SUPPORT,
+        clientCompanyId: "cc-1",
+        isSupportLead: true,
+      };
+      companyRepo.findById.mockResolvedValue(company);
+      userRepo.findById.mockResolvedValue({ ...lead, deletedAt: null });
+
+      await expect(
+        service.removeSupporter(lead as any, "cc-1", "sup-lead-1")
+      ).rejects.toMatchObject({ statusCode: 403 });
+      expect(userRepo.softDelete).not.toHaveBeenCalled();
+    });
+
+    it("403s a peer lead trying to remove the primary lead", async () => {
+      const peerLead = {
+        id: "peer-lead-1",
+        role: UserRole.IT_SUPPORT,
+        clientCompanyId: "cc-1",
+        isSupportLead: true,
+      };
+      companyRepo.findById.mockResolvedValue(company);
+      userRepo.findById.mockResolvedValue({
+        id: "primary-1",
+        role: UserRole.IT_SUPPORT,
+        clientCompanyId: "cc-1",
+        isSupportLead: true,
+        isPrimarySupportLead: true,
+        deletedAt: null,
+      });
+
+      await expect(
+        service.removeSupporter(peerLead as any, "cc-1", "primary-1")
+      ).rejects.toMatchObject({ statusCode: 403 });
+      expect(userRepo.softDelete).not.toHaveBeenCalled();
+    });
+
+    it("allows an admin to remove the primary lead", async () => {
+      companyRepo.findById.mockResolvedValue(company);
+      userRepo.findById.mockResolvedValue({
+        id: "primary-1",
+        role: UserRole.IT_SUPPORT,
+        clientCompanyId: "cc-1",
+        isSupportLead: true,
+        isPrimarySupportLead: true,
+        deletedAt: null,
+      });
+      userRepo.findByClientCompany.mockResolvedValue([{ id: "primary-1", isSupportLead: true }]);
+
+      await service.removeSupporter(admin, "cc-1", "primary-1");
+      expect(userRepo.softDelete).toHaveBeenCalledWith("primary-1");
+    });
+  });
+
+  describe("setPrimarySupportLead", () => {
+    it("designates a lead as primary and clears any previous primary", async () => {
+      companyRepo.findById.mockResolvedValue(company);
+      userRepo.findById.mockResolvedValue({
+        id: "u-9",
+        firstName: "Sam",
+        lastName: "Support",
+        role: UserRole.IT_SUPPORT,
+        clientCompanyId: "cc-1",
+        isSupportLead: true,
+        deletedAt: null,
+      });
+      userRepo.update.mockResolvedValue({ id: "u-9", isPrimarySupportLead: true });
+
+      await service.setPrimarySupportLead(admin, "cc-1", "u-9", true);
+
+      expect(userRepo.clearPrimarySupportLead).toHaveBeenCalledWith("cc-1");
+      expect(userRepo.update).toHaveBeenCalledWith("u-9", { isPrimarySupportLead: true });
+    });
+
+    it("409s when the target isn't a lead yet", async () => {
+      companyRepo.findById.mockResolvedValue(company);
+      userRepo.findById.mockResolvedValue({
+        id: "u-9",
+        role: UserRole.IT_SUPPORT,
+        clientCompanyId: "cc-1",
+        isSupportLead: false,
+        deletedAt: null,
+      });
+
+      await expect(
+        service.setPrimarySupportLead(admin, "cc-1", "u-9", true)
+      ).rejects.toMatchObject({ statusCode: 409 });
+      expect(userRepo.update).not.toHaveBeenCalled();
+    });
+
+    it("404s when the target isn't a supporter of this company", async () => {
+      companyRepo.findById.mockResolvedValue(company);
+      userRepo.findById.mockResolvedValue(null);
+
+      await expect(
+        service.setPrimarySupportLead(admin, "cc-1", "ghost", true)
+      ).rejects.toMatchObject({ statusCode: 404 });
+    });
+
+    it("clears primary status without requiring the clear-previous step", async () => {
+      companyRepo.findById.mockResolvedValue(company);
+      userRepo.findById.mockResolvedValue({
+        id: "u-9",
+        role: UserRole.IT_SUPPORT,
+        clientCompanyId: "cc-1",
+        isSupportLead: true,
+        isPrimarySupportLead: true,
+        deletedAt: null,
+      });
+      userRepo.update.mockResolvedValue({ id: "u-9", isPrimarySupportLead: false });
+
+      await service.setPrimarySupportLead(admin, "cc-1", "u-9", false);
+
+      expect(userRepo.clearPrimarySupportLead).not.toHaveBeenCalled();
+      expect(userRepo.update).toHaveBeenCalledWith("u-9", { isPrimarySupportLead: false });
     });
   });
 
@@ -499,6 +732,7 @@ describe("ClientCompanyService", () => {
           role: UserRole.IT_SUPPORT,
           clientCompanyId: "cc-9",
           isSupportLead: true,
+          isPrimarySupportLead: true,
           isEmailVerified: true,
         })
       );

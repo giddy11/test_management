@@ -25,6 +25,19 @@ export const submitFeedbackSchema = z.object({
   }),
 });
 
+// ── Submitter's own ticket history (public, no account) ─────────────────────
+
+export const requestMyTicketsCodeSchema = z.object({
+  body: z.object({ email: z.string().email().max(255) }),
+});
+
+export const listMyTicketsSchema = z.object({
+  body: z.object({
+    email: z.string().email().max(255),
+    code: z.string().length(6),
+  }),
+});
+
 export const fetchFeedbackSchema = z.object({
   query: z.object({
     // Optional — omitted means the cross-project view (scoped by role in the service).

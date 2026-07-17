@@ -55,6 +55,29 @@ export class FeedbackController {
     }
   }
 
+  // A submitter's own ticket history, no account — email a one-time code,
+  // then trade it for the list. Never reveals whether the email has tickets.
+  static async requestMyTicketsCode(req: any, res: any, next: any) {
+    try {
+      await FeedbackService.Instance.requestMyTicketsCode(req.validated.body.email);
+      res.status(200).json(ApiResponse.ok("If that email has any tickets, a code is on its way", null));
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  static async listMyTickets(req: any, res: any, next: any) {
+    try {
+      const tickets = await FeedbackService.Instance.listMyTickets(
+        req.validated.body.email,
+        req.validated.body.code
+      );
+      res.status(200).json(ApiResponse.ok("Tickets fetched", tickets));
+    } catch (err) {
+      next(err);
+    }
+  }
+
   // ── Authenticated ───────────────────────────────────────────────────────────
   static async fetchAll(req: any, res: any, next: any) {
     try {

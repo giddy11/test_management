@@ -126,6 +126,32 @@ export interface FeedbackStatusHistoryEntry {
   enteredAt: string
 }
 
+// A collapsed, customer-facing status returned by the "my tickets" lookup —
+// internal triage granularity is hidden, and "resolved" isn't shown as done
+// until the submitter has confirmed it (see server's toSubmitterStatus).
+export type MyTicketStatus = "received" | "in_progress" | "pending_your_confirmation" | "resolved"
+
+export const MY_TICKET_STATUS_LABELS: Record<MyTicketStatus, string> = {
+  received: "Received",
+  in_progress: "In progress",
+  pending_your_confirmation: "Awaiting your confirmation",
+  resolved: "Resolved",
+}
+
+// One row in a submitter's own ticket history (no account — email + one-time
+// code). Deliberately thinner than Feedback: no internal fields.
+export interface MyTicket {
+  id: string
+  ticketNumber: number
+  projectName: string | null
+  clientCompanyName: string | null
+  type: FeedbackType
+  title: string
+  status: MyTicketStatus
+  createdAt: string
+  updatedAt: string
+}
+
 export const FEEDBACK_STATUSES: FeedbackStatus[] = [
   "logged",
   "acknowledged",

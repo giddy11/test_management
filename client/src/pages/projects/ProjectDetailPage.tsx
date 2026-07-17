@@ -1,7 +1,9 @@
 import { useMemo } from "react"
 import { Link, useParams, useSearchParams } from "react-router-dom"
-import { ChevronLeft, Crown } from "lucide-react"
+import { ChevronLeft, Copy, Crown } from "lucide-react"
+import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { SuitesTab } from "@/components/testmgmt/SuitesTab"
 import { RunsTab } from "@/components/testmgmt/RunsTab"
@@ -51,6 +53,24 @@ export default function ProjectDetailPage() {
         </h1>
         {project?.description && (
           <p className="text-sm text-muted-foreground">{project.description}</p>
+        )}
+        {isAdmin && (
+          <div className="mt-1 flex items-center gap-1.5">
+            <span className="text-xs text-muted-foreground">
+              Project ID: <code className="rounded bg-muted px-1 py-0.5">{projectId}</code>
+            </span>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="size-6 p-0"
+              onClick={() => {
+                navigator.clipboard.writeText(projectId)
+                toast.success("Project ID copied")
+              }}
+            >
+              <Copy className="size-3" />
+            </Button>
+          </div>
         )}
         {Boolean(project?.members?.length) && (
           <div className="mt-2 flex flex-wrap items-center gap-1.5">

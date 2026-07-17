@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { ShieldCheck, Trash2, UserPlus } from "lucide-react"
+import { Crown, ShieldCheck, Trash2, UserPlus } from "lucide-react"
 import { toast } from "sonner"
 import {
   Dialog,
@@ -25,6 +25,8 @@ import {
   useSupporters,
 } from "@/hooks/useClientCompanies"
 import { createSupporterSchema, type CreateSupporterForm } from "@/lib/validation"
+import { useAuth } from "@/contexts/AuthContext"
+import { UserRole } from "@/types/auth.types"
 import { ApiError } from "@/transport/http"
 import type { ClientCompany, Supporter } from "@/types/clientCompany.types"
 
@@ -34,6 +36,8 @@ interface Props {
 }
 
 export function SupportersDialog({ company, onOpenChange }: Props) {
+  const { user } = useAuth()
+  const isAdmin = user?.role === UserRole.ADMIN || user?.role === UserRole.SUPERADMIN
   const companyId = company?.id ?? ""
   const { data: supporters = [], isLoading } = useSupporters(companyId, Boolean(company))
   const createSupporter = useCreateSupporter(companyId)
@@ -98,41 +102,67 @@ export function SupportersDialog({ company, onOpenChange }: Props) {
         )}
 
         <div className="space-y-1">
-          {supporters.map((s) => (
-            <div key={s.id} className="flex items-center gap-3 rounded-md px-2 py-1.5 hover:bg-accent">
-              <Avatar className="size-7">
-                <AvatarFallback className="text-xs">{initials(s.name)}</AvatarFallback>
-              </Avatar>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-1.5">
-                  <span className="truncate text-sm font-medium">{s.name}</span>
-                  {s.isSupportLead && (
-                    <Badge variant="secondary" className="shrink-0 gap-1 text-[10px]">
-                      <ShieldCheck className="size-3" /> Lead
-                    </Badge>
-                  )}
+          {supporters.map((s) => {
+            const isSelf = s.id === user?.id
+            // Peer leads can manage each other freely, but only a TestMate
+            // admin can change the primary lead's status or remove them.
+            const primaryLockedForActor = s.isPrimarySupportLead && !isAdmin
+            return (
+              <div key={s.id} className="flex items-center gap-3 rounded-md px-2 py-1.5 hover:bg-accent">
+                <Avatar className="size-7">
+                  <AvatarFallback className="text-xs">{initials(s.name)}</AvatarFallback>
+                </Avatar>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5">
+                    <span className="truncate text-sm font-medium">{s.name}</span>
+                    {s.isSupportLead && (
+                      <Badge variant="secondary" className="shrink-0 gap-1 text-[10px]">
+                        {s.isPrimarySupportLead ? (
+                          <Crown className="size-3" />
+                        ) : (
+                          <ShieldCheck className="size-3" />
+                        )}
+                        {s.isPrimarySupportLead ? "Primary Lead" : "Lead"}
+                      </Badge>
+                    )}
+                    {isSelf && (
+                      <Badge variant="outline" className="shrink-0 text-[10px]">You</Badge>
+                    )}
+                  </div>
+                  <div className="truncate text-xs text-muted-foreground">{s.email}</div>
                 </div>
-                <div className="truncate text-xs text-muted-foreground">{s.email}</div>
+                {isSelf ? (
+                  <span className="shrink-0 text-xs text-muted-foreground">
+                    Ask another lead to change this
+                  </span>
+                ) : primaryLockedForActor ? (
+                  <span className="shrink-0 text-xs text-muted-foreground">
+                    Only a TestMate admin can change this
+                  </span>
+                ) : (
+                  <>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 shrink-0 px-2 text-xs"
+                      disabled={setLead.isPending}
+                      onClick={() => toggleLead(s)}
+                    >
+                      {s.isSupportLead ? "Remove lead" : "Make lead"}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="size-7 shrink-0 p-0 text-destructive hover:text-destructive"
+                      onClick={() => setRemoving(s)}
+                    >
+                      <Trash2 className="size-3.5" />
+                    </Button>
+                  </>
+                )}
               </div>
-              <Button
-                size="sm"
-                variant="ghost"
-                className="h-7 shrink-0 px-2 text-xs"
-                disabled={setLead.isPending}
-                onClick={() => toggleLead(s)}
-              >
-                {s.isSupportLead ? "Remove lead" : "Make lead"}
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                className="size-7 shrink-0 p-0 text-destructive hover:text-destructive"
-                onClick={() => setRemoving(s)}
-              >
-                <Trash2 className="size-3.5" />
-              </Button>
-            </div>
-          ))}
+            )
+          })}
         </div>
 
         {adding ? (

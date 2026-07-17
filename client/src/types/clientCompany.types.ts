@@ -19,6 +19,9 @@ export interface Supporter {
   email: string
   // Leads can assign incoming queue items to other supporters in the company.
   isSupportLead: boolean
+  // At most one per company. Peer leads can manage each other freely, but
+  // only a TestMate admin can change the primary lead's status or remove them.
+  isPrimarySupportLead: boolean
   createdAt: string
   lastSeenAt: string | null
 }

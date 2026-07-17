@@ -1,7 +1,7 @@
 // Public, unauthenticated feedback form — reached via a project's shareable
 // /feedback/<token> link, typically embedded in the company's own application.
 import { useState } from "react"
-import { useParams } from "react-router-dom"
+import { Link, useParams } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
 import { CheckCircle2, MessageSquareHeart } from "lucide-react"
 import { toast } from "sonner"
@@ -114,9 +114,14 @@ export default function PublicFeedbackPage() {
               confirmation at <span className="font-medium">{email}</span> and will keep you
               posted as it progresses.
             </p>
-            <Button variant="outline" className="mt-6" onClick={resetForm}>
-              Submit another response
-            </Button>
+            <div className="mt-6 flex flex-col items-center gap-2">
+              <Button variant="outline" onClick={resetForm}>
+                Submit another response
+              </Button>
+              <Link to="/my-tickets" className="text-sm text-primary hover:underline">
+                Check the status of your tickets
+              </Link>
+            </div>
           </CardContent>
         ) : (
           <>
@@ -130,7 +135,12 @@ export default function PublicFeedbackPage() {
                 email updates as they work on it.
                 {form.clientCompanyName && (
                   <> Your report goes to <strong>{form.clientCompanyName}</strong>'s IT support team first.</>
-                )}
+                )}{" "}
+                Already submitted one?{" "}
+                <Link to="/my-tickets" className="text-primary hover:underline">
+                  Check its status
+                </Link>
+                .
               </CardDescription>
             </CardHeader>
             <CardContent>

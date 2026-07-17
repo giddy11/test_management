@@ -87,12 +87,27 @@ class UserRepository {
     return this.repo.find({
       where: { clientCompanyId }, // indexed
       order: { createdAt: "ASC" },
-      select: ["id", "firstName", "lastName", "email", "createdAt", "lastSeenAt", "isSupportLead"],
+      select: [
+        "id",
+        "firstName",
+        "lastName",
+        "email",
+        "createdAt",
+        "lastSeenAt",
+        "isSupportLead",
+        "isPrimarySupportLead",
+      ],
     });
   }
 
   async countByClientCompany(clientCompanyId) {
     return this.repo.count({ where: { clientCompanyId } });
+  }
+
+  // Enforces "at most one primary lead per company" — called right before
+  // assigning a new one.
+  async clearPrimarySupportLead(clientCompanyId) {
+    await this.repo.update({ clientCompanyId, isPrimarySupportLead: true }, { isPrimarySupportLead: false });
   }
 
   // Cross-org overview for the superadmin's /platform page. There's no

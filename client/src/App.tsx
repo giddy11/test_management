@@ -22,6 +22,7 @@ import OrganizationsPage from "@/pages/OrganizationsPage"
 import SettingsPage from "@/pages/SettingsPage"
 import PublicFeedbackPage from "@/pages/public/PublicFeedbackPage"
 import PublicFeedbackConfirmPage from "@/pages/public/PublicFeedbackConfirmPage"
+import MyTicketsPage from "@/pages/public/MyTicketsPage"
 import DocsPage from "@/pages/docs/DocsPage"
 import AnnouncementsPage from "@/pages/AnnouncementsPage"
 import AllFeedbackPage from "@/pages/feedback/AllFeedbackPage"
@@ -46,6 +47,8 @@ export default function App() {
           <Route path="/feedback/:token" element={<PublicFeedbackPage />} />
           {/* Public confirmation link from the "awaiting confirmation" status email */}
           <Route path="/feedback/:id/confirm" element={<PublicFeedbackConfirmPage />} />
+          {/* A submitter's own ticket history, no account (email + one-time code) */}
+          <Route path="/my-tickets" element={<MyTicketsPage />} />
           {/* Public product documentation */}
           <Route path="/docs" element={<DocsPage />} />
           <Route path="/doc" element={<Navigate to="/docs" replace />} />

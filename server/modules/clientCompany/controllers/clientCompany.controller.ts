@@ -160,4 +160,19 @@ export class ClientCompanyController {
       next(err);
     }
   }
+
+  // Admin-only — designating a company's primary lead is never self-service.
+  static async setPrimarySupportLead(req: any, res: any, next: any) {
+    try {
+      const user = await ClientCompanyService.Instance.setPrimarySupportLead(
+        req.user,
+        req.validated.params.id,
+        req.validated.params.userId,
+        req.validated.body.isPrimary
+      );
+      res.status(200).json(ApiResponse.ok("Supporter updated", user && toSupporterResponse(user)));
+    } catch (err) {
+      next(err);
+    }
+  }
 }

@@ -226,6 +226,7 @@ export class ClientCompanyService {
       provider: AuthProvider.LOCAL,
       isEmailVerified: true, // provisioned server-to-server — no self-verification needed
       isSupportLead: true,
+      isPrimarySupportLead: true, // always this brand-new company's first (and only) lead
     });
 
     sendSupporterInviteEmail(
@@ -270,6 +271,16 @@ export class ClientCompanyService {
     const existing = await this.userRepo.findByEmail(data.email);
     if (existing) throw new AppError("An account with this email already exists", 409);
 
+    // The company's very first lead becomes its primary lead automatically —
+    // only reachable here when actor is an admin, since a self-service lead
+    // creating a supporter implies the company already has at least one lead
+    // (themselves), so this can never be gamed by a peer lead.
+    let isPrimarySupportLead = false;
+    if (data.isSupportLead) {
+      const existingSupporters = await this.userRepo.findByClientCompany(company.id);
+      isPrimarySupportLead = !existingSupporters.some((s: any) => s.isSupportLead);
+    }
+
     const user = await this.userRepo.create({
       firstName: data.firstName,
       lastName: data.lastName,
@@ -282,6 +293,7 @@ export class ClientCompanyService {
       provider: AuthProvider.LOCAL,
       isEmailVerified: true, // created by an admin — no self-verification needed
       isSupportLead: data.isSupportLead ?? false,
+      isPrimarySupportLead,
     });
 
     sendSupporterInviteEmail(
@@ -333,6 +345,20 @@ export class ClientCompanyService {
     ) {
       throw new AppError("Supporter not found in this company", 404);
     }
+    // A lead self-managing their own company's roster can't remove their own
+    // account — that's how someone locks themselves out. Only reachable via
+    // the self-service path (an admin's id can never match a supporter's).
+    if (actor.id === user.id) {
+      throw new AppError(
+        "You can't remove your own account — ask another lead or a TestMate admin",
+        403
+      );
+    }
+    // Peer leads can manage each other freely, but the primary lead is
+    // protected from anyone but a TestMate admin.
+    if (user.isPrimarySupportLead && actor.role === UserRole.IT_SUPPORT) {
+      throw new AppError("Only a TestMate admin can remove the primary lead", 403);
+    }
     if (user.isSupportLead) {
       await this.assertLeadRemovalSafe(company.id, user.id);
     }
@@ -360,15 +386,77 @@ export class ClientCompanyService {
     ) {
       throw new AppError("Supporter not found in this company", 404);
     }
+    // A lead can't change their own lead status — same reasoning as
+    // removeSupporter above (only reachable via the self-service path).
+    if (actor.id === user.id) {
+      throw new AppError(
+        "You can't change your own lead status — ask another lead or a TestMate admin",
+        403
+      );
+    }
+    // Peer leads can promote/demote each other freely, but the primary lead
+    // is protected from anyone but a TestMate admin.
+    if (user.isPrimarySupportLead && actor.role === UserRole.IT_SUPPORT) {
+      throw new AppError("Only a TestMate admin can change the primary lead's status", 403);
+    }
     if (user.isSupportLead && !isSupportLead) {
       await this.assertLeadRemovalSafe(company.id, user.id);
     }
-    const updated = await this.userRepo.update(user.id, { isSupportLead });
+    const patch: { isSupportLead: boolean; isPrimarySupportLead?: boolean } = { isSupportLead };
+    // A demoted lead can't stay marked primary. The bootstrap case (promoting
+    // this company's first-ever lead) only reaches here via an admin actor —
+    // a self-service lead already implies the company has an existing lead.
+    if (!isSupportLead) {
+      if (user.isPrimarySupportLead) patch.isPrimarySupportLead = false;
+    } else if (!user.isPrimarySupportLead) {
+      const existingSupporters = await this.userRepo.findByClientCompany(company.id);
+      const hasExistingLead = existingSupporters.some(
+        (s: any) => s.id !== user.id && s.isSupportLead
+      );
+      if (!hasExistingLead) patch.isPrimarySupportLead = true;
+    }
+    const updated = await this.userRepo.update(user.id, patch);
     ActivityService.Instance.log(actor, {
       action: "client_company.supporter_lead_changed",
       summary: isSupportLead
         ? `Made ${user.firstName} ${user.lastName} an IT support lead at "${company.name}"`
         : `Removed ${user.firstName} ${user.lastName} as IT support lead at "${company.name}"`,
+      entityType: "client_company",
+      entityId: company.id,
+      clientCompanyId: company.id,
+      metadata: { projectId: company.projectId, userId: user.id },
+    });
+    return updated;
+  }
+
+  // Designate (or clear) this company's primary lead — admin-only, never
+  // self-service, since the whole point is that peer leads can't do this to
+  // each other (see setSupporterLead/removeSupporter above).
+  async setPrimarySupportLead(actor: Actor, id: string, userId: string, isPrimary: boolean) {
+    const company = await this.getAccessible(actor, id);
+    const user = await this.userRepo.findById(userId);
+    if (
+      !user ||
+      user.deletedAt ||
+      user.role !== UserRole.IT_SUPPORT ||
+      user.clientCompanyId !== company.id
+    ) {
+      throw new AppError("Supporter not found in this company", 404);
+    }
+    if (isPrimary && !user.isSupportLead) {
+      throw new AppError("Promote this supporter to lead before making them primary", 409);
+    }
+
+    if (isPrimary) {
+      await this.userRepo.clearPrimarySupportLead(company.id);
+    }
+    const updated = await this.userRepo.update(user.id, { isPrimarySupportLead: isPrimary });
+
+    ActivityService.Instance.log(actor, {
+      action: "client_company.primary_lead_changed",
+      summary: isPrimary
+        ? `Made ${user.firstName} ${user.lastName} the primary IT support lead at "${company.name}"`
+        : `Cleared ${user.firstName} ${user.lastName} as the primary IT support lead at "${company.name}"`,
       entityType: "client_company",
       entityId: company.id,
       clientCompanyId: company.id,

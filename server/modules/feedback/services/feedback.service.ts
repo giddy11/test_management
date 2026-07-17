@@ -6,11 +6,12 @@ import { randomUUID } from "crypto";
 import { FeedbackRepository } from "../repositories/feedback.repository";
 import { FeedbackStatusHistoryRepository } from "../repositories/feedbackStatusHistory.repository";
 import { FeedbackSupportStatusHistoryRepository } from "../repositories/feedbackSupportStatusHistory.repository";
+import { FeedbackLookupCodeRepository } from "../repositories/feedbackLookupCode.repository";
 import { ProjectRepository } from "../../project/repositories/project.repository";
 import { ProjectMemberRepository } from "../../project/repositories/projectMember.repository";
 import { ProjectService } from "../../project/services/project.service";
 import { ClientCompanyRepository } from "../../clientCompany/repositories/clientCompany.repository";
-import { ticketLabel } from "../dto/feedback.dto";
+import { ticketLabel, toMyTicketResponse } from "../dto/feedback.dto";
 import type { Actor } from "../../../shared/types/actor";
 import type { Feedback } from "../entities/feedback.entity";
 import type { Project } from "../../project/entities/project.entity";
@@ -26,7 +27,9 @@ const {
   sendFeedbackReceivedEmail,
   sendFeedbackStatusEmail,
   sendFeedbackConfirmationReceivedEmail,
+  sendTicketLookupCodeEmail,
 } = require("../../../shared/utils/mailer");
+const { generateOtp, hashToken } = require("../../../shared/utils/password");
 const { AppError } = require("../../../shared/errors/AppError");
 const { UserRole, FeedbackStatus, SupportStatus } = require("../../../config/constants");
 const { env } = require("../../../config/env");
@@ -83,6 +86,7 @@ export class FeedbackService {
   memberRepo: ProjectMemberRepository;
   authRepo: any;
   notificationService: any;
+  lookupCodeRepo: any;
 
   constructor(
     feedbackRepo = FeedbackRepository.Instance,
@@ -91,7 +95,8 @@ export class FeedbackService {
     projectService = ProjectService.Instance,
     memberRepo = ProjectMemberRepository.Instance,
     authRepo = AuthRepository.Instance,
-    notificationService = NotificationService.Instance
+    notificationService = NotificationService.Instance,
+    lookupCodeRepo = FeedbackLookupCodeRepository.Instance
   ) {
     this.feedbackRepo = feedbackRepo;
     this.historyRepo = historyRepo;
@@ -100,6 +105,7 @@ export class FeedbackService {
     this.memberRepo = memberRepo;
     this.authRepo = authRepo;
     this.notificationService = notificationService;
+    this.lookupCodeRepo = lookupCodeRepo;
   }
 
   // ── Public form (unauthenticated) ───────────────────────────────────────────
@@ -597,6 +603,33 @@ export class FeedbackService {
       .catch((e: Error) => console.error("[feedback] confirmation notify failed:", e.message));
 
     return { status: updated?.status };
+  }
+
+  // ── Ticket lookup — a submitter's own history, no account (public) ──────────
+
+  // Never reveals whether the email has any tickets — always resolves the
+  // same way, same convention as AuthService.forgotPassword.
+  async requestMyTicketsCode(email: string): Promise<void> {
+    const code = generateOtp(6);
+    await this.lookupCodeRepo.invalidateActive(email);
+    await this.lookupCodeRepo.save({
+      email,
+      codeHash: hashToken(code),
+      expiresAt: new Date(Date.now() + env.otpTtlMinutes * 60 * 1000),
+    });
+    sendTicketLookupCodeEmail(email, code).catch((e: Error) =>
+      console.error("[mailer] ticket lookup code failed:", e.message)
+    );
+    if (!env.isProduction) console.info(`[otp] my-tickets code for ${email}: ${code}`);
+  }
+
+  async listMyTickets(email: string, code: string) {
+    const active = await this.lookupCodeRepo.findActive(email, hashToken(code));
+    if (!active) throw new AppError("Invalid or expired code", 401);
+    await this.lookupCodeRepo.consume(active.id);
+
+    const rows = await this.feedbackRepo.findBySubmitterEmail(email);
+    return rows.map(toMyTicketResponse);
   }
 
   // ── Feedback-form link management (admin) ───────────────────────────────────

@@ -18,6 +18,9 @@ export interface SupporterResponseDTO {
   name: string;
   email: string;
   isSupportLead: boolean;
+  // At most one true per company. Only a TestMate admin can change this
+  // person's lead status or remove them — peer leads can't.
+  isPrimarySupportLead: boolean;
   createdAt: Date;
   lastSeenAt: Date | null;
 }
@@ -43,6 +46,7 @@ export function toSupporterResponse(user: {
   lastName: string | null;
   email: string;
   isSupportLead?: boolean;
+  isPrimarySupportLead?: boolean;
   createdAt: Date;
   lastSeenAt?: Date | null;
 }): SupporterResponseDTO {
@@ -53,6 +57,7 @@ export function toSupporterResponse(user: {
     name: [user.firstName, user.lastName].filter(Boolean).join(" "),
     email: user.email,
     isSupportLead: user.isSupportLead ?? false,
+    isPrimarySupportLead: user.isPrimarySupportLead ?? false,
     createdAt: user.createdAt,
     lastSeenAt: user.lastSeenAt ?? null,
   };

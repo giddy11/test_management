@@ -12,6 +12,7 @@ import {
   createSupporterSchema,
   supporterParamSchema,
   setSupporterLeadSchema,
+  setPrimarySupportLeadSchema,
 } from "../validators/clientCompany.schema";
 
 const router = require("express").Router();
@@ -58,6 +59,15 @@ router.patch(
   ...supporterManagers,
   validate(setSupporterLeadSchema),
   ClientCompanyController.setSupporterLead
+);
+
+// Designating the primary lead is admin-only, never self-service — peer
+// leads can't do this to each other or themselves.
+router.patch(
+  "/:id/supporters/:userId/primary",
+  ...adminOnly,
+  validate(setPrimarySupportLeadSchema),
+  ClientCompanyController.setPrimarySupportLead
 );
 
 module.exports = router;

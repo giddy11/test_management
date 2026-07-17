@@ -26,6 +26,7 @@ jest.mock("../controllers/clientCompany.controller", () => ({
     createSupporter: jest.fn((req: any, res: any) => res.status(200).json({})),
     removeSupporter: jest.fn((req: any, res: any) => res.status(200).json({})),
     setSupporterLead: jest.fn((req: any, res: any) => res.status(200).json({})),
+    setPrimarySupportLead: jest.fn((req: any, res: any) => res.status(200).json({})),
   },
 }));
 
@@ -67,6 +68,16 @@ describe("client-company routes — supporter-roster management admits it_suppor
       expect(invoke(handler, "it_support").next).toHaveBeenCalled();
       expect(invoke(handler, "user").next).not.toHaveBeenCalled();
     }
+  });
+});
+
+describe("client-company routes — designating the primary lead is admin-only", () => {
+  it("admits superadmin/admin and blocks a plain user or it_support", () => {
+    const handler = authoriseHandlerFor(clientCompanyRouter, "/:id/supporters/:userId/primary", "patch");
+    expect(invoke(handler, "superadmin").next).toHaveBeenCalled();
+    expect(invoke(handler, "admin").next).toHaveBeenCalled();
+    expect(invoke(handler, "user").next).not.toHaveBeenCalled();
+    expect(invoke(handler, "it_support").next).not.toHaveBeenCalled();
   });
 });
 

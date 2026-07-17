@@ -116,6 +116,19 @@ export class FeedbackRepository {
     return { data, meta: buildMeta(page, limit, total, data.length) };
   }
 
+  // A submitter's own view of everything they've raised, across every
+  // project/company — unlike fetchPaginated's global mode, this never hides
+  // un-escalated company-routed items (those aren't the product owner's
+  // triage view; they're the submitter's own ticket).
+  async findBySubmitterEmail(email: string): Promise<Feedback[]> {
+    return this.repo.find({
+      where: { submitterEmail: email },
+      relations: { project: true, clientCompany: true },
+      order: { createdAt: "DESC" },
+      take: 100,
+    });
+  }
+
   async findById(id: string): Promise<Feedback | null> {
     return this.repo.findOne({
       where: { id },

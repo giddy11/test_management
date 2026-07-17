@@ -82,3 +82,12 @@ export const setSupporterLeadSchema = z.object({
   }),
   body: z.object({ isSupportLead: z.boolean() }),
 });
+
+// Admin-only — see clientCompany.routes.ts.
+export const setPrimarySupportLeadSchema = z.object({
+  params: z.object({
+    id: z.string().uuid(),
+    userId: z.string().uuid(),
+  }),
+  body: z.object({ isPrimary: z.boolean() }),
+});

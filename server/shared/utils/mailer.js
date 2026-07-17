@@ -116,6 +116,21 @@ async function sendPasswordResetEmail(to, code, firstName = "there", organizatio
   });
 }
 
+// ── Ticket lookup (submitter checking their own ticket history, no account) ────
+async function sendTicketLookupCodeEmail(to, code) {
+  const body = `
+    <h1 style="margin:0 0 12px;font-size:22px;font-weight:700;color:#0f172a">Your ticket lookup code</h1>
+    <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.65">Use the code below to view every ticket you've raised with us.</p>
+    ${otpBox(code)}
+    <p style="margin:0 0 0;font-size:13px;color:#9ca3af">This code expires in ${env.otpTtlMinutes} minutes. If you didn't request this, you can ignore this email.</p>`;
+  return send({
+    to,
+    subject: "Your ticket lookup code — TestMate",
+    html: emailLayout(body),
+    text: `Your TestMate ticket lookup code is ${code}. It expires in ${env.otpTtlMinutes} minutes.`,
+  });
+}
+
 // ── Event notifications ─────────────────────────────────────────────────────────
 function ctaButton(url, label) {
   if (!url) return "";
@@ -396,6 +411,7 @@ module.exports = {
   escapeAndLineBreak,
   sendVerificationEmail,
   sendPasswordResetEmail,
+  sendTicketLookupCodeEmail,
   sendWelcomeEmail,
   sendTestAssignedEmail,
   sendProjectMemberAddedEmail,

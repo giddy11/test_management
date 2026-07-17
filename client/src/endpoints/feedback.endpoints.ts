@@ -7,6 +7,7 @@ import type {
   FeedbackStatusHistoryEntry,
   FetchFeedbackParams,
   ManageFeedbackPayload,
+  MyTicket,
   PublicFeedbackForm,
   SubmitPublicFeedbackPayload,
   SupportQueueParams,
@@ -83,4 +84,12 @@ export const FeedbackEndpoints = {
 
   submitConfirmation: (id: string, confirmed: boolean, reason?: string) =>
     wrapCall<{ status: string }>("POST", `/api/v1/public/feedback/${id}/confirm`, { confirmed, reason }),
+
+  // A submitter's own ticket history, no account — email a one-time code,
+  // then trade it for the list. Never reveals whether the email has tickets.
+  requestMyTicketsCode: (email: string) =>
+    wrapCall<null>("POST", "/api/v1/public/feedback/my-tickets/code", { email }),
+
+  listMyTickets: (email: string, code: string) =>
+    wrapCall<MyTicket[]>("POST", "/api/v1/public/feedback/my-tickets", { email, code }),
 }
