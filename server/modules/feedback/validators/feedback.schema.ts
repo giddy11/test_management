@@ -152,8 +152,3 @@ export const integrationListTicketsSchema = z.object({
 export const integrationTicketIdParamSchema = z.object({
   params: z.object({ id: z.string().uuid() }),
 });
-
-export const integrationApiKeySchema = z.object({
-  params: z.object({ id: z.string().uuid() }),
-  body: z.object({ enabled: z.boolean() }),
-});

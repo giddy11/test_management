@@ -94,11 +94,6 @@ export class ProjectRepository {
     return this.repo.findOne({ where: { feedbackToken: token } });
   }
 
-  // Partner integration API auth — the hashed key is the only credential.
-  async findByIntegrationApiKeyHash(hash: string): Promise<Project | null> {
-    return this.repo.findOne({ where: { integrationApiKeyHash: hash } });
-  }
-
   async create(data: Partial<Project>): Promise<Project> {
     return this.repo.save(this.repo.create(data));
   }

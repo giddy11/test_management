@@ -173,6 +173,9 @@ export function SupportItemDialog({ feedback, onOpenChange }: Props) {
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex flex-wrap items-center gap-2">
+            {feedback && (
+              <span className="font-mono text-sm text-muted-foreground">#{feedback.ticketNumber}</span>
+            )}
             {feedback?.title}
             {feedback && (
               <Badge variant="outline">{FEEDBACK_TYPE_LABELS[feedback.type]}</Badge>

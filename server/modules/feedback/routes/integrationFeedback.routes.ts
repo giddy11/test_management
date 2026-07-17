@@ -1,8 +1,10 @@
 // modules/feedback/routes/integrationFeedback.routes.ts
 // Server-to-server ticket API for partner products (e.g. DOMS): create a
 // ticket on the partner's behalf, then look one up or list a submitter's
-// history. Auth is a per-project x-api-key (see apiKeyAuth.middleware), not
-// the public form token — this is machine traffic, not a browser form.
+// history. Auth is a per-client-company x-api-key (see apiKeyAuth.middleware),
+// not the public form token — this is machine traffic, not a browser form.
+// Tickets land in that company's IT support queue, exactly like a form
+// submission through their public link.
 import { FeedbackController } from "../controllers/feedback.controller";
 import {
   integrationCreateTicketSchema,

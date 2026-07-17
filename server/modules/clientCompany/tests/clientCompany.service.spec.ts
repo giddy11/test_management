@@ -33,6 +33,14 @@ function makeProjectService() {
   };
 }
 
+function makeProjectRepo() {
+  return {
+    findById: jest
+      .fn()
+      .mockResolvedValue({ id: "proj-1", name: "Product A", organizationId: "org-1" }),
+  };
+}
+
 function makeUserRepo() {
   return {
     findByEmail: jest.fn().mockResolvedValue(null),
@@ -60,13 +68,15 @@ describe("ClientCompanyService", () => {
   let companyRepo: any;
   let projectService: any;
   let userRepo: any;
+  let projectRepo: any;
   let service: ClientCompanyService;
 
   beforeEach(() => {
     companyRepo = makeCompanyRepo();
     projectService = makeProjectService();
     userRepo = makeUserRepo();
-    service = new ClientCompanyService(companyRepo, projectService, userRepo);
+    projectRepo = makeProjectRepo();
+    service = new ClientCompanyService(companyRepo, projectService, userRepo, projectRepo);
   });
 
   describe("fetchCompanies", () => {
@@ -237,6 +247,90 @@ describe("ClientCompanyService", () => {
     });
   });
 
+  describe("last-lead protection", () => {
+    it("409s demoting a company's only lead while other supporters remain", async () => {
+      companyRepo.findById.mockResolvedValue(company);
+      userRepo.findById.mockResolvedValue({
+        id: "u-9",
+        firstName: "Sam",
+        lastName: "Support",
+        role: UserRole.IT_SUPPORT,
+        clientCompanyId: "cc-1",
+        isSupportLead: true,
+        deletedAt: null,
+      });
+      userRepo.findByClientCompany.mockResolvedValue([
+        { id: "u-9", isSupportLead: true },
+        { id: "u-10", isSupportLead: false },
+      ]);
+
+      await expect(service.setSupporterLead(admin, "cc-1", "u-9", false)).rejects.toMatchObject({
+        statusCode: 409,
+      });
+      expect(userRepo.update).not.toHaveBeenCalled();
+    });
+
+    it("409s removing a company's only lead while other supporters remain", async () => {
+      companyRepo.findById.mockResolvedValue(company);
+      userRepo.findById.mockResolvedValue({
+        id: "u-9",
+        firstName: "Sam",
+        lastName: "Support",
+        role: UserRole.IT_SUPPORT,
+        clientCompanyId: "cc-1",
+        isSupportLead: true,
+        deletedAt: null,
+      });
+      userRepo.findByClientCompany.mockResolvedValue([
+        { id: "u-9", isSupportLead: true },
+        { id: "u-10", isSupportLead: false },
+      ]);
+
+      await expect(service.removeSupporter(admin, "cc-1", "u-9")).rejects.toMatchObject({
+        statusCode: 409,
+      });
+      expect(userRepo.softDelete).not.toHaveBeenCalled();
+    });
+
+    it("allows removing the only lead when they're also the last remaining supporter", async () => {
+      companyRepo.findById.mockResolvedValue(company);
+      userRepo.findById.mockResolvedValue({
+        id: "u-9",
+        firstName: "Sam",
+        lastName: "Support",
+        role: UserRole.IT_SUPPORT,
+        clientCompanyId: "cc-1",
+        isSupportLead: true,
+        deletedAt: null,
+      });
+      userRepo.findByClientCompany.mockResolvedValue([{ id: "u-9", isSupportLead: true }]);
+
+      await service.removeSupporter(admin, "cc-1", "u-9");
+      expect(userRepo.softDelete).toHaveBeenCalledWith("u-9");
+    });
+
+    it("allows demoting a lead when another lead remains", async () => {
+      companyRepo.findById.mockResolvedValue(company);
+      userRepo.findById.mockResolvedValue({
+        id: "u-9",
+        firstName: "Sam",
+        lastName: "Support",
+        role: UserRole.IT_SUPPORT,
+        clientCompanyId: "cc-1",
+        isSupportLead: true,
+        deletedAt: null,
+      });
+      userRepo.findByClientCompany.mockResolvedValue([
+        { id: "u-9", isSupportLead: true },
+        { id: "u-10", isSupportLead: true },
+      ]);
+      userRepo.update.mockResolvedValue({ id: "u-9", isSupportLead: false });
+
+      await service.setSupporterLead(admin, "cc-1", "u-9", false);
+      expect(userRepo.update).toHaveBeenCalledWith("u-9", { isSupportLead: false });
+    });
+  });
+
   describe("setSupporterLead", () => {
     it("404s when the target isn't a supporter of this company", async () => {
       companyRepo.findById.mockResolvedValue(company);
@@ -301,6 +395,82 @@ describe("ClientCompanyService", () => {
 
       await service.removeSupporter(admin, "cc-1", "u-9");
       expect(userRepo.softDelete).toHaveBeenCalledWith("u-9");
+    });
+  });
+
+  describe("supporter-roster self-service by an IT support lead", () => {
+    const lead = {
+      id: "sup-lead-1",
+      role: UserRole.IT_SUPPORT,
+      clientCompanyId: "cc-1",
+      isSupportLead: true,
+    };
+    const nonLead = { ...lead, id: "sup-2", isSupportLead: false };
+    const otherCompanyLead = { ...lead, id: "sup-3", clientCompanyId: "cc-2" };
+
+    it("lets a company's own lead list its supporters", async () => {
+      companyRepo.findById.mockResolvedValue(company);
+      userRepo.findByClientCompany.mockResolvedValue([{ id: "u-9" }]);
+
+      const rows = await service.listSupporters(lead, "cc-1");
+
+      expect(rows).toEqual([{ id: "u-9" }]);
+      // No project-access check runs for the self-service path.
+      expect(projectService.getProject).not.toHaveBeenCalled();
+    });
+
+    it("lets a company's own lead create a supporter", async () => {
+      companyRepo.findById.mockResolvedValue(company);
+      userRepo.create.mockImplementation(async (d: any) => ({ id: "u-9", ...d }));
+
+      const user = await service.createSupporter(lead, "cc-1", {
+        firstName: "Sam",
+        lastName: "Support",
+        email: "sam@client.co",
+        password: "Password1",
+      });
+
+      expect(projectRepo.findById).toHaveBeenCalledWith("proj-1");
+      expect((user as any).id).toBe("u-9");
+    });
+
+    it("403s a non-lead supporter of the same company", async () => {
+      await expect(service.listSupporters(nonLead, "cc-1")).rejects.toMatchObject({
+        statusCode: 403,
+      });
+      expect(companyRepo.findById).not.toHaveBeenCalled();
+    });
+
+    it("403s a lead trying to manage a different company's roster", async () => {
+      await expect(service.listSupporters(otherCompanyLead, "cc-1")).rejects.toMatchObject({
+        statusCode: 403,
+      });
+    });
+  });
+
+  describe("fetchMyCompany", () => {
+    it("returns an IT support actor's own company with its supporter count", async () => {
+      companyRepo.findById.mockResolvedValue(company);
+      userRepo.countByClientCompany.mockResolvedValue(4);
+
+      const result = await service.fetchMyCompany({
+        id: "sup-1",
+        role: UserRole.IT_SUPPORT,
+        clientCompanyId: "cc-1",
+      } as any);
+
+      expect(companyRepo.findById).toHaveBeenCalledWith("cc-1");
+      expect(result).toEqual({ company, supporterCount: 4 });
+    });
+
+    it("403s a non-it_support actor", async () => {
+      await expect(service.fetchMyCompany(admin)).rejects.toMatchObject({ statusCode: 403 });
+    });
+
+    it("403s an it_support actor with no company assigned", async () => {
+      await expect(
+        service.fetchMyCompany({ id: "sup-1", role: UserRole.IT_SUPPORT, clientCompanyId: null } as any)
+      ).rejects.toMatchObject({ statusCode: 403 });
     });
   });
 });

@@ -596,13 +596,22 @@ const ALL_SECTIONS: DocSection[] = [
           <Strong>server-to-server</Strong> API: the partner's backend calls TestMate and renders
           the result itself.
         </P>
+        <P>
+          Tickets created this way land in the key's owning{" "}
+          <Strong>client company's IT support queue</Strong> — exactly like a submission through
+          that company's public ticket form — not straight to the product team. The product team
+          only sees them once IT support escalates.
+        </P>
         <H3>Getting an API key</H3>
         <P>
-          From a project's <Strong>Tickets</Strong> tab, admins can generate an{" "}
-          <Strong>Integration API key</Strong> under its own card, separate from the public form
-          link. The raw key is shown <Strong>once</Strong>, at generation or rotation — store it
-          on the partner's side; TestMate only ever keeps a hash of it. Revoking a key
-          immediately breaks any integration still using it.
+          On a project's <Strong>Tickets</Strong> tab, under <Strong>Client companies</Strong>,
+          each company has its own <Strong>Integration API key</Strong> — separate from that
+          company's public form link, and separate from every other company on the project. A
+          project with several client companies (several partners) issues one key per company;
+          each partner's tickets only ever reach their own company's queue. The raw key is shown{" "}
+          <Strong>once</Strong>, at generation or rotation — store it on the partner's side;
+          TestMate only ever keeps a hash of it. Revoking a key immediately breaks any integration
+          still using it.
         </P>
         <P>Every request authenticates with the key in an <Code>x-api-key</Code> header.</P>
         <H3>Create a ticket</H3>
@@ -621,33 +630,42 @@ const ALL_SECTIONS: DocSection[] = [
           <Code>externalRef</Code> is optional — it's the partner's own id for the request. If a
           create call is retried with the same <Code>externalRef</Code>, TestMate returns the{" "}
           <Strong>original</Strong> ticket instead of creating a duplicate, so a network retry is
-          always safe.
+          always safe. The response includes TestMate's own <Code>ticketNumber</Code> — a short
+          human-readable id (e.g. <Code>#4821</Code>) worth surfacing in the partner's UI alongside
+          <Code> id</Code>, since that's what shows up in TestMate's own screens and emails too.
         </P>
         <H3>Check a ticket's status, or list a submitter's history</H3>
         <P><Code>GET /api/v1/integrations/tickets/:id</Code> — a single ticket.</P>
         <P>
           <Code>GET /api/v1/integrations/tickets?submitterEmail=jane@example.com</Code> — every
-          ticket that submitter has raised in this project (their "history").
+          ticket that submitter has raised with this company (their "history").
         </P>
         <H3>Customer-facing status</H3>
         <P>
           These endpoints intentionally return a <Strong>simplified status</Strong>, not TestMate's
           internal triage stages — so a user never sees something as finished while your team is
-          still reviewing or double-checking it:
+          still reviewing or double-checking it. Before escalation, the ticket is progressing
+          through IT support's own queue; after escalation, it's progressing through the product
+          team's:
         </P>
         <UL>
           <li><Chip className={chipSlate}>received</Chip> — logged, not yet started.</li>
           <li>
             <Chip className={chipBlue}>in_progress</Chip> — anywhere from acknowledged through a
-            claimed fix (internal <Chip className={chipGreen}>Resolved</Chip> deliberately still
-            reads as <Chip className={chipBlue}>in_progress</Chip> here — it hasn't been confirmed
-            with the submitter yet).
+            claimed fix (internal product-team <Chip className={chipGreen}>Resolved</Chip>{" "}
+            deliberately still reads as <Chip className={chipBlue}>in_progress</Chip> here — it
+            hasn't been confirmed with the submitter yet).
           </li>
           <li>
-            <Chip className={chipAmber}>pending_your_confirmation</Chip> — the team believes it's
-            fixed and is waiting on the submitter to confirm.
+            <Chip className={chipAmber}>pending_your_confirmation</Chip> — the product team
+            believes it's fixed and is waiting on the submitter to confirm (only reachable after
+            IT support has escalated).
           </li>
-          <li><Chip className={chipGreen}>resolved</Chip> — closed, confirmed or otherwise final.</li>
+          <li>
+            <Chip className={chipGreen}>resolved</Chip> — closed. Either IT support resolved it
+            locally (no separate confirmation step at that tier), or the product team's fix was
+            confirmed by the submitter after an escalation.
+          </li>
         </UL>
       </div>
     ),

@@ -88,6 +88,7 @@ const admin = { id: "admin-1", role: UserRole.ADMIN, organizationId: "org-1" };
 
 const loggedItem = {
   id: "fb-1",
+  ticketNumber: 42,
   projectId: "proj-1",
   clientCompanyId: "cc-1",
   supportStatus: SupportStatus.LOGGED,
@@ -173,7 +174,7 @@ describe("FeedbackSupportService", () => {
         "End User",
         "Client Co",
         "Product A",
-        "Broken export",
+        "#42 — Broken export",
         expect.any(String),
         expect.any(String),
         "org-1"
@@ -380,7 +381,7 @@ describe("FeedbackSupportService", () => {
         "End User",
         "Client Co",
         "Product A",
-        "Broken export",
+        "#42 — Broken export",
         "All fixed now!",
         "org-1"
       );

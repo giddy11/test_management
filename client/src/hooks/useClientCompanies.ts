@@ -10,6 +10,19 @@ import type {
 
 const COMPANIES_KEY = "clientCompanies"
 
+// Self-service — an IT support lead's own company, for the support portal.
+export function useMyClientCompany(enabled: boolean) {
+  return useQuery({
+    queryKey: [COMPANIES_KEY, "me"],
+    queryFn: async () => {
+      const res = await ClientCompanyEndpoints.fetchMine()
+      if (!res.success || !res.data) throw new ApiError(res.message, res.statusCode)
+      return res.data
+    },
+    enabled,
+  })
+}
+
 export function useClientCompanies(projectId: string) {
   return useQuery({
     queryKey: [COMPANIES_KEY, projectId],
@@ -65,6 +78,19 @@ export function useSetClientCompanyLink() {
       if (!res.success || !res.data) throw new ApiError(res.message, res.statusCode, res.errors)
       return res.data
     },
+    onSuccess: () => qc.invalidateQueries({ queryKey: [COMPANIES_KEY] }),
+  })
+}
+
+export function useSetIntegrationApiKey() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, enabled }: { id: string; enabled: boolean }) => {
+      const res = await ClientCompanyEndpoints.setIntegrationKey(id, enabled)
+      if (!res.success || !res.data) throw new ApiError(res.message, res.statusCode, res.errors)
+      return res.data
+    },
+    // The safe metadata (last four / createdAt) lives on the company record.
     onSuccess: () => qc.invalidateQueries({ queryKey: [COMPANIES_KEY] }),
   })
 }

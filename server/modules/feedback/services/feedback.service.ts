@@ -10,9 +10,11 @@ import { ProjectRepository } from "../../project/repositories/project.repository
 import { ProjectMemberRepository } from "../../project/repositories/projectMember.repository";
 import { ProjectService } from "../../project/services/project.service";
 import { ClientCompanyRepository } from "../../clientCompany/repositories/clientCompany.repository";
+import { ticketLabel } from "../dto/feedback.dto";
 import type { Actor } from "../../../shared/types/actor";
 import type { Feedback } from "../entities/feedback.entity";
 import type { Project } from "../../project/entities/project.entity";
+import type { ClientCompany } from "../../clientCompany/entities/clientCompany.entity";
 
 const { AuthRepository } = require("../../auth/repositories/auth.repository");
 const { NotificationService } = require("../../notification/services/notification.service");
@@ -29,7 +31,6 @@ const {
 const { AppError } = require("../../../shared/errors/AppError");
 const { UserRole, FeedbackStatus, FeedbackSource, SupportStatus } = require("../../../config/constants");
 const { env } = require("../../../config/env");
-const { hashToken, generateApiKey } = require("../../../shared/utils/password");
 
 // The lifecycle is strictly ordered — Object.freeze preserves declaration order.
 const FEEDBACK_STATUS_ORDER: string[] = Object.values(FeedbackStatus);
@@ -210,7 +211,7 @@ export class FeedbackService {
             feedbackId: fb.id,
             projectId: project.id,
             projectName: project.name,
-            title: fb.title,
+            title: ticketLabel(fb),
             type: fb.type,
             submitterName: fb.submitterName,
             organizationId: project.organizationId,
@@ -264,7 +265,7 @@ export class FeedbackService {
       fb.submitterEmail,
       fb.submitterName,
       project.name,
-      fb.title,
+      ticketLabel(fb),
       project.organizationId
     ).catch((e: Error) => console.error("[feedback] received email failed:", e.message));
 
@@ -285,10 +286,12 @@ export class FeedbackService {
 
   // ── Partner integration API (server-to-server, x-api-key auth) ──────────────
 
-  // Integration tickets are always direct-to-product-team — no client-company
-  // routing concept applies to a partner's own backend integration.
+  // Integration tickets always route to the key's owning client company's IT
+  // support queue — never straight to the product team — exactly like a
+  // submission through that company's public form. The key IS the company's
+  // credential (see apiKeyAuth.middleware), so there's no "direct" mode here.
   async createIntegrationTicket(
-    project: Project,
+    company: ClientCompany,
     data: {
       type: string;
       title: string;
@@ -299,9 +302,12 @@ export class FeedbackService {
       externalRef?: string;
     }
   ): Promise<{ feedback: Feedback; created: boolean }> {
+    const project = await this.projectRepo.findById(company.projectId);
+    if (!project || project.deletedAt) throw new AppError("Project not found", 404);
+
     if (data.externalRef) {
-      const existing = await this.feedbackRepo.findByProjectAndExternalRef(
-        project.id,
+      const existing = await this.feedbackRepo.findByCompanyAndExternalRef(
+        company.id,
         data.externalRef
       );
       if (existing) return { feedback: existing, created: false };
@@ -311,8 +317,8 @@ export class FeedbackService {
     try {
       fb = await this.createFeedbackCore(project, {
         ...data,
-        clientCompanyId: null,
-        supportStatus: null,
+        clientCompanyId: company.id,
+        supportStatus: SupportStatus.LOGGED,
         source: FeedbackSource.INTEGRATION,
         externalRef: data.externalRef ?? null,
       });
@@ -321,8 +327,8 @@ export class FeedbackService {
       // check above — the unique partial index rejects the loser. Return the
       // winner instead of erroring, preserving idempotency under retry.
       if (data.externalRef && err?.code === "23505") {
-        const existing = await this.feedbackRepo.findByProjectAndExternalRef(
-          project.id,
+        const existing = await this.feedbackRepo.findByCompanyAndExternalRef(
+          company.id,
           data.externalRef
         );
         if (existing) return { feedback: existing, created: false };
@@ -334,78 +340,44 @@ export class FeedbackService {
       fb.submitterEmail,
       fb.submitterName,
       project.name,
-      fb.title,
+      ticketLabel(fb),
       project.organizationId
     ).catch((e: Error) => console.error("[feedback] received email failed:", e.message));
 
-    this.notifyProjectTeamOfNewFeedback(project, fb);
+    // Alert the company's IT supporters, not the product team — mirrors the
+    // company-token branch of submitPublic.
+    const { FeedbackSupportService } = require("./feedbackSupport.service");
+    FeedbackSupportService.Instance.notifyQueueItem(company, fb, project).catch((e: Error) =>
+      console.error("[feedback] support-queue notify failed:", e.message)
+    );
 
     return { feedback: fb, created: true };
   }
 
-  // Same "not visible until escalated" rule as assertVisibleToOrg, plus a
-  // project-scope check since the caller here is an API key, not an actor
-  // with org-wide access.
-  private assertVisibleToIntegration(
+  // The caller here is an API key scoped to one client company, not an actor
+  // with org-wide access — a ticket is visible only if it belongs to that
+  // company, regardless of escalation state (it's their own submitted item).
+  private assertBelongsToCompany(
     fb: Feedback | null,
-    projectId: string
+    companyId: string
   ): asserts fb is Feedback {
-    if (!fb || fb.deletedAt || fb.projectId !== projectId) {
-      throw new AppError("Ticket not found", 404);
-    }
-    if (fb.clientCompanyId && fb.supportStatus !== SupportStatus.ESCALATED) {
+    if (!fb || fb.deletedAt || fb.clientCompanyId !== companyId) {
       throw new AppError("Ticket not found", 404);
     }
   }
 
-  async getIntegrationTicket(project: Project, id: string): Promise<Feedback> {
+  async getIntegrationTicket(company: ClientCompany, id: string): Promise<Feedback> {
     const fb = await this.feedbackRepo.findById(id);
-    this.assertVisibleToIntegration(fb, project.id);
+    this.assertBelongsToCompany(fb, company.id);
     return fb;
   }
 
-  // A submitter's ticket history for this project — not limited to
-  // integration-sourced tickets, since the point is "everything this person
-  // has raised," matching how the internal team already sees both sources.
+  // A submitter's ticket history within this company's queue.
   async listIntegrationTickets(
-    project: Project,
+    company: ClientCompany,
     params: { submitterEmail: string; page?: number; limit?: number }
   ) {
-    return this.feedbackRepo.fetchPaginated({ projectId: project.id, ...params });
-  }
-
-  // ── Integration API key management (admin) ──────────────────────────────────
-
-  async setIntegrationApiKey(actor: Actor, projectId: string, enabled: boolean) {
-    const project = await this.projectService.getProject(actor, projectId);
-    if (!enabled) {
-      project.integrationApiKeyHash = null;
-      project.integrationApiKeyLastFour = null;
-      project.integrationApiKeyCreatedAt = null;
-      await this.projectRepo.save(project);
-      return { apiKey: null, lastFour: null, createdAt: null };
-    }
-
-    const rawKey = generateApiKey();
-    project.integrationApiKeyHash = hashToken(rawKey);
-    project.integrationApiKeyLastFour = rawKey.slice(-4);
-    project.integrationApiKeyCreatedAt = new Date();
-    await this.projectRepo.save(project);
-
-    ActivityService.Instance.log(actor, {
-      action: "feedback.integration_key_rotated",
-      summary: `Rotated the partner integration API key for project "${project.name}"`,
-      entityType: "project",
-      entityId: project.id,
-      metadata: { projectId: project.id },
-    });
-
-    // Raw key is returned exactly once — only the hash is ever persisted.
-    return {
-      apiKey: rawKey,
-      lastFour: project.integrationApiKeyLastFour,
-      createdAt: project.integrationApiKeyCreatedAt,
-    };
+    return this.feedbackRepo.fetchPaginated({ clientCompanyId: company.id, ...params });
   }
 
   // ── Authenticated (project members/admins) ──────────────────────────────────
@@ -550,7 +522,7 @@ export class FeedbackService {
           recipient.email,
           recipient.name,
           project.name,
-          fb.title,
+          ticketLabel(fb),
           updated.status,
           copy,
           updated.adminResponse ?? null,
@@ -572,7 +544,7 @@ export class FeedbackService {
           projectId: fb.projectId,
           projectName: project.name,
           companyName: fb.clientCompany?.name ?? "your company",
-          title: fb.title,
+          title: ticketLabel(fb),
           adminResponse: updated.adminResponse ?? null,
           organizationId: project.organizationId,
         })
@@ -591,7 +563,7 @@ export class FeedbackService {
         feedbackId: fb.id,
         projectId: fb.projectId,
         projectName: project.name,
-        title: fb.title,
+        title: ticketLabel(fb),
         assignedByName,
         organizationId: project.organizationId,
       }).catch((e: Error) => console.error("[feedback] assignment notify failed:", e.message));
@@ -643,6 +615,7 @@ export class FeedbackService {
       : project?.feedbackToken ?? null;
     return {
       projectName: project?.name ?? "",
+      ticketNumber: fb.ticketNumber,
       title: fb.title,
       status: fb.status,
       feedbackToken: backLinkToken,
@@ -695,7 +668,7 @@ export class FeedbackService {
       recipient.email,
       recipient.name,
       project?.name ?? "",
-      fb.title,
+      ticketLabel(fb),
       confirmed,
       project?.organizationId
     ).catch((e: Error) => console.error("[feedback] confirmation-received email failed:", e.message));
@@ -719,7 +692,7 @@ export class FeedbackService {
             feedbackId: fb.id,
             projectId: fb.projectId,
             projectName: project?.name ?? "",
-            title: fb.title,
+            title: ticketLabel(fb),
             confirmed,
             reopenReason,
           });

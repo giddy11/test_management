@@ -8,10 +8,15 @@ const { FeedbackStatus, FeedbackSource } = require("../../../config/constants");
 
 export interface Feedback {
   id: string;
+  // Human-readable sequential id shown everywhere instead of the uuid (UI,
+  // emails, the integration API response). Global across all projects —
+  // assigned by a DB sequence, never reused.
+  ticketNumber: number;
   projectId: string;
-  // Set when submitted through a client company's form token. While
-  // supportStatus !== "escalated" the item is visible ONLY to that company's
-  // IT supporters — never to the product owner's triage.
+  // Set when submitted through a client company's form token, OR created via
+  // that company's partner integration API key. While supportStatus !==
+  // "escalated" the item is visible ONLY to that company's IT supporters —
+  // never to the product owner's triage.
   clientCompanyId: string | null;
   // IT-tier state (SupportStatus: open/resolved/escalated) — null on direct
   // submissions. Orthogonal to `status`, which is the product owner's lifecycle.
@@ -40,8 +45,8 @@ export interface Feedback {
   // server-to-server integration. See FeedbackSource.
   source: string;
   // The partner's own correlation id for their request (integration source
-  // only). Unique per project when set — lets a create-call be retried
-  // safely without producing duplicate tickets.
+  // only). Unique per owning client company when set — lets a create-call be
+  // retried safely without producing duplicate tickets.
   externalRef: string | null;
   title: string;
   description: string;
@@ -78,6 +83,11 @@ const Feedback = new EntitySchema<Feedback>({
       type: "uuid",
       primary: true,
       generated: "uuid",
+    },
+    ticketNumber: {
+      name: "ticket_number",
+      type: "int",
+      generated: "increment",
     },
     projectId: {
       name: "project_id",
@@ -260,12 +270,15 @@ const Feedback = new EntitySchema<Feedback>({
     { name: "idx_feedback_assigned_supporter", columns: ["assignedSupporterId"] },
     // Idempotency key for integration ticket creation — a partner retrying a
     // create call with the same externalRef gets the same ticket back.
+    // Scoped to the owning client company (one partner integration = one
+    // company), not the project — a project can host several partners.
     {
-      name: "idx_feedback_project_external_ref",
-      columns: ["projectId", "externalRef"],
+      name: "idx_feedback_company_external_ref",
+      columns: ["clientCompanyId", "externalRef"],
       unique: true,
-      where: "external_ref IS NOT NULL",
+      where: "external_ref IS NOT NULL AND client_company_id IS NOT NULL",
     },
+    { name: "idx_feedback_ticket_number", columns: ["ticketNumber"], unique: true },
   ],
 });
 

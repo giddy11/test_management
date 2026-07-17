@@ -5,6 +5,19 @@ import { toClientCompanyResponse, toSupporterResponse } from "../dto/clientCompa
 const { ApiResponse } = require("../../../shared/response/apiResponse");
 
 export class ClientCompanyController {
+  // Self-service — an IT supporter's own company, for the support portal
+  // (which can't use the admin-only GET / list).
+  static async fetchMine(req: any, res: any, next: any) {
+    try {
+      const { company, supporterCount } = await ClientCompanyService.Instance.fetchMyCompany(req.user);
+      res
+        .status(200)
+        .json(ApiResponse.ok("Your client company", toClientCompanyResponse(company, supporterCount)));
+    } catch (err) {
+      next(err);
+    }
+  }
+
   static async fetchAll(req: any, res: any, next: any) {
     try {
       const rows = await ClientCompanyService.Instance.fetchCompanies(
@@ -72,6 +85,19 @@ export class ClientCompanyController {
         req.validated.body.enabled
       );
       res.status(200).json(ApiResponse.ok("Feedback link updated", result));
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  static async setIntegrationKey(req: any, res: any, next: any) {
+    try {
+      const result = await ClientCompanyService.Instance.setIntegrationApiKey(
+        req.user,
+        req.validated.params.id,
+        req.validated.body.enabled
+      );
+      res.status(200).json(ApiResponse.ok("Integration API key updated", result));
     } catch (err) {
       next(err);
     }

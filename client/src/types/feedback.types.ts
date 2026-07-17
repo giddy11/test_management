@@ -30,6 +30,8 @@ export type FeedbackSeverity = "low" | "medium" | "high" | "critical"
 
 export interface Feedback {
   id: string
+  // Human-readable sequential id shown everywhere instead of the uuid.
+  ticketNumber: number
   projectId: string
   // Present when the backend loaded the project relation (global view).
   projectName: string | null
@@ -117,6 +119,7 @@ export interface PublicFeedbackForm {
 // is still actionable — it may have already been used, or moved on since.
 export interface FeedbackConfirmationContext {
   projectName: string
+  ticketNumber: number
   title: string
   status: FeedbackStatus
   feedbackToken: string | null

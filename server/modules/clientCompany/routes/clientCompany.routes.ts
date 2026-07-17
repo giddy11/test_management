@@ -1,5 +1,7 @@
 // modules/clientCompany/routes/clientCompany.routes.ts — admin-only management
-// of external client companies, their public form links, and supporter accounts.
+// of external client companies and their public form links. Supporter-roster
+// routes are the one exception: a company's own IT support lead can manage
+// their own team too (service-enforced), not just the product team.
 import { ClientCompanyController } from "../controllers/clientCompany.controller";
 import {
   fetchClientCompaniesSchema,
@@ -7,6 +9,7 @@ import {
   updateClientCompanySchema,
   clientCompanyIdParamSchema,
   clientCompanyLinkSchema,
+  clientCompanyIntegrationKeySchema,
   createSupporterSchema,
   supporterParamSchema,
   setSupporterLeadSchema,
@@ -18,6 +21,14 @@ const { authMiddleware } = require("../../../shared/middleware/auth.middleware")
 const { authorise } = require("../../../shared/middleware/authorise.middleware");
 
 const adminOnly = [authMiddleware, authorise("superadmin", "admin")];
+// Supporter-roster management: the product team, or the company's own IT
+// support lead (scoped to their own company — enforced in the service).
+const supporterManagers = [authMiddleware, authorise("superadmin", "admin", "it_support")];
+
+// Self-service — an IT supporter's own company. Registered before the
+// dynamic "/:id" routes below purely for readability; there's no actual
+// collision since none of them are a bare GET "/:id".
+router.get("/me", authMiddleware, authorise("it_support"), ClientCompanyController.fetchMine);
 
 router.get("/", ...adminOnly, validate(fetchClientCompaniesSchema), ClientCompanyController.fetchAll);
 router.post("/", ...adminOnly, validate(createClientCompanySchema), ClientCompanyController.create);
@@ -25,27 +36,35 @@ router.patch("/:id", ...adminOnly, validate(updateClientCompanySchema), ClientCo
 router.delete("/:id", ...adminOnly, validate(clientCompanyIdParamSchema), ClientCompanyController.remove);
 router.post("/:id/link", ...adminOnly, validate(clientCompanyLinkSchema), ClientCompanyController.setLink);
 
+// Generate/rotate/revoke this company's partner integration API key.
+router.post(
+  "/:id/integration-key",
+  ...adminOnly,
+  validate(clientCompanyIntegrationKeySchema),
+  ClientCompanyController.setIntegrationKey
+);
+
 router.get(
   "/:id/supporters",
-  ...adminOnly,
+  ...supporterManagers,
   validate(clientCompanyIdParamSchema),
   ClientCompanyController.listSupporters
 );
 router.post(
   "/:id/supporters",
-  ...adminOnly,
+  ...supporterManagers,
   validate(createSupporterSchema),
   ClientCompanyController.createSupporter
 );
 router.delete(
   "/:id/supporters/:userId",
-  ...adminOnly,
+  ...supporterManagers,
   validate(supporterParamSchema),
   ClientCompanyController.removeSupporter
 );
 router.patch(
   "/:id/supporters/:userId/lead",
-  ...adminOnly,
+  ...supporterManagers,
   validate(setSupporterLeadSchema),
   ClientCompanyController.setSupporterLead
 );

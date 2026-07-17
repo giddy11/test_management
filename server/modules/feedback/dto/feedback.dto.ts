@@ -2,13 +2,21 @@
 import type { Feedback } from "../entities/feedback.entity";
 import type { FeedbackStatusHistory } from "../entities/feedbackStatusHistory.entity";
 
-const { FeedbackStatus } = require("../../../config/constants");
+const { FeedbackStatus, SupportStatus } = require("../../../config/constants");
+
+// The label shown wherever a ticket is referenced in a single string — email
+// subjects/bodies and in-app notification titles. UI list/detail views render
+// ticketNumber as its own badge instead of baking it into the title text.
+export function ticketLabel(fb: { ticketNumber: number; title: string }): string {
+  return `#${fb.ticketNumber} — ${fb.title}`;
+}
 
 export function toFeedbackResponse(fb: Feedback | null) {
   if (!fb) return null;
   const project = fb.project as { name?: string } | undefined;
   return {
     id: fb.id,
+    ticketNumber: fb.ticketNumber,
     projectId: fb.projectId,
     // Present when the project relation was loaded (global cross-project mode).
     projectName: project?.name ?? null,
@@ -69,7 +77,7 @@ export const ExternalFeedbackStatus = Object.freeze({
   RESOLVED: "resolved",
 });
 
-const EXTERNAL_STATUS_MAP: Record<string, string> = {
+const PRODUCT_EXTERNAL_STATUS_MAP: Record<string, string> = {
   [FeedbackStatus.LOGGED]: ExternalFeedbackStatus.RECEIVED,
   [FeedbackStatus.ACKNOWLEDGED]: ExternalFeedbackStatus.IN_PROGRESS,
   [FeedbackStatus.ASSIGNED]: ExternalFeedbackStatus.IN_PROGRESS,
@@ -79,18 +87,37 @@ const EXTERNAL_STATUS_MAP: Record<string, string> = {
   [FeedbackStatus.CLOSED]: ExternalFeedbackStatus.RESOLVED,
 };
 
-export function toExternalStatus(status: string): string {
-  return EXTERNAL_STATUS_MAP[status] ?? ExternalFeedbackStatus.RECEIVED;
+// Before escalation, a company-routed ticket's real progress lives on
+// supportStatus (the IT tier), not status (which stays "logged" — the
+// product-tier lifecycle hasn't started yet). IT support resolves directly
+// with no separate submitter-confirmation step, so "resolved" here is final.
+const SUPPORT_EXTERNAL_STATUS_MAP: Record<string, string> = {
+  [SupportStatus.LOGGED]: ExternalFeedbackStatus.RECEIVED,
+  [SupportStatus.ACKNOWLEDGED]: ExternalFeedbackStatus.IN_PROGRESS,
+  [SupportStatus.INVESTIGATING]: ExternalFeedbackStatus.IN_PROGRESS,
+  [SupportStatus.RESOLVED]: ExternalFeedbackStatus.RESOLVED,
+};
+
+export function toExternalStatus(fb: {
+  status: string;
+  clientCompanyId?: string | null;
+  supportStatus?: string | null;
+}): string {
+  if (fb.clientCompanyId && fb.supportStatus && fb.supportStatus !== SupportStatus.ESCALATED) {
+    return SUPPORT_EXTERNAL_STATUS_MAP[fb.supportStatus] ?? ExternalFeedbackStatus.RECEIVED;
+  }
+  return PRODUCT_EXTERNAL_STATUS_MAP[fb.status] ?? ExternalFeedbackStatus.RECEIVED;
 }
 
 export function toIntegrationTicketResponse(fb: Feedback) {
   return {
     id: fb.id,
+    ticketNumber: fb.ticketNumber,
     externalRef: fb.externalRef ?? null,
     type: fb.type,
     title: fb.title,
     description: fb.description,
-    status: toExternalStatus(fb.status),
+    status: toExternalStatus(fb),
     submitterName: fb.submitterName,
     submitterEmail: fb.submitterEmail,
     submitterPhone: fb.submitterPhone ?? null,

@@ -10,12 +10,6 @@ export interface Project {
   organizationId: string | null;
   // When set, the public feedback form at /feedback/<token> is enabled.
   feedbackToken: string | null;
-  // SHA-256 hash of the partner integration API key — never the raw value.
-  // Null = no integration key issued (or revoked).
-  integrationApiKeyHash: string | null;
-  // Last 4 chars of the raw key, safe to display (e.g. "Key ending in •••1234").
-  integrationApiKeyLastFour: string | null;
-  integrationApiKeyCreatedAt: Date | null;
   createdAt: Date;
   deletedAt: Date | null;
   owner?: unknown;
@@ -57,26 +51,6 @@ const Project = new EntitySchema<Project>({
       type: "uuid",
       nullable: true,
     },
-    // Hashed bearer secret for the partner integration API (POST/GET
-    // /api/v1/integrations/tickets) — a real credential, unlike feedbackToken,
-    // so only its hash is stored and it's never returned after creation.
-    integrationApiKeyHash: {
-      name: "integration_api_key_hash",
-      type: "varchar",
-      length: 255,
-      nullable: true,
-    },
-    integrationApiKeyLastFour: {
-      name: "integration_api_key_last_four",
-      type: "varchar",
-      length: 4,
-      nullable: true,
-    },
-    integrationApiKeyCreatedAt: {
-      name: "integration_api_key_created_at",
-      type: "timestamptz",
-      nullable: true,
-    },
     createdAt: {
       name: "created_at",
       type: "timestamptz",
@@ -106,12 +80,6 @@ const Project = new EntitySchema<Project>({
     { name: "idx_projects_name", columns: ["name"] },
     { name: "idx_projects_owner_id", columns: ["ownerId"] },
     { name: "idx_projects_org_created", columns: ["organizationId", "createdAt"] },
-    {
-      name: "idx_projects_integration_api_key_hash",
-      columns: ["integrationApiKeyHash"],
-      unique: true,
-      where: "integration_api_key_hash IS NOT NULL",
-    },
   ],
 });
 

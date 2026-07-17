@@ -2,7 +2,7 @@
 // company's feedback queue: open items to triage, locally-resolved history,
 // and escalated items with the product team's live stage.
 import { useState } from "react"
-import { Headset } from "lucide-react"
+import { Headset, Users } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -15,7 +15,9 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { SupportItemDialog } from "@/components/support/SupportItemDialog"
+import { SupportersDialog } from "@/components/feedback/SupportersDialog"
 import { useSupportQueue, useSupportTeammates } from "@/hooks/useFeedback"
+import { useMyClientCompany } from "@/hooks/useClientCompanies"
 import { useAuth } from "@/contexts/AuthContext"
 import {
   FEEDBACK_STATUS_LABELS,
@@ -36,8 +38,10 @@ export default function SupportQueuePage() {
   const [assignedFilter, setAssignedFilter] = useState<string>("all")
   const [page, setPage] = useState(1)
   const [viewing, setViewing] = useState<Feedback | null>(null)
+  const [managingTeam, setManagingTeam] = useState(false)
 
   const { data: teammates = [] } = useSupportTeammates(isLead)
+  const { data: myCompany } = useMyClientCompany(isLead && managingTeam)
 
   const { data, isLoading } = useSupportQueue({
     page,
@@ -58,14 +62,21 @@ export default function SupportQueuePage() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="flex items-center gap-2 text-2xl font-semibold">
-          <Headset className="size-6 text-primary" /> Ticket queue
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Tickets from {user?.companyName ?? "your company"}'s users. Resolve what you can
-          locally — escalate to the product team what you can't.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <h1 className="flex items-center gap-2 text-2xl font-semibold">
+            <Headset className="size-6 text-primary" /> Ticket queue
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Tickets from {user?.companyName ?? "your company"}'s users. Resolve what you can
+            locally — escalate to the product team what you can't.
+          </p>
+        </div>
+        {isLead && (
+          <Button size="sm" variant="outline" onClick={() => setManagingTeam(true)}>
+            <Users className="mr-1 size-3.5" /> Manage my team
+          </Button>
+        )}
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -117,6 +128,7 @@ export default function SupportQueuePage() {
           <Card key={fb.id}>
             <CardHeader className="pb-2">
               <div className="flex flex-wrap items-center gap-2">
+                <span className="font-mono text-xs text-muted-foreground">#{fb.ticketNumber}</span>
                 <CardTitle className="text-base">{fb.title}</CardTitle>
                 <Badge variant="outline">{FEEDBACK_TYPE_LABELS[fb.type]}</Badge>
                 {fb.suiteName && (
@@ -164,6 +176,11 @@ export default function SupportQueuePage() {
       )}
 
       <SupportItemDialog feedback={viewing} onOpenChange={(o) => !o && setViewing(null)} />
+
+      <SupportersDialog
+        company={managingTeam ? myCompany ?? null : null}
+        onOpenChange={(o) => !o && setManagingTeam(false)}
+      />
     </div>
   )
 }

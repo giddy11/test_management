@@ -10,6 +10,7 @@ import { FeedbackSupportStatusHistoryRepository } from "../repositories/feedback
 import { ClientCompanyRepository } from "../../clientCompany/repositories/clientCompany.repository";
 import { ProjectRepository } from "../../project/repositories/project.repository";
 import { ProjectMemberRepository } from "../../project/repositories/projectMember.repository";
+import { ticketLabel } from "../dto/feedback.dto";
 import type { Actor } from "../../../shared/types/actor";
 import type { Feedback } from "../entities/feedback.entity";
 
@@ -167,7 +168,7 @@ export class FeedbackSupportService {
         fb.submitterName,
         context.companyName,
         context.projectName,
-        fb.title,
+        ticketLabel(fb),
         SUPPORT_STATUS_LABELS[status] ?? status,
         copy,
         context.organizationId ?? null
@@ -255,7 +256,7 @@ export class FeedbackSupportService {
       fb.submitterName,
       company?.name ?? "your company",
       project?.name ?? "",
-      fb.title,
+      ticketLabel(fb),
       note,
       project?.organizationId ?? null
     ).catch((e: Error) => console.error("[support] resolution email failed:", e.message));
@@ -340,7 +341,7 @@ export class FeedbackSupportService {
             projectId: fb.projectId,
             projectName: project?.name ?? "",
             companyName: company?.name ?? "",
-            title: fb.title,
+            title: ticketLabel(fb),
             type: fb.type,
             escalatedByName,
             severity,
@@ -405,7 +406,7 @@ export class FeedbackSupportService {
           projectId: fb.projectId,
           projectName: project?.name ?? "",
           companyName: company?.name ?? "",
-          title: fb.title,
+          title: ticketLabel(fb),
           assignedByName,
           organizationId: project?.organizationId ?? null,
         })
@@ -443,7 +444,7 @@ export class FeedbackSupportService {
       fb.submitterName,
       company?.name ?? "your company",
       project?.name ?? "",
-      fb.title,
+      ticketLabel(fb),
       note,
       project?.organizationId ?? null
     ).catch((e: Error) => console.error("[support] submitter-notify email failed:", e.message));
@@ -474,7 +475,7 @@ export class FeedbackSupportService {
       projectId: project.id,
       projectName: project.name,
       companyName: company.name,
-      title: fb.title,
+      title: ticketLabel(fb),
       type: fb.type,
       submitterName: fb.submitterName,
       organizationId: project.organizationId ?? null,

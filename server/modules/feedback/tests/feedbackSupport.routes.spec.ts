@@ -33,7 +33,6 @@ jest.mock("../controllers/feedback.controller", () => ({
     history: jest.fn((req: any, res: any) => res.status(200).json({})),
     remove: jest.fn((req: any, res: any) => res.status(200).json({})),
     setLink: jest.fn((req: any, res: any) => res.status(200).json({})),
-    setIntegrationKey: jest.fn((req: any, res: any) => res.status(200).json({})),
   },
 }));
 
@@ -104,15 +103,5 @@ describe("feedback.routes — it_support locked out of triage", () => {
       expect(invoke(handler, "user").next).toHaveBeenCalled();
       expect(invoke(handler, "admin").next).toHaveBeenCalled();
     }
-  });
-});
-
-describe("feedback.routes — integration key management is admin-only", () => {
-  it("admits superadmin/admin and blocks a plain user or it_support", () => {
-    const handler = authoriseHandlerFor(feedbackRouter, "/projects/:id/integration-key", "post");
-    expect(invoke(handler, "superadmin").next).toHaveBeenCalled();
-    expect(invoke(handler, "admin").next).toHaveBeenCalled();
-    expect(invoke(handler, "user").next).not.toHaveBeenCalled();
-    expect(invoke(handler, "it_support").next).not.toHaveBeenCalled();
   });
 });

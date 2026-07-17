@@ -16,6 +16,7 @@ import {
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog"
 import { ClientCompanyFormDialog } from "@/components/feedback/ClientCompanyFormDialog"
 import { SupportersDialog } from "@/components/feedback/SupportersDialog"
+import { IntegrationApiKeyCard } from "@/components/feedback/IntegrationApiKeyCard"
 import {
   useClientCompanies,
   useDeleteClientCompany,
@@ -60,8 +61,9 @@ export function ClientCompaniesCard({ projectId }: { projectId: string }) {
           <Building2 className="size-4 text-primary" /> Client companies
         </CardTitle>
         <CardDescription>
-          Companies using this product with their own IT support. Their users' tickets go to
-          that company's ticket queue first — you only see what their IT team escalates.
+          Companies using this product with their own IT support. Their users' tickets — from
+          the public ticket form or their partner integration API key — go to that company's
+          ticket queue first; you only see what their IT team escalates.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-2">
@@ -116,6 +118,9 @@ export function ClientCompaniesCard({ projectId }: { projectId: string }) {
               <Button size="sm" variant="ghost" onClick={() => setManagingSupporters(c)}>
                 <Users className="mr-1 size-3.5" /> Supporters
               </Button>
+            </div>
+            <div className="mt-2 border-t pt-2">
+              <IntegrationApiKeyCard company={c} />
             </div>
           </div>
         ))}

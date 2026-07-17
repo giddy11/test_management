@@ -4,6 +4,7 @@
 // supporter accounts (users with role it_support scoped to the company).
 import { randomUUID } from "crypto";
 import { ClientCompanyRepository } from "../repositories/clientCompany.repository";
+import { ProjectRepository } from "../../project/repositories/project.repository";
 import { ProjectService } from "../../project/services/project.service";
 import type { Actor } from "../../../shared/types/actor";
 import type { ClientCompany } from "../entities/clientCompany.entity";
@@ -12,7 +13,7 @@ const { UserRepository } = require("../../user/repositories/user.repository");
 const { ActivityService } = require("../../activity/services/activity.service");
 const { AppError } = require("../../../shared/errors/AppError");
 const { UserRole, AuthProvider } = require("../../../config/constants");
-const { hashPassword } = require("../../../shared/utils/password");
+const { hashPassword, hashToken, generateApiKey } = require("../../../shared/utils/password");
 const { sendSupporterInviteEmail } = require("../../../shared/utils/mail/support.mail");
 const { env } = require("../../../config/env");
 
@@ -20,17 +21,20 @@ export class ClientCompanyService {
   static Instance = new ClientCompanyService();
 
   companyRepo: ClientCompanyRepository;
+  projectRepo: ProjectRepository;
   projectService: ProjectService;
   userRepo: any;
 
   constructor(
     companyRepo = ClientCompanyRepository.Instance,
     projectService = ProjectService.Instance,
-    userRepo = UserRepository.Instance
+    userRepo = UserRepository.Instance,
+    projectRepo = ProjectRepository.Instance
   ) {
     this.companyRepo = companyRepo;
     this.projectService = projectService;
     this.userRepo = userRepo;
+    this.projectRepo = projectRepo;
   }
 
   // Loads a company and asserts the actor can see its project. All admin
@@ -40,6 +44,35 @@ export class ClientCompanyService {
     if (!company || company.deletedAt) throw new AppError("Client company not found", 404);
     await this.projectService.getProject(actor, company.projectId);
     return company;
+  }
+
+  // Supporter-roster management (list/add/remove/promote) is the one area a
+  // company can self-serve: its own IT support lead can do it too, not just
+  // the product team — scoped strictly to their own company. Everything else
+  // about a client company (the record itself, its ticket-form link, its
+  // integration API key) stays product-team-only.
+  private async getAccessibleForSupporterManagement(actor: Actor, id: string): Promise<ClientCompany> {
+    if (actor.role === UserRole.IT_SUPPORT) {
+      if (!actor.isSupportLead || actor.clientCompanyId !== id) {
+        throw new AppError("Only this company's IT support lead can manage its supporters", 403);
+      }
+      const company = await this.companyRepo.findById(id);
+      if (!company || company.deletedAt) throw new AppError("Client company not found", 404);
+      return company;
+    }
+    return this.getAccessible(actor, id);
+  }
+
+  // Self-service lookup for the support portal — an IT supporter's own
+  // company record, without the admin-only GET / list surface.
+  async fetchMyCompany(actor: Actor) {
+    if (actor.role !== UserRole.IT_SUPPORT || !actor.clientCompanyId) {
+      throw new AppError("Only IT supporters have a company to manage", 403);
+    }
+    const company = await this.companyRepo.findById(actor.clientCompanyId);
+    if (!company || company.deletedAt) throw new AppError("Client company not found", 404);
+    const supporterCount = await this.userRepo.countByClientCompany(company.id);
+    return { company, supporterCount };
   }
 
   async fetchCompanies(actor: Actor, projectId: string) {
@@ -136,10 +169,47 @@ export class ClientCompanyService {
     return { feedbackToken: company.feedbackToken };
   }
 
+  // Generate/rotate (enabled: true, raw apiKey returned once) or revoke
+  // (enabled: false) this company's partner integration API key. Tickets
+  // created with it land in this company's IT queue — see
+  // FeedbackService.createIntegrationTicket / apiKeyAuth.middleware.
+  async setIntegrationApiKey(actor: Actor, id: string, enabled: boolean) {
+    const company = await this.getAccessible(actor, id);
+    if (!enabled) {
+      company.integrationApiKeyHash = null;
+      company.integrationApiKeyLastFour = null;
+      company.integrationApiKeyCreatedAt = null;
+      await this.companyRepo.save(company);
+      return { apiKey: null, lastFour: null, createdAt: null };
+    }
+
+    const rawKey = generateApiKey();
+    company.integrationApiKeyHash = hashToken(rawKey);
+    company.integrationApiKeyLastFour = rawKey.slice(-4);
+    company.integrationApiKeyCreatedAt = new Date();
+    await this.companyRepo.save(company);
+
+    ActivityService.Instance.log(actor, {
+      action: "client_company.integration_key_rotated",
+      summary: `Rotated the partner integration API key for client company "${company.name}"`,
+      entityType: "client_company",
+      entityId: company.id,
+      clientCompanyId: company.id,
+      metadata: { projectId: company.projectId },
+    });
+
+    // Raw key is returned exactly once — only the hash is ever persisted.
+    return {
+      apiKey: rawKey,
+      lastFour: company.integrationApiKeyLastFour,
+      createdAt: company.integrationApiKeyCreatedAt,
+    };
+  }
+
   // ── Supporter accounts ───────────────────────────────────────────────────────
 
   async listSupporters(actor: Actor, id: string) {
-    const company = await this.getAccessible(actor, id);
+    const company = await this.getAccessibleForSupporterManagement(actor, id);
     return this.userRepo.findByClientCompany(company.id);
   }
 
@@ -156,8 +226,11 @@ export class ClientCompanyService {
       isSupportLead?: boolean;
     }
   ) {
-    const company = await this.getAccessible(actor, id);
-    const project: any = await this.projectService.getProject(actor, company.projectId);
+    const company = await this.getAccessibleForSupporterManagement(actor, id);
+    // Access is already established above (product-team or the company's own
+    // lead) — a raw lookup avoids re-running the admin-oriented project
+    // access check, which an IT support actor wouldn't pass.
+    const project: any = await this.projectRepo.findById(company.projectId);
 
     const existing = await this.userRepo.findByEmail(data.email);
     if (existing) throw new AppError("An account with this email already exists", 409);
@@ -198,8 +271,24 @@ export class ClientCompanyService {
     return user;
   }
 
+  // A company's roster must never end up non-empty with zero leads — that
+  // would strand it until a TestMate admin steps in to re-promote someone
+  // (see setSupporterLead / removeSupporter). Dropping to zero supporters
+  // entirely is fine — that's the normal path to deleting the company.
+  private async assertLeadRemovalSafe(companyId: string, excludingUserId: string): Promise<void> {
+    const supporters = await this.userRepo.findByClientCompany(companyId);
+    const remaining = supporters.filter((s: any) => s.id !== excludingUserId);
+    const hasRemainingLead = remaining.some((s: any) => s.isSupportLead);
+    if (remaining.length > 0 && !hasRemainingLead) {
+      throw new AppError(
+        "This is the company's only IT support lead — promote another supporter first.",
+        409
+      );
+    }
+  }
+
   async removeSupporter(actor: Actor, id: string, userId: string) {
-    const company = await this.getAccessible(actor, id);
+    const company = await this.getAccessibleForSupporterManagement(actor, id);
     const user = await this.userRepo.findById(userId);
     if (
       !user ||
@@ -208,6 +297,9 @@ export class ClientCompanyService {
       user.clientCompanyId !== company.id
     ) {
       throw new AppError("Supporter not found in this company", 404);
+    }
+    if (user.isSupportLead) {
+      await this.assertLeadRemovalSafe(company.id, user.id);
     }
     await this.userRepo.softDelete(user.id);
     ActivityService.Instance.log(actor, {
@@ -223,7 +315,7 @@ export class ClientCompanyService {
   // Promote/demote a supporter to lead — leads can assign incoming queue
   // items to their teammates within the same company.
   async setSupporterLead(actor: Actor, id: string, userId: string, isSupportLead: boolean) {
-    const company = await this.getAccessible(actor, id);
+    const company = await this.getAccessibleForSupporterManagement(actor, id);
     const user = await this.userRepo.findById(userId);
     if (
       !user ||
@@ -232,6 +324,9 @@ export class ClientCompanyService {
       user.clientCompanyId !== company.id
     ) {
       throw new AppError("Supporter not found in this company", 404);
+    }
+    if (user.isSupportLead && !isSupportLead) {
+      await this.assertLeadRemovalSafe(company.id, user.id);
     }
     const updated = await this.userRepo.update(user.id, { isSupportLead });
     ActivityService.Instance.log(actor, {

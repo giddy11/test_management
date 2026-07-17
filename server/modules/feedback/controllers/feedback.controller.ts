@@ -122,7 +122,7 @@ export class FeedbackController {
   static async integrationCreate(req: any, res: any, next: any) {
     try {
       const { feedback, created } = await FeedbackService.Instance.createIntegrationTicket(
-        req.integrationProject,
+        req.integrationClientCompany,
         req.validated.body
       );
       res
@@ -141,7 +141,7 @@ export class FeedbackController {
   static async integrationGet(req: any, res: any, next: any) {
     try {
       const fb = await FeedbackService.Instance.getIntegrationTicket(
-        req.integrationProject,
+        req.integrationClientCompany,
         req.validated.params.id
       );
       res.status(200).json(ApiResponse.ok("Ticket fetched", toIntegrationTicketResponse(fb)));
@@ -153,7 +153,7 @@ export class FeedbackController {
   static async integrationList(req: any, res: any, next: any) {
     try {
       const result = await FeedbackService.Instance.listIntegrationTickets(
-        req.integrationProject,
+        req.integrationClientCompany,
         req.validated.query
       );
       res
@@ -161,19 +161,6 @@ export class FeedbackController {
         .json(
           ApiResponse.ok("Tickets fetched", result.data.map(toIntegrationTicketResponse), result.meta)
         );
-    } catch (err) {
-      next(err);
-    }
-  }
-
-  static async setIntegrationKey(req: any, res: any, next: any) {
-    try {
-      const result = await FeedbackService.Instance.setIntegrationApiKey(
-        req.user,
-        req.validated.params.id,
-        req.validated.body.enabled
-      );
-      res.status(200).json(ApiResponse.ok("Integration API key updated", result));
     } catch (err) {
       next(err);
     }

@@ -1,18 +1,13 @@
-// Admin card on the project Ticket tab: the partner integration API key
-// (server-to-server ticket creation/lookup, e.g. for a product like DOMS).
-// Distinct from the public ticket form link — this is a real bearer secret,
-// so the raw value is only ever shown once, right after generate/rotate.
+// Inline block on each client company's row (ClientCompaniesCard): the
+// partner integration API key (server-to-server ticket creation/lookup, e.g.
+// for a product like DOMS). Tickets created with it land in THIS company's
+// IT queue — same destination as their public ticket form. Distinct from the
+// ticket form link — this is a real bearer secret, so the raw value is only
+// ever shown once, right after generate/rotate.
 import { useState } from "react"
 import { Copy, KeyRound, RefreshCw, ShieldOff } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
 import {
   Dialog,
   DialogContent,
@@ -22,21 +17,20 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog"
-import { useSetIntegrationApiKey } from "@/hooks/useFeedback"
-import { useProject } from "@/hooks/useProjects"
+import { useSetIntegrationApiKey } from "@/hooks/useClientCompanies"
 import { ApiError } from "@/transport/http"
+import type { ClientCompany } from "@/types/clientCompany.types"
 
-export function IntegrationApiKeyCard({ projectId }: { projectId: string }) {
-  const { data: project } = useProject(projectId)
+export function IntegrationApiKeyCard({ company }: { company: ClientCompany }) {
   const setKey = useSetIntegrationApiKey()
   const [revoking, setRevoking] = useState(false)
   const [revealedKey, setRevealedKey] = useState<string | null>(null)
 
-  const hasKey = Boolean(project?.integrationApiKeyLastFour)
+  const hasKey = Boolean(company.integrationApiKeyLastFour)
 
   const generateOrRotate = () => {
     setKey.mutate(
-      { projectId, enabled: true },
+      { id: company.id, enabled: true },
       {
         onError: (e) => toast.error(e instanceof ApiError ? e.message : "Failed"),
         onSuccess: ({ apiKey }) => {
@@ -48,7 +42,7 @@ export function IntegrationApiKeyCard({ projectId }: { projectId: string }) {
 
   const revoke = () => {
     setKey.mutate(
-      { projectId, enabled: false },
+      { id: company.id, enabled: false },
       {
         onError: (e) => toast.error(e instanceof ApiError ? e.message : "Failed"),
         onSuccess: () => {
@@ -66,24 +60,15 @@ export function IntegrationApiKeyCard({ projectId }: { projectId: string }) {
   }
 
   return (
-    <Card>
-      <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2 text-base">
-          <KeyRound className="size-4 text-primary" /> Integration API key
-        </CardTitle>
-        <CardDescription>
-          Lets a partner's own backend create tickets and check their status
-          programmatically (server-to-server), separate from the public ticket
-          form. See the docs for the request/response shapes.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-wrap items-center gap-2">
+    <>
+      <div className="flex flex-wrap items-center gap-2">
+        <KeyRound className="size-3.5 text-muted-foreground" />
         {hasKey ? (
           <>
             <code className="rounded bg-muted px-2 py-1 text-xs">
-              Key ending in •••{project?.integrationApiKeyLastFour}
-              {project?.integrationApiKeyCreatedAt && (
-                <> · generated {new Date(project.integrationApiKeyCreatedAt).toLocaleDateString()}</>
+              API key ending in •••{company.integrationApiKeyLastFour}
+              {company.integrationApiKeyCreatedAt && (
+                <> · generated {new Date(company.integrationApiKeyCreatedAt).toLocaleDateString()}</>
               )}
             </code>
             <Button size="sm" variant="outline" onClick={generateOrRotate} disabled={setKey.isPending}>
@@ -100,11 +85,11 @@ export function IntegrationApiKeyCard({ projectId }: { projectId: string }) {
             </Button>
           </>
         ) : (
-          <Button size="sm" onClick={generateOrRotate} disabled={setKey.isPending}>
-            <KeyRound className="mr-1 size-3.5" /> Generate key
+          <Button size="sm" variant="outline" onClick={generateOrRotate} disabled={setKey.isPending}>
+            <KeyRound className="mr-1 size-3.5" /> Generate integration API key
           </Button>
         )}
-      </CardContent>
+      </div>
 
       <Dialog open={Boolean(revealedKey)} onOpenChange={(o) => !o && setRevealedKey(null)}>
         <DialogContent>
@@ -112,7 +97,7 @@ export function IntegrationApiKeyCard({ projectId }: { projectId: string }) {
             <DialogTitle>Your integration API key</DialogTitle>
             <DialogDescription>
               Copy it now — for security, it won't be shown again. If you lose it, rotate to
-              generate a new one.
+              generate a new one. Tickets created with it land in {company.name}'s ticket queue.
             </DialogDescription>
           </DialogHeader>
           <div className="flex items-center gap-2">
@@ -131,11 +116,11 @@ export function IntegrationApiKeyCard({ projectId }: { projectId: string }) {
         open={revoking}
         onOpenChange={setRevoking}
         title="Revoke integration API key"
-        description="Any partner integration using this key will immediately stop working until a new key is generated and updated on their end."
+        description={`Any partner integration using this key for ${company.name} will immediately stop working until a new key is generated and updated on their end.`}
         confirmLabel="Revoke"
         loading={setKey.isPending}
         onConfirm={revoke}
       />
-    </Card>
+    </>
   )
 }

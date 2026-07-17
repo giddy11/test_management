@@ -7,6 +7,10 @@ export interface ClientCompanyResponseDTO {
   name: string;
   contactEmail: string | null;
   feedbackToken: string | null;
+  // Safe metadata only — the raw integration API key is never returned here,
+  // only once from the generate/rotate call itself.
+  integrationApiKeyLastFour: string | null;
+  integrationApiKeyCreatedAt: Date | null;
   supporterCount: number;
   createdAt: Date;
 }
@@ -32,6 +36,8 @@ export function toClientCompanyResponse(
     name: company.name,
     contactEmail: company.contactEmail ?? null,
     feedbackToken: company.feedbackToken ?? null,
+    integrationApiKeyLastFour: company.integrationApiKeyLastFour ?? null,
+    integrationApiKeyCreatedAt: company.integrationApiKeyCreatedAt ?? null,
     supporterCount,
     createdAt: company.createdAt,
   };
