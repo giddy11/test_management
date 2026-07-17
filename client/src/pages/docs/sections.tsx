@@ -583,174 +583,6 @@ const ALL_SECTIONS: DocSection[] = [
     ),
   },
   {
-    id: "partner-integration",
-    title: "Partner integration API",
-    icon: Webhook,
-    summary: "Let another product create and check tickets programmatically.",
-    body: (
-      <div className="space-y-4">
-        <P>
-          Instead of (or alongside) the public ticket link, another product — say, a partner
-          company's own website — can raise tickets on a user's behalf and let that same user
-          check their status, without ever leaving the partner's app. This is a{" "}
-          <Strong>server-to-server</Strong> API: the partner's backend calls TestMate and renders
-          the result itself.
-        </P>
-        <P>
-          Tickets created this way land in the key's owning{" "}
-          <Strong>client company's IT support queue</Strong> — exactly like a submission through
-          that company's public ticket form — not straight to the product team. The product team
-          only sees them once IT support escalates.
-        </P>
-        <H3>Getting an API key</H3>
-        <P>
-          On a project's <Strong>Tickets</Strong> tab, under <Strong>Client companies</Strong>,
-          each company has its own <Strong>Integration API key</Strong> — separate from that
-          company's public form link, and separate from every other company on the project. A
-          project with several client companies (several partners) issues one key per company;
-          each partner's tickets only ever reach their own company's queue. The raw key is shown{" "}
-          <Strong>once</Strong>, at generation or rotation — store it on the partner's side;
-          TestMate only ever keeps a hash of it. Revoking a key immediately breaks any integration
-          still using it.
-        </P>
-        <P>Every request authenticates with the key in an <Code>x-api-key</Code> header.</P>
-        <H3>Create a ticket</H3>
-        <P><Code>POST /api/v1/integrations/tickets</Code></P>
-        <CodeBlock>{`curl -X POST https://<your-domain>/api/v1/integrations/tickets \\
-  -H "x-api-key: <key>" -H "Content-Type: application/json" \\
-  -d '{
-    "type": "bug",
-    "title": "Export fails",
-    "description": "CSV export returns a 500",
-    "submitterName": "Jane Doe",
-    "submitterEmail": "jane@example.com",
-    "externalRef": "PARTNER-1001"
-  }'`}</CodeBlock>
-        <P>
-          <Code>externalRef</Code> is optional — it's the partner's own id for the request. If a
-          create call is retried with the same <Code>externalRef</Code>, TestMate returns the{" "}
-          <Strong>original</Strong> ticket instead of creating a duplicate, so a network retry is
-          always safe. The response includes TestMate's own <Code>ticketNumber</Code> — a short
-          human-readable id (e.g. <Code>#4821</Code>) worth surfacing in the partner's UI alongside
-          <Code> id</Code>, since that's what shows up in TestMate's own screens and emails too.
-        </P>
-        <H3>Check a ticket's status, or list a submitter's history</H3>
-        <P><Code>GET /api/v1/integrations/tickets/:id</Code> — a single ticket.</P>
-        <P>
-          <Code>GET /api/v1/integrations/tickets?submitterEmail=jane@example.com</Code> — every
-          ticket that submitter has raised with this company (their "history").
-        </P>
-        <H3>Customer-facing status</H3>
-        <P>
-          These endpoints intentionally return a <Strong>simplified status</Strong>, not TestMate's
-          internal triage stages — so a user never sees something as finished while your team is
-          still reviewing or double-checking it. Before escalation, the ticket is progressing
-          through IT support's own queue; after escalation, it's progressing through the product
-          team's:
-        </P>
-        <UL>
-          <li><Chip className={chipSlate}>received</Chip> — logged, not yet started.</li>
-          <li>
-            <Chip className={chipBlue}>in_progress</Chip> — anywhere from acknowledged through a
-            claimed fix (internal product-team <Chip className={chipGreen}>Resolved</Chip>{" "}
-            deliberately still reads as <Chip className={chipBlue}>in_progress</Chip> here — it
-            hasn't been confirmed with the submitter yet).
-          </li>
-          <li>
-            <Chip className={chipAmber}>pending_your_confirmation</Chip> — the product team
-            believes it's fixed and is waiting on the submitter to confirm (only reachable after
-            IT support has escalated).
-          </li>
-          <li>
-            <Chip className={chipGreen}>resolved</Chip> — closed. Either IT support resolved it
-            locally (no separate confirmation step at that tier), or the product team's fix was
-            confirmed by the submitter after an escalation.
-          </li>
-        </UL>
-
-        <H3>How TestMate resolves the key</H3>
-        <P>
-          TestMate never stores the raw key — only its SHA-256 hash, in the owning client
-          company's row. On every request, the incoming <Code>x-api-key</Code> header is hashed
-          and looked up against that column; a match resolves to exactly one client company, which
-          is how TestMate knows whose queue a ticket belongs to. If the key doesn't match anything
-          (wrong, revoked, or never issued), the request gets a <Code>401</Code> before anything
-          else runs — including before the request body is parsed or validated.
-        </P>
-
-        <H3>Embedding the key on the partner's side</H3>
-        <P>
-          The key belongs on the partner's <Strong>backend only</Strong> — never in frontend
-          JavaScript, a mobile app bundle, or anything else that ships to an end user's device.
-          Store it the same way you'd store any other third-party API key (a Stripe secret key, a
-          Twilio token): an environment variable or your secrets manager, read server-side, and
-          attached to outgoing requests:
-        </P>
-        <CodeBlock>{`// partner's backend, e.g. Node/Express
-const res = await fetch("https://<your-domain>/api/v1/integrations/tickets", {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json",
-    "x-api-key": process.env.TESTMATE_API_KEY,
-  },
-  body: JSON.stringify({
-    type: "bug",
-    title: "Export fails",
-    description: "CSV export returns a 500",
-    submitterName: user.name,
-    submitterEmail: user.email,
-    externalRef: \`partner-\${localTicketId}\`,
-  }),
-});
-const { data } = await res.json();
-// data.id / data.ticketNumber — store this to check status later`}</CodeBlock>
-        <P>
-          Typical shape end-to-end: the partner's end user hits "Report a problem" inside the
-          <Strong> partner's</Strong> product. The partner's backend receives that, calls the
-          create endpoint above, and stores the returned <Code>id</Code>/<Code>ticketNumber</Code>{" "}
-          against its own local record. To show status back to that user, the partner's backend
-          later calls <Code>GET /integrations/tickets/:id</Code> with the same key and renders the
-          result in its own UI — the end user never sees TestMate directly.
-        </P>
-
-        <H3>If the partner's own product is multi-tenant</H3>
-        <P>
-          A single deployment serving several of the partner's own client organizations{" "}
-          <Strong>can't</Strong> use one static environment variable, since each of TestMate's
-          client companies has a different key. Instead, the partner needs their own lookup —
-          typically a column on their own tenant/org table, encrypted at rest — so the right key is
-          selected per request instead of hardcoded:
-        </P>
-        <CodeBlock>{`// partner's own database — one row per client company they serve
-// tenants table: { id, name, testmate_api_key (encrypted), ... }
-
-async function reportIssue(req) {
-  const tenant = await db.tenants.findById(req.user.tenantId);
-  const testmateKey = decrypt(tenant.testmate_api_key);
-
-  await fetch("https://<your-domain>/api/v1/integrations/tickets", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "x-api-key": testmateKey },
-    body: JSON.stringify({ /* ... */ }),
-  });
-}`}</CodeBlock>
-        <P>
-          This is entirely the partner's own code to write — TestMate has no visibility into or
-          opinion about how they store their per-tenant credentials, only that whatever arrives in
-          the <Code>x-api-key</Code> header is a key it issued and hasn't revoked.
-        </P>
-
-        <H3>Security notes</H3>
-        <UL>
-          <li>Treat the key like any other production secret — it grants ticket creation and read access scoped to one client company, nothing more.</li>
-          <li>Rotate immediately if it may have leaked (committed to a repo, pasted somewhere public, an ex-employee had access). The old key stops working the instant a new one is generated.</li>
-          <li>Revoke it entirely (rather than rotate) if the integration is being decommissioned — there's no "soft off," a revoked key returns <Code>401</Code> immediately.</li>
-          <li>The key is shown to the TestMate admin exactly once, at generation/rotation — if it's lost before being stored on the partner's side, the only recovery is generating a new one.</li>
-        </UL>
-      </div>
-    ),
-  },
-  {
     id: "company-provisioning",
     title: "Company provisioning API",
     icon: Webhook,
@@ -766,12 +598,8 @@ async function reportIssue(req) {
           <Strong>IT support lead</Strong> account.
         </P>
         <P>
-          Unlike the{" "}
-          <a href="#partner-integration" className="font-medium text-primary hover:underline">
-            partner integration API
-          </a>{" "}
-          above, this endpoint takes no API key — the request identifies its target project
-          directly with <Code>projectId</Code>.
+          This endpoint takes no API key — the request identifies its target project directly
+          with <Code>projectId</Code>.
         </P>
         <H3>Provision a company</H3>
         <P><Code>POST /api/v1/integrations/companies</Code></P>
@@ -796,18 +624,12 @@ async function reportIssue(req) {
         </P>
         <P>
           The response includes the new <Code>company</Code> and <Code>supportLead</Code> account.
-          Ticket creation for the new company still goes through its own{" "}
-          <a href="#partner-integration" className="font-medium text-primary hover:underline">
-            partner integration API
-          </a>{" "}
-          key, generated separately from the company's row in the admin UI — provisioning doesn't
-          create one automatically.
         </P>
         <H3>Security notes</H3>
         <UL>
           <li>This endpoint has no credential check — anyone who knows (or guesses) a <Code>projectId</Code> can create companies and IT support logins inside that project. Treat the URL itself as sensitive, and don't expose it to untrusted clients.</li>
           <li>Only call it from your backend — never from frontend JavaScript or a mobile app bundle, where the request (and your <Code>projectId</Code>) would be visible to anyone.</li>
-          <li>There's no <Code>externalRef</Code>-style idempotency here (unlike ticket creation) — a same-email retry after an uncertain response (e.g. a timeout) fails with a <Code>409</Code> rather than safely returning the original company, so don't blindly re-POST on failure without checking first.</li>
+          <li>There's no idempotency key here — a same-email retry after an uncertain response (e.g. a timeout) fails with a <Code>409</Code> rather than safely returning the original company, so don't blindly re-POST on failure without checking first.</li>
         </UL>
       </div>
     ),
@@ -965,7 +787,7 @@ const group = (label: string, ids: string[]): DocGroup => ({
 export const DOC_GROUPS: DocGroup[] = [
   group("Getting started", ["introduction", "getting-started", "roles"]),
   group("Core testing workflow", ["dashboard", "projects", "suites-and-cases", "test-runs"]),
-  group("Tracking & tickets", ["bugs", "feature-requests", "feedback-portal", "partner-integration", "company-provisioning"]),
+  group("Tracking & tickets", ["bugs", "feature-requests", "feedback-portal", "company-provisioning"]),
   group("Administration", ["team", "activity"]),
   group("Help", ["announcements", "settings", "faq"]),
 ]

@@ -1,0 +1,485 @@
+{
+  "info": {
+    "name": "TestMate API",
+    "description": "Scoped to testing POST /api/v1/integrations/companies (create/provision a client company + IT support lead). Includes just enough of Auth and Projects to obtain a bearer token and a projectId to provision into. Extend with more module folders as needed — this is not yet a complete mirror of the API.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }]
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:4000", "type": "string" },
+    { "key": "loginEmail", "value": "admin@example.com", "type": "string" },
+    { "key": "loginPassword", "value": "ChangeMe123!", "type": "string" },
+    { "key": "accessToken", "value": "", "type": "string" },
+    { "key": "refreshToken", "value": "", "type": "string" },
+    { "key": "userId", "value": "", "type": "string" },
+    { "key": "projectId", "value": "", "type": "string" },
+    { "key": "companyId", "value": "", "type": "string" },
+    { "key": "supportLeadId", "value": "", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.data && res.data.tokens) {",
+                  "  pm.collectionVariables.set(\"accessToken\", res.data.tokens.accessToken);",
+                  "  pm.collectionVariables.set(\"refreshToken\", res.data.tokens.refreshToken);",
+                  "}",
+                  "if (res.data && res.data.user) pm.collectionVariables.set(\"userId\", res.data.user.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{loginEmail}}\",\n  \"password\": \"{{loginPassword}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "login"]
+            },
+            "description": "Logs in as an admin/superadmin so 'List Projects' below has a bearer token. Set loginEmail/loginPassword to a real account first (e.g. seed one with `npm run seed:superadmin`)."
+          },
+          "response": [
+            {
+              "name": "200 Login successful",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"admin@example.com\",\n  \"password\": \"ChangeMe123!\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/auth/login",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "auth", "login"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": true,\n  \"message\": \"Login successful\",\n  \"statusCode\": 200,\n  \"data\": {\n    \"user\": {\n      \"id\": \"7c9e6679-7425-40de-944b-e07fc1f90ae7\",\n      \"firstName\": \"Admin\",\n      \"lastName\": \"User\",\n      \"name\": \"Admin User\",\n      \"companyName\": \"Acme Inc\",\n      \"email\": \"admin@example.com\",\n      \"isEmailVerified\": true,\n      \"onboardingCompleted\": true,\n      \"role\": \"admin\",\n      \"isOrgOwner\": true,\n      \"provider\": \"local\",\n      \"organizationId\": \"3fa85f64-5717-4562-b3fc-2c963f66afa6\",\n      \"clientCompanyId\": null,\n      \"isSupportLead\": false,\n      \"avatarUrl\": null,\n      \"address\": null,\n      \"city\": null,\n      \"state\": null,\n      \"country\": null,\n      \"createdAt\": \"2026-01-10T09:00:00.000Z\",\n      \"lastSeenAt\": \"2026-07-17T08:00:00.000Z\"\n    },\n    \"tokens\": {\n      \"accessToken\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjdjOWU2Njc5In0.abc123\",\n      \"refreshToken\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjdjOWU2Njc5In0.def456\",\n      \"expiresIn\": 900\n    }\n  },\n  \"errors\": []\n}"
+            },
+            {
+              "name": "401 Invalid email or password",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"admin@example.com\",\n  \"password\": \"wrong-password\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/auth/login",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "auth", "login"]
+                }
+              },
+              "status": "Unauthorized",
+              "code": 401,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": false,\n  \"message\": \"Invalid email or password\",\n  \"statusCode\": 401,\n  \"data\": null,\n  \"errors\": []\n}"
+            },
+            {
+              "name": "422 Validation failed",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"not-an-email\",\n  \"password\": \"\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/auth/login",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "auth", "login"]
+                }
+              },
+              "status": "Unprocessable Entity",
+              "code": 422,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": false,\n  \"message\": \"Validation failed\",\n  \"statusCode\": 422,\n  \"data\": null,\n  \"errors\": [\n    { \"field\": \"body.email\", \"message\": \"Invalid email\" },\n    { \"field\": \"body.password\", \"message\": \"String must contain at least 1 character(s)\" }\n  ]\n}"
+            },
+            {
+              "name": "429 Too many requests",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"admin@example.com\",\n  \"password\": \"ChangeMe123!\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/auth/login",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "auth", "login"]
+                }
+              },
+              "status": "Too Many Requests",
+              "code": 429,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": false,\n  \"message\": \"Too many requests, please try again later\",\n  \"statusCode\": 429,\n  \"data\": null,\n  \"errors\": []\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Projects",
+      "item": [
+        {
+          "name": "List Projects",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.data && res.data.length > 0) {",
+                  "  pm.collectionVariables.set(\"projectId\", res.data[0].id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/projects?page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "projects"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" }
+              ]
+            },
+            "description": "Grabs the first project's id into {{projectId}} for the Create Company request below. If you'd rather target a specific project, paste its id into the collection variable directly instead of running this."
+          },
+          "response": [
+            {
+              "name": "200 Projects fetched",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/projects?page=1&limit=20",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "projects"],
+                  "query": [
+                    { "key": "page", "value": "1" },
+                    { "key": "limit", "value": "20" }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": true,\n  \"message\": \"Projects fetched\",\n  \"statusCode\": 200,\n  \"data\": [\n    {\n      \"id\": \"3fa85f64-5717-4562-b3fc-2c963f66afa6\",\n      \"name\": \"Website Revamp\",\n      \"description\": \"Q3 marketing site rebuild\",\n      \"ownerId\": \"7c9e6679-7425-40de-944b-e07fc1f90ae7\",\n      \"suiteCount\": 4,\n      \"feedbackToken\": null,\n      \"createdAt\": \"2026-06-01T09:00:00.000Z\"\n    }\n  ],\n  \"errors\": [],\n  \"meta\": { \"page\": 1, \"limit\": 20, \"total\": 1, \"totalPages\": 1, \"hasNext\": false, \"hasPrev\": false }\n}"
+            },
+            {
+              "name": "401 Unauthorised",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/projects?page=1&limit=20",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "projects"],
+                  "query": [
+                    { "key": "page", "value": "1" },
+                    { "key": "limit", "value": "20" }
+                  ]
+                }
+              },
+              "status": "Unauthorized",
+              "code": 401,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": false,\n  \"message\": \"Unauthorised\",\n  \"statusCode\": 401,\n  \"data\": null,\n  \"errors\": []\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Integrations — Companies",
+      "description": "Server-to-server company provisioning. Unauthenticated by design — the request identifies its target project directly via projectId, not a bearer token or API key.",
+      "item": [
+        {
+          "name": "Create Company (Provision)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.data && res.data.company) pm.collectionVariables.set(\"companyId\", res.data.company.id);",
+                  "if (res.data && res.data.supportLead) pm.collectionVariables.set(\"supportLeadId\", res.data.supportLead.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"projectId\": \"{{projectId}}\",\n  \"name\": \"Acme Corp {{$timestamp}}\",\n  \"contactEmail\": \"billing+{{$timestamp}}@acme.example\",\n  \"supportLead\": {\n    \"email\": \"sam.support+{{$timestamp}}@acme.example\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/integrations/companies",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "integrations", "companies"]
+            },
+            "description": "Creates a client company + its first IT support lead in one shot. `contactEmail` is optional. `supportLead.email` is the only required field for the lead — TestMate derives a display name from it and emails a login link + temp password. The {{$timestamp}} in the sample body keeps repeat runs from colliding on unique-email constraints; replace with fixed values to deliberately test the 409 cases below."
+          },
+          "response": [
+            {
+              "name": "201 Client company provisioned",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"projectId\": \"3fa85f64-5717-4562-b3fc-2c963f66afa6\",\n  \"name\": \"Acme Corp\",\n  \"contactEmail\": \"billing@acme.example\",\n  \"supportLead\": {\n    \"email\": \"sam.support@acme.example\"\n  }\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/integrations/companies",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "integrations", "companies"]
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": true,\n  \"message\": \"Client company provisioned\",\n  \"statusCode\": 201,\n  \"data\": {\n    \"company\": {\n      \"id\": \"9b2f1e10-6b1a-4c9e-8a2d-1a2b3c4d5e6f\",\n      \"projectId\": \"3fa85f64-5717-4562-b3fc-2c963f66afa6\",\n      \"name\": \"Acme Corp\",\n      \"contactEmail\": \"billing@acme.example\",\n      \"feedbackToken\": null,\n      \"supporterCount\": 0,\n      \"createdAt\": \"2026-07-17T10:00:00.000Z\"\n    },\n    \"supportLead\": {\n      \"id\": \"c1d2e3f4-5678-4abc-9def-0123456789ab\",\n      \"firstName\": \"Sam\",\n      \"lastName\": \"Support\",\n      \"name\": \"Sam Support\",\n      \"email\": \"sam.support@acme.example\",\n      \"isSupportLead\": true,\n      \"createdAt\": \"2026-07-17T10:00:00.000Z\",\n      \"lastSeenAt\": null\n    }\n  },\n  \"errors\": []\n}"
+            },
+            {
+              "name": "404 Project not found",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"projectId\": \"00000000-0000-0000-0000-000000000000\",\n  \"name\": \"Acme Corp\",\n  \"supportLead\": {\n    \"email\": \"sam.support@acme.example\"\n  }\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/integrations/companies",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "integrations", "companies"]
+                }
+              },
+              "status": "Not Found",
+              "code": 404,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": false,\n  \"message\": \"Project not found\",\n  \"statusCode\": 404,\n  \"data\": null,\n  \"errors\": []\n}"
+            },
+            {
+              "name": "409 Contact email already used by a company",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"projectId\": \"3fa85f64-5717-4562-b3fc-2c963f66afa6\",\n  \"name\": \"Acme Corp 2\",\n  \"contactEmail\": \"billing@acme.example\",\n  \"supportLead\": {\n    \"email\": \"another.lead@acme.example\"\n  }\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/integrations/companies",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "integrations", "companies"]
+                }
+              },
+              "status": "Conflict",
+              "code": 409,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": false,\n  \"message\": \"A client company with this contact email already exists\",\n  \"statusCode\": 409,\n  \"data\": null,\n  \"errors\": []\n}"
+            },
+            {
+              "name": "409 Contact email belongs to a user account",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"projectId\": \"3fa85f64-5717-4562-b3fc-2c963f66afa6\",\n  \"name\": \"Acme Corp\",\n  \"contactEmail\": \"admin@example.com\",\n  \"supportLead\": {\n    \"email\": \"sam.support@acme.example\"\n  }\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/integrations/companies",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "integrations", "companies"]
+                }
+              },
+              "status": "Conflict",
+              "code": 409,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": false,\n  \"message\": \"This email already belongs to a user account\",\n  \"statusCode\": 409,\n  \"data\": null,\n  \"errors\": []\n}"
+            },
+            {
+              "name": "409 Support lead email already has an account",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"projectId\": \"3fa85f64-5717-4562-b3fc-2c963f66afa6\",\n  \"name\": \"Acme Corp 3\",\n  \"supportLead\": {\n    \"email\": \"sam.support@acme.example\"\n  }\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/integrations/companies",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "integrations", "companies"]
+                }
+              },
+              "status": "Conflict",
+              "code": 409,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": false,\n  \"message\": \"An account with this email already exists\",\n  \"statusCode\": 409,\n  \"data\": null,\n  \"errors\": []\n}"
+            },
+            {
+              "name": "422 Validation failed",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"projectId\": \"not-a-uuid\",\n  \"name\": \"\",\n  \"supportLead\": {\n    \"email\": \"not-an-email\"\n  }\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/integrations/companies",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "integrations", "companies"]
+                }
+              },
+              "status": "Unprocessable Entity",
+              "code": 422,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": false,\n  \"message\": \"Validation failed\",\n  \"statusCode\": 422,\n  \"data\": null,\n  \"errors\": [\n    { \"field\": \"body.projectId\", \"message\": \"Invalid uuid\" },\n    { \"field\": \"body.name\", \"message\": \"String must contain at least 1 character(s)\" },\n    { \"field\": \"body.supportLead.email\", \"message\": \"Invalid email\" }\n  ]\n}"
+            },
+            {
+              "name": "429 Too many requests",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"projectId\": \"3fa85f64-5717-4562-b3fc-2c963f66afa6\",\n  \"name\": \"Acme Corp\",\n  \"supportLead\": {\n    \"email\": \"sam.support@acme.example\"\n  }\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/integrations/companies",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "integrations", "companies"]
+                }
+              },
+              "status": "Too Many Requests",
+              "code": 429,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": false,\n  \"message\": \"Too many requests — please slow down\",\n  \"statusCode\": 429,\n  \"data\": null,\n  \"errors\": []\n}"
+            }
+          ]
+        },
+        {
+          "name": "Verify — List Client Companies for Project",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/client-companies?projectId={{projectId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "client-companies"],
+              "query": [{ "key": "projectId", "value": "{{projectId}}" }]
+            },
+            "description": "Authenticated admin view — confirms the company created above shows up under the project, with its supporter count."
+          },
+          "response": [
+            {
+              "name": "200 Client companies fetched",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/client-companies?projectId={{projectId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "client-companies"],
+                  "query": [{ "key": "projectId", "value": "{{projectId}}" }]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": true,\n  \"message\": \"Client companies fetched\",\n  \"statusCode\": 200,\n  \"data\": [\n    {\n      \"id\": \"9b2f1e10-6b1a-4c9e-8a2d-1a2b3c4d5e6f\",\n      \"projectId\": \"3fa85f64-5717-4562-b3fc-2c963f66afa6\",\n      \"name\": \"Acme Corp\",\n      \"contactEmail\": \"billing@acme.example\",\n      \"feedbackToken\": null,\n      \"supporterCount\": 1,\n      \"createdAt\": \"2026-07-17T10:00:00.000Z\"\n    }\n  ],\n  \"errors\": []\n}"
+            },
+            {
+              "name": "401 Unauthorised",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/client-companies?projectId={{projectId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "client-companies"],
+                  "query": [{ "key": "projectId", "value": "{{projectId}}" }]
+                }
+              },
+              "status": "Unauthorized",
+              "code": 401,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": false,\n  \"message\": \"Unauthorised\",\n  \"statusCode\": 401,\n  \"data\": null,\n  \"errors\": []\n}"
+            },
+            {
+              "name": "403 Forbidden",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/client-companies?projectId={{projectId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "client-companies"],
+                  "query": [{ "key": "projectId", "value": "{{projectId}}" }]
+                }
+              },
+              "status": "Forbidden",
+              "code": 403,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": false,\n  \"message\": \"Forbidden\",\n  \"statusCode\": 403,\n  \"data\": null,\n  \"errors\": []\n}"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -180,9 +180,6 @@ export function FeedbackTab({ projectId, canManage }: Props) {
                 {fb.clientCompanyName && (
                   <Badge variant="secondary">via {fb.clientCompanyName} IT</Badge>
                 )}
-                {fb.source === "integration" && (
-                  <Badge variant="secondary">Via API</Badge>
-                )}
                 {fb.severity && (
                   <Badge variant={SEVERITY_VARIANT[fb.severity]}>
                     {FEEDBACK_SEVERITY_LABELS[fb.severity]}

@@ -4,19 +4,18 @@
 // the submitter is emailed at every stage transition.
 import { EntitySchema } from "typeorm";
 
-const { FeedbackStatus, FeedbackSource } = require("../../../config/constants");
+const { FeedbackStatus } = require("../../../config/constants");
 
 export interface Feedback {
   id: string;
   // Human-readable sequential id shown everywhere instead of the uuid (UI,
-  // emails, the integration API response). Global across all projects —
-  // assigned by a DB sequence, never reused.
+  // emails). Global across all projects — assigned by a DB sequence, never
+  // reused.
   ticketNumber: number;
   projectId: string;
-  // Set when submitted through a client company's form token, OR created via
-  // that company's partner integration API key. While supportStatus !==
-  // "escalated" the item is visible ONLY to that company's IT supporters —
-  // never to the product owner's triage.
+  // Set when submitted through a client company's form token. While
+  // supportStatus !== "escalated" the item is visible ONLY to that company's
+  // IT supporters — never to the product owner's triage.
   clientCompanyId: string | null;
   // IT-tier state (SupportStatus: open/resolved/escalated) — null on direct
   // submissions. Orthogonal to `status`, which is the product owner's lifecycle.
@@ -41,13 +40,6 @@ export interface Feedback {
   // is a deliberate relay step, not automatic. Null until they do.
   submitterNotifiedAt: Date | null;
   type: string; // FeedbackType
-  // How this item was created — the public browser form, or a partner's
-  // server-to-server integration. See FeedbackSource.
-  source: string;
-  // The partner's own correlation id for their request (integration source
-  // only). Unique per owning client company when set — lets a create-call be
-  // retried safely without producing duplicate tickets.
-  externalRef: string | null;
   title: string;
   description: string;
   // Optional module/suite of the project the feedback relates to (suite name
@@ -142,17 +134,6 @@ const Feedback = new EntitySchema<Feedback>({
     type: {
       type: "varchar",
       length: 30,
-    },
-    source: {
-      type: "varchar",
-      length: 20,
-      default: FeedbackSource.PUBLIC_FORM,
-    },
-    externalRef: {
-      name: "external_ref",
-      type: "varchar",
-      length: 120,
-      nullable: true,
     },
     title: {
       type: "varchar",
@@ -268,16 +249,6 @@ const Feedback = new EntitySchema<Feedback>({
     },
     // "Assigned to me" / reassignment filters within a company's queue.
     { name: "idx_feedback_assigned_supporter", columns: ["assignedSupporterId"] },
-    // Idempotency key for integration ticket creation — a partner retrying a
-    // create call with the same externalRef gets the same ticket back.
-    // Scoped to the owning client company (one partner integration = one
-    // company), not the project — a project can host several partners.
-    {
-      name: "idx_feedback_company_external_ref",
-      columns: ["clientCompanyId", "externalRef"],
-      unique: true,
-      where: "external_ref IS NOT NULL AND client_company_id IS NOT NULL",
-    },
     { name: "idx_feedback_ticket_number", columns: ["ticketNumber"], unique: true },
   ],
 });

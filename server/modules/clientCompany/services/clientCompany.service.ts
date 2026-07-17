@@ -13,12 +13,7 @@ const { UserRepository } = require("../../user/repositories/user.repository");
 const { ActivityService } = require("../../activity/services/activity.service");
 const { AppError } = require("../../../shared/errors/AppError");
 const { UserRole, AuthProvider } = require("../../../config/constants");
-const {
-  hashPassword,
-  hashToken,
-  generateApiKey,
-  generateTempPassword,
-} = require("../../../shared/utils/password");
+const { hashPassword, generateTempPassword } = require("../../../shared/utils/password");
 const { sendSupporterInviteEmail } = require("../../../shared/utils/mail/support.mail");
 const { env } = require("../../../config/env");
 
@@ -54,8 +49,8 @@ export class ClientCompanyService {
   // Supporter-roster management (list/add/remove/promote) is the one area a
   // company can self-serve: its own IT support lead can do it too, not just
   // the product team — scoped strictly to their own company. Everything else
-  // about a client company (the record itself, its ticket-form link, its
-  // integration API key) stays product-team-only.
+  // about a client company (the record itself, its ticket-form link) stays
+  // product-team-only.
   private async getAccessibleForSupporterManagement(actor: Actor, id: string): Promise<ClientCompany> {
     if (actor.role === UserRole.IT_SUPPORT) {
       if (!actor.isSupportLead || actor.clientCompanyId !== id) {
@@ -174,43 +169,6 @@ export class ClientCompanyService {
     return { feedbackToken: company.feedbackToken };
   }
 
-  // Generate/rotate (enabled: true, raw apiKey returned once) or revoke
-  // (enabled: false) this company's partner integration API key. Tickets
-  // created with it land in this company's IT queue — see
-  // FeedbackService.createIntegrationTicket / apiKeyAuth.middleware.
-  async setIntegrationApiKey(actor: Actor, id: string, enabled: boolean) {
-    const company = await this.getAccessible(actor, id);
-    if (!enabled) {
-      company.integrationApiKeyHash = null;
-      company.integrationApiKeyLastFour = null;
-      company.integrationApiKeyCreatedAt = null;
-      await this.companyRepo.save(company);
-      return { apiKey: null, lastFour: null, createdAt: null };
-    }
-
-    const rawKey = generateApiKey();
-    company.integrationApiKeyHash = hashToken(rawKey);
-    company.integrationApiKeyLastFour = rawKey.slice(-4);
-    company.integrationApiKeyCreatedAt = new Date();
-    await this.companyRepo.save(company);
-
-    ActivityService.Instance.log(actor, {
-      action: "client_company.integration_key_rotated",
-      summary: `Rotated the partner integration API key for client company "${company.name}"`,
-      entityType: "client_company",
-      entityId: company.id,
-      clientCompanyId: company.id,
-      metadata: { projectId: company.projectId },
-    });
-
-    // Raw key is returned exactly once — only the hash is ever persisted.
-    return {
-      apiKey: rawKey,
-      lastFour: company.integrationApiKeyLastFour,
-      createdAt: company.integrationApiKeyCreatedAt,
-    };
-  }
-
   // A support lead provisioned server-to-server arrives as just an email —
   // derive a display name from its local part (e.g. "sam.support" -> "Sam
   // Support") since firstName/lastName are NOT NULL columns on User. Purely
@@ -229,8 +187,8 @@ export class ClientCompanyService {
   // A partner's own backend calls this the moment one of their customers signs
   // up, creating the ClientCompany and its first IT support lead in one shot —
   // no TestMate admin has to do either step by hand. No actor here — this is
-  // machine traffic, same convention as FeedbackService.createIntegrationTicket
-  // (no activity log entry, since there's no human to attribute it to).
+  // machine traffic, so there's no activity log entry (no human to attribute
+  // it to).
   async provisionCompany(data: {
     projectId: string;
     name: string;

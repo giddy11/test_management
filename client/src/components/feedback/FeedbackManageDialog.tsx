@@ -155,12 +155,6 @@ export function FeedbackManageDialog({
               {feedback.description}
             </p>
 
-            {feedback.externalRef && (
-              <p className="text-xs text-muted-foreground">
-                External ref: <code className="rounded bg-muted px-1 py-0.5">{feedback.externalRef}</code>
-              </p>
-            )}
-
             {feedback.attachments.length > 0 && (
               <div className="flex flex-wrap gap-2">
                 {feedback.attachments.map((a) => (

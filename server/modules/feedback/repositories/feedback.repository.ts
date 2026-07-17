@@ -133,15 +133,6 @@ export class FeedbackRepository {
     return this.repo.save(this.repo.create(data));
   }
 
-  // Idempotency lookup for integration ticket creation — scoped to the
-  // owning client company (one partner integration = one company).
-  async findByCompanyAndExternalRef(
-    clientCompanyId: string,
-    externalRef: string
-  ): Promise<Feedback | null> {
-    return this.repo.findOne({ where: { clientCompanyId, externalRef } });
-  }
-
   async addAttachments(
     feedbackId: string,
     files: { url: string; publicId: string }[]

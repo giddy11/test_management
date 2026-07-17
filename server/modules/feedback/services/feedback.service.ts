@@ -14,7 +14,6 @@ import { ticketLabel } from "../dto/feedback.dto";
 import type { Actor } from "../../../shared/types/actor";
 import type { Feedback } from "../entities/feedback.entity";
 import type { Project } from "../../project/entities/project.entity";
-import type { ClientCompany } from "../../clientCompany/entities/clientCompany.entity";
 
 const { AuthRepository } = require("../../auth/repositories/auth.repository");
 const { NotificationService } = require("../../notification/services/notification.service");
@@ -29,7 +28,7 @@ const {
   sendFeedbackConfirmationReceivedEmail,
 } = require("../../../shared/utils/mailer");
 const { AppError } = require("../../../shared/errors/AppError");
-const { UserRole, FeedbackStatus, FeedbackSource, SupportStatus } = require("../../../config/constants");
+const { UserRole, FeedbackStatus, SupportStatus } = require("../../../config/constants");
 const { env } = require("../../../config/env");
 
 // The lifecycle is strictly ordered — Object.freeze preserves declaration order.
@@ -134,9 +133,7 @@ export class FeedbackService {
     };
   }
 
-  // Shared by the public form and the integration endpoint — creates the row
-  // and its first history entry. Channel-specific bits (suite selection,
-  // screenshots, company routing, rate-limit tier) stay in the caller.
+  // Creates the row and its first history entry for a public-form submission.
   private async createFeedbackCore(
     project: Project,
     data: {
@@ -149,8 +146,6 @@ export class FeedbackService {
       submitterPhone?: string;
       clientCompanyId?: string | null;
       supportStatus?: string | null;
-      source: string;
-      externalRef?: string | null;
     }
   ): Promise<Feedback> {
     const fb = await this.feedbackRepo.create({
@@ -165,8 +160,6 @@ export class FeedbackService {
       submitterEmail: data.submitterEmail,
       submitterPhone: data.submitterPhone ?? null,
       status: FeedbackStatus.LOGGED,
-      source: data.source,
-      externalRef: data.externalRef ?? null,
     });
 
     // The product owner's stage timeline starts at submission for direct items,
@@ -240,7 +233,6 @@ export class FeedbackService {
       ...data,
       clientCompanyId: company?.id ?? null,
       supportStatus: company ? SupportStatus.LOGGED : null,
-      source: FeedbackSource.PUBLIC_FORM,
     });
 
     // Screenshots (optional) — uploaded before the response so a submitter
@@ -282,102 +274,6 @@ export class FeedbackService {
     this.notifyProjectTeamOfNewFeedback(project, fb);
 
     return { id: fb.id };
-  }
-
-  // ── Partner integration API (server-to-server, x-api-key auth) ──────────────
-
-  // Integration tickets always route to the key's owning client company's IT
-  // support queue — never straight to the product team — exactly like a
-  // submission through that company's public form. The key IS the company's
-  // credential (see apiKeyAuth.middleware), so there's no "direct" mode here.
-  async createIntegrationTicket(
-    company: ClientCompany,
-    data: {
-      type: string;
-      title: string;
-      description: string;
-      submitterName: string;
-      submitterEmail: string;
-      submitterPhone?: string;
-      externalRef?: string;
-    }
-  ): Promise<{ feedback: Feedback; created: boolean }> {
-    const project = await this.projectRepo.findById(company.projectId);
-    if (!project || project.deletedAt) throw new AppError("Project not found", 404);
-
-    if (data.externalRef) {
-      const existing = await this.feedbackRepo.findByCompanyAndExternalRef(
-        company.id,
-        data.externalRef
-      );
-      if (existing) return { feedback: existing, created: false };
-    }
-
-    let fb: Feedback;
-    try {
-      fb = await this.createFeedbackCore(project, {
-        ...data,
-        clientCompanyId: company.id,
-        supportStatus: SupportStatus.LOGGED,
-        source: FeedbackSource.INTEGRATION,
-        externalRef: data.externalRef ?? null,
-      });
-    } catch (err: any) {
-      // Race: two concurrent retries with the same externalRef both passed the
-      // check above — the unique partial index rejects the loser. Return the
-      // winner instead of erroring, preserving idempotency under retry.
-      if (data.externalRef && err?.code === "23505") {
-        const existing = await this.feedbackRepo.findByCompanyAndExternalRef(
-          company.id,
-          data.externalRef
-        );
-        if (existing) return { feedback: existing, created: false };
-      }
-      throw err;
-    }
-
-    sendFeedbackReceivedEmail(
-      fb.submitterEmail,
-      fb.submitterName,
-      project.name,
-      ticketLabel(fb),
-      project.organizationId
-    ).catch((e: Error) => console.error("[feedback] received email failed:", e.message));
-
-    // Alert the company's IT supporters, not the product team — mirrors the
-    // company-token branch of submitPublic.
-    const { FeedbackSupportService } = require("./feedbackSupport.service");
-    FeedbackSupportService.Instance.notifyQueueItem(company, fb, project).catch((e: Error) =>
-      console.error("[feedback] support-queue notify failed:", e.message)
-    );
-
-    return { feedback: fb, created: true };
-  }
-
-  // The caller here is an API key scoped to one client company, not an actor
-  // with org-wide access — a ticket is visible only if it belongs to that
-  // company, regardless of escalation state (it's their own submitted item).
-  private assertBelongsToCompany(
-    fb: Feedback | null,
-    companyId: string
-  ): asserts fb is Feedback {
-    if (!fb || fb.deletedAt || fb.clientCompanyId !== companyId) {
-      throw new AppError("Ticket not found", 404);
-    }
-  }
-
-  async getIntegrationTicket(company: ClientCompany, id: string): Promise<Feedback> {
-    const fb = await this.feedbackRepo.findById(id);
-    this.assertBelongsToCompany(fb, company.id);
-    return fb;
-  }
-
-  // A submitter's ticket history within this company's queue.
-  async listIntegrationTickets(
-    company: ClientCompany,
-    params: { submitterEmail: string; page?: number; limit?: number }
-  ) {
-    return this.feedbackRepo.fetchPaginated({ clientCompanyId: company.id, ...params });
   }
 
   // ── Authenticated (project members/admins) ──────────────────────────────────

@@ -34,13 +34,6 @@ export const clientCompanyLinkSchema = z.object({
   body: z.object({ enabled: z.boolean() }),
 });
 
-// Generate/rotate (enabled: true) or revoke (enabled: false) this company's
-// partner integration API key.
-export const clientCompanyIntegrationKeySchema = z.object({
-  params: z.object({ id: z.string().uuid() }),
-  body: z.object({ enabled: z.boolean() }),
-});
-
 // Same password rules as user.schema.js createUserSchema.
 export const createSupporterSchema = z.object({
   params: z.object({ id: z.string().uuid() }),

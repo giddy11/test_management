@@ -124,31 +124,3 @@ export const feedbackLinkSchema = z.object({
   params: z.object({ id: z.string().uuid() }),
   body: z.object({ enabled: z.boolean() }),
 });
-
-// ── Partner integration API (server-to-server, x-api-key auth) ─────────────
-
-export const integrationCreateTicketSchema = z.object({
-  body: z.object({
-    type: z.enum(feedbackTypes),
-    title: z.string().min(1).max(200),
-    description: z.string().min(1).max(5000),
-    submitterName: z.string().min(1).max(120),
-    submitterEmail: z.string().email().max(255),
-    submitterPhone: z.string().regex(/^\+[1-9]\d{6,14}$/, "Invalid phone number").optional(),
-    // The partner's own correlation id — retrying a create call with the same
-    // value returns the original ticket instead of making a duplicate.
-    externalRef: z.string().min(1).max(120).optional(),
-  }),
-});
-
-export const integrationListTicketsSchema = z.object({
-  query: z.object({
-    submitterEmail: z.string().email().max(255),
-    page: z.coerce.number().int().min(1).default(1),
-    limit: z.coerce.number().int().min(1).max(100).default(20),
-  }),
-});
-
-export const integrationTicketIdParamSchema = z.object({
-  params: z.object({ id: z.string().uuid() }),
-});

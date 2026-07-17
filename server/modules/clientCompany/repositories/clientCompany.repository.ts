@@ -29,11 +29,6 @@ export class ClientCompanyRepository {
     return this.repo.findOne({ where: { feedbackToken } }); // indexed
   }
 
-  // Partner integration API auth — the hashed key is the only credential.
-  async findByIntegrationApiKeyHash(hash: string): Promise<ClientCompany | null> {
-    return this.repo.findOne({ where: { integrationApiKeyHash: hash } });
-  }
-
   // Case-insensitive match across the whole application — used to reject
   // duplicate contact emails when creating/renaming a client company.
   async findByEmail(email: string): Promise<ClientCompany | null> {

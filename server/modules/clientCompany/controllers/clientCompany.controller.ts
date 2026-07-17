@@ -90,19 +90,6 @@ export class ClientCompanyController {
     }
   }
 
-  static async setIntegrationKey(req: any, res: any, next: any) {
-    try {
-      const result = await ClientCompanyService.Instance.setIntegrationApiKey(
-        req.user,
-        req.validated.params.id,
-        req.validated.body.enabled
-      );
-      res.status(200).json(ApiResponse.ok("Integration API key updated", result));
-    } catch (err) {
-      next(err);
-    }
-  }
-
   // ── Partner integration API (server-to-server, unauthenticated) ────────────
   static async integrationProvision(req: any, res: any, next: any) {
     try {

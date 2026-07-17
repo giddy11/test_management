@@ -9,7 +9,6 @@ import {
   updateClientCompanySchema,
   clientCompanyIdParamSchema,
   clientCompanyLinkSchema,
-  clientCompanyIntegrationKeySchema,
   createSupporterSchema,
   supporterParamSchema,
   setSupporterLeadSchema,
@@ -35,14 +34,6 @@ router.post("/", ...adminOnly, validate(createClientCompanySchema), ClientCompan
 router.patch("/:id", ...adminOnly, validate(updateClientCompanySchema), ClientCompanyController.update);
 router.delete("/:id", ...adminOnly, validate(clientCompanyIdParamSchema), ClientCompanyController.remove);
 router.post("/:id/link", ...adminOnly, validate(clientCompanyLinkSchema), ClientCompanyController.setLink);
-
-// Generate/rotate/revoke this company's partner integration API key.
-router.post(
-  "/:id/integration-key",
-  ...adminOnly,
-  validate(clientCompanyIntegrationKeySchema),
-  ClientCompanyController.setIntegrationKey
-);
 
 router.get(
   "/:id/supporters",

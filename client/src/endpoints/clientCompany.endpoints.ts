@@ -27,15 +27,6 @@ export const ClientCompanyEndpoints = {
   setLink: (id: string, enabled: boolean) =>
     wrapCall<{ feedbackToken: string | null }>("POST", `/api/v1/client-companies/${id}/link`, { enabled }),
 
-  // Generate/rotate (enabled: true, raw apiKey returned once) or revoke
-  // (enabled: false) this company's partner integration API key.
-  setIntegrationKey: (id: string, enabled: boolean) =>
-    wrapCall<{ apiKey: string | null; lastFour: string | null; createdAt: string | null }>(
-      "POST",
-      `/api/v1/client-companies/${id}/integration-key`,
-      { enabled }
-    ),
-
   listSupporters: (id: string) =>
     wrapCall<Supporter[]>("GET", `/api/v1/client-companies/${id}/supporters`),
 

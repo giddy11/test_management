@@ -1,9 +1,7 @@
-// modules/clientCompany/tests/clientCompanyIntegrationKey.routes.spec.ts
-// The partner integration API key lives on the client company (not the
-// project) — generating/rotating/revoking it must stay admin-only, same bar
-// as every other client-company management action. Supporter-roster routes
-// are the one exception: it_support is admitted at the route level (the
-// service layer further scopes it to that company's own lead).
+// modules/clientCompany/tests/clientCompany.routes.spec.ts
+// Supporter-roster routes are the one exception to admin-only management: a
+// company's own IT support lead can manage their own team too (the service
+// layer further scopes it to that company's own lead).
 
 function tag(fn: any, name: string) {
   fn.__tag = name;
@@ -24,7 +22,6 @@ jest.mock("../controllers/clientCompany.controller", () => ({
     update: jest.fn((req: any, res: any) => res.status(200).json({})),
     remove: jest.fn((req: any, res: any) => res.status(200).json({})),
     setLink: jest.fn((req: any, res: any) => res.status(200).json({})),
-    setIntegrationKey: jest.fn((req: any, res: any) => res.status(200).json({})),
     listSupporters: jest.fn((req: any, res: any) => res.status(200).json({})),
     createSupporter: jest.fn((req: any, res: any) => res.status(200).json({})),
     removeSupporter: jest.fn((req: any, res: any) => res.status(200).json({})),
@@ -53,16 +50,6 @@ function invoke(handler: any, role?: string) {
   handler(req, res, next);
   return { next, status, json };
 }
-
-describe("client-company routes — integration key management is admin-only", () => {
-  it("admits superadmin/admin and blocks a plain user or it_support", () => {
-    const handler = authoriseHandlerFor(clientCompanyRouter, "/:id/integration-key", "post");
-    expect(invoke(handler, "superadmin").next).toHaveBeenCalled();
-    expect(invoke(handler, "admin").next).toHaveBeenCalled();
-    expect(invoke(handler, "user").next).not.toHaveBeenCalled();
-    expect(invoke(handler, "it_support").next).not.toHaveBeenCalled();
-  });
-});
 
 describe("client-company routes — supporter-roster management admits it_support too", () => {
   const routes: [string, string][] = [

@@ -1,10 +1,6 @@
 // modules/feedback/controllers/feedback.controller.ts
 import { FeedbackService } from "../services/feedback.service";
-import {
-  toFeedbackResponse,
-  toFeedbackTimelineResponse,
-  toIntegrationTicketResponse,
-} from "../dto/feedback.dto";
+import { toFeedbackResponse, toFeedbackTimelineResponse } from "../dto/feedback.dto";
 
 const { ApiResponse } = require("../../../shared/response/apiResponse");
 
@@ -113,54 +109,6 @@ export class FeedbackController {
         req.validated.body.enabled
       );
       res.status(200).json(ApiResponse.ok("Feedback link updated", result));
-    } catch (err) {
-      next(err);
-    }
-  }
-
-  // ── Partner integration API (server-to-server, x-api-key auth) ─────────────
-  static async integrationCreate(req: any, res: any, next: any) {
-    try {
-      const { feedback, created } = await FeedbackService.Instance.createIntegrationTicket(
-        req.integrationClientCompany,
-        req.validated.body
-      );
-      res
-        .status(created ? 201 : 200)
-        .json(
-          ApiResponse.ok(created ? "Ticket created" : "Ticket already exists for this reference", {
-            ...toIntegrationTicketResponse(feedback),
-            created,
-          })
-        );
-    } catch (err) {
-      next(err);
-    }
-  }
-
-  static async integrationGet(req: any, res: any, next: any) {
-    try {
-      const fb = await FeedbackService.Instance.getIntegrationTicket(
-        req.integrationClientCompany,
-        req.validated.params.id
-      );
-      res.status(200).json(ApiResponse.ok("Ticket fetched", toIntegrationTicketResponse(fb)));
-    } catch (err) {
-      next(err);
-    }
-  }
-
-  static async integrationList(req: any, res: any, next: any) {
-    try {
-      const result = await FeedbackService.Instance.listIntegrationTickets(
-        req.integrationClientCompany,
-        req.validated.query
-      );
-      res
-        .status(200)
-        .json(
-          ApiResponse.ok("Tickets fetched", result.data.map(toIntegrationTicketResponse), result.meta)
-        );
     } catch (err) {
       next(err);
     }

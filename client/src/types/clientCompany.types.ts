@@ -7,11 +7,6 @@ export interface ClientCompany {
   name: string
   contactEmail: string | null
   feedbackToken: string | null
-  // Safe metadata only — the raw integration API key is never returned here,
-  // only once from the generate/rotate call itself. Tickets created with it
-  // land in this company's IT queue (see partner integration docs).
-  integrationApiKeyLastFour: string | null
-  integrationApiKeyCreatedAt: string | null
   supporterCount: number
   createdAt: string
 }
