@@ -667,6 +667,86 @@ const ALL_SECTIONS: DocSection[] = [
             confirmed by the submitter after an escalation.
           </li>
         </UL>
+
+        <H3>How TestMate resolves the key</H3>
+        <P>
+          TestMate never stores the raw key — only its SHA-256 hash, in the owning client
+          company's row. On every request, the incoming <Code>x-api-key</Code> header is hashed
+          and looked up against that column; a match resolves to exactly one client company, which
+          is how TestMate knows whose queue a ticket belongs to. If the key doesn't match anything
+          (wrong, revoked, or never issued), the request gets a <Code>401</Code> before anything
+          else runs — including before the request body is parsed or validated.
+        </P>
+
+        <H3>Embedding the key on the partner's side</H3>
+        <P>
+          The key belongs on the partner's <Strong>backend only</Strong> — never in frontend
+          JavaScript, a mobile app bundle, or anything else that ships to an end user's device.
+          Store it the same way you'd store any other third-party API key (a Stripe secret key, a
+          Twilio token): an environment variable or your secrets manager, read server-side, and
+          attached to outgoing requests:
+        </P>
+        <CodeBlock>{`// partner's backend, e.g. Node/Express
+const res = await fetch("https://<your-domain>/api/v1/integrations/tickets", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    "x-api-key": process.env.TESTMATE_API_KEY,
+  },
+  body: JSON.stringify({
+    type: "bug",
+    title: "Export fails",
+    description: "CSV export returns a 500",
+    submitterName: user.name,
+    submitterEmail: user.email,
+    externalRef: \`partner-\${localTicketId}\`,
+  }),
+});
+const { data } = await res.json();
+// data.id / data.ticketNumber — store this to check status later`}</CodeBlock>
+        <P>
+          Typical shape end-to-end: the partner's end user hits "Report a problem" inside the
+          <Strong> partner's</Strong> product. The partner's backend receives that, calls the
+          create endpoint above, and stores the returned <Code>id</Code>/<Code>ticketNumber</Code>{" "}
+          against its own local record. To show status back to that user, the partner's backend
+          later calls <Code>GET /integrations/tickets/:id</Code> with the same key and renders the
+          result in its own UI — the end user never sees TestMate directly.
+        </P>
+
+        <H3>If the partner's own product is multi-tenant</H3>
+        <P>
+          A single deployment serving several of the partner's own client organizations{" "}
+          <Strong>can't</Strong> use one static environment variable, since each of TestMate's
+          client companies has a different key. Instead, the partner needs their own lookup —
+          typically a column on their own tenant/org table, encrypted at rest — so the right key is
+          selected per request instead of hardcoded:
+        </P>
+        <CodeBlock>{`// partner's own database — one row per client company they serve
+// tenants table: { id, name, testmate_api_key (encrypted), ... }
+
+async function reportIssue(req) {
+  const tenant = await db.tenants.findById(req.user.tenantId);
+  const testmateKey = decrypt(tenant.testmate_api_key);
+
+  await fetch("https://<your-domain>/api/v1/integrations/tickets", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-api-key": testmateKey },
+    body: JSON.stringify({ /* ... */ }),
+  });
+}`}</CodeBlock>
+        <P>
+          This is entirely the partner's own code to write — TestMate has no visibility into or
+          opinion about how they store their per-tenant credentials, only that whatever arrives in
+          the <Code>x-api-key</Code> header is a key it issued and hasn't revoked.
+        </P>
+
+        <H3>Security notes</H3>
+        <UL>
+          <li>Treat the key like any other production secret — it grants ticket creation and read access scoped to one client company, nothing more.</li>
+          <li>Rotate immediately if it may have leaked (committed to a repo, pasted somewhere public, an ex-employee had access). The old key stops working the instant a new one is generated.</li>
+          <li>Revoke it entirely (rather than rotate) if the integration is being decommissioned — there's no "soft off," a revoked key returns <Code>401</Code> immediately.</li>
+          <li>The key is shown to the TestMate admin exactly once, at generation/rotation — if it's lost before being stored on the partner's side, the only recovery is generating a new one.</li>
+        </UL>
       </div>
     ),
   },

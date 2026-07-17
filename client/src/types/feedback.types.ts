@@ -1,7 +1,7 @@
 export type FeedbackType = "feature_request" | "bug" | "complaint"
 
 // How a ticket was created — the public browser form, or a partner's
-// server-to-server integration (see IntegrationApiKeyCard / partner docs).
+// server-to-server integration (see IntegrationApiKeyDialog / partner docs).
 export type FeedbackSource = "public_form" | "integration"
 
 export type FeedbackStatus =

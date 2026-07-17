@@ -2,7 +2,7 @@
 // product. Each gets its own public form link (feedback lands in THEIR IT
 // queue, not yours) and its own supporter accounts.
 import { useState } from "react"
-import { Building2, Copy, Link2, Link2Off, Pencil, Plus, Trash2, Users } from "lucide-react"
+import { Building2, Copy, KeyRound, Link2, Link2Off, Pencil, Plus, Trash2, Users } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -16,7 +16,7 @@ import {
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog"
 import { ClientCompanyFormDialog } from "@/components/feedback/ClientCompanyFormDialog"
 import { SupportersDialog } from "@/components/feedback/SupportersDialog"
-import { IntegrationApiKeyCard } from "@/components/feedback/IntegrationApiKeyCard"
+import { IntegrationApiKeyDialog } from "@/components/feedback/IntegrationApiKeyDialog"
 import {
   useClientCompanies,
   useDeleteClientCompany,
@@ -32,6 +32,7 @@ export function ClientCompaniesCard({ projectId }: { projectId: string }) {
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<ClientCompany | null>(null)
   const [managingSupporters, setManagingSupporters] = useState<ClientCompany | null>(null)
+  const [managingKey, setManagingKey] = useState<ClientCompany | null>(null)
   const [deleting, setDeleting] = useState<ClientCompany | null>(null)
 
   const toggleLink = (company: ClientCompany, enabled: boolean) => {
@@ -118,9 +119,12 @@ export function ClientCompaniesCard({ projectId }: { projectId: string }) {
               <Button size="sm" variant="ghost" onClick={() => setManagingSupporters(c)}>
                 <Users className="mr-1 size-3.5" /> Supporters
               </Button>
-            </div>
-            <div className="mt-2 border-t pt-2">
-              <IntegrationApiKeyCard company={c} />
+              <Button size="sm" variant="ghost" onClick={() => setManagingKey(c)}>
+                <KeyRound className="mr-1 size-3.5" /> Integration key
+                {c.integrationApiKeyLastFour && (
+                  <Badge variant="secondary" className="ml-1.5 text-[10px]">Active</Badge>
+                )}
+              </Button>
             </div>
           </div>
         ))}
@@ -140,6 +144,11 @@ export function ClientCompaniesCard({ projectId }: { projectId: string }) {
       <SupportersDialog
         company={managingSupporters}
         onOpenChange={(o) => !o && setManagingSupporters(null)}
+      />
+
+      <IntegrationApiKeyDialog
+        company={managingKey}
+        onOpenChange={(o) => !o && setManagingKey(null)}
       />
 
       <ConfirmDialog
