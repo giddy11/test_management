@@ -47,6 +47,9 @@ const {
 const {
   FeedbackSupportStatusHistory,
 } = require("../../modules/feedback/entities/feedbackSupportStatusHistory.entity");
+const {
+  FeedbackLookupCode,
+} = require("../../modules/feedback/entities/feedbackLookupCode.entity");
 const { BugAttachment } = require("../../modules/bug/entities/bugAttachment.entity");
 const { SiteBanner } = require("../../modules/siteBanner/entities/siteBanner.entity");
 const {
@@ -93,6 +96,7 @@ const AppDataSource = new DataSource({
     FeedbackAttachment,
     FeedbackStatusHistory,
     FeedbackSupportStatusHistory,
+    FeedbackLookupCode,
     SiteBanner,
     ClientCompany,
     SupportChatConversation,
