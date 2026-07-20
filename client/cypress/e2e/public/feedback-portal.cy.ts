@@ -13,7 +13,7 @@ describe("Public feedback portal", () => {
 
     cy.visit(`/feedback/${TOKEN}`)
     cy.wait("@form")
-    cy.contains("This feedback form is not available.").should("be.visible")
+    cy.contains("This ticket form is not available.").should("be.visible")
   })
 
   it("renders the form without any login", () => {
@@ -26,7 +26,7 @@ describe("Public feedback portal", () => {
 
     cy.visit(`/feedback/${TOKEN}`)
     cy.wait("@form")
-    cy.contains("Apollo — feedback").should("be.visible")
+    cy.contains("Apollo — Raise a Ticket").should("be.visible")
     cy.get("#fb-name").should("be.visible")
     cy.get("#fb-email").should("be.visible")
   })
@@ -47,7 +47,7 @@ describe("Public feedback portal", () => {
     cy.get("#fb-email").type("external.user@example.com")
     cy.get("#fb-title").type("Add CSV export")
     cy.get("#fb-description").type("We need to export results as CSV for our reports.")
-    cy.contains("button", "Send feedback").click()
+    cy.contains("button", "Raise ticket").click()
 
     cy.wait("@submit").then(({ request }) => {
       // Multipart body — assert the text fields made it into the payload.
@@ -55,7 +55,7 @@ describe("Public feedback portal", () => {
       expect(String(request.body)).to.include("external.user@example.com")
     })
     cy.contains("Thank you!").should("be.visible")
-    cy.contains("Your feedback for Apollo has been logged").should("be.visible")
+    cy.contains("Your ticket for Apollo has been logged").should("be.visible")
 
     // "Submit another response" resets the form.
     cy.contains("button", "Submit another response").click()
@@ -83,7 +83,7 @@ describe("Public feedback portal", () => {
     cy.get("#fb-email").type("external.user@example.com")
     cy.get("#fb-title").type("Add CSV export")
     cy.get("#fb-description").type("Details here.")
-    cy.contains("button", "Send feedback").click()
+    cy.contains("button", "Raise ticket").click()
 
     cy.wait("@submit")
     cy.contains("Too many submissions").should("be.visible")
