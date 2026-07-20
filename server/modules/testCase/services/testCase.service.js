@@ -152,7 +152,7 @@ class TestCaseService {
     for (const uid of userIds) {
       const user = await this.authRepo.findUserById(uid);
       if (!user) throw new AppError(`User not found: ${uid}`, 404);
-      if (user.organizationId !== actor.organizationId && actor.role !== UserRole.SUPERADMIN) {
+      if (user.organizationId !== actor.organizationId) {
         throw new AppError("You can only assign users from your organisation", 403);
       }
       users.push(user);
@@ -208,7 +208,7 @@ class TestCaseService {
     for (const uid of userIds) {
       const user = await this.authRepo.findUserById(uid);
       if (!user) throw new AppError(`User not found: ${uid}`, 404);
-      if (user.organizationId !== actor.organizationId && actor.role !== UserRole.SUPERADMIN) {
+      if (user.organizationId !== actor.organizationId) {
         throw new AppError("You can only assign users from your organisation", 403);
       }
       users.push(user);

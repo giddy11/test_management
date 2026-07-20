@@ -44,10 +44,10 @@ describe("ActivityService", () => {
       );
     });
 
-    it("leaves superadmins unscoped", async () => {
+    it("scopes a superadmin to their own organisation too", async () => {
       await service.fetch({ role: UserRole.SUPERADMIN, organizationId: "org-1" }, { page: 1 });
       expect(repo.fetchPaginated).toHaveBeenCalledWith(
-        expect.objectContaining({ organizationId: undefined })
+        expect.objectContaining({ organizationId: "org-1" })
       );
     });
 

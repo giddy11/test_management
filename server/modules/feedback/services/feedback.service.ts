@@ -191,18 +191,18 @@ export class FeedbackService {
   // Alert the project's admins + members in-app and by email — direct
   // (product-team-facing) submissions only, never company-routed ones (those
   // notify the company's IT supporters instead, see resolveFormToken callers).
+  // This is company-operational data, so superadmins are deliberately excluded.
   private notifyProjectTeamOfNewFeedback(project: Project, fb: Feedback): void {
     Promise.all([
-      this.authRepo.findByRole(UserRole.SUPERADMIN),
       project.organizationId
         ? this.authRepo.findByRoleAndOrg(UserRole.ADMIN, project.organizationId)
         : Promise.resolve([]),
       this.memberRepo.findMemberUsers(project.id),
     ])
-      .then(([superadmins, orgAdmins, members]: any[]) => {
+      .then(([orgAdmins, members]: any[]) => {
         const recipients = [
           ...new Map(
-            [...superadmins, ...orgAdmins, ...members].map((u: any) => [u.id, u])
+            [...orgAdmins, ...members].map((u: any) => [u.id, u])
           ).values(),
         ];
         if (recipients.length) {
@@ -296,12 +296,10 @@ export class FeedbackService {
       return this.feedbackRepo.fetchPaginated(params as any);
     }
 
-    // Cross-project view: superadmin sees all orgs, admins their org, plain
-    // users only projects they're members of.
-    if (actor.role === UserRole.SUPERADMIN) {
-      return this.feedbackRepo.fetchPaginated(params as any);
-    }
-    if (actor.role === UserRole.ADMIN) {
+    // Cross-project view, scoped to the actor's own org: admins (including
+    // superadmin, whose own org is never a real client company) see their
+    // org's tickets; plain users only projects they're members of.
+    if (actor.role === UserRole.ADMIN || actor.role === UserRole.SUPERADMIN) {
       return this.feedbackRepo.fetchPaginated({
         ...params,
         organizationId: actor.organizationId ?? undefined,
@@ -575,18 +573,18 @@ export class FeedbackService {
       project?.organizationId
     ).catch((e: Error) => console.error("[feedback] confirmation-received email failed:", e.message));
 
-    // Alert the project's admins + members — same recipient fan-out as new feedback.
+    // Alert the project's admins + members — same recipient fan-out as new
+    // feedback. Company-operational data, so superadmins are excluded.
     Promise.all([
-      this.authRepo.findByRole(UserRole.SUPERADMIN),
       project?.organizationId
         ? this.authRepo.findByRoleAndOrg(UserRole.ADMIN, project.organizationId)
         : Promise.resolve([]),
       this.memberRepo.findMemberUsers(fb.projectId),
     ])
-      .then(([superadmins, orgAdmins, members]: any[]) => {
+      .then(([orgAdmins, members]: any[]) => {
         const recipients = [
           ...new Map(
-            [...superadmins, ...orgAdmins, ...members].map((u: any) => [u.id, u])
+            [...orgAdmins, ...members].map((u: any) => [u.id, u])
           ).values(),
         ];
         if (recipients.length) {

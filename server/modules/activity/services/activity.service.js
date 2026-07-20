@@ -42,9 +42,11 @@ class ActivityService {
         clientCompanyId: actor.clientCompanyId,
       });
     }
+    // Superadmin's own org is never a real client company, so this is
+    // deliberately scoped the same as any other admin — not the whole platform.
     return this.repo.fetchPaginated({
       ...params,
-      organizationId: actor.role === UserRole.SUPERADMIN ? undefined : actor.organizationId,
+      organizationId: actor.organizationId,
     });
   }
 }

@@ -49,10 +49,6 @@ export class ProjectService {
     this.notificationService = notificationService;
   }
 
-  isSuperadmin(actor: Actor): boolean {
-    return actor.role === UserRole.SUPERADMIN;
-  }
-
   // Team leads get unrestricted visibility inside their project (all suites and
   // cases). Admins/superadmins are already unrestricted, so this only matters
   // for the 'user' role — used by TestSuiteService and TestCaseService.
@@ -77,12 +73,12 @@ export class ProjectService {
     }
   }
 
-  // Superadmin sees every org; admins see every project in their own org. A
-  // plain 'user' must additionally be a member of the project, or (legacy
-  // behaviour, kept so nobody loses access) be assigned to at least one test
-  // case somewhere in the project.
+  // Admins (including superadmin) see every project in their own org — a
+  // superadmin's own org is never a real client company, so this deliberately
+  // does NOT give them cross-company access. A plain 'user' must additionally
+  // be a member of the project, or (legacy behaviour, kept so nobody loses
+  // access) be assigned to at least one test case somewhere in the project.
   async assertAccess(actor: Actor, project: Project): Promise<void> {
-    if (this.isSuperadmin(actor)) return;
     if (!actor.organizationId || project.organizationId !== actor.organizationId) {
       throw new AppError("You do not have access to this project", 403);
     }
@@ -99,7 +95,7 @@ export class ProjectService {
   async fetchProjects(actor: Actor, params: Record<string, unknown>) {
     return this.projectRepo.fetchPaginated({
       ...params,
-      organizationId: this.isSuperadmin(actor) ? undefined : actor.organizationId,
+      organizationId: actor.organizationId,
       restrictedUserId: actor.role === UserRole.USER ? actor.id : undefined,
     });
   }
@@ -197,7 +193,7 @@ export class ProjectService {
     for (const m of members) {
       const user = await this.authRepo.findUserById(m.userId);
       if (!user) throw new AppError(`Member not found: ${m.userId}`, 404);
-      if (!this.isSuperadmin(actor) && user.organizationId !== actor.organizationId) {
+      if (user.organizationId !== actor.organizationId) {
         throw new AppError("Members must belong to your organization", 400);
       }
       byId.set(user.id, { user, role: m.role ?? ProjectMemberRole.MEMBER });

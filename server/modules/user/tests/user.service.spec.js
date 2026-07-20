@@ -40,12 +40,12 @@ describe("UserService", () => {
       );
     });
 
-    it("does not scope a superadmin", async () => {
+    it("scopes a superadmin to their own organisation too", async () => {
       repo.findById.mockResolvedValue({ ...admin, role: UserRole.SUPERADMIN });
       repo.fetchPaginated.mockResolvedValue({ data: [], meta: {} });
       await service.fetchUsers("admin-1", { page: 1, limit: 20 });
       expect(repo.fetchPaginated).toHaveBeenCalledWith(
-        expect.objectContaining({ organizationId: undefined })
+        expect.objectContaining({ organizationId: "org-1" })
       );
     });
   });

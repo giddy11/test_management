@@ -320,19 +320,19 @@ export class FeedbackSupportService {
       metadata: { projectId: fb.projectId, clientCompanyId: fb.clientCompanyId },
     });
 
-    // Same recipient fan-out as a direct public submission: superadmins +
-    // org admins + project members, deduped. Fire-and-forget.
+    // Same recipient fan-out as a direct public submission: org admins +
+    // project members, deduped. Company-operational data, so superadmins are
+    // excluded. Fire-and-forget.
     Promise.all([
-      this.authRepo.findByRole(UserRole.SUPERADMIN),
       project?.organizationId
         ? this.authRepo.findByRoleAndOrg(UserRole.ADMIN, project.organizationId)
         : Promise.resolve([]),
       this.memberRepo.findMemberUsers(fb.projectId),
     ])
-      .then(([superadmins, orgAdmins, members]: any[]) => {
+      .then(([orgAdmins, members]: any[]) => {
         const recipients = [
           ...new Map(
-            [...superadmins, ...orgAdmins, ...members].map((u: any) => [u.id, u])
+            [...orgAdmins, ...members].map((u: any) => [u.id, u])
           ).values(),
         ];
         if (recipients.length) {

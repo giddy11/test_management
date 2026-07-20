@@ -119,21 +119,20 @@ class BugService {
       metadata: { projectId: bug.projectId },
     });
 
-    // Notify superadmins (platform-wide oversight) + the project's own org admins
-    // + the project's members — mirrors FeatureRequestService's targeting.
-    // The reporter is excluded; they already know.
+    // Notify the project's own org admins + the project's members — this is
+    // company-operational data, so superadmins (platform-wide oversight) are
+    // deliberately excluded. The reporter is excluded too; they already know.
     Promise.all([
-      this.authRepo.findByRole(UserRole.SUPERADMIN),
       project.organizationId
         ? this.authRepo.findByRoleAndOrg(UserRole.ADMIN, project.organizationId)
         : Promise.resolve([]),
       this.authRepo.findUserById(actor.id),
       this.memberRepo.findMemberUsers(bug.projectId),
     ])
-      .then(([superadmins, orgAdmins, reporter, members]) => {
+      .then(([orgAdmins, reporter, members]) => {
         const recipients = [
           ...new Map(
-            [...superadmins, ...orgAdmins, ...members]
+            [...orgAdmins, ...members]
               .filter((u) => u.id !== actor.id)
               .map((u) => [u.id, u])
           ).values(),

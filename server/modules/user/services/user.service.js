@@ -35,13 +35,12 @@ class UserService {
 
   async fetchUsers(actorId, params) {
     const actor = await this.loadActor(actorId);
-    const organizationId = this.isSuperadmin(actor)
-      ? undefined
-      : actor.organizationId;
+    // Superadmin's own org is never a real client company, so this is
+    // deliberately scoped the same as any other admin — not the whole platform.
+    const organizationId = actor.organizationId;
     const result = await this.userRepo.fetchPaginated({ ...params, organizationId });
 
-    // Flag the org owner so the client can protect them in the UI. Only meaningful
-    // for the org-scoped (admin) view; the superadmin cross-org list skips it.
+    // Flag the org owner so the client can protect them in the UI.
     if (organizationId) {
       const ownerId = await this.userRepo.findOrgOwnerId(organizationId);
       result.data.forEach((u) => {
@@ -55,6 +54,9 @@ class UserService {
     const actor = await this.loadActor(actorId);
     const target = await this.userRepo.findById(id);
     if (!target || target.deletedAt) throw new AppError("User not found", 404);
+    // Superadmin keeps cross-org lookup here only for the moderation path in
+    // updateUser/deactivateUser below — there's no UI listing that surfaces
+    // another org's user ids, so this isn't a "browse other companies" leak.
     if (!this.isSuperadmin(actor) && target.organizationId !== actor.organizationId) {
       throw new AppError("You do not have access to this user", 403);
     }

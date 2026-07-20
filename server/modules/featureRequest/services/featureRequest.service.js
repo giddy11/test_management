@@ -112,21 +112,21 @@ class FeatureRequestService {
       metadata: { projectId: fr.projectId },
     });
 
-    // Notify superadmins (platform-wide oversight) + the project's own org admins
-    // + the project's members. The submitter gets nothing — no in-app, no email —
+    // Notify the project's own org admins + the project's members — this is
+    // company-operational data, so superadmins (platform-wide oversight) are
+    // deliberately excluded. The submitter gets nothing — no in-app, no email —
     // they know what they just submitted.
     Promise.all([
-      this.authRepo.findByRole(UserRole.SUPERADMIN),
       project.organizationId
         ? this.authRepo.findByRoleAndOrg(UserRole.ADMIN, project.organizationId)
         : Promise.resolve([]),
       this.authRepo.findUserById(actor.id),
       this.memberRepo.findMemberUsers(fr.projectId),
     ])
-      .then(([superadmins, orgAdmins, submitter, members]) => {
+      .then(([orgAdmins, submitter, members]) => {
         const recipients = [
           ...new Map(
-            [...superadmins, ...orgAdmins, ...members]
+            [...orgAdmins, ...members]
               .filter((u) => u.id !== actor.id)
               .map((u) => [u.id, u])
           ).values(),
