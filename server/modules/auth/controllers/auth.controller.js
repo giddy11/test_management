@@ -132,6 +132,18 @@ class AuthController {
     }
   }
 
+  static async updateNotificationSound(req, res, next) {
+    try {
+      const user = await AuthService.Instance.setNotificationSoundEnabled(
+        req.user.id,
+        req.validated.body.enabled
+      );
+      res.status(200).json(ApiResponse.ok("Notification sound preference updated", toUserResponse(user)));
+    } catch (err) {
+      next(err);
+    }
+  }
+
   static async me(req, res, next) {
     try {
       const user = await AuthService.Instance.authRepo.findUserById(req.user.id);

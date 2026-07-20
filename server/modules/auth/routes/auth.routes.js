@@ -16,6 +16,7 @@ const {
   changePasswordSchema,
   updateProfileSchema,
   updateOnboardingSchema,
+  updateNotificationSoundSchema,
 } = require("../validators/auth.schema");
 const { AuthController } = require("../controllers/auth.controller");
 
@@ -37,5 +38,6 @@ router.get("/me", authMiddleware, AuthController.me);
 router.patch("/change-password", authMiddleware, validate(changePasswordSchema), AuthController.changePassword);
 router.patch("/profile", authMiddleware, validate(updateProfileSchema), AuthController.updateProfile);
 router.patch("/onboarding", authMiddleware, validate(updateOnboardingSchema), AuthController.updateOnboarding);
+router.patch("/notification-sound", authMiddleware, validate(updateNotificationSoundSchema), AuthController.updateNotificationSound);
 
 module.exports = router;

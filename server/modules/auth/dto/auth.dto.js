@@ -12,6 +12,7 @@ function toUserResponse(user) {
     email: user.email,
     isEmailVerified: user.isEmailVerified ?? false,
     onboardingCompleted: user.onboardingCompleted ?? false,
+    notificationSoundEnabled: user.notificationSoundEnabled ?? true,
     role: user.role,
     isOrgOwner: user.isOrgOwner ?? false,
     provider: user.provider,

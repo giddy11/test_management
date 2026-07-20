@@ -44,6 +44,13 @@ const User = new EntitySchema({
       type: "boolean",
       default: false,
     },
+    // Play an alert tone for new notifications / support chat messages.
+    // Default on; toggled from Settings → Notifications.
+    notificationSoundEnabled: {
+      name: "notification_sound_enabled",
+      type: "boolean",
+      default: true,
+    },
     // Groups all members of one company. Set to a fresh id when an admin registers;
     // members the admin creates inherit the admin's organizationId.
     organizationId: {

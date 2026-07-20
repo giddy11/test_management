@@ -94,6 +94,12 @@ const updateOnboardingSchema = z.object({
   }),
 });
 
+const updateNotificationSoundSchema = z.object({
+  body: z.object({
+    enabled: z.boolean(),
+  }),
+});
+
 module.exports = {
   registerSchema,
   loginSchema,
@@ -107,4 +113,5 @@ module.exports = {
   changePasswordSchema,
   updateProfileSchema,
   updateOnboardingSchema,
+  updateNotificationSoundSchema,
 };

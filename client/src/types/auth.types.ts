@@ -19,6 +19,7 @@ export interface User {
   email: string
   isEmailVerified: boolean
   onboardingCompleted: boolean
+  notificationSoundEnabled: boolean
   role: UserRole
   // Set only on it_support accounts — the client company they belong to.
   clientCompanyId?: string | null

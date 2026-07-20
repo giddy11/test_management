@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
   collection,
@@ -12,6 +12,8 @@ import {
 import { db, ensureFirebaseAuth } from "@/lib/firestore"
 import { SupportChatEndpoints, SupportChatAdminEndpoints } from "@/endpoints/supportChat.endpoints"
 import { ApiError } from "@/transport/http"
+import { useAuth } from "@/contexts/AuthContext"
+import { playNotificationSound } from "@/lib/notificationSound"
 import type {
   SupportChatConversation,
   SupportChatMessage,
@@ -40,7 +42,16 @@ export function useSupportChatMessages(conversationId: string | undefined) {
   const [isLoading, setIsLoading] = useState(true)
   const [isError, setIsError] = useState(false)
 
+  // Read via a ref inside the snapshot callback so a user/setting change
+  // doesn't force the Firestore listener to resubscribe.
+  const { user } = useAuth()
+  const userRef = useRef(user)
+  userRef.current = user
+
   useEffect(() => {
+    let firstSnapshot = true
+    let lastSeenId: string | null = null
+
     if (!conversationId) {
       setData([])
       setIsLoading(false)
@@ -63,8 +74,22 @@ export function useSupportChatMessages(conversationId: string | undefined) {
         unsubscribe = onSnapshot(
           q,
           (snap) => {
-            setData(snap.docs.map(toMessage))
+            const next = snap.docs.map(toMessage)
+            setData(next)
             setIsLoading(false)
+
+            // Chime on a genuinely new incoming message — skip the initial
+            // load of a thread's history and messages the viewer sent themselves.
+            const latest = next[next.length - 1]
+            if (!firstSnapshot && latest && latest.id !== lastSeenId) {
+              const currentUser = userRef.current
+              const isMine = latest.author?.id === currentUser?.id
+              if (!isMine && currentUser?.notificationSoundEnabled !== false) {
+                playNotificationSound()
+              }
+            }
+            firstSnapshot = false
+            lastSeenId = latest ? latest.id : null
           },
           () => {
             setIsError(true)

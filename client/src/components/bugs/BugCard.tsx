@@ -37,6 +37,7 @@ export const BugCard = memo(function BugCard({ bug }: { bug: Bug }) {
           </CardHeader>
           <div className="flex items-center gap-3 text-xs text-muted-foreground">
             {bug.reportedBy && <span>reported by {bug.reportedBy.name}</span>}
+            <span>{new Date(bug.createdAt).toLocaleDateString()}</span>
           </div>
         </div>
         {bug.assignedTo && (

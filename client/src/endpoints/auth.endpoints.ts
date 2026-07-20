@@ -44,4 +44,7 @@ export const AuthEndpoints = {
 
   updateOnboarding: (completed: boolean) =>
     wrapCall<User>("PATCH", "/api/v1/auth/onboarding", { completed }),
+
+  updateNotificationSound: (enabled: boolean) =>
+    wrapCall<User>("PATCH", "/api/v1/auth/notification-sound", { enabled }),
 }

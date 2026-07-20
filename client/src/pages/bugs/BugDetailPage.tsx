@@ -66,6 +66,7 @@ export default function BugDetailPage() {
           <p className="mt-1 text-sm text-muted-foreground">
             {bug.reportedBy ? `Reported by ${bug.reportedBy.name}` : "Reported"}
             {bug.assignedTo && ` · Assigned to ${bug.assignedTo.name}`}
+            {` · ${new Date(bug.createdAt).toLocaleDateString()}`}
           </p>
         </div>
 

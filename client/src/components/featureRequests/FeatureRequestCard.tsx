@@ -31,6 +31,7 @@ export const FeatureRequestCard = memo(function FeatureRequestCard({ request }: 
           </CardHeader>
           <div className="flex items-center gap-3 text-xs text-muted-foreground">
             {request.submittedBy && <span>by {request.submittedBy.name}</span>}
+            <span>{new Date(request.createdAt).toLocaleDateString()}</span>
             <span className="flex items-center gap-1">
               <MessageSquare className="size-3" /> {request.commentCount}
             </span>

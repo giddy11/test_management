@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form"
 import { toast } from "sonner"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "react-router-dom"
-import { User, Lock, LifeBuoy, MessagesSquare, Power, PowerOff } from "lucide-react"
+import { User, Lock, LifeBuoy, MessagesSquare, Power, PowerOff, Bell, BellOff } from "lucide-react"
 import { Country, State, City } from "country-state-city"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -23,6 +23,7 @@ import { ApiError } from "@/transport/http"
 import { useAuth } from "@/contexts/AuthContext"
 import { useGuideTour } from "@/hooks/useGuideTour"
 import { useUpdateOnboardingStatus } from "@/hooks/useOnboarding"
+import { useUpdateNotificationSoundSetting } from "@/hooks/useNotificationSoundSetting"
 import { useProjects } from "@/hooks/useProjects"
 import { ALL_GUIDES, DASHBOARD_GUIDE, type TourGuide } from "@/lib/tourGuides"
 import { Badge } from "@/components/ui/badge"
@@ -412,6 +413,62 @@ function HelpTab() {
   )
 }
 
+// ── Notifications tab ─────────────────────────────────────────────────────────
+
+function NotificationsTab() {
+  const { user } = useAuth()
+  const updateSound = useUpdateNotificationSoundSetting()
+  const enabled = user?.notificationSoundEnabled ?? true
+
+  const toggle = () => {
+    const next = !enabled
+    updateSound.mutate(next, {
+      onSuccess: () =>
+        toast.success(next ? "Notification sound turned on" : "Notification sound turned off"),
+      onError: (e) =>
+        toast.error(e instanceof ApiError ? e.message : "Couldn't update the setting"),
+    })
+  }
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                Alert sound
+                <Badge variant={enabled ? "default" : "secondary"}>{enabled ? "On" : "Off"}</Badge>
+              </CardTitle>
+              <CardDescription>
+                Play a sound when a new notification or support chat message arrives.
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <Button
+            variant="outline"
+            onClick={toggle}
+            disabled={updateSound.isPending}
+            data-cy="notification-sound-toggle"
+          >
+            {enabled ? (
+              <>
+                <BellOff className="size-4" /> Turn off
+              </>
+            ) : (
+              <>
+                <Bell className="size-4" /> Turn on
+              </>
+            )}
+          </Button>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
 // ── Admin tab (superadmin only) ─────────────────────────────────────────────────
 
 function AdminTab() {
@@ -498,6 +555,10 @@ export default function SettingsPage() {
             <LifeBuoy className="size-3.5" />
             Help
           </TabsTrigger>
+          <TabsTrigger value="notifications" className="gap-1.5" data-cy="settings-tab-notifications">
+            <Bell className="size-3.5" />
+            Notifications
+          </TabsTrigger>
           {isSuperadmin && (
             <TabsTrigger value="admin" className="gap-1.5" data-cy="settings-tab-admin">
               <MessagesSquare className="size-3.5" />
@@ -516,6 +577,10 @@ export default function SettingsPage() {
 
         <TabsContent value="help" className="mt-4">
           <HelpTab />
+        </TabsContent>
+
+        <TabsContent value="notifications" className="mt-4">
+          <NotificationsTab />
         </TabsContent>
 
         {isSuperadmin && (

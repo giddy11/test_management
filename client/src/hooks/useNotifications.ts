@@ -1,13 +1,19 @@
+import { useEffect, useRef } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { NotificationEndpoints } from "@/endpoints/notification.endpoints"
 import { ApiError } from "@/transport/http"
+import { useAuth } from "@/contexts/AuthContext"
+import { playNotificationSound } from "@/lib/notificationSound"
 import type { AppNotification } from "@/types/notification.types"
 
 const LIST_KEY = ["notifications", "list"]
 const COUNT_KEY = ["notifications", "unread-count"]
 
 export function useUnreadCount() {
-  return useQuery({
+  const { user } = useAuth()
+  const prevCount = useRef<number | null>(null)
+
+  const query = useQuery({
     queryKey: COUNT_KEY,
     queryFn: async () => {
       const res = await NotificationEndpoints.unreadCount()
@@ -17,6 +23,18 @@ export function useUnreadCount() {
     refetchInterval: 30_000, // poll every 30s
     refetchOnWindowFocus: true,
   })
+
+  // Chime on a genuine rise in unread count — skip the first fetch so it
+  // doesn't sound off just for landing on the page with existing unreads.
+  useEffect(() => {
+    if (query.data === undefined) return
+    if (prevCount.current !== null && query.data > prevCount.current && user?.notificationSoundEnabled !== false) {
+      playNotificationSound()
+    }
+    prevCount.current = query.data
+  }, [query.data, user?.notificationSoundEnabled])
+
+  return query
 }
 
 export function useNotifications(open: boolean) {

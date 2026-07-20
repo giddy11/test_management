@@ -253,6 +253,13 @@ class AuthService {
     return this.authRepo.updateUser(actorId, { onboardingCompleted: completed });
   }
 
+  // ── Notification sound preference ─────────────────────────────────────────────
+  async setNotificationSoundEnabled(actorId, enabled) {
+    const user = await this.authRepo.findUserById(actorId);
+    if (!user) throw new AppError("Account not found", 404);
+    return this.authRepo.updateUser(actorId, { notificationSoundEnabled: enabled });
+  }
+
   // ── Google Sign In ─────────────────────────────────────────────────────────────
   async google({ idToken }) {
     if (!this.googleClient) {
