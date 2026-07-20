@@ -8,7 +8,7 @@ jest.mock("../../../shared/utils/mailer", () => ({
 }));
 
 import { FeedbackService } from "../services/feedback.service";
-import { toSubmitterStatus, SubmitterTicketStatus } from "../dto/feedback.dto";
+import { toSubmitterStatus, toMyTicketResponse, SubmitterTicketStatus } from "../dto/feedback.dto";
 
 const { sendTicketLookupCodeEmail } = require("../../../shared/utils/mailer");
 const { FeedbackStatus, SupportStatus } = require("../../../config/constants");
@@ -144,5 +144,107 @@ describe("toSubmitterStatus", () => {
         supportStatus: SupportStatus.ESCALATED,
       })
     ).toBe(SubmitterTicketStatus.RECEIVED);
+  });
+});
+
+describe("toMyTicketResponse note", () => {
+  const base = {
+    id: "fb-1",
+    ticketNumber: 42,
+    project: { name: "Product A" },
+    clientCompany: null,
+    type: "bug",
+    title: "Export fails",
+    createdAt: new Date("2026-01-01T00:00:00.000Z"),
+    statusUpdatedAt: null,
+  };
+
+  it("surfaces the IT supporter's note during working-stage progression", () => {
+    const fb: any = {
+      ...base,
+      clientCompanyId: "company-1",
+      supportStatus: SupportStatus.ACKNOWLEDGED,
+      status: FeedbackStatus.LOGGED,
+      supportResponse: "Looking into it now.",
+    };
+    expect(toMyTicketResponse(fb).note).toBe("Looking into it now.");
+  });
+
+  it("hides the internal escalation note until the submitter has been relayed a fix", () => {
+    const fb: any = {
+      ...base,
+      clientCompanyId: "company-1",
+      supportStatus: SupportStatus.ESCALATED,
+      status: FeedbackStatus.INVESTIGATING,
+      supportResponse: "Internal context for the product team.",
+      submitterNotifiedAt: null,
+    };
+    expect(toMyTicketResponse(fb).note).toBeNull();
+  });
+
+  it("surfaces the relayed note once the submitter has been notified post-escalation", () => {
+    const fb: any = {
+      ...base,
+      clientCompanyId: "company-1",
+      supportStatus: SupportStatus.ESCALATED,
+      status: FeedbackStatus.CLOSED,
+      supportResponse: "All fixed now!",
+      submitterNotifiedAt: new Date("2026-01-05T00:00:00.000Z"),
+    };
+    expect(toMyTicketResponse(fb).note).toBe("All fixed now!");
+  });
+
+  it("uses adminResponse for a direct (non-company) submission", () => {
+    const fb: any = {
+      ...base,
+      clientCompanyId: null,
+      supportStatus: null,
+      status: FeedbackStatus.ACKNOWLEDGED,
+      adminResponse: "We're on it.",
+    };
+    expect(toMyTicketResponse(fb).note).toBe("We're on it.");
+  });
+});
+
+describe("toMyTicketResponse feedbackToken", () => {
+  const base = {
+    id: "fb-1",
+    ticketNumber: 42,
+    type: "bug",
+    title: "Export fails",
+    status: FeedbackStatus.LOGGED,
+    supportStatus: null,
+    createdAt: new Date("2026-01-01T00:00:00.000Z"),
+    statusUpdatedAt: null,
+  };
+
+  it("uses the project's form link for a direct submission", () => {
+    const fb: any = {
+      ...base,
+      clientCompanyId: null,
+      clientCompany: null,
+      project: { name: "Product A", feedbackToken: "proj-token" },
+    };
+    expect(toMyTicketResponse(fb).feedbackToken).toBe("proj-token");
+  });
+
+  it("uses the client company's form link for a company-routed ticket", () => {
+    const fb: any = {
+      ...base,
+      clientCompanyId: "company-1",
+      clientCompany: { name: "Acme", feedbackToken: "company-token" },
+      project: { name: "Product A", feedbackToken: "proj-token" },
+    };
+    expect(toMyTicketResponse(fb).feedbackToken).toBe("company-token");
+  });
+
+  it("is null once the relevant link has been disabled", () => {
+    const fb: any = {
+      ...base,
+      clientCompanyId: "company-1",
+      clientCompany: { name: "Acme", feedbackToken: null },
+      project: { name: "Product A", feedbackToken: "proj-token" },
+    };
+    expect(toMyTicketResponse(fb).feedbackToken).toBeNull();
   });
 });

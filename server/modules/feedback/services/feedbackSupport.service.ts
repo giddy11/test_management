@@ -151,11 +151,13 @@ export class FeedbackSupportService {
 
   // Records a stage entry and emails the end user about it — every IT-tier
   // stage change keeps the submitter informed, mirroring the product flow.
+  // `note` is optional, supporter-written context folded into that same email.
   private recordStage(
     fb: Feedback,
     status: string,
     enteredAt: Date,
-    context: { companyName: string; projectName: string; organizationId?: string | null }
+    context: { companyName: string; projectName: string; organizationId?: string | null },
+    note?: string
   ) {
     this.supportHistoryRepo
       .create({ feedbackId: fb.id, status, enteredAt })
@@ -171,6 +173,7 @@ export class FeedbackSupportService {
         ticketLabel(fb),
         SUPPORT_STATUS_LABELS[status] ?? status,
         copy,
+        note ?? null,
         context.organizationId ?? null
       ).catch((e: Error) => console.error("[support] status email failed:", e.message));
     }
@@ -178,7 +181,9 @@ export class FeedbackSupportService {
 
   // Advance the item one working stage (logged → acknowledged → investigating).
   // Resolved/escalated are reached via resolveLocally/escalate, never here.
-  async updateStatus(actor: Actor, id: string, nextStatus: string) {
+  // `note` is optional — when given, it's emailed to the submitter alongside
+  // the stage-change copy and kept as the item's latest supporter note.
+  async updateStatus(actor: Actor, id: string, nextStatus: string, note?: string) {
     const fb = await this.getOwnItem(actor, id);
     if (!SUPPORT_PROGRESSION.includes(nextStatus)) {
       throw new AppError("Use the resolve or escalate actions for final stages", 422);
@@ -187,17 +192,27 @@ export class FeedbackSupportService {
     if (fb.supportStatus === nextStatus) return fb;
 
     const enteredAt = new Date();
-    const updated = await this.feedbackRepo.update(fb.id, { supportStatus: nextStatus });
+    const trimmedNote = note?.trim() || undefined;
+    const updated = await this.feedbackRepo.update(fb.id, {
+      supportStatus: nextStatus,
+      ...(trimmedNote ? { supportResponse: trimmedNote } : {}),
+    });
 
     const [project, company] = await Promise.all([
       this.projectRepo.findById(fb.projectId),
       this.companyRepo.findById(fb.clientCompanyId as string),
     ]);
-    this.recordStage(fb, nextStatus, enteredAt, {
-      companyName: company?.name ?? "your company",
-      projectName: project?.name ?? "",
-      organizationId: project?.organizationId ?? null,
-    });
+    this.recordStage(
+      fb,
+      nextStatus,
+      enteredAt,
+      {
+        companyName: company?.name ?? "your company",
+        projectName: project?.name ?? "",
+        organizationId: project?.organizationId ?? null,
+      },
+      trimmedNote
+    );
 
     ActivityService.Instance.log(actor, {
       action: "feedback.support_status_changed",
@@ -432,7 +447,13 @@ export class FeedbackSupportService {
       throw new AppError("The submitter has already been notified", 409);
     }
 
-    const updated = await this.feedbackRepo.update(fb.id, { submitterNotifiedAt: new Date() });
+    // Persisted as the item's latest note too — once relayed, this is the
+    // note that's actually safe to show the true submitter (the internal
+    // escalation note that may have preceded it never went to them).
+    const updated = await this.feedbackRepo.update(fb.id, {
+      submitterNotifiedAt: new Date(),
+      supportResponse: note,
+    });
 
     const [project, company] = await Promise.all([
       this.projectRepo.findById(fb.projectId),

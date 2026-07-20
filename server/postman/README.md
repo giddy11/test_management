@@ -1,7 +1,7 @@
 # TestMate Postman collection
 
 Scoped to testing `POST /api/v1/integrations/companies` — the endpoint that provisions a new
-client company + its first IT support lead in one call. It is **not** a complete mirror of the
+client company. It is **not** a complete mirror of the
 API yet (see `ai_agent_flow_backend.md` §21 for that standard) — just Auth + Projects (enough to
 get a bearer token and a `projectId`) plus the Integrations — Companies folder.
 
@@ -34,12 +34,13 @@ variables (`pm.collectionVariables.set(...)` in their **Tests** tab):
 3. **Integrations — Companies → Create Company (Provision)** — the actual endpoint under test.
    It's intentionally **unauthenticated** (no bearer token, no API key — see the endpoint's own
    description in the collection and the docs page's "Company provisioning API" section) and
-   takes `projectId` directly in the body. The sample body uses Postman's `{{$timestamp}}`
-   dynamic variable in the emails so repeat runs don't collide on the unique-email constraints —
-   swap in fixed values if you want to deliberately trigger one of the saved 409 examples.
-   Captures `companyId` / `supportLeadId` on success.
+   takes `projectId` directly in the body. This creates only the client company record — its
+   first IT support account is a separate step (`Client Companies → Create Supporter`). The
+   sample body uses Postman's `{{$timestamp}}` dynamic variable in the contact email so repeat
+   runs don't collide on the unique-email constraint — swap in a fixed value if you want to
+   deliberately trigger the saved 409 example. Captures `companyId` on success.
 4. **Integrations — Companies → Verify — List Client Companies for Project** — authenticated
-   admin view, confirms the new company (and its supporter count) shows up under the project.
+   admin view, confirms the new company (with a supporter count of 0) shows up under the project.
 
 ## Saved example responses
 

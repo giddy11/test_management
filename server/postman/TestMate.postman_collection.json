@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "TestMate API",
-    "description": "Scoped to testing POST /api/v1/integrations/companies (create/provision a client company + IT support lead). Includes just enough of Auth and Projects to obtain a bearer token and a projectId to provision into. Extend with more module folders as needed — this is not yet a complete mirror of the API.",
+    "description": "Scoped to testing POST /api/v1/integrations/companies (create/provision a client company). Includes just enough of Auth and Projects to obtain a bearer token and a projectId to provision into. Extend with more module folders as needed — this is not yet a complete mirror of the API.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
@@ -16,8 +16,7 @@
     { "key": "refreshToken", "value": "", "type": "string" },
     { "key": "userId", "value": "", "type": "string" },
     { "key": "projectId", "value": "", "type": "string" },
-    { "key": "companyId", "value": "", "type": "string" },
-    { "key": "supportLeadId", "value": "", "type": "string" }
+    { "key": "companyId", "value": "", "type": "string" }
   ],
   "item": [
     {
@@ -238,8 +237,7 @@
                 "type": "text/javascript",
                 "exec": [
                   "const res = pm.response.json();",
-                  "if (res.data && res.data.company) pm.collectionVariables.set(\"companyId\", res.data.company.id);",
-                  "if (res.data && res.data.supportLead) pm.collectionVariables.set(\"supportLeadId\", res.data.supportLead.id);"
+                  "if (res.data && res.data.company) pm.collectionVariables.set(\"companyId\", res.data.company.id);"
                 ]
               }
             }
@@ -250,14 +248,14 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"projectId\": \"{{projectId}}\",\n  \"name\": \"Acme Corp {{$timestamp}}\",\n  \"contactEmail\": \"billing+{{$timestamp}}@acme.example\",\n  \"supportLead\": {\n    \"email\": \"sam.support+{{$timestamp}}@acme.example\"\n  }\n}"
+              "raw": "{\n  \"projectId\": \"{{projectId}}\",\n  \"name\": \"Acme Corp {{$timestamp}}\",\n  \"contactEmail\": \"billing+{{$timestamp}}@acme.example\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/integrations/companies",
               "host": ["{{baseUrl}}"],
               "path": ["api", "v1", "integrations", "companies"]
             },
-            "description": "Creates a client company + its first IT support lead in one shot. `contactEmail` is optional. `supportLead.email` is the only required field for the lead — TestMate derives a display name from it and emails a login link + temp password. The {{$timestamp}} in the sample body keeps repeat runs from colliding on unique-email constraints; replace with fixed values to deliberately test the 409 cases below."
+            "description": "Creates only the client company record. `contactEmail` is optional. Its first IT support account is a separate, explicit step — see Client Companies → Create Supporter (admin-authenticated, or the company's own lead once one exists). The {{$timestamp}} in the sample body keeps repeat runs from colliding on the unique contactEmail constraint; replace with a fixed value to deliberately test the 409 case below."
           },
           "response": [
             {
@@ -267,7 +265,7 @@
                 "header": [{ "key": "Content-Type", "value": "application/json" }],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"projectId\": \"3fa85f64-5717-4562-b3fc-2c963f66afa6\",\n  \"name\": \"Acme Corp\",\n  \"contactEmail\": \"billing@acme.example\",\n  \"supportLead\": {\n    \"email\": \"sam.support@acme.example\"\n  }\n}"
+                  "raw": "{\n  \"projectId\": \"3fa85f64-5717-4562-b3fc-2c963f66afa6\",\n  \"name\": \"Acme Corp\",\n  \"contactEmail\": \"billing@acme.example\"\n}"
                 },
                 "url": {
                   "raw": "{{baseUrl}}/api/v1/integrations/companies",
@@ -279,7 +277,7 @@
               "code": 201,
               "header": [{ "key": "Content-Type", "value": "application/json" }],
               "_postman_previewlanguage": "json",
-              "body": "{\n  \"success\": true,\n  \"message\": \"Client company provisioned\",\n  \"statusCode\": 201,\n  \"data\": {\n    \"company\": {\n      \"id\": \"9b2f1e10-6b1a-4c9e-8a2d-1a2b3c4d5e6f\",\n      \"projectId\": \"3fa85f64-5717-4562-b3fc-2c963f66afa6\",\n      \"name\": \"Acme Corp\",\n      \"contactEmail\": \"billing@acme.example\",\n      \"feedbackToken\": null,\n      \"supporterCount\": 0,\n      \"createdAt\": \"2026-07-17T10:00:00.000Z\"\n    },\n    \"supportLead\": {\n      \"id\": \"c1d2e3f4-5678-4abc-9def-0123456789ab\",\n      \"firstName\": \"Sam\",\n      \"lastName\": \"Support\",\n      \"name\": \"Sam Support\",\n      \"email\": \"sam.support@acme.example\",\n      \"isSupportLead\": true,\n      \"createdAt\": \"2026-07-17T10:00:00.000Z\",\n      \"lastSeenAt\": null\n    }\n  },\n  \"errors\": []\n}"
+              "body": "{\n  \"success\": true,\n  \"message\": \"Client company provisioned\",\n  \"statusCode\": 201,\n  \"data\": {\n    \"company\": {\n      \"id\": \"9b2f1e10-6b1a-4c9e-8a2d-1a2b3c4d5e6f\",\n      \"projectId\": \"3fa85f64-5717-4562-b3fc-2c963f66afa6\",\n      \"name\": \"Acme Corp\",\n      \"contactEmail\": \"billing@acme.example\",\n      \"feedbackToken\": null,\n      \"supporterCount\": 0,\n      \"createdAt\": \"2026-07-17T10:00:00.000Z\"\n    }\n  },\n  \"errors\": []\n}"
             },
             {
               "name": "404 Project not found",
@@ -288,7 +286,7 @@
                 "header": [{ "key": "Content-Type", "value": "application/json" }],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"projectId\": \"00000000-0000-0000-0000-000000000000\",\n  \"name\": \"Acme Corp\",\n  \"supportLead\": {\n    \"email\": \"sam.support@acme.example\"\n  }\n}"
+                  "raw": "{\n  \"projectId\": \"00000000-0000-0000-0000-000000000000\",\n  \"name\": \"Acme Corp\"\n}"
                 },
                 "url": {
                   "raw": "{{baseUrl}}/api/v1/integrations/companies",
@@ -309,7 +307,7 @@
                 "header": [{ "key": "Content-Type", "value": "application/json" }],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"projectId\": \"3fa85f64-5717-4562-b3fc-2c963f66afa6\",\n  \"name\": \"Acme Corp 2\",\n  \"contactEmail\": \"billing@acme.example\",\n  \"supportLead\": {\n    \"email\": \"another.lead@acme.example\"\n  }\n}"
+                  "raw": "{\n  \"projectId\": \"3fa85f64-5717-4562-b3fc-2c963f66afa6\",\n  \"name\": \"Acme Corp 2\",\n  \"contactEmail\": \"billing@acme.example\"\n}"
                 },
                 "url": {
                   "raw": "{{baseUrl}}/api/v1/integrations/companies",
@@ -330,7 +328,7 @@
                 "header": [{ "key": "Content-Type", "value": "application/json" }],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"projectId\": \"3fa85f64-5717-4562-b3fc-2c963f66afa6\",\n  \"name\": \"Acme Corp\",\n  \"contactEmail\": \"admin@example.com\",\n  \"supportLead\": {\n    \"email\": \"sam.support@acme.example\"\n  }\n}"
+                  "raw": "{\n  \"projectId\": \"3fa85f64-5717-4562-b3fc-2c963f66afa6\",\n  \"name\": \"Acme Corp\",\n  \"contactEmail\": \"admin@example.com\"\n}"
                 },
                 "url": {
                   "raw": "{{baseUrl}}/api/v1/integrations/companies",
@@ -345,34 +343,13 @@
               "body": "{\n  \"success\": false,\n  \"message\": \"This email already belongs to a user account\",\n  \"statusCode\": 409,\n  \"data\": null,\n  \"errors\": []\n}"
             },
             {
-              "name": "409 Support lead email already has an account",
-              "originalRequest": {
-                "method": "POST",
-                "header": [{ "key": "Content-Type", "value": "application/json" }],
-                "body": {
-                  "mode": "raw",
-                  "raw": "{\n  \"projectId\": \"3fa85f64-5717-4562-b3fc-2c963f66afa6\",\n  \"name\": \"Acme Corp 3\",\n  \"supportLead\": {\n    \"email\": \"sam.support@acme.example\"\n  }\n}"
-                },
-                "url": {
-                  "raw": "{{baseUrl}}/api/v1/integrations/companies",
-                  "host": ["{{baseUrl}}"],
-                  "path": ["api", "v1", "integrations", "companies"]
-                }
-              },
-              "status": "Conflict",
-              "code": 409,
-              "header": [{ "key": "Content-Type", "value": "application/json" }],
-              "_postman_previewlanguage": "json",
-              "body": "{\n  \"success\": false,\n  \"message\": \"An account with this email already exists\",\n  \"statusCode\": 409,\n  \"data\": null,\n  \"errors\": []\n}"
-            },
-            {
               "name": "422 Validation failed",
               "originalRequest": {
                 "method": "POST",
                 "header": [{ "key": "Content-Type", "value": "application/json" }],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"projectId\": \"not-a-uuid\",\n  \"name\": \"\",\n  \"supportLead\": {\n    \"email\": \"not-an-email\"\n  }\n}"
+                  "raw": "{\n  \"projectId\": \"not-a-uuid\",\n  \"name\": \"\"\n}"
                 },
                 "url": {
                   "raw": "{{baseUrl}}/api/v1/integrations/companies",
@@ -384,7 +361,7 @@
               "code": 422,
               "header": [{ "key": "Content-Type", "value": "application/json" }],
               "_postman_previewlanguage": "json",
-              "body": "{\n  \"success\": false,\n  \"message\": \"Validation failed\",\n  \"statusCode\": 422,\n  \"data\": null,\n  \"errors\": [\n    { \"field\": \"body.projectId\", \"message\": \"Invalid uuid\" },\n    { \"field\": \"body.name\", \"message\": \"String must contain at least 1 character(s)\" },\n    { \"field\": \"body.supportLead.email\", \"message\": \"Invalid email\" }\n  ]\n}"
+              "body": "{\n  \"success\": false,\n  \"message\": \"Validation failed\",\n  \"statusCode\": 422,\n  \"data\": null,\n  \"errors\": [\n    { \"field\": \"body.projectId\", \"message\": \"Invalid uuid\" },\n    { \"field\": \"body.name\", \"message\": \"String must contain at least 1 character(s)\" }\n  ]\n}"
             },
             {
               "name": "429 Too many requests",
@@ -393,7 +370,7 @@
                 "header": [{ "key": "Content-Type", "value": "application/json" }],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"projectId\": \"3fa85f64-5717-4562-b3fc-2c963f66afa6\",\n  \"name\": \"Acme Corp\",\n  \"supportLead\": {\n    \"email\": \"sam.support@acme.example\"\n  }\n}"
+                  "raw": "{\n  \"projectId\": \"3fa85f64-5717-4562-b3fc-2c963f66afa6\",\n  \"name\": \"Acme Corp\"\n}"
                 },
                 "url": {
                   "raw": "{{baseUrl}}/api/v1/integrations/companies",
@@ -439,7 +416,7 @@
               "code": 200,
               "header": [{ "key": "Content-Type", "value": "application/json" }],
               "_postman_previewlanguage": "json",
-              "body": "{\n  \"success\": true,\n  \"message\": \"Client companies fetched\",\n  \"statusCode\": 200,\n  \"data\": [\n    {\n      \"id\": \"9b2f1e10-6b1a-4c9e-8a2d-1a2b3c4d5e6f\",\n      \"projectId\": \"3fa85f64-5717-4562-b3fc-2c963f66afa6\",\n      \"name\": \"Acme Corp\",\n      \"contactEmail\": \"billing@acme.example\",\n      \"feedbackToken\": null,\n      \"supporterCount\": 1,\n      \"createdAt\": \"2026-07-17T10:00:00.000Z\"\n    }\n  ],\n  \"errors\": []\n}"
+              "body": "{\n  \"success\": true,\n  \"message\": \"Client companies fetched\",\n  \"statusCode\": 200,\n  \"data\": [\n    {\n      \"id\": \"9b2f1e10-6b1a-4c9e-8a2d-1a2b3c4d5e6f\",\n      \"projectId\": \"3fa85f64-5717-4562-b3fc-2c963f66afa6\",\n      \"name\": \"Acme Corp\",\n      \"contactEmail\": \"billing@acme.example\",\n      \"feedbackToken\": null,\n      \"supporterCount\": 0,\n      \"createdAt\": \"2026-07-17T10:00:00.000Z\"\n    }\n  ],\n  \"errors\": []\n}"
             },
             {
               "name": "401 Unauthorised",

@@ -43,9 +43,13 @@ export const FeedbackEndpoints = {
   supportAssign: (id: string, supporterId: string | null) =>
     wrapCall<Feedback>("PATCH", `/api/v1/support/feedback/${id}/assign`, { supporterId }),
 
-  // Working-stage progression (logged → acknowledged → investigating).
-  supportUpdateStatus: (id: string, supportStatus: string) =>
-    wrapCall<Feedback>("PATCH", `/api/v1/support/feedback/${id}`, { supportStatus }),
+  // Working-stage progression (logged → acknowledged → investigating). note
+  // is optional — emailed to the submitter alongside the stage-change copy.
+  supportUpdateStatus: (id: string, supportStatus: string, note?: string) =>
+    wrapCall<Feedback>("PATCH", `/api/v1/support/feedback/${id}`, {
+      supportStatus,
+      ...(note ? { note } : {}),
+    }),
 
   supportHistory: (id: string) =>
     wrapCall<FeedbackStatusHistoryEntry[]>("GET", `/api/v1/support/feedback/${id}/history`),

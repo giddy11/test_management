@@ -70,18 +70,25 @@ export async function sendSupportStatusEmail(
   title: string,
   statusLabel: string,
   copy: string,
+  note: string | null,
   organizationId?: string | null
 ) {
+  const noteBlock = note
+    ? `<div style="background:#f8fafc;border-left:3px solid #6366f1;border-radius:0 6px 6px 0;padding:14px 16px;margin:0 0 16px">
+      <p style="margin:0;font-size:14px;color:#374151"><strong>Note from support:</strong><br>${escapeAndLineBreak(note)}</p>
+    </div>`
+    : "";
   const body = `
     <h1 style="margin:0 0 12px;font-size:20px;font-weight:700;color:#0f172a">Update on your feedback</h1>
     <p style="margin:0 0 8px;font-size:15px;color:#374151;line-height:1.65">Hi ${name}, your feedback <strong>${title}</strong> about <strong>${productName}</strong> is now: <strong>${statusLabel}</strong>.</p>
     <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.65">${copy}</p>
+    ${noteBlock}
     <p style="margin:0;font-size:13px;color:#9ca3af">This update comes from ${companyName}'s IT support team.</p>`;
   return send({
     to,
     subject: `Feedback update — ${title} — ${productName}`,
     html: emailLayout(body, await resolveFooterEmail(organizationId)),
-    text: `Hi ${name}, your feedback "${title}" about ${productName} is now ${statusLabel}. ${copy}`,
+    text: `Hi ${name}, your feedback "${title}" about ${productName} is now ${statusLabel}. ${copy}${note ? ` Note: ${note}` : ""}`,
   });
 }
 

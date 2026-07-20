@@ -49,7 +49,8 @@ export class FeedbackSupportController {
       const updated = await FeedbackSupportService.Instance.updateStatus(
         req.user,
         req.validated.params.id,
-        req.validated.body.supportStatus
+        req.validated.body.supportStatus,
+        req.validated.body.note
       );
       res
         .status(200)

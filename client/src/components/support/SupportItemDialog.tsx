@@ -100,11 +100,20 @@ export function SupportItemDialog({ feedback, onOpenChange }: Props) {
 
   const saveStage = () => {
     if (!feedback || !stage || stage === current) return
+    const trimmedNote = wantsNote ? note.trim() : ""
     updateStatus.mutate(
-      { id: feedback.id, supportStatus: stage },
+      { id: feedback.id, supportStatus: stage, note: trimmedNote || undefined },
       {
         onError,
-        onSuccess: () => toast.success("Stage updated — the submitter has been emailed"),
+        onSuccess: () => {
+          toast.success(
+            trimmedNote
+              ? "Stage updated — the submitter has been emailed your note"
+              : "Stage updated — the submitter has been emailed"
+          )
+          setWantsNote(false)
+          setNote("")
+        },
       }
     )
   }
@@ -365,9 +374,9 @@ export function SupportItemDialog({ feedback, onOpenChange }: Props) {
                     <span className="text-sm">
                       Add a note
                       <span className="block text-xs font-normal text-muted-foreground">
-                        Required to resolve — emailed straight to the submitter. Optional when
-                        escalating — stays internal for your product team, the submitter is not
-                        emailed it.
+                        {canConclude
+                          ? "Required to resolve — emailed straight to the submitter. Optional when escalating — stays internal for your product team, the submitter is not emailed it."
+                          : "Optional — emailed to the submitter alongside the stage update above."}
                       </span>
                     </span>
                   </label>

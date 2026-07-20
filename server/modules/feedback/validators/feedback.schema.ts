@@ -77,7 +77,11 @@ export const assignSupportItemSchema = z.object({
 // resolved/escalated go through their dedicated endpoints.
 export const updateSupportStatusSchema = z.object({
   params: z.object({ id: z.string().uuid() }),
-  body: z.object({ supportStatus: z.enum(supportStatuses) }),
+  body: z.object({
+    supportStatus: z.enum(supportStatuses),
+    // Optional — emailed to the submitter alongside the generic stage copy.
+    note: z.string().max(3000).optional(),
+  }),
 });
 
 export const supportItemParamSchema = z.object({

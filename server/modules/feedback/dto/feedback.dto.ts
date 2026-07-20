@@ -106,8 +106,28 @@ export function toSubmitterStatus(fb: {
   return PRODUCT_SUBMITTER_STATUS_MAP[fb.status] ?? SubmitterTicketStatus.RECEIVED;
 }
 
+// Only surfaces a note that was actually emailed to the true submitter.
+// `supportResponse` also carries the IT supporter's internal escalation
+// context (never sent to the submitter) — once escalated, it's only safe to
+// show once notifySubmitterFixed has relayed a fix and overwritten it.
+function toMyTicketNote(fb: Feedback): string | null {
+  if (fb.clientCompanyId) {
+    if (fb.supportStatus === SupportStatus.ESCALATED) {
+      return fb.submitterNotifiedAt ? fb.supportResponse ?? null : null;
+    }
+    return fb.supportResponse ?? null;
+  }
+  return fb.adminResponse ?? null;
+}
+
 export function toMyTicketResponse(fb: Feedback) {
-  const project = fb.project as { name?: string } | undefined;
+  const project = fb.project as { name?: string; feedbackToken?: string | null } | undefined;
+  // Same form the submitter originally used to reach this ticket — company
+  // items link back to the company's form, direct items to the project's.
+  // Null if that link has since been disabled (see getPublicConfirmationContext).
+  const feedbackToken = fb.clientCompanyId
+    ? fb.clientCompany?.feedbackToken ?? null
+    : project?.feedbackToken ?? null;
   return {
     id: fb.id,
     ticketNumber: fb.ticketNumber,
@@ -116,6 +136,8 @@ export function toMyTicketResponse(fb: Feedback) {
     type: fb.type,
     title: fb.title,
     status: toSubmitterStatus(fb),
+    note: toMyTicketNote(fb),
+    feedbackToken,
     createdAt: fb.createdAt,
     updatedAt: fb.statusUpdatedAt ?? fb.createdAt,
   };

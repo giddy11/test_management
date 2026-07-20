@@ -2,7 +2,8 @@
 // submitter enters the email they used, gets a one-time code, and trades it
 // for every ticket they've ever raised (across every project/company).
 import { useState, type FormEvent } from "react"
-import { ArrowLeft, KeyRound, Mail, TicketCheck } from "lucide-react"
+import { Link } from "react-router-dom"
+import { ArrowLeft, KeyRound, Mail, PlusCircle, TicketCheck } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -194,6 +195,21 @@ export default function MyTicketsPage() {
                     {t.clientCompanyName ? `via ${t.clientCompanyName} · ` : ""}
                     {t.projectName} · {new Date(t.createdAt).toLocaleDateString()}
                   </p>
+                  {t.note && (
+                    <div className="mt-2 rounded-md border-l-2 border-primary bg-muted/60 px-2.5 py-1.5">
+                      <p className="text-xs font-medium text-muted-foreground">Note from support</p>
+                      <p className="whitespace-pre-line text-sm">{t.note}</p>
+                    </div>
+                  )}
+                  {t.feedbackToken && (
+                    <Link
+                      to={`/feedback/${t.feedbackToken}`}
+                      className="mt-2 inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                    >
+                      <PlusCircle className="size-3" />
+                      Raise another ticket for {t.projectName}
+                    </Link>
+                  )}
                 </div>
               ))}
               <Button variant="outline" onClick={startOver}>

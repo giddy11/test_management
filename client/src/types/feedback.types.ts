@@ -148,6 +148,13 @@ export interface MyTicket {
   type: FeedbackType
   title: string
   status: MyTicketStatus
+  // The latest note that was actually emailed to this submitter, if any —
+  // never the internal note IT support leaves the product team on escalation.
+  note: string | null
+  // The same public form this ticket originally came through (project's or
+  // client company's) — null if that link has since been disabled. Lets the
+  // submitter raise another ticket for the same product from here.
+  feedbackToken: string | null
   createdAt: string
   updatedAt: string
 }

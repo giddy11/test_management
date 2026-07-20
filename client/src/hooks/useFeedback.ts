@@ -100,8 +100,10 @@ export function useAssignSupportItem() {
 export function useUpdateSupportStatus() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async ({ id, supportStatus }: { id: string; supportStatus: string }) => {
-      const res = await FeedbackEndpoints.supportUpdateStatus(id, supportStatus)
+    mutationFn: async (
+      { id, supportStatus, note }: { id: string; supportStatus: string; note?: string }
+    ) => {
+      const res = await FeedbackEndpoints.supportUpdateStatus(id, supportStatus, note)
       if (!res.success || !res.data) throw new ApiError(res.message, res.statusCode, res.errors)
       return res.data
     },

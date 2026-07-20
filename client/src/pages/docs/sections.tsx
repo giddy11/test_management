@@ -586,16 +586,15 @@ const ALL_SECTIONS: DocSection[] = [
     id: "company-provisioning",
     title: "Company provisioning API",
     icon: Webhook,
-    summary: "Auto-create a client company (+ IT support lead) when it signs up on your side.",
+    summary: "Auto-create a client company when it signs up on your side.",
     body: (
       <div className="space-y-4">
         <P>
-          Setting up a new client company by hand — the company record, then its first IT support
-          account — is fine for a handful of companies, but doesn't scale if your own product signs
-          up new customers on its own. This <Strong>server-to-server</Strong> endpoint lets your
-          backend call TestMate the moment one of your customers registers, creating both in one
-          call: the <Strong>client company</Strong> and its first{" "}
-          <Strong>IT support lead</Strong> account.
+          Setting up a new client company by hand is fine for a handful of companies, but doesn't
+          scale if your own product signs up new customers on its own. This{" "}
+          <Strong>server-to-server</Strong> endpoint lets your backend call TestMate the moment
+          one of your customers registers, creating the <Strong>client company</Strong> record
+          immediately.
         </P>
         <P>
           This endpoint takes no API key — the request identifies its target project directly
@@ -609,26 +608,21 @@ const ALL_SECTIONS: DocSection[] = [
   -d '{
     "projectId": "<project id>",
     "name": "Acme Corp",
-    "contactEmail": "billing@acme.com",
-    "supportLead": {
-      "email": "sam.support@acme.com"
-    }
+    "contactEmail": "billing@acme.com"
   }'`}</CodeBlock>
         <P>
-          <Code>contactEmail</Code> is optional; <Code>supportLead</Code> is required —{" "}
-          <Strong>email only</Strong>, nothing else to collect on your side. That person's
-          TestMate account is created immediately as the company's IT support lead, with a display
-          name derived from the email's local part (e.g. <Code>sam.support@acme.com</Code> becomes
-          "Sam Support") — cosmetic only, and the lead can change it later from their own profile.
-          They get an email with a login link and a temporary password; TestMate never returns a
-          password in the API response.
+          <Code>contactEmail</Code> is optional. This call creates only the company record — it
+          doesn't create any IT support account for it. Add its first supporter afterward as a
+          separate, explicit step: a TestMate admin uses the company's <Strong>Supporters</Strong>{" "}
+          panel (or <Code>POST /api/v1/client-companies/:id/supporters</Code>, authenticated) to
+          create that account, same as any other client company.
         </P>
         <P>
-          The response includes the new <Code>company</Code> and <Code>supportLead</Code> account.
+          The response includes the new <Code>company</Code>.
         </P>
         <H3>Security notes</H3>
         <UL>
-          <li>This endpoint has no credential check — anyone who knows (or guesses) a <Code>projectId</Code> can create companies and IT support logins inside that project. Treat the URL itself as sensitive, and don't expose it to untrusted clients.</li>
+          <li>This endpoint has no credential check — anyone who knows (or guesses) a <Code>projectId</Code> can create companies inside that project. Treat the URL itself as sensitive, and don't expose it to untrusted clients.</li>
           <li>Only call it from your backend — never from frontend JavaScript or a mobile app bundle, where the request (and your <Code>projectId</Code>) would be visible to anyone.</li>
           <li>There's no idempotency key here — a same-email retry after an uncertain response (e.g. a timeout) fails with a <Code>409</Code> rather than safely returning the original company, so don't blindly re-POST on failure without checking first.</li>
         </UL>

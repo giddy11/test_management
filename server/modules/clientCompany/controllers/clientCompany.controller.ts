@@ -97,7 +97,6 @@ export class ClientCompanyController {
       res.status(201).json(
         ApiResponse.created("Client company provisioned", {
           company: toClientCompanyResponse(result.company),
-          supportLead: toSupporterResponse(result.supportLead),
         })
       );
     } catch (err) {

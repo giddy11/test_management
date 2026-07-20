@@ -177,8 +177,51 @@ describe("FeedbackSupportService", () => {
         "#42 — Broken export",
         expect.any(String),
         expect.any(String),
+        null,
         "org-1"
       );
+    });
+
+    it("includes an optional note in the stage email and stores it as the latest note", async () => {
+      feedbackRepo.findById.mockResolvedValue(loggedItem);
+      feedbackRepo.update.mockResolvedValue({
+        ...loggedItem,
+        supportStatus: SupportStatus.ACKNOWLEDGED,
+        supportResponse: "Looking into it now.",
+      });
+
+      await service.updateStatus(supporter, "fb-1", SupportStatus.ACKNOWLEDGED, "Looking into it now.");
+
+      expect(feedbackRepo.update).toHaveBeenCalledWith("fb-1", {
+        supportStatus: SupportStatus.ACKNOWLEDGED,
+        supportResponse: "Looking into it now.",
+      });
+      const { sendSupportStatusEmail } = require("../../../shared/utils/mail/support.mail");
+      expect(sendSupportStatusEmail).toHaveBeenCalledWith(
+        "user@client.co",
+        "End User",
+        "Client Co",
+        "Product A",
+        "#42 — Broken export",
+        expect.any(String),
+        expect.any(String),
+        "Looking into it now.",
+        "org-1"
+      );
+    });
+
+    it("ignores a blank/whitespace-only note", async () => {
+      feedbackRepo.findById.mockResolvedValue(loggedItem);
+      feedbackRepo.update.mockResolvedValue({
+        ...loggedItem,
+        supportStatus: SupportStatus.ACKNOWLEDGED,
+      });
+
+      await service.updateStatus(supporter, "fb-1", SupportStatus.ACKNOWLEDGED, "   ");
+
+      expect(feedbackRepo.update).toHaveBeenCalledWith("fb-1", {
+        supportStatus: SupportStatus.ACKNOWLEDGED,
+      });
     });
 
     it("422s on a skipped stage (logged → investigating)", async () => {
