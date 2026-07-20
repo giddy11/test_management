@@ -129,6 +129,8 @@ class DashboardService {
           fail: r.fail,
           blocked: r.blocked,
           skipped: r.skipped,
+          // "Not run" — result rows that exist but haven't been executed yet.
+          pending: r.total - r.pass - r.fail - r.blocked - r.skipped,
         },
       })),
       meta,
