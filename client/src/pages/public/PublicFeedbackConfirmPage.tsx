@@ -53,7 +53,7 @@ export default function PublicFeedbackConfirmPage() {
     }
   }
 
-  const alreadyHandled = context && context.status !== "awaiting_confirmation" && !result
+  const alreadyHandled = context && context.status !== "pending_your_confirmation" && !result
 
   return (
     <div className="flex min-h-svh items-center justify-center bg-muted/40 p-4">

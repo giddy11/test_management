@@ -89,8 +89,10 @@ export const FeedbackEndpoints = {
   submitConfirmation: (id: string, confirmed: boolean, reason?: string) =>
     wrapCall<{ status: string }>("POST", `/api/v1/public/feedback/${id}/confirm`, { confirmed, reason }),
 
-  // A submitter's own ticket history, no account — email a one-time code,
-  // then trade it for the list. Never reveals whether the email has tickets.
+  // A submitter's own ticket history, no account — email a code, then trade
+  // it for the list. The code is reusable until it expires (not single-use),
+  // so MyTicketsPage can silently re-fetch on refresh. Never reveals whether
+  // the email has tickets.
   requestMyTicketsCode: (email: string) =>
     wrapCall<null>("POST", "/api/v1/public/feedback/my-tickets/code", { email }),
 

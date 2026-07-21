@@ -26,9 +26,10 @@ const submitLimiter = rateLimit({
   message: { success: false, message: "Too many submissions — please try again later", statusCode: 429 },
 });
 
-// A submitter's own ticket history, no account — email a one-time code
-// (same rate limit as the auth module's own OTP flows), then trade it for
-// the list. Registered before the "/:token" routes below — otherwise
+// A submitter's own ticket history, no account — email a code (same rate
+// limit as the auth module's own OTP flows), then trade it for the list;
+// reusable until it expires, not single-use, so refreshing the page doesn't
+// need a new one. Registered before the "/:token" routes below — otherwise
 // "/my-tickets" would match that single-segment param route first.
 router.post(
   "/my-tickets/code",

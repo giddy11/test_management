@@ -12,11 +12,13 @@ export type FeedbackStatus =
 // IT-tier lifecycle for items submitted through a client company's form —
 // null for direct (project-token) submissions. Strictly sequential through
 // the working stages; resolved/escalated are terminal outcomes reached only
-// from "investigating".
+// from "investigating". "resolved" itself is only reached by the submitter
+// confirming via "awaiting_confirmation" — not set directly.
 export type SupportStatus =
   | "logged"
   | "acknowledged"
   | "investigating"
+  | "awaiting_confirmation"
   | "resolved"
   | "escalated"
 
@@ -108,13 +110,15 @@ export interface PublicFeedbackForm {
 }
 
 // Context for the public confirmation page reached from the "awaiting
-// confirmation" status email. `status` lets the page tell whether the link
-// is still actionable — it may have already been used, or moved on since.
+// confirmation" status email. Serves both the product and IT-support tiers
+// (whichever is driving this ticket), so `status` is the same collapsed,
+// customer-facing value the "My Tickets" lookup uses — the page just checks
+// for "pending_your_confirmation" to tell whether the link is still actionable.
 export interface FeedbackConfirmationContext {
   projectName: string
   ticketNumber: number
   title: string
-  status: FeedbackStatus
+  status: MyTicketStatus
   feedbackToken: string | null
 }
 
@@ -189,6 +193,7 @@ export const SUPPORT_STATUSES: SupportStatus[] = [
   "logged",
   "acknowledged",
   "investigating",
+  "awaiting_confirmation",
   "resolved",
   "escalated",
 ]
@@ -201,6 +206,7 @@ export const SUPPORT_STATUS_LABELS: Record<SupportStatus, string> = {
   logged: "Logged",
   acknowledged: "Acknowledged",
   investigating: "Investigating",
+  awaiting_confirmation: "Awaiting the submitter's confirmation",
   resolved: "Resolved locally",
   escalated: "Escalated",
 }

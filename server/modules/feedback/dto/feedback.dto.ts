@@ -92,6 +92,7 @@ const SUPPORT_SUBMITTER_STATUS_MAP: Record<string, string> = {
   [SupportStatus.LOGGED]: SubmitterTicketStatus.RECEIVED,
   [SupportStatus.ACKNOWLEDGED]: SubmitterTicketStatus.IN_PROGRESS,
   [SupportStatus.INVESTIGATING]: SubmitterTicketStatus.IN_PROGRESS,
+  [SupportStatus.AWAITING_CONFIRMATION]: SubmitterTicketStatus.PENDING_YOUR_CONFIRMATION,
   [SupportStatus.RESOLVED]: SubmitterTicketStatus.RESOLVED,
 };
 

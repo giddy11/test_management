@@ -55,8 +55,9 @@ export class FeedbackController {
     }
   }
 
-  // A submitter's own ticket history, no account — email a one-time code,
-  // then trade it for the list. Never reveals whether the email has tickets.
+  // A submitter's own ticket history, no account — email a code, then trade
+  // it for the list (reusable until it expires, so a refresh doesn't need a
+  // new one). Never reveals whether the email has tickets.
   static async requestMyTicketsCode(req: any, res: any, next: any) {
     try {
       await FeedbackService.Instance.requestMyTicketsCode(req.validated.body.email);

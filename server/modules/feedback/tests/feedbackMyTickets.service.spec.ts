@@ -1,7 +1,8 @@
 // modules/feedback/tests/feedbackMyTickets.service.spec.ts
 // Coverage for a ticket submitter's own history view (no account): request a
-// one-time code by email, trade it for the list, and the collapsed
-// customer-facing status mapping the list is rendered with.
+// code by email, trade it for the list (reusable until it expires, not
+// single-use), and the collapsed customer-facing status mapping the list is
+// rendered with.
 
 jest.mock("../../../shared/utils/mailer", () => ({
   sendTicketLookupCodeEmail: jest.fn().mockResolvedValue(undefined),
@@ -12,13 +13,13 @@ import { toSubmitterStatus, toMyTicketResponse, SubmitterTicketStatus } from "..
 
 const { sendTicketLookupCodeEmail } = require("../../../shared/utils/mailer");
 const { FeedbackStatus, SupportStatus } = require("../../../config/constants");
+const { env } = require("../../../config/env");
 
 function makeLookupCodeRepo() {
   return {
     invalidateActive: jest.fn().mockResolvedValue(undefined),
     save: jest.fn().mockResolvedValue({ id: "code-1" }),
     findActive: jest.fn(),
-    consume: jest.fn().mockResolvedValue(undefined),
   };
 }
 
@@ -62,6 +63,20 @@ describe("FeedbackService.requestMyTicketsCode", () => {
     expect(savedArg.codeHash).not.toBe(rawCode);
     expect(sendTicketLookupCodeEmail).toHaveBeenCalledWith("jane@example.com", expect.any(String));
   });
+
+  it("uses its own long-lived TTL, not the short auth-OTP one", async () => {
+    const { service, lookupCodeRepo } = makeService();
+
+    const before = Date.now();
+    await service.requestMyTicketsCode("jane@example.com");
+
+    const [savedArg] = (lookupCodeRepo.save as jest.Mock).mock.calls[0];
+    const ttlMs = savedArg.expiresAt.getTime() - before;
+    const expectedMs = env.ticketLookupCodeTtlMinutes * 60 * 1000;
+    // A couple seconds of slack for test execution time.
+    expect(Math.abs(ttlMs - expectedMs)).toBeLessThan(5000);
+    expect(env.ticketLookupCodeTtlMinutes).toBeGreaterThan(env.otpTtlMinutes);
+  });
 });
 
 describe("FeedbackService.listMyTickets", () => {
@@ -76,7 +91,7 @@ describe("FeedbackService.listMyTickets", () => {
     });
   });
 
-  it("consumes the code (single-use) and returns the submitter's tickets", async () => {
+  it("returns the submitter's tickets without consuming the code", async () => {
     const feedbackRepo = makeFeedbackRepo();
     feedbackRepo.findBySubmitterEmail.mockResolvedValue([
       {
@@ -98,7 +113,6 @@ describe("FeedbackService.listMyTickets", () => {
 
     const result = await service.listMyTickets("jane@example.com", "123456");
 
-    expect(lookupCodeRepo.consume).toHaveBeenCalledWith("code-1");
     expect(feedbackRepo.findBySubmitterEmail).toHaveBeenCalledWith("jane@example.com");
     expect(result).toEqual([
       expect.objectContaining({
@@ -108,6 +122,16 @@ describe("FeedbackService.listMyTickets", () => {
         status: SubmitterTicketStatus.IN_PROGRESS,
       }),
     ]);
+  });
+
+  it("can be called again with the same code — it's reusable, not single-use", async () => {
+    const { service, lookupCodeRepo } = makeService();
+    lookupCodeRepo.findActive.mockResolvedValue({ id: "code-1" });
+
+    await service.listMyTickets("jane@example.com", "123456");
+    await service.listMyTickets("jane@example.com", "123456");
+
+    expect(lookupCodeRepo.findActive).toHaveBeenCalledTimes(2);
   });
 });
 
@@ -133,6 +157,9 @@ describe("toSubmitterStatus", () => {
     });
     expect(toSubmitterStatus(fb(SupportStatus.LOGGED))).toBe(SubmitterTicketStatus.RECEIVED);
     expect(toSubmitterStatus(fb(SupportStatus.INVESTIGATING))).toBe(SubmitterTicketStatus.IN_PROGRESS);
+    expect(toSubmitterStatus(fb(SupportStatus.AWAITING_CONFIRMATION))).toBe(
+      SubmitterTicketStatus.PENDING_YOUR_CONFIRMATION
+    );
     expect(toSubmitterStatus(fb(SupportStatus.RESOLVED))).toBe(SubmitterTicketStatus.RESOLVED);
   });
 

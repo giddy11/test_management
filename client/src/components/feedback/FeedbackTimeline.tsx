@@ -22,10 +22,11 @@ interface StageRow {
   durationMs: number | null // time spent in this stage; null while pending or unreached
 }
 
-// "resolved" and "escalated" are mutually exclusive terminal outcomes (the
-// support tier's timeline lists both as possible next steps) — once one is
-// reached, the other will never happen and shouldn't linger as a pending step.
-const TERMINAL_ALTERNATIVES = ["resolved", "escalated"]
+// "resolved" (reached only via the intermediate "awaiting_confirmation" step)
+// and "escalated" are mutually exclusive terminal outcomes on the support
+// tier's timeline — once one is reached, steps unique to the other path
+// shouldn't linger as pending forever.
+const RESOLUTION_PATH = ["awaiting_confirmation", "resolved"]
 
 function buildRows(history: TimelineEntry[], stages: string[]): StageRow[] {
   const now = Date.now()
@@ -44,9 +45,11 @@ function buildRows(history: TimelineEntry[], stages: string[]): StageRow[] {
     return { status, reached: true, isCurrent, enteredAt: entry.enteredAt, durationMs }
   })
 
-  const reachedTerminal = rows.find((r) => TERMINAL_ALTERNATIVES.includes(r.status) && r.reached)
-  if (!reachedTerminal) return rows
-  return rows.filter((r) => r.status === reachedTerminal.status || !TERMINAL_ALTERNATIVES.includes(r.status))
+  const resolvedReached = rows.some((r) => r.status === "resolved" && r.reached)
+  const escalatedReached = rows.some((r) => r.status === "escalated" && r.reached)
+  if (resolvedReached) return rows.filter((r) => r.status !== "escalated")
+  if (escalatedReached) return rows.filter((r) => !RESOLUTION_PATH.includes(r.status))
+  return rows
 }
 
 // Defaults render the product-team lifecycle; the support portal passes the

@@ -81,6 +81,9 @@ const SupportStatus = Object.freeze({
   LOGGED: "logged",
   ACKNOWLEDGED: "acknowledged",
   INVESTIGATING: "investigating",
+  // Reached only via resolveLocally — the submitter gets a confirm/reopen
+  // link and hasn't answered yet. RESOLVED only becomes final once they confirm.
+  AWAITING_CONFIRMATION: "awaiting_confirmation",
   RESOLVED: "resolved",
   ESCALATED: "escalated",
 });

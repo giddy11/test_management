@@ -83,7 +83,12 @@ export class FeedbackSupportController {
       );
       res
         .status(200)
-        .json(ApiResponse.ok("Feedback resolved — the submitter has been emailed", toFeedbackResponse(updated)));
+        .json(
+          ApiResponse.ok(
+            "Feedback resolved — the submitter's been emailed and asked to confirm",
+            toFeedbackResponse(updated)
+          )
+        );
     } catch (err) {
       next(err);
     }

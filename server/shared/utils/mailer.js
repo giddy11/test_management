@@ -117,17 +117,33 @@ async function sendPasswordResetEmail(to, code, firstName = "there", organizatio
 }
 
 // ── Ticket lookup (submitter checking their own ticket history, no account) ────
+// Formats env.ticketLookupCodeTtlMinutes in whatever unit reads best — this
+// TTL is measured in days by default, so "expires in 2880 minutes" would be
+// a poor read.
+function formatTtl(minutes) {
+  if (minutes % (24 * 60) === 0) {
+    const days = minutes / (24 * 60);
+    return `${days} day${days === 1 ? "" : "s"}`;
+  }
+  if (minutes % 60 === 0) {
+    const hours = minutes / 60;
+    return `${hours} hour${hours === 1 ? "" : "s"}`;
+  }
+  return `${minutes} minute${minutes === 1 ? "" : "s"}`;
+}
+
 async function sendTicketLookupCodeEmail(to, code) {
+  const ttl = formatTtl(env.ticketLookupCodeTtlMinutes);
   const body = `
     <h1 style="margin:0 0 12px;font-size:22px;font-weight:700;color:#0f172a">Your ticket lookup code</h1>
     <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.65">Use the code below to view every ticket you've raised with us.</p>
     ${otpBox(code)}
-    <p style="margin:0 0 0;font-size:13px;color:#9ca3af">This code expires in ${env.otpTtlMinutes} minutes. If you didn't request this, you can ignore this email.</p>`;
+    <p style="margin:0 0 0;font-size:13px;color:#9ca3af">This code expires in ${ttl}. If you didn't request this, you can ignore this email.</p>`;
   return send({
     to,
     subject: "Your ticket lookup code — TestMate",
     html: emailLayout(body),
-    text: `Your TestMate ticket lookup code is ${code}. It expires in ${env.otpTtlMinutes} minutes.`,
+    text: `Your TestMate ticket lookup code is ${code}. It expires in ${ttl}.`,
   });
 }
 

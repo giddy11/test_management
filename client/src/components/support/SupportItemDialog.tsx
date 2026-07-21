@@ -90,6 +90,13 @@ export function SupportItemDialog({ feedback, onOpenChange }: Props) {
   const nextStage = currentIndex >= 0 ? SUPPORT_PROGRESSION[currentIndex + 1] : undefined
   const canConclude = current === "investigating"
   const isStageSelectable = (s: SupportStatus) => s === current || s === nextStage
+  // Leads can act on anything in the queue (they're the ones who assign it in
+  // the first place); a non-lead supporter can only act on tickets assigned
+  // to them — mirrors the server-side gate in FeedbackSupportService.
+  const canAct = isLead || Boolean(feedback && feedback.assignedSupporterId === user?.id)
+  const cannotActReason = feedback?.assignedSupporterId
+    ? `Only ${feedback.assignedSupporterName ?? "the assigned supporter"} or a lead can update this ticket`
+    : "Ask a lead to assign this ticket to you before updating it"
   // The true end user never sees product-team stage emails post-escalation —
   // once the product team closes it, relaying the fix is a deliberate,
   // one-time action here rather than something that happens automatically.
@@ -129,7 +136,7 @@ export function SupportItemDialog({ feedback, onOpenChange }: Props) {
       {
         onError,
         onSuccess: () => {
-          toast.success("Resolved — the submitter has been emailed your note")
+          toast.success("Marked resolved — the submitter's been emailed your note and asked to confirm")
           onOpenChange(false)
         },
       }
@@ -299,7 +306,8 @@ export function SupportItemDialog({ feedback, onOpenChange }: Props) {
                       size="sm"
                       className="justify-self-start"
                       onClick={doNotifySubmitter}
-                      disabled={notifySubmitter.isPending}
+                      disabled={notifySubmitter.isPending || !canAct}
+                      title={canAct ? undefined : cannotActReason}
                     >
                       <MailCheck className="mr-1 size-3.5" />
                       {notifySubmitter.isPending ? "Notifying…" : "Notify submitter — it's fixed"}
@@ -309,12 +317,20 @@ export function SupportItemDialog({ feedback, onOpenChange }: Props) {
               </div>
             )}
 
+            {isActive && !canAct && (
+              <p className="text-xs text-muted-foreground">{cannotActReason}</p>
+            )}
+
             {isActive && (
               <>
                 <div className="grid gap-1.5">
                   <Label>Stage (the submitter is emailed on every change)</Label>
                   <div className="flex items-center gap-2">
-                    <Select value={stage} onValueChange={(v) => setStage(v as SupportStatus)}>
+                    <Select
+                      value={stage}
+                      onValueChange={(v) => setStage(v as SupportStatus)}
+                      disabled={!canAct}
+                    >
                       <SelectTrigger className="flex-1"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         {SUPPORT_PROGRESSION.map((s) => (
@@ -328,7 +344,8 @@ export function SupportItemDialog({ feedback, onOpenChange }: Props) {
                       size="sm"
                       variant="secondary"
                       onClick={saveStage}
-                      disabled={updateStatus.isPending || !stage || stage === current}
+                      disabled={updateStatus.isPending || !stage || stage === current || !canAct}
+                      title={canAct ? undefined : cannotActReason}
                     >
                       {updateStatus.isPending ? "Saving…" : "Save stage"}
                     </Button>
@@ -346,6 +363,7 @@ export function SupportItemDialog({ feedback, onOpenChange }: Props) {
                     <Select
                       value={severity}
                       onValueChange={(v) => setSeverity(v as FeedbackSeverity)}
+                      disabled={!canAct}
                     >
                       <SelectTrigger><SelectValue placeholder="Pick a severity" /></SelectTrigger>
                       <SelectContent>
@@ -365,6 +383,7 @@ export function SupportItemDialog({ feedback, onOpenChange }: Props) {
                     <Checkbox
                       className="mt-0.5"
                       checked={wantsNote}
+                      disabled={!canAct}
                       onCheckedChange={(checked) => {
                         const next = checked === true
                         setWantsNote(next)
@@ -403,21 +422,23 @@ export function SupportItemDialog({ feedback, onOpenChange }: Props) {
               <Button
                 variant="outline"
                 onClick={() => setConfirmEscalate(true)}
-                disabled={escalate.isPending || !canConclude || !severity}
+                disabled={escalate.isPending || !canConclude || !severity || !canAct}
                 title={
-                  !canConclude
-                    ? "Move the item to Investigating first"
-                    : !severity
-                      ? "Pick a severity first"
-                      : undefined
+                  !canAct
+                    ? cannotActReason
+                    : !canConclude
+                      ? "Move the item to Investigating first"
+                      : !severity
+                        ? "Pick a severity first"
+                        : undefined
                 }
               >
                 <ArrowUpRight className="mr-1 size-3.5" /> Escalate
               </Button>
               <Button
                 onClick={doResolve}
-                disabled={resolve.isPending || !canConclude}
-                title={canConclude ? undefined : "Move the item to Investigating first"}
+                disabled={resolve.isPending || !canConclude || !canAct}
+                title={!canAct ? cannotActReason : canConclude ? undefined : "Move the item to Investigating first"}
               >
                 <CheckCircle2 className="mr-1 size-3.5" />
                 {resolve.isPending ? "Resolving…" : "Resolve locally"}

@@ -9,6 +9,9 @@ jest.mock("../../../shared/utils/mail/support.mail", () => ({
   sendFeedbackEscalatedAlertEmail: jest.fn().mockResolvedValue(undefined),
   sendSupportItemAssignedEmail: jest.fn().mockResolvedValue(undefined),
 }));
+jest.mock("../../../shared/utils/mailer", () => ({
+  sendFeedbackConfirmationReceivedEmail: jest.fn().mockResolvedValue(undefined),
+}));
 
 import { FeedbackSupportService } from "../services/feedbackSupport.service";
 
@@ -73,6 +76,7 @@ function makeNotificationService() {
     notifyFeedbackEscalated: jest.fn().mockResolvedValue(undefined),
     notifySupportQueueItem: jest.fn().mockResolvedValue(undefined),
     notifySupportItemAssigned: jest.fn().mockResolvedValue(undefined),
+    notifyFeedbackConfirmed: jest.fn().mockResolvedValue(undefined),
   };
 }
 
@@ -97,6 +101,10 @@ const loggedItem = {
   title: "Broken export",
   submitterName: "End User",
   submitterEmail: "user@client.co",
+  // Assigned to the default `supporter` actor — most tests below exercise
+  // state-transition logic, not the assignment gate (see its own describe
+  // block further down), so the default actor needs to already own the item.
+  assignedSupporterId: "sup-1",
   deletedAt: null,
 };
 
@@ -240,6 +248,47 @@ describe("FeedbackSupportService", () => {
     });
   });
 
+  // Peers shouldn't be able to touch each other's assigned tickets — only the
+  // assigned supporter, or any lead (who can also just reassign it). Exercised
+  // via updateStatus as a stand-in; getAssignedItem gates every mutating action.
+  describe("assignment gate", () => {
+    it("403s a non-lead supporter on an unassigned item", async () => {
+      feedbackRepo.findById.mockResolvedValue({ ...loggedItem, assignedSupporterId: null });
+      await expect(
+        service.updateStatus(supporter, "fb-1", SupportStatus.ACKNOWLEDGED)
+      ).rejects.toMatchObject({ statusCode: 403 });
+      expect(feedbackRepo.update).not.toHaveBeenCalled();
+    });
+
+    it("403s a non-lead supporter on a peer's assigned item", async () => {
+      feedbackRepo.findById.mockResolvedValue({ ...loggedItem, assignedSupporterId: "sup-2" });
+      await expect(
+        service.updateStatus(supporter, "fb-1", SupportStatus.ACKNOWLEDGED)
+      ).rejects.toMatchObject({ statusCode: 403 });
+    });
+
+    it("allows the assigned supporter", async () => {
+      feedbackRepo.findById.mockResolvedValue({ ...loggedItem, assignedSupporterId: "sup-1" });
+      feedbackRepo.update.mockResolvedValue({
+        ...loggedItem,
+        assignedSupporterId: "sup-1",
+        supportStatus: SupportStatus.ACKNOWLEDGED,
+      });
+      await service.updateStatus(supporter, "fb-1", SupportStatus.ACKNOWLEDGED);
+      expect(feedbackRepo.update).toHaveBeenCalled();
+    });
+
+    it("lets a lead act regardless of assignment", async () => {
+      feedbackRepo.findById.mockResolvedValue({ ...loggedItem, assignedSupporterId: null });
+      feedbackRepo.update.mockResolvedValue({
+        ...loggedItem,
+        supportStatus: SupportStatus.ACKNOWLEDGED,
+      });
+      await service.updateStatus(lead, "fb-1", SupportStatus.ACKNOWLEDGED);
+      expect(feedbackRepo.update).toHaveBeenCalled();
+    });
+  });
+
   describe("resolveLocally", () => {
     it("404s on another company's item", async () => {
       feedbackRepo.findById.mockResolvedValue({ ...investigatingItem, clientCompanyId: "cc-other" });
@@ -265,28 +314,134 @@ describe("FeedbackSupportService", () => {
       });
     });
 
-    it("resolves an investigating item with the note", async () => {
+    it("marks an investigating item awaiting confirmation, with the note and a confirm link", async () => {
       feedbackRepo.findById.mockResolvedValue(investigatingItem);
       feedbackRepo.update.mockResolvedValue({
         ...investigatingItem,
-        supportStatus: SupportStatus.RESOLVED,
+        supportStatus: SupportStatus.AWAITING_CONFIRMATION,
       });
 
       await service.resolveLocally(supporter, "fb-1", "Restart the app");
+
+      expect(feedbackRepo.update).toHaveBeenCalledWith("fb-1", {
+        supportStatus: SupportStatus.AWAITING_CONFIRMATION,
+        supportResponse: "Restart the app",
+      });
+      expect(supportHistoryRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ feedbackId: "fb-1", status: SupportStatus.AWAITING_CONFIRMATION })
+      );
+      // Local resolutions never create product-team history rows.
+      expect(historyRepo.create).not.toHaveBeenCalled();
+
+      const { sendSupportResolutionEmail } = require("../../../shared/utils/mail/support.mail");
+      expect(sendSupportResolutionEmail).toHaveBeenCalledWith(
+        "user@client.co",
+        "End User",
+        "Client Co",
+        "Product A",
+        "#42 — Broken export",
+        "Restart the app",
+        expect.stringContaining("/feedback/fb-1/confirm"),
+        "org-1"
+      );
+    });
+
+    it("409s if already awaiting confirmation", async () => {
+      feedbackRepo.findById.mockResolvedValue({
+        ...investigatingItem,
+        supportStatus: SupportStatus.AWAITING_CONFIRMATION,
+      });
+      await expect(service.resolveLocally(supporter, "fb-1", "note")).rejects.toMatchObject({
+        statusCode: 409,
+      });
+    });
+  });
+
+  describe("submitConfirmation", () => {
+    const awaitingItem = {
+      ...investigatingItem,
+      supportStatus: SupportStatus.AWAITING_CONFIRMATION,
+      supportResponse: "Restart the app",
+    };
+
+    it("404s on an unknown/deleted item", async () => {
+      feedbackRepo.findById.mockResolvedValue(null);
+      await expect(service.submitConfirmation("fb-1", true)).rejects.toMatchObject({
+        statusCode: 404,
+      });
+    });
+
+    it("409s when the item isn't awaiting confirmation", async () => {
+      feedbackRepo.findById.mockResolvedValue(investigatingItem);
+      await expect(service.submitConfirmation("fb-1", true)).rejects.toMatchObject({
+        statusCode: 409,
+      });
+    });
+
+    it("confirms: resolved becomes final and supportResolvedAt is set", async () => {
+      feedbackRepo.findById.mockResolvedValue(awaitingItem);
+      feedbackRepo.update.mockResolvedValue({ ...awaitingItem, supportStatus: SupportStatus.RESOLVED });
+      userRepo.findByClientCompany.mockResolvedValue([
+        { id: "lead-1", isSupportLead: true, email: "lead@client.co", firstName: "Lee" },
+      ]);
+
+      await service.submitConfirmation("fb-1", true);
 
       expect(feedbackRepo.update).toHaveBeenCalledWith(
         "fb-1",
         expect.objectContaining({
           supportStatus: SupportStatus.RESOLVED,
-          supportResponse: "Restart the app",
+          reopenReason: null,
           supportResolvedAt: expect.any(Date),
         })
       );
       expect(supportHistoryRepo.create).toHaveBeenCalledWith(
         expect.objectContaining({ feedbackId: "fb-1", status: SupportStatus.RESOLVED })
       );
-      // Local resolutions never create product-team history rows.
-      expect(historyRepo.create).not.toHaveBeenCalled();
+      const { sendFeedbackConfirmationReceivedEmail } = require("../../../shared/utils/mailer");
+      expect(sendFeedbackConfirmationReceivedEmail).toHaveBeenCalledWith(
+        "user@client.co",
+        "End User",
+        "Product A",
+        "#42 — Broken export",
+        true,
+        "org-1"
+      );
+    });
+
+    it("reopens to investigating with the reason when not confirmed", async () => {
+      feedbackRepo.findById.mockResolvedValue(awaitingItem);
+      feedbackRepo.update.mockResolvedValue({
+        ...awaitingItem,
+        supportStatus: SupportStatus.INVESTIGATING,
+      });
+      userRepo.findByClientCompany.mockResolvedValue([]);
+
+      await service.submitConfirmation("fb-1", false, "Still broken");
+
+      expect(feedbackRepo.update).toHaveBeenCalledWith("fb-1", {
+        supportStatus: SupportStatus.INVESTIGATING,
+        reopenReason: "Still broken",
+      });
+      expect(supportHistoryRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ feedbackId: "fb-1", status: SupportStatus.INVESTIGATING })
+      );
+    });
+
+    it("notifies the assigned supporter over company leads when one is assigned", async () => {
+      feedbackRepo.findById.mockResolvedValue({ ...awaitingItem, assignedSupporterId: "sup-2" });
+      feedbackRepo.update.mockResolvedValue(awaitingItem);
+      userRepo.findById.mockResolvedValue({ id: "sup-2", email: "sup2@co.com", firstName: "Sup" });
+
+      await service.submitConfirmation("fb-1", true);
+      await flush();
+
+      expect(userRepo.findById).toHaveBeenCalledWith("sup-2");
+      expect(userRepo.findByClientCompany).not.toHaveBeenCalled();
+      expect(notificationService.notifyFeedbackConfirmed).toHaveBeenCalledWith(
+        [expect.objectContaining({ id: "sup-2" })],
+        expect.objectContaining({ confirmed: true })
+      );
     });
   });
 
@@ -426,6 +581,7 @@ describe("FeedbackSupportService", () => {
         "Product A",
         "#42 — Broken export",
         "All fixed now!",
+        null,
         "org-1"
       );
     });

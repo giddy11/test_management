@@ -93,6 +93,10 @@ export async function sendSupportStatusEmail(
 }
 
 // ── IT support resolved the item locally — closes the loop with the end user ─
+// confirmUrl is the same public confirm/reopen page the product tier uses,
+// keyed by feedback id — null for the one-way "here's the fix" relay after an
+// escalated item's already been closed (see notifySubmitterFixed), where
+// there's no fresh verdict to collect.
 export async function sendSupportResolutionEmail(
   to: string,
   name: string,
@@ -100,20 +104,26 @@ export async function sendSupportResolutionEmail(
   productName: string,
   title: string,
   note: string,
+  confirmUrl: string | null,
   organizationId?: string | null
 ) {
+  const confirmButton = confirmUrl ? ctaButton(confirmUrl, "Review and confirm") : "";
+  const footerLine = confirmUrl
+    ? "Please confirm using the button above — you can also let us know if it isn't fixed yet."
+    : "If this doesn't fix things for you, just reach out to your IT support team.";
   const body = `
     <h1 style="margin:0 0 12px;font-size:20px;font-weight:700;color:#0f172a">Your feedback has been resolved</h1>
     <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.65">Hi ${name}, the IT support team at <strong>${companyName}</strong> has resolved your feedback <strong>${title}</strong> about <strong>${productName}</strong>.</p>
     <div style="background:#f8fafc;border-left:3px solid #6366f1;border-radius:0 6px 6px 0;padding:14px 16px;margin:0 0 24px">
       <p style="margin:0;font-size:14px;color:#374151"><strong>Note from support:</strong><br>${escapeAndLineBreak(note)}</p>
     </div>
-    <p style="margin:0;font-size:13px;color:#9ca3af">If this doesn't fix things for you, just reach out to your IT support team.</p>`;
+    ${confirmButton}
+    <p style="margin:0;font-size:13px;color:#9ca3af">${footerLine}</p>`;
   return send({
     to,
     subject: `Feedback resolved — ${title} — ${productName}`,
     html: emailLayout(body, await resolveFooterEmail(organizationId)),
-    text: `Hi ${name}, ${companyName}'s IT support resolved your feedback "${title}" about ${productName}. Note: ${note}`,
+    text: `Hi ${name}, ${companyName}'s IT support resolved your feedback "${title}" about ${productName}. Note: ${note}${confirmUrl ? ` Confirm here: ${confirmUrl}` : ""}`,
   });
 }
 

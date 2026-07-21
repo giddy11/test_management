@@ -93,7 +93,9 @@ const Feedback = new EntitySchema<Feedback>({
     supportStatus: {
       name: "support_status",
       type: "varchar",
-      length: 20,
+      // 30, not 20 — "awaiting_confirmation" (21 chars) needs the extra room;
+      // see migration WidenFeedbackSupportStatus.
+      length: 30,
       nullable: true,
     },
     supportResponse: {

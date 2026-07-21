@@ -81,8 +81,15 @@ const env = {
   // Frontend URL — used for email links that open the UI (e.g. login button).
   appUrl: process.env.URL || `http://localhost:5173`,
 
-  // Minutes an emailed OTP stays valid.
+  // Minutes an emailed OTP stays valid (email verification, password reset —
+  // these gate real account actions, so they stay short-lived).
   otpTtlMinutes: Number(process.env.OTP_TTL_MINUTES || 15),
+  // Minutes a "my tickets" lookup code stays valid. Read-only access to your
+  // own ticket history, not an account action, so this is deliberately much
+  // longer-lived than otpTtlMinutes — long enough that checking back on a
+  // ticket days later doesn't mean emailing yourself a new code every time.
+  // Default 2 days.
+  ticketLookupCodeTtlMinutes: Number(process.env.TICKET_LOOKUP_CODE_TTL_MINUTES || 2 * 24 * 60),
 };
 
 module.exports = { env };

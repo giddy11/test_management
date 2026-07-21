@@ -11,7 +11,7 @@ import { ProjectRepository } from "../../project/repositories/project.repository
 import { ProjectMemberRepository } from "../../project/repositories/projectMember.repository";
 import { ProjectService } from "../../project/services/project.service";
 import { ClientCompanyRepository } from "../../clientCompany/repositories/clientCompany.repository";
-import { ticketLabel, toMyTicketResponse } from "../dto/feedback.dto";
+import { ticketLabel, toMyTicketResponse, toSubmitterStatus } from "../dto/feedback.dto";
 import type { Actor } from "../../../shared/types/actor";
 import type { Feedback } from "../entities/feedback.entity";
 import type { Project } from "../../project/entities/project.entity";
@@ -504,6 +504,10 @@ export class FeedbackService {
 
   // Read-only context for the confirmation page: what it's confirming, and
   // whether the link is still actionable (status may have already moved on).
+  // One shared public page/route serves both tiers — collapse via the same
+  // customer-facing status the "My Tickets" lookup uses, so the page checks
+  // one canonical value ("pending_your_confirmation") regardless of whether
+  // the product or IT-support lifecycle is actually driving this ticket.
   async getPublicConfirmationContext(id: string) {
     const fb = await this.feedbackRepo.findById(id);
     if (!fb || fb.deletedAt) throw new AppError("This feedback link is no longer valid", 404);
@@ -517,7 +521,7 @@ export class FeedbackService {
       projectName: project?.name ?? "",
       ticketNumber: fb.ticketNumber,
       title: fb.title,
-      status: fb.status,
+      status: toSubmitterStatus(fb),
       feedbackToken: backLinkToken,
     };
   }
@@ -528,6 +532,16 @@ export class FeedbackService {
   async submitConfirmation(id: string, confirmed: boolean, reason?: string) {
     const fb = await this.feedbackRepo.findById(id);
     if (!fb || fb.deletedAt) throw new AppError("This feedback link is no longer valid", 404);
+
+    // Pre-escalation company-routed ticket — the IT tier owns this
+    // confirmation (its own AWAITING_CONFIRMATION, not the product one, since
+    // `status` hasn't started moving yet for these). Escalated items fall
+    // through to the product-tier logic below as usual.
+    if (fb.clientCompanyId && fb.supportStatus && fb.supportStatus !== SupportStatus.ESCALATED) {
+      const { FeedbackSupportService } = require("./feedbackSupport.service");
+      return FeedbackSupportService.Instance.submitConfirmation(id, confirmed, reason);
+    }
+
     if (fb.status !== FeedbackStatus.AWAITING_CONFIRMATION) {
       throw new AppError("This feedback has already been handled", 409);
     }
@@ -606,14 +620,17 @@ export class FeedbackService {
   // ── Ticket lookup — a submitter's own history, no account (public) ──────────
 
   // Never reveals whether the email has any tickets — always resolves the
-  // same way, same convention as AuthService.forgotPassword.
+  // same way, same convention as AuthService.forgotPassword. Uses its own,
+  // much longer TTL than auth OTPs (see env.ticketLookupCodeTtlMinutes) —
+  // read-only access to your own tickets, not an account action, so it's
+  // fine for the same code to keep working across a multi-day check-in.
   async requestMyTicketsCode(email: string): Promise<void> {
     const code = generateOtp(6);
     await this.lookupCodeRepo.invalidateActive(email);
     await this.lookupCodeRepo.save({
       email,
       codeHash: hashToken(code),
-      expiresAt: new Date(Date.now() + env.otpTtlMinutes * 60 * 1000),
+      expiresAt: new Date(Date.now() + env.ticketLookupCodeTtlMinutes * 60 * 1000),
     });
     sendTicketLookupCodeEmail(email, code).catch((e: Error) =>
       console.error("[mailer] ticket lookup code failed:", e.message)
@@ -621,10 +638,12 @@ export class FeedbackService {
     if (!env.isProduction) console.info(`[otp] my-tickets code for ${email}: ${code}`);
   }
 
+  // Read-only, so the code isn't single-use — it's valid for repeated
+  // lookups (e.g. on every page refresh) until it naturally expires or a new
+  // one is requested (which invalidates it). See requestMyTicketsCode.
   async listMyTickets(email: string, code: string) {
     const active = await this.lookupCodeRepo.findActive(email, hashToken(code));
     if (!active) throw new AppError("Invalid or expired code", 401);
-    await this.lookupCodeRepo.consume(active.id);
 
     const rows = await this.feedbackRepo.findBySubmitterEmail(email);
     return rows.map(toMyTicketResponse);

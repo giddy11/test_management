@@ -37,8 +37,4 @@ export class FeedbackLookupCodeRepository {
       .andWhere("code.expires_at > now()")
       .getOne();
   }
-
-  async consume(id: string): Promise<void> {
-    await this.repo.update(id, { consumedAt: new Date() });
-  }
 }
