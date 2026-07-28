@@ -8,6 +8,7 @@ import {
   CheckCircle2,
   KeyRound,
   Mail,
+  MessageSquare,
   PlusCircle,
   TicketCheck,
   XCircle,
@@ -25,6 +26,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import { TicketThreadDialog } from "@/components/feedback/TicketThreadDialog"
 import { FeedbackEndpoints } from "@/endpoints/feedback.endpoints"
 import { ApiError } from "@/transport/http"
 import { FEEDBACK_TYPE_LABELS, MY_TICKET_STATUS_LABELS, type MyTicket } from "@/types/feedback.types"
@@ -82,6 +84,8 @@ export default function MyTicketsPage() {
   const [reopenReason, setReopenReason] = useState("")
   // Ticket currently submitting a confirm/reopen verdict.
   const [actingId, setActingId] = useState<string | null>(null)
+  // Ticket whose conversation thread dialog is open (null = closed).
+  const [threadTicket, setThreadTicket] = useState<MyTicket | null>(null)
 
   // Silent re-fetch on load when a still-valid credential is cached — no
   // code re-entry, and always a fresh list (unlike caching the list itself).
@@ -369,15 +373,25 @@ export default function MyTicketsPage() {
                       )}
                     </div>
                   )}
-                  {t.feedbackToken && (
-                    <Link
-                      to={`/feedback/${t.feedbackToken}`}
-                      className="mt-2 inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                  <div className="mt-2 flex flex-wrap items-center gap-3">
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                      onClick={() => setThreadTicket(t)}
                     >
-                      <PlusCircle className="size-3" />
-                      Raise another ticket for {t.projectName}
-                    </Link>
-                  )}
+                      <MessageSquare className="size-3" />
+                      View conversation
+                    </button>
+                    {t.feedbackToken && (
+                      <Link
+                        to={`/feedback/${t.feedbackToken}`}
+                        className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                      >
+                        <PlusCircle className="size-3" />
+                        Raise another ticket for {t.projectName}
+                      </Link>
+                    )}
+                  </div>
                 </div>
               ))}
               <Button variant="outline" onClick={startOver}>
@@ -388,6 +402,17 @@ export default function MyTicketsPage() {
           </>
         )}
       </Card>
+
+      <TicketThreadDialog
+        ticket={threadTicket}
+        // Always read fresh from sessionStorage rather than the `email`/`code`
+        // input state above — those only ever hold a value on the manual
+        // entry path; a returning visitor lands straight on the "list" step
+        // via the cached credential and never populates them.
+        email={loadStoredCredential()?.email ?? ""}
+        code={loadStoredCredential()?.code ?? ""}
+        onOpenChange={(open) => !open && setThreadTicket(null)}
+      />
     </div>
   )
 }

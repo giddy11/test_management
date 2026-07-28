@@ -141,3 +141,35 @@ export const feedbackLinkSchema = z.object({
   params: z.object({ id: z.string().uuid() }),
   body: z.object({ enabled: z.boolean() }),
 });
+
+// ── Ticket comment thread (staff side — product team and IT support both use
+// these same shapes, mounted on their own route files) ──────────────────────
+
+export const fetchFeedbackCommentsSchema = z.object({
+  params: z.object({ id: z.string().uuid() }),
+});
+
+export const addFeedbackCommentSchema = z.object({
+  params: z.object({ id: z.string().uuid() }),
+  body: z.object({ body: z.string().min(1).max(3000) }),
+});
+
+// ── Ticket comment thread (public — the submitter proves ownership the same
+// way "My Tickets" does: email + the same emailed OTP code) ─────────────────
+
+export const publicFetchCommentsSchema = z.object({
+  params: z.object({ id: z.string().uuid() }),
+  body: z.object({
+    email: z.string().email().max(255),
+    code: z.string().length(6),
+  }),
+});
+
+export const publicAddCommentSchema = z.object({
+  params: z.object({ id: z.string().uuid() }),
+  body: z.object({
+    email: z.string().email().max(255),
+    code: z.string().length(6),
+    body: z.string().min(1).max(3000),
+  }),
+});

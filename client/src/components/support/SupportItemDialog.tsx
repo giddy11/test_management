@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/select"
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog"
 import { FeedbackTimeline } from "@/components/feedback/FeedbackTimeline"
+import { TicketCommentThread } from "@/components/feedback/TicketCommentThread"
 import {
   useAssignSupportItem,
   useEscalateSupportItem,
@@ -412,6 +413,10 @@ export function SupportItemDialog({ feedback, onOpenChange }: Props) {
                 </div>
               </>
             )}
+
+            <div className="border-t pt-4">
+              <TicketCommentThread feedbackId={feedback.id} support />
+            </div>
           </div>
         )}
 

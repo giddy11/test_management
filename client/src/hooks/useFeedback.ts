@@ -59,6 +59,39 @@ export function useFeedbackHistory(feedbackId: string, enabled: boolean) {
   })
 }
 
+// Ticket comment thread — plain REST with a short poll while a thread view is
+// open (rather than a realtime listener), since the submitter side has no
+// app/Firebase auth token to back one.
+const COMMENT_POLL_MS = 15000
+
+export function useFeedbackComments(feedbackId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: [FEEDBACK_KEY, feedbackId, "comments"],
+    queryFn: async () => {
+      const res = await FeedbackEndpoints.comments(feedbackId)
+      if (!res.success) throw new ApiError(res.message, res.statusCode)
+      return res.data ?? []
+    },
+    enabled: enabled && Boolean(feedbackId),
+    refetchInterval: enabled ? COMMENT_POLL_MS : false,
+  })
+}
+
+export function useAddFeedbackComment(feedbackId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ body, files }: { body: string; files?: File[] }) => {
+      const res = await FeedbackEndpoints.addComment(feedbackId, body, files)
+      if (!res.success || !res.data) throw new ApiError(res.message, res.statusCode, res.errors)
+      return res.data
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: [FEEDBACK_KEY, feedbackId, "comments"] })
+      qc.invalidateQueries({ queryKey: [FEEDBACK_KEY] }) // refreshes the commentCount badge in lists
+    },
+  })
+}
+
 // ── IT support portal (it_support role) ─────────────────────────────────────
 
 export function useSupportQueue(params: SupportQueueParams) {
@@ -158,6 +191,34 @@ export function useNotifySubmitterFixed() {
       return res.data
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: [FEEDBACK_KEY] }),
+  })
+}
+
+export function useSupportComments(feedbackId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: [FEEDBACK_KEY, "support", feedbackId, "comments"],
+    queryFn: async () => {
+      const res = await FeedbackEndpoints.supportComments(feedbackId)
+      if (!res.success) throw new ApiError(res.message, res.statusCode)
+      return res.data ?? []
+    },
+    enabled: enabled && Boolean(feedbackId),
+    refetchInterval: enabled ? COMMENT_POLL_MS : false,
+  })
+}
+
+export function useAddSupportComment(feedbackId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ body, files }: { body: string; files?: File[] }) => {
+      const res = await FeedbackEndpoints.supportAddComment(feedbackId, body, files)
+      if (!res.success || !res.data) throw new ApiError(res.message, res.statusCode, res.errors)
+      return res.data
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: [FEEDBACK_KEY, "support", feedbackId, "comments"] })
+      qc.invalidateQueries({ queryKey: [FEEDBACK_KEY] })
+    },
   })
 }
 

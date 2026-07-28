@@ -2,6 +2,7 @@
 // Unauthenticated endpoints for the embeddable public feedback form.
 // The project's feedback_token (a UUID) is the only credential.
 import { FeedbackController } from "../controllers/feedback.controller";
+import { FeedbackCommentController } from "../controllers/feedbackComment.controller";
 import {
   publicFormParamSchema,
   submitFeedbackSchema,
@@ -9,12 +10,14 @@ import {
   submitConfirmationSchema,
   requestMyTicketsCodeSchema,
   listMyTicketsSchema,
+  publicFetchCommentsSchema,
+  publicAddCommentSchema,
 } from "../validators/feedback.schema";
 
 const router = require("express").Router();
 const rateLimit = require("express-rate-limit");
 const { validate } = require("../../../shared/middleware/validate.middleware");
-const { uploadMany } = require("../../../shared/middleware/upload.middleware");
+const { uploadMany, uploadCommentAttachments } = require("../../../shared/middleware/upload.middleware");
 const { authRateLimiter } = require("../../../shared/middleware/rateLimiter.middleware");
 
 // Stricter than the app-wide limiter — this endpoint is on the open internet.
@@ -24,6 +27,18 @@ const submitLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { success: false, message: "Too many submissions — please try again later", statusCode: 429 },
+});
+
+// A comment thread is a back-and-forth, not a one-shot submission — looser
+// than submitLimiter so a real conversation doesn't get throttled, but still
+// well below anything a script could use to brute-force the OTP code (that's
+// separately rate-limited via authRateLimiter on /my-tickets/code).
+const commentLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: "Too many requests — please try again shortly", statusCode: 429 },
 });
 
 // A submitter's own ticket history, no account — email a code (same rate
@@ -68,6 +83,23 @@ router.post(
   submitLimiter,
   validate(submitConfirmationSchema),
   FeedbackController.publicConfirm
+);
+
+// Ticket comment thread — the submitter proves ownership the same way
+// "My Tickets" does (email + the emailed OTP code, sent in the body so it
+// never lands in a URL/query string or a server log).
+router.post(
+  "/:id/comments/view",
+  commentLimiter,
+  validate(publicFetchCommentsSchema),
+  FeedbackCommentController.publicList
+);
+router.post(
+  "/:id/comments",
+  commentLimiter,
+  uploadCommentAttachments("attachments"),
+  validate(publicAddCommentSchema),
+  FeedbackCommentController.publicCreate
 );
 
 module.exports = router;

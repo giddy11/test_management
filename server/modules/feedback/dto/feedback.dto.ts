@@ -1,6 +1,7 @@
 // modules/feedback/dto/feedback.dto.ts
 import type { Feedback } from "../entities/feedback.entity";
 import type { FeedbackStatusHistory } from "../entities/feedbackStatusHistory.entity";
+import type { FeedbackComment } from "../entities/feedbackComment.entity";
 
 const { FeedbackStatus, SupportStatus } = require("../../../config/constants");
 
@@ -50,8 +51,28 @@ export function toFeedbackResponse(fb: Feedback | null) {
     adminResponse: fb.adminResponse ?? null,
     reopenReason: fb.reopenReason ?? null,
     attachments: (fb.attachments ?? []).map((a) => ({ id: a.id, url: a.url })),
+    commentCount: fb.commentCount ?? 0,
     statusUpdatedAt: fb.statusUpdatedAt ?? null,
     createdAt: fb.createdAt,
+  };
+}
+
+export function toFeedbackCommentResponse(c: FeedbackComment) {
+  return {
+    id: c.id,
+    feedbackId: c.feedbackId,
+    authorType: c.authorType,
+    authorId: c.authorId ?? null,
+    authorName: c.authorName,
+    body: c.body,
+    attachments: (c.attachments ?? []).map((a) => ({
+      id: a.id,
+      fileName: a.fileName,
+      fileUrl: a.fileUrl,
+      mimeType: a.mimeType,
+      fileSizeBytes: a.fileSizeBytes,
+    })),
+    createdAt: c.createdAt,
   };
 }
 

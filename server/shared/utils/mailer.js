@@ -249,6 +249,22 @@ async function sendFeedbackConfirmationReceivedEmail(to, name, projectName, titl
   });
 }
 
+// New message in a ticket's comment thread — sent to whichever side didn't
+// write it. `name` covers both a staff member's first name and the external
+// submitter's full name (they have no account, so no separate first/last).
+async function sendFeedbackCommentEmail(to, name, title, commenterName, url, organizationId) {
+  const body = `
+    <h1 style="margin:0 0 12px;font-size:20px;font-weight:700;color:#0f172a">New message on your ticket</h1>
+    <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.65">Hi ${name}, ${commenterName} posted a new message on ticket <strong>${title}</strong>.</p>
+    ${ctaButton(url, "View conversation")}`;
+  return send({
+    to,
+    subject: `New message — ${title} — TestMate`,
+    html: emailLayout(body, await resolveFooterEmail(organizationId)),
+    text: `${commenterName} posted a new message on ticket "${title}".`,
+  });
+}
+
 // Internal alert to admins/members when external feedback arrives.
 async function sendNewFeedbackAlertEmail(to, firstName, title, typeLabel, projectName, submitterName, url, organizationId) {
   const body = `
@@ -436,6 +452,7 @@ module.exports = {
   sendNewFeedbackAlertEmail,
   sendFeedbackAssignedEmail,
   sendFeedbackConfirmationReceivedEmail,
+  sendFeedbackCommentEmail,
   sendRunCompletedEmail,
   sendNewFeatureRequestEmail,
   sendFeatureRequestStatusEmail,

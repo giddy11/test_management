@@ -175,4 +175,11 @@ export class FeedbackRepository {
   async softDelete(id: string): Promise<void> {
     await this.repo.softDelete(id);
   }
+
+  // Denormalized counter for the comment-thread badge — comments themselves
+  // live in feedback_comments (see FeedbackCommentRepository). No decrement
+  // path: comments aren't deletable (see feedbackComment.service.ts).
+  async incrementCommentCount(id: string): Promise<void> {
+    await this.repo.increment({ id }, "commentCount", 1);
+  }
 }

@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/select"
 import { useFeedbackHistory, useManageFeedback } from "@/hooks/useFeedback"
 import { FeedbackTimeline } from "@/components/feedback/FeedbackTimeline"
+import { TicketCommentThread } from "@/components/feedback/TicketCommentThread"
 import { ApiError } from "@/transport/http"
 import type { ProjectMember } from "@/types/project.types"
 import {
@@ -332,6 +333,10 @@ export function FeedbackManageDialog({
                   autoFocus
                 />
               )}
+            </div>
+
+            <div className="border-t pt-4">
+              <TicketCommentThread feedbackId={feedback.id} />
             </div>
           </div>
         )}

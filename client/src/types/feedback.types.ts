@@ -60,7 +60,31 @@ export interface Feedback {
   adminResponse: string | null
   reopenReason: string | null
   attachments: { id: string; url: string }[]
+  // Denormalized — comments live in their own thread, see FeedbackComment below.
+  commentCount: number
   statusUpdatedAt: string | null
+  createdAt: string
+}
+
+export interface FeedbackCommentAttachment {
+  id: string
+  fileName: string
+  fileUrl: string
+  mimeType: string
+  fileSizeBytes: number
+}
+
+// A message in a ticket's comment thread — either an internal staff member
+// (authorId set) or the ticket's submitter (no account — authorId is null,
+// authorType is "submitter").
+export interface FeedbackComment {
+  id: string
+  feedbackId: string
+  authorType: "staff" | "submitter"
+  authorId: string | null
+  authorName: string
+  body: string
+  attachments: FeedbackCommentAttachment[]
   createdAt: string
 }
 

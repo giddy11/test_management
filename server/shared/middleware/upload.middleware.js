@@ -54,10 +54,45 @@ function uploadSpreadsheet(field, maxMb = 5) {
   }).single(field);
 }
 
+// Ticket comment attachments: screenshots or common documents. PDFs/Office
+// files go through StorageService.uploadRaw instead of uploadImage — see
+// feedbackComment.service.ts.
+const ALLOWED_DOCUMENT_TYPES = [
+  "application/pdf",
+  "application/msword", // .doc
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document", // .docx
+  "application/vnd.ms-excel", // .xls
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", // .xlsx
+];
+const ALLOWED_COMMENT_ATTACHMENT_TYPES = [...ALLOWED_IMAGE_TYPES, ...ALLOWED_DOCUMENT_TYPES];
+
+function commentAttachmentFileFilter(_req, file, cb) {
+  // Some browsers send application/octet-stream for .doc/.xls — same
+  // extension-fallback trick as sheetFileFilter above.
+  const okType = ALLOWED_COMMENT_ATTACHMENT_TYPES.includes(file.mimetype);
+  const okExt = /\.(pdf|docx?|xlsx?|png|jpe?g|webp)$/i.test(file.originalname || "");
+  if (okType || okExt) {
+    cb(null, true);
+  } else {
+    cb(new AppError("Only images, PDF, Word, or Excel files are allowed", 422));
+  }
+}
+
+function uploadCommentAttachments(field, maxCount = 5, maxMb = 10) {
+  return multer({
+    storage: memoryStorage,
+    limits: { fileSize: maxMb * 1024 * 1024, files: maxCount },
+    fileFilter: commentAttachmentFileFilter,
+  }).array(field, maxCount);
+}
+
 module.exports = {
   uploadSingle,
   uploadMany,
   uploadSpreadsheet,
+  uploadCommentAttachments,
   ALLOWED_IMAGE_TYPES,
   ALLOWED_SHEET_TYPES,
+  ALLOWED_DOCUMENT_TYPES,
+  ALLOWED_COMMENT_ATTACHMENT_TYPES,
 };

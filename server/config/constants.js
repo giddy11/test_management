@@ -107,6 +107,9 @@ const NotificationType = Object.freeze({
   FEEDBACK_CLOSED_SUPPORTER: "feedback_closed_supporter",
   // An IT support lead routed a queue item to a teammate.
   SUPPORT_ITEM_ASSIGNED: "support_item_assigned",
+  // A new message landed in a ticket's comment thread — staff notified when
+  // the submitter writes, the submitter emailed (no in-app inbox) when staff writes.
+  FEEDBACK_COMMENT: "feedback_comment",
   TEST_ASSIGNED: "test_assigned",
   RUN_COMPLETED: "run_completed",
   FEATURE_REQUEST_STATUS_CHANGED: "feature_request_status_changed",

@@ -2,6 +2,7 @@
 import { wrapCall, uploadFilesWithFields } from "@/transport/http"
 import type {
   Feedback,
+  FeedbackComment,
   FeedbackConfirmationContext,
   FeedbackSeverity,
   FeedbackStatusHistoryEntry,
@@ -26,6 +27,20 @@ export const FeedbackEndpoints = {
 
   history: (id: string) =>
     wrapCall<FeedbackStatusHistoryEntry[]>("GET", `/api/v1/feedback/${id}/history`),
+
+  // Ticket comment thread — same shape reused for the product-team routes
+  // and the IT-support portal routes below (the server resolves which tier
+  // owns the ticket).
+  comments: (id: string) =>
+    wrapCall<FeedbackComment[]>("GET", `/api/v1/feedback/${id}/comments`),
+
+  addComment: (id: string, body: string, files: File[] = []) =>
+    uploadFilesWithFields<FeedbackComment>(
+      `/api/v1/feedback/${id}/comments`,
+      files,
+      { body },
+      "attachments"
+    ),
 
   setLink: (projectId: string, enabled: boolean) =>
     wrapCall<{ feedbackToken: string | null }>("POST", `/api/v1/feedback/projects/${projectId}/link`, { enabled }),
@@ -66,6 +81,17 @@ export const FeedbackEndpoints = {
   supportNotifySubmitter: (id: string, note: string) =>
     wrapCall<Feedback>("POST", `/api/v1/support/feedback/${id}/notify-submitter`, { note }),
 
+  supportComments: (id: string) =>
+    wrapCall<FeedbackComment[]>("GET", `/api/v1/support/feedback/${id}/comments`),
+
+  supportAddComment: (id: string, body: string, files: File[] = []) =>
+    uploadFilesWithFields<FeedbackComment>(
+      `/api/v1/support/feedback/${id}/comments`,
+      files,
+      { body },
+      "attachments"
+    ),
+
   // Public (unauthenticated)
   publicForm: (token: string) =>
     wrapCall<PublicFeedbackForm>("GET", `/api/v1/public/feedback/${token}`),
@@ -98,4 +124,18 @@ export const FeedbackEndpoints = {
 
   listMyTickets: (email: string, code: string) =>
     wrapCall<MyTicket[]>("POST", "/api/v1/public/feedback/my-tickets", { email, code }),
+
+  // Ticket comment thread, submitter side — proves ownership with the same
+  // email + code pair as the My Tickets lookup above (sent in the body, same
+  // as everywhere else that credential is used).
+  publicComments: (id: string, email: string, code: string) =>
+    wrapCall<FeedbackComment[]>("POST", `/api/v1/public/feedback/${id}/comments/view`, { email, code }),
+
+  publicAddComment: (id: string, email: string, code: string, body: string, files: File[] = []) =>
+    uploadFilesWithFields<FeedbackComment>(
+      `/api/v1/public/feedback/${id}/comments`,
+      files,
+      { email, code, body },
+      "attachments"
+    ),
 }

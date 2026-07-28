@@ -14,6 +14,7 @@ const {
   sendNewFeatureRequestEmail,
   sendFeatureRequestStatusEmail,
   sendFeatureRequestCommentEmail,
+  sendFeedbackCommentEmail,
   sendNewBugEmail,
   sendBugStatusEmail,
   sendBugAssignedEmail,
@@ -261,6 +262,29 @@ class NotificationService {
       url,
       ctx.organizationId
     ).catch((e) => console.error("[notify] closed-supporter email failed:", e.message));
+  }
+
+  // The submitter posted a new message on a ticket's comment thread — notify
+  // whichever staff are currently handling it (product-team assignees/admins,
+  // or the IT-support assignee/leads for a pre-escalation company ticket).
+  // ctx: { feedbackId, projectId, projectName, title, commenterName, support }
+  async notifyFeedbackComment(recipients, ctx) {
+    if (!recipients.length) return;
+    const url = ctx.support ? `${env.appUrl}/support` : `${env.appUrl}/projects/${ctx.projectId}?tab=feedback`;
+    await this.repo.createMany(
+      recipients.map((u) => ({
+        userId: u.id,
+        type: NotificationType.FEEDBACK_COMMENT,
+        title: `New message: ${ctx.title}`,
+        body: `${ctx.commenterName} posted a new message on this ticket`,
+        data: { feedbackId: ctx.feedbackId, projectId: ctx.projectId, support: ctx.support || undefined },
+      }))
+    );
+    for (const u of recipients) {
+      sendFeedbackCommentEmail(u.email, u.firstName, ctx.title, ctx.commenterName, url, ctx.organizationId).catch(
+        (e) => console.error("[notify] feedback-comment email failed:", e.message)
+      );
+    }
   }
 
   // An IT support lead routed a queue item to a teammate within their company.
