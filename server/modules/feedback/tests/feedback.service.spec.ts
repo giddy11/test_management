@@ -63,6 +63,7 @@ const admin = { id: "admin-1", role: UserRole.ADMIN, organizationId: "org-1" };
 const baseItem = {
   id: "fb-1",
   ticketNumber: 42,
+  createdAt: new Date("2024-01-15T00:00:00.000Z"),
   projectId: "proj-1",
   clientCompanyId: null,
   escalatedById: null,
@@ -119,7 +120,7 @@ describe("FeedbackService.manageFeedback — closing", () => {
       "user@example.com",
       "End User",
       "Product A",
-      "#42 — Broken export",
+      "TKT-20240115-042 — Broken export",
       FeedbackStatus.CLOSED,
       expect.any(String),
       null,
@@ -151,7 +152,7 @@ describe("FeedbackService.manageFeedback — closing", () => {
         feedbackId: "fb-1",
         projectName: "Product A",
         companyName: "Client Co",
-        title: "#42 — Broken export",
+        title: "TKT-20240115-042 — Broken export",
         organizationId: "org-1",
       })
     );

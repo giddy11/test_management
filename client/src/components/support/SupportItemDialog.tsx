@@ -187,11 +187,11 @@ export function SupportItemDialog({ feedback, onOpenChange }: Props) {
 
   return (
     <Dialog open={Boolean(feedback)} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl lg:max-w-4xl">
         <DialogHeader>
           <DialogTitle className="flex flex-wrap items-center gap-2">
             {feedback && (
-              <span className="font-mono text-sm text-muted-foreground">#{feedback.ticketNumber}</span>
+              <span className="font-mono text-sm text-muted-foreground">{feedback.ticketCode}</span>
             )}
             {feedback?.title}
             {feedback && (
@@ -206,7 +206,8 @@ export function SupportItemDialog({ feedback, onOpenChange }: Props) {
         </DialogHeader>
 
         {feedback && (
-          <div className="grid gap-4">
+          <div className="grid gap-6 md:grid-cols-[1.15fr_1fr]">
+          <div className="grid gap-4 md:max-h-[65vh] md:overflow-y-auto md:pr-4">
             <p className="max-h-52 overflow-y-auto whitespace-pre-line rounded-md bg-muted p-3 text-sm">
               {feedback.description}
             </p>
@@ -325,6 +326,39 @@ export function SupportItemDialog({ feedback, onOpenChange }: Props) {
             {isActive && (
               <>
                 <div className="grid gap-1.5">
+                  <label className="flex cursor-pointer items-start gap-2">
+                    <Checkbox
+                      className="mt-0.5"
+                      checked={wantsNote}
+                      disabled={!canAct}
+                      onCheckedChange={(checked) => {
+                        const next = checked === true
+                        setWantsNote(next)
+                        if (!next) setNote("")
+                      }}
+                    />
+                    <span className="text-sm">
+                      Add a note
+                      <span className="block text-xs font-normal text-muted-foreground">
+                        {canConclude
+                          ? "Required to resolve — emailed straight to the submitter. Optional when escalating — stays internal for your product team, the submitter is not emailed it."
+                          : "Optional — check this and write a message before hitting Save stage below to have it emailed to the submitter alongside the stage update."}
+                      </span>
+                    </span>
+                  </label>
+                  {wantsNote && (
+                    <Textarea
+                      id="support-note"
+                      rows={3}
+                      maxLength={3000}
+                      autoFocus
+                      value={note}
+                      onChange={(e) => setNote(e.target.value)}
+                    />
+                  )}
+                </div>
+
+                <div className="grid gap-1.5">
                   <Label>Stage (the submitter is emailed on every change)</Label>
                   <div className="flex items-center gap-2">
                     <Select
@@ -378,43 +412,11 @@ export function SupportItemDialog({ feedback, onOpenChange }: Props) {
                     </p>
                   </div>
                 )}
-
-                <div className="grid gap-1.5">
-                  <label className="flex cursor-pointer items-start gap-2">
-                    <Checkbox
-                      className="mt-0.5"
-                      checked={wantsNote}
-                      disabled={!canAct}
-                      onCheckedChange={(checked) => {
-                        const next = checked === true
-                        setWantsNote(next)
-                        if (!next) setNote("")
-                      }}
-                    />
-                    <span className="text-sm">
-                      Add a note
-                      <span className="block text-xs font-normal text-muted-foreground">
-                        {canConclude
-                          ? "Required to resolve — emailed straight to the submitter. Optional when escalating — stays internal for your product team, the submitter is not emailed it."
-                          : "Optional — emailed to the submitter alongside the stage update above."}
-                      </span>
-                    </span>
-                  </label>
-                  {wantsNote && (
-                    <Textarea
-                      id="support-note"
-                      rows={3}
-                      maxLength={3000}
-                      autoFocus
-                      value={note}
-                      onChange={(e) => setNote(e.target.value)}
-                    />
-                  )}
-                </div>
               </>
             )}
+          </div>
 
-            <div className="border-t pt-4">
+            <div className="border-t pt-4 md:max-h-[65vh] md:overflow-y-auto md:border-l md:border-t-0 md:pl-6 md:pt-0">
               <TicketCommentThread feedbackId={feedback.id} support />
             </div>
           </div>

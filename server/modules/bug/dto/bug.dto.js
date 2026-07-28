@@ -10,7 +10,7 @@ function toBugResponse(bug) {
   if (!bug) return null;
   return {
     id: bug.id,
-    referenceCode: formatReferenceCode("BF", bug.bugNumber),
+    referenceCode: formatReferenceCode("BF", bug.bugNumber, bug.createdAt),
     projectId: bug.projectId,
     title: bug.title,
     description: bug.description,

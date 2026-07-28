@@ -30,6 +30,8 @@ export interface Feedback {
   id: string
   // Human-readable sequential id shown everywhere instead of the uuid.
   ticketNumber: number
+  // Formatted "TKT-YYYYMMDD-NNN" code — display this instead of ticketNumber.
+  ticketCode: string
   projectId: string
   // Present when the backend loaded the project relation (global view).
   projectName: string | null
@@ -141,6 +143,7 @@ export interface PublicFeedbackForm {
 export interface FeedbackConfirmationContext {
   projectName: string
   ticketNumber: number
+  ticketCode: string
   title: string
   status: MyTicketStatus
   feedbackToken: string | null
@@ -171,6 +174,7 @@ export const MY_TICKET_STATUS_LABELS: Record<MyTicketStatus, string> = {
 export interface MyTicket {
   id: string
   ticketNumber: number
+  ticketCode: string
   projectName: string | null
   clientCompanyName: string | null
   type: FeedbackType

@@ -139,7 +139,7 @@ export function TicketThreadDialog({ ticket, email, code, onOpenChange }: Props)
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>
-            {ticket && `#${ticket.ticketNumber} — `}
+            {ticket && `${ticket.ticketCode} — `}
             {ticket?.title}
           </DialogTitle>
           <DialogDescription>Your conversation with the support team.</DialogDescription>

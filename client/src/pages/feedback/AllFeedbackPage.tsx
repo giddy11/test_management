@@ -168,7 +168,7 @@ export default function AllFeedbackPage() {
           <Card key={fb.id}>
             <CardHeader className="pb-2">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="font-mono text-xs text-muted-foreground">#{fb.ticketNumber}</span>
+                <span className="font-mono text-xs text-muted-foreground">{fb.ticketCode}</span>
                 <CardTitle className="text-base">{fb.title}</CardTitle>
                 {projectName(fb) && <Badge variant="outline" className="border-primary/40">{projectName(fb)}</Badge>}
                 <Badge variant="outline">{FEEDBACK_TYPE_LABELS[fb.type]}</Badge>

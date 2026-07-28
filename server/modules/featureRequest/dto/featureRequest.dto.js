@@ -6,7 +6,7 @@ function toFeatureRequestResponse(fr, extra = {}) {
   const submitter = fr.submittedBy;
   return {
     id: fr.id,
-    referenceCode: formatReferenceCode("FR", fr.requestNumber),
+    referenceCode: formatReferenceCode("FR", fr.requestNumber, fr.createdAt),
     projectId: fr.projectId,
     title: fr.title,
     description: fr.description,

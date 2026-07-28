@@ -93,6 +93,7 @@ const admin = { id: "admin-1", role: UserRole.ADMIN, organizationId: "org-1" };
 const loggedItem = {
   id: "fb-1",
   ticketNumber: 42,
+  createdAt: new Date("2024-01-15T00:00:00.000Z"),
   projectId: "proj-1",
   clientCompanyId: "cc-1",
   supportStatus: SupportStatus.LOGGED,
@@ -182,7 +183,7 @@ describe("FeedbackSupportService", () => {
         "End User",
         "Client Co",
         "Product A",
-        "#42 — Broken export",
+        "TKT-20240115-042 — Broken export",
         expect.any(String),
         expect.any(String),
         null,
@@ -210,7 +211,7 @@ describe("FeedbackSupportService", () => {
         "End User",
         "Client Co",
         "Product A",
-        "#42 — Broken export",
+        "TKT-20240115-042 — Broken export",
         expect.any(String),
         expect.any(String),
         "Looking into it now.",
@@ -339,7 +340,7 @@ describe("FeedbackSupportService", () => {
         "End User",
         "Client Co",
         "Product A",
-        "#42 — Broken export",
+        "TKT-20240115-042 — Broken export",
         "Restart the app",
         expect.stringContaining("/feedback/fb-1/confirm"),
         "org-1"
@@ -403,7 +404,7 @@ describe("FeedbackSupportService", () => {
         "user@client.co",
         "End User",
         "Product A",
-        "#42 — Broken export",
+        "TKT-20240115-042 — Broken export",
         true,
         "org-1"
       );
@@ -579,7 +580,7 @@ describe("FeedbackSupportService", () => {
         "End User",
         "Client Co",
         "Product A",
-        "#42 — Broken export",
+        "TKT-20240115-042 — Broken export",
         "All fixed now!",
         null,
         "org-1"

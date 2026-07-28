@@ -89,10 +89,10 @@ export default function PublicFeedbackConfirmPage() {
             </p>
             <p className="mt-1 text-sm text-muted-foreground">
               {result === "reopened"
-                ? `We've reopened "#${context.ticketNumber} — ${context.title}" and the team will take another look.`
+                ? `We've reopened "${context.ticketCode} — ${context.title}" and the team will take another look.`
                 : result === "confirmed"
-                ? `"#${context.ticketNumber} — ${context.title}" has been closed. Thanks for helping us improve!`
-                : `"#${context.ticketNumber} — ${context.title}" is no longer awaiting confirmation.`}
+                ? `"${context.ticketCode} — ${context.title}" has been closed. Thanks for helping us improve!`
+                : `"${context.ticketCode} — ${context.title}" is no longer awaiting confirmation.`}
             </p>
             <Button
               variant="outline"
@@ -159,7 +159,7 @@ export default function PublicFeedbackConfirmPage() {
                 {context.projectName} — is this resolved?
               </CardTitle>
               <CardDescription>
-                The team believes your ticket <strong>#{context.ticketNumber} — {context.title}</strong>{" "}
+                The team believes your ticket <strong>{context.ticketCode} — {context.title}</strong>{" "}
                 has been resolved. Let them know if that's right.
               </CardDescription>
             </CardHeader>

@@ -11,7 +11,7 @@ import { ProjectRepository } from "../../project/repositories/project.repository
 import { ProjectMemberRepository } from "../../project/repositories/projectMember.repository";
 import { ProjectService } from "../../project/services/project.service";
 import { ClientCompanyRepository } from "../../clientCompany/repositories/clientCompany.repository";
-import { ticketLabel, toMyTicketResponse, toSubmitterStatus } from "../dto/feedback.dto";
+import { ticketCode, ticketLabel, toMyTicketResponse, toSubmitterStatus } from "../dto/feedback.dto";
 import type { Actor } from "../../../shared/types/actor";
 import type { Feedback } from "../entities/feedback.entity";
 import type { Project } from "../../project/entities/project.entity";
@@ -520,6 +520,7 @@ export class FeedbackService {
     return {
       projectName: project?.name ?? "",
       ticketNumber: fb.ticketNumber,
+      ticketCode: ticketCode(fb),
       title: fb.title,
       status: toSubmitterStatus(fb),
       feedbackToken: backLinkToken,

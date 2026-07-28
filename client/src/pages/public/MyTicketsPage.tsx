@@ -300,7 +300,7 @@ export default function MyTicketsPage() {
               {tickets?.map((t) => (
                 <div key={t.id} className="rounded-md border p-3">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-mono text-xs text-muted-foreground">#{t.ticketNumber}</span>
+                    <span className="font-mono text-xs text-muted-foreground">{t.ticketCode}</span>
                     <span className="text-sm font-medium">{t.title}</span>
                     <Badge variant="outline" className="text-xs">{FEEDBACK_TYPE_LABELS[t.type]}</Badge>
                     <Badge variant={STATUS_VARIANT[t.status]} className="ml-auto text-xs">

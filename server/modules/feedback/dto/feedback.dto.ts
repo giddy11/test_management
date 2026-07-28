@@ -4,12 +4,19 @@ import type { FeedbackStatusHistory } from "../entities/feedbackStatusHistory.en
 import type { FeedbackComment } from "../entities/feedbackComment.entity";
 
 const { FeedbackStatus, SupportStatus } = require("../../../config/constants");
+const { formatReferenceCode } = require("../../../shared/utils/referenceCode");
+
+// Human-readable code shown instead of the raw ticketNumber (e.g.
+// "TKT-20260728-042") — same idea as a bug/feature request's referenceCode.
+export function ticketCode(fb: { ticketNumber: number; createdAt: Date }): string {
+  return formatReferenceCode("TKT", fb.ticketNumber, fb.createdAt);
+}
 
 // The label shown wherever a ticket is referenced in a single string — email
 // subjects/bodies and in-app notification titles. UI list/detail views render
-// ticketNumber as its own badge instead of baking it into the title text.
-export function ticketLabel(fb: { ticketNumber: number; title: string }): string {
-  return `#${fb.ticketNumber} — ${fb.title}`;
+// ticketCode as its own badge instead of baking it into the title text.
+export function ticketLabel(fb: { ticketNumber: number; title: string; createdAt: Date }): string {
+  return `${ticketCode(fb)} — ${fb.title}`;
 }
 
 export function toFeedbackResponse(fb: Feedback | null) {
@@ -18,6 +25,7 @@ export function toFeedbackResponse(fb: Feedback | null) {
   return {
     id: fb.id,
     ticketNumber: fb.ticketNumber,
+    ticketCode: ticketCode(fb),
     projectId: fb.projectId,
     // Present when the project relation was loaded (global cross-project mode).
     projectName: project?.name ?? null,
@@ -153,6 +161,7 @@ export function toMyTicketResponse(fb: Feedback) {
   return {
     id: fb.id,
     ticketNumber: fb.ticketNumber,
+    ticketCode: ticketCode(fb),
     projectName: project?.name ?? null,
     clientCompanyName: fb.clientCompany?.name ?? null,
     type: fb.type,

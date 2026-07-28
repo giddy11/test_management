@@ -122,7 +122,7 @@ export function FeedbackManageDialog({
     <Dialog open={Boolean(feedback)} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Manage ticket{feedback && ` #${feedback.ticketNumber}`}</DialogTitle>
+          <DialogTitle>Manage ticket{feedback && ` ${feedback.ticketCode}`}</DialogTitle>
           <DialogDescription>
             {feedback?.title} — from {feedback?.submitterName}
             {feedback?.submitterPhone && <> · {feedback.submitterPhone}</>}
