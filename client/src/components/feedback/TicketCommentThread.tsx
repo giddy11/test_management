@@ -57,6 +57,15 @@ function AttachmentChip({ attachment }: { attachment: FeedbackCommentAttachment 
   )
 }
 
+// Once a ticket is escalated, both the product team and the escalating
+// company's IT support post here as "staff" — badge which side, so a
+// three-way thread (submitter / IT support / product team) reads clearly.
+function staffLabel(authorRole: string | null): string {
+  if (authorRole === "it_support") return "IT Support"
+  if (authorRole === "admin" || authorRole === "superadmin" || authorRole === "user") return "Product team"
+  return "Staff"
+}
+
 function CommentRow({ comment, isMine }: { comment: FeedbackComment; isMine: boolean }) {
   return (
     <div className="flex items-start gap-3">
@@ -67,7 +76,11 @@ function CommentRow({ comment, isMine }: { comment: FeedbackComment; isMine: boo
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium">{comment.authorName}</span>
           <Badge variant={comment.authorType === "submitter" ? "outline" : "secondary"} className="text-[10px]">
-            {isMine ? "You" : comment.authorType === "submitter" ? "Submitter" : "Staff"}
+            {isMine
+              ? "You"
+              : comment.authorType === "submitter"
+              ? "Submitter"
+              : staffLabel(comment.authorRole)}
           </Badge>
           <span className="ml-auto text-xs text-muted-foreground">
             {new Date(comment.createdAt).toLocaleString()}

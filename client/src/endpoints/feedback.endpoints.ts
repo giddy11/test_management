@@ -131,4 +131,15 @@ export const FeedbackEndpoints = {
       { email, code, body },
       "attachments"
     ),
+
+  // Reply from the public confirmation-link page — the ticket id in the URL
+  // is the only credential (same trust model as the confirm/reopen action on
+  // that same page), no email/code needed.
+  publicAddCommentViaLink: (id: string, body: string, files: File[] = []) =>
+    uploadFilesWithFields<FeedbackComment>(
+      `/api/v1/public/feedback/${id}/comments/link`,
+      files,
+      { body },
+      "attachments"
+    ),
 }

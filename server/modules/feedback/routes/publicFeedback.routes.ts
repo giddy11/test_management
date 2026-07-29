@@ -12,6 +12,7 @@ import {
   listMyTicketsSchema,
   publicFetchCommentsSchema,
   publicAddCommentSchema,
+  publicAddCommentViaLinkSchema,
 } from "../validators/feedback.schema";
 
 const router = require("express").Router();
@@ -100,6 +101,17 @@ router.post(
   uploadCommentAttachments("attachments"),
   validate(publicAddCommentSchema),
   FeedbackCommentController.publicCreate
+);
+
+// Reply from the public confirmation-link page (/feedback/:id/confirm) — the
+// ticket id alone is the credential, same trust model as the confirm/reopen
+// action on that same page, so no email/code is required here.
+router.post(
+  "/:id/comments/link",
+  commentLimiter,
+  uploadCommentAttachments("attachments"),
+  validate(publicAddCommentViaLinkSchema),
+  FeedbackCommentController.publicCreateViaLink
 );
 
 module.exports = router;

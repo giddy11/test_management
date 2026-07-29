@@ -75,6 +75,7 @@ export function toFeedbackCommentResponse(c: FeedbackComment) {
     authorType: c.authorType,
     authorId: c.authorId ?? null,
     authorName: c.authorName,
+    authorRole: c.authorRole ?? null,
     body: c.body,
     attachments: (c.attachments ?? []).map((a) => ({
       url: a.url,

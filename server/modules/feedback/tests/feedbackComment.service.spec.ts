@@ -14,6 +14,8 @@ jest.mock("../../../shared/utils/mailer", () => ({
 
 import { FeedbackCommentService } from "../services/feedbackComment.service";
 
+const { sendFeedbackCommentEmail } = require("../../../shared/utils/mailer");
+
 const { UserRole, SupportStatus } = require("../../../config/constants");
 
 function makeFeedbackRepo() {
@@ -107,6 +109,17 @@ const escalatedUnrelayedTicket = {
 
 const escalatedRelayedTicket = { ...escalatedUnrelayedTicket, id: "fb-4", submitterNotifiedAt: new Date() };
 
+const escalatedTicket = {
+  ...directTicket,
+  id: "fb-5",
+  clientCompanyId: "company-1",
+  supportStatus: SupportStatus.ESCALATED,
+  escalatedById: "sup-1",
+  escalatedBy: { id: "sup-1", firstName: "Sam", lastName: "Support", email: "sam@client.co" },
+  assignedSupporterId: "sup-1",
+  submitterNotifiedAt: null,
+};
+
 function makeService(overrides: Record<string, any> = {}) {
   const deps = {
     feedbackRepo: makeFeedbackRepo(),
@@ -137,6 +150,8 @@ function makeService(overrides: Record<string, any> = {}) {
   );
   return { service, ...deps };
 }
+
+beforeEach(() => jest.clearAllMocks());
 
 const admin = { id: "admin-1", role: UserRole.ADMIN, organizationId: "org-1" };
 const plainUser = { id: "user-1", role: UserRole.USER, organizationId: "org-1" };
@@ -323,6 +338,145 @@ describe("FeedbackCommentService — attachment mimetype branching", () => {
       statusCode: 422,
     });
     expect(commentRepo.create).not.toHaveBeenCalled();
+  });
+});
+
+describe("FeedbackCommentService — staff access on an escalated ticket (both sides keep it)", () => {
+  it("lets product-tier staff in once the ticket is escalated", async () => {
+    const { service, feedbackRepo, projectService } = makeService();
+    projectService.canManageProject.mockResolvedValue(true);
+    feedbackRepo.findById.mockResolvedValue(escalatedTicket);
+
+    await expect(service.listForStaff(admin, "fb-5")).resolves.toEqual([]);
+    await expect(service.addForStaff(admin, "fb-5", "what's the status?")).resolves.toBeDefined();
+  });
+
+  it("keeps the escalating company's assigned supporter able to post after escalation", async () => {
+    const { service, feedbackRepo } = makeService();
+    feedbackRepo.findById.mockResolvedValue(escalatedTicket);
+
+    await expect(service.addForStaff(supporter, "fb-5", "any update?")).resolves.toBeDefined();
+  });
+
+  it("still lets any of the company's supporters read the thread after escalation", async () => {
+    const { service, feedbackRepo } = makeService();
+    feedbackRepo.findById.mockResolvedValue(escalatedTicket);
+
+    await expect(service.listForStaff(otherSupporter, "fb-5")).resolves.toEqual([]);
+  });
+
+  it("still blocks a supporter from a different company after escalation", async () => {
+    const { service, feedbackRepo } = makeService();
+    feedbackRepo.findById.mockResolvedValue(escalatedTicket);
+    const outsider = { id: "sup-9", role: UserRole.IT_SUPPORT, clientCompanyId: "company-2" };
+
+    await expect(service.listForStaff(outsider, "fb-5")).rejects.toMatchObject({ statusCode: 404 });
+  });
+});
+
+describe("FeedbackCommentService — staff comment notification routing", () => {
+  it("notifies the product team in-app (not the true submitter by email) when IT support posts on an escalated ticket", async () => {
+    const { service, feedbackRepo, authRepo, memberRepo, notificationService } = makeService();
+    feedbackRepo.findById.mockResolvedValue(escalatedTicket);
+    authRepo.findByRoleAndOrg.mockResolvedValue([{ id: "admin-1", email: "ada@example.com", firstName: "Ada" }]);
+    memberRepo.findMemberUsers.mockResolvedValue([]);
+
+    await service.addForStaff(supporter, "fb-5", "here's what we found");
+
+    expect(notificationService.notifyFeedbackComment).toHaveBeenCalledWith(
+      expect.arrayContaining([expect.objectContaining({ id: "admin-1" })]),
+      expect.objectContaining({ support: false })
+    );
+    expect(sendFeedbackCommentEmail).not.toHaveBeenCalled();
+  });
+
+  it("notifies the escalating company's handlers in-app (not the true submitter by email) when the product team posts on an escalated ticket", async () => {
+    const { service, feedbackRepo, projectService, userRepo, notificationService } = makeService();
+    projectService.canManageProject.mockResolvedValue(true);
+    feedbackRepo.findById.mockResolvedValue(escalatedTicket);
+    userRepo.findById.mockResolvedValue({ id: "sup-1", email: "sam@client.co", firstName: "Sam" });
+
+    await service.addForStaff(admin, "fb-5", "can you get more detail from the user?");
+
+    expect(notificationService.notifyFeedbackComment).toHaveBeenCalledWith(
+      [expect.objectContaining({ id: "sup-1" })],
+      expect.objectContaining({ support: true })
+    );
+    expect(sendFeedbackCommentEmail).not.toHaveBeenCalled();
+  });
+
+  it("emails the true submitter directly (not an in-app notify) when staff posts on a direct ticket", async () => {
+    const { service, feedbackRepo, projectService, notificationService } = makeService();
+    projectService.canManageProject.mockResolvedValue(true);
+    feedbackRepo.findById.mockResolvedValue(directTicket);
+
+    await service.addForStaff(admin, "fb-1", "can you share more detail?");
+
+    expect(sendFeedbackCommentEmail).toHaveBeenCalledWith(
+      "user@example.com",
+      "End User",
+      expect.any(String),
+      expect.any(String),
+      expect.any(String),
+      expect.anything()
+    );
+    expect(notificationService.notifyFeedbackComment).not.toHaveBeenCalled();
+  });
+
+  it("emails the true submitter directly when IT support posts pre-escalation", async () => {
+    const { service, feedbackRepo, notificationService } = makeService();
+    feedbackRepo.findById.mockResolvedValue(supportOwnedTicket);
+
+    await service.addForStaff(supporter, "fb-2", "we're looking into it");
+
+    expect(sendFeedbackCommentEmail).toHaveBeenCalledWith(
+      "user@example.com",
+      "End User",
+      expect.any(String),
+      expect.any(String),
+      expect.any(String),
+      expect.anything()
+    );
+    expect(notificationService.notifyFeedbackComment).not.toHaveBeenCalled();
+  });
+});
+
+describe("FeedbackCommentService — addForConfirmationLink (ticket id as the only credential)", () => {
+  it("posts a reply with no email/code, for a direct ticket", async () => {
+    const { service, feedbackRepo } = makeService();
+    feedbackRepo.findById.mockResolvedValue(directTicket);
+
+    await expect(service.addForConfirmationLink("fb-1", "adding more detail")).resolves.toBeDefined();
+  });
+
+  it("posts a reply with no email/code, for a pre-escalation company ticket", async () => {
+    const { service, feedbackRepo } = makeService();
+    feedbackRepo.findById.mockResolvedValue(supportOwnedTicket);
+
+    await expect(service.addForConfirmationLink("fb-2", "adding more detail")).resolves.toBeDefined();
+  });
+
+  it("blocks a reply on an escalated-but-unrelayed ticket, same as the code-based path", async () => {
+    const { service, feedbackRepo } = makeService();
+    feedbackRepo.findById.mockResolvedValue(escalatedUnrelayedTicket);
+
+    await expect(service.addForConfirmationLink("fb-3", "adding more detail")).rejects.toMatchObject({
+      statusCode: 403,
+    });
+  });
+
+  it("allows a reply once support has relayed a fix", async () => {
+    const { service, feedbackRepo } = makeService();
+    feedbackRepo.findById.mockResolvedValue(escalatedRelayedTicket);
+
+    await expect(service.addForConfirmationLink("fb-4", "thanks, confirming it's fixed")).resolves.toBeDefined();
+  });
+
+  it("404s on a missing/deleted ticket", async () => {
+    const { service, feedbackRepo } = makeService();
+    feedbackRepo.findById.mockResolvedValue(null);
+
+    await expect(service.addForConfirmationLink("fb-nope", "hello?")).rejects.toMatchObject({ statusCode: 404 });
   });
 });
 

@@ -3,9 +3,19 @@
 // routes, the IT-support portal routes, and the public (unauthenticated)
 // submitter routes, so the "who's allowed to read/write this ticket's
 // thread" logic lives in exactly one place instead of three.
+//
+// Once a company ticket is escalated, BOTH staff sides (the escalating
+// company's IT support and the product team now handling it) keep access to
+// the same thread — this is deliberately not the same "un-escalated items
+// aren't the product org's business yet" wall the rest of ticket management
+// enforces (see FeedbackService.assertVisibleToOrg): a support thread is
+// exactly the place those two sides need to be able to talk to each other.
+// The true (unauthenticated) submitter is the one party still gated by the
+// existing "hidden until relayed" rule post-escalation.
 import { FeedbackRepository } from "../repositories/feedback.repository";
 import {
   FeedbackCommentRepository,
+  type FeedbackComment,
   type FeedbackCommentAttachment,
 } from "../repositories/feedbackComment.repository";
 import { FeedbackLookupCodeRepository } from "../repositories/feedbackLookupCode.repository";
@@ -75,18 +85,17 @@ export class FeedbackCommentService {
     this.storage = storage;
   }
 
-  // A ticket is IT-support-owned while it's company-routed and not yet
-  // escalated — same condition FeedbackRepository.fetchPaginated and
-  // feedback.dto.ts's toMyTicketNote already use to decide which tier "owns" it.
-  private isSupportOwned(fb: Feedback): boolean {
-    return Boolean(fb.clientCompanyId) && fb.supportStatus !== SupportStatus.ESCALATED;
+  private isEscalated(fb: Feedback): boolean {
+    return Boolean(fb.clientCompanyId) && fb.supportStatus === SupportStatus.ESCALATED;
   }
 
   // ── Staff access ─────────────────────────────────────────────────────────
-  // Mirrors the access rules FeedbackService.manageFeedback and
-  // FeedbackSupportService.getOwnItem/getAssignedItem already enforce for the
-  // single note field — reading matches who can already see the ticket at
-  // all, writing is restricted to whoever can actually act on it.
+  // Reading matches who can already see the ticket at all; writing is
+  // restricted to whoever can actually act on it — same bar
+  // FeedbackService.manageFeedback and FeedbackSupportService's
+  // getOwnItem/getAssignedItem already enforce for the single note field.
+  // Unlike those, an IT supporter's access here doesn't end at escalation —
+  // see the file-level comment above.
   private async loadForStaff(
     actor: Actor,
     feedbackId: string,
@@ -95,8 +104,8 @@ export class FeedbackCommentService {
     const fb = await this.feedbackRepo.findById(feedbackId);
     if (!fb || fb.deletedAt) throw new AppError("Feedback not found", 404);
 
-    if (this.isSupportOwned(fb)) {
-      if (actor.role !== UserRole.IT_SUPPORT || actor.clientCompanyId !== fb.clientCompanyId) {
+    if (actor.role === UserRole.IT_SUPPORT) {
+      if (!fb.clientCompanyId || actor.clientCompanyId !== fb.clientCompanyId) {
         throw new AppError("Feedback not found", 404);
       }
       if (forWrite && !actor.isSupportLead && fb.assignedSupporterId !== actor.id) {
@@ -110,7 +119,10 @@ export class FeedbackCommentService {
       return fb;
     }
 
-    if (actor.role === UserRole.IT_SUPPORT) throw new AppError("Feedback not found", 404);
+    // Product tier: an un-escalated company ticket isn't theirs yet.
+    if (fb.clientCompanyId && fb.supportStatus !== SupportStatus.ESCALATED) {
+      throw new AppError("Feedback not found", 404);
+    }
     await this.projectService.getProject(actor, fb.projectId); // throws if the actor can't see this project at all
     if (forWrite) {
       const canManage = await this.projectService.canManageProject(actor, fb.projectId);
@@ -123,9 +135,19 @@ export class FeedbackCommentService {
   }
 
   // ── Submitter access ─────────────────────────────────────────────────────
-  // Same credential as "My Tickets" (email + the emailed OTP code) — see
-  // FeedbackService.listMyTickets.
-  private async loadForSubmitter(feedbackId: string, email: string, code: string): Promise<Feedback> {
+  // Same rule either way in: once a company ticket is escalated, the true
+  // submitter is deliberately kept out of the internal IT-support/product-team
+  // handoff until support explicitly relays a fix (submitterNotifiedAt) — same
+  // condition feedback.dto.ts's toMyTicketNote uses for the single note field.
+  private assertSubmitterVisible(fb: Feedback): void {
+    if (fb.clientCompanyId && fb.supportStatus === SupportStatus.ESCALATED && !fb.submitterNotifiedAt) {
+      throw new AppError("This ticket has been escalated — check back soon for an update", 403);
+    }
+  }
+
+  // Proof of ownership: email + the emailed OTP code, same as "My Tickets" —
+  // see FeedbackService.listMyTickets.
+  private async loadForSubmitterByCode(feedbackId: string, email: string, code: string): Promise<Feedback> {
     const active = await this.lookupCodeRepo.findActive(email, hashToken(code));
     if (!active) throw new AppError("Invalid or expired code", 401);
 
@@ -133,14 +155,18 @@ export class FeedbackCommentService {
     if (!fb || fb.deletedAt || fb.submitterEmail.toLowerCase() !== email.toLowerCase()) {
       throw new AppError("Feedback not found", 404);
     }
+    this.assertSubmitterVisible(fb);
+    return fb;
+  }
 
-    // Same rule as feedback.dto.ts's toMyTicketNote: once a company ticket is
-    // escalated, the true submitter is deliberately kept out of the internal
-    // handoff until support explicitly relays a fix (submitterNotifiedAt).
-    if (fb.clientCompanyId && fb.supportStatus === SupportStatus.ESCALATED && !fb.submitterNotifiedAt) {
-      throw new AppError("This ticket has been escalated — check back soon for an update", 403);
-    }
-
+  // Proof of ownership: the ticket id alone — the same bearer-credential
+  // trust model already used by the public confirmation link (see
+  // FeedbackService.getPublicConfirmationContext/submitConfirmation). Backs
+  // the reply box on that same page, which has no email/code to hand.
+  private async loadForSubmitterByLink(feedbackId: string): Promise<Feedback> {
+    const fb = await this.feedbackRepo.findById(feedbackId);
+    if (!fb || fb.deletedAt) throw new AppError("This feedback link is no longer valid", 404);
+    this.assertSubmitterVisible(fb);
     return fb;
   }
 
@@ -173,25 +199,10 @@ export class FeedbackCommentService {
     return uploaded;
   }
 
-  // Who staff replies get emailed to — the escalating supporter once a
-  // company ticket is escalated (they relay to their own end user), else the
-  // true submitter. Mirrors FeedbackService.resolveEmailRecipient.
-  private async resolveExternalRecipient(fb: Feedback): Promise<{ email: string; name: string }> {
-    if (fb.escalatedById) {
-      const supporter = fb.escalatedBy ?? (await this.authRepo.findUserById(fb.escalatedById));
-      if (supporter) {
-        return {
-          email: supporter.email,
-          name: [supporter.firstName, supporter.lastName].filter(Boolean).join(" "),
-        };
-      }
-    }
-    return { email: fb.submitterEmail, name: fb.submitterName };
-  }
-
   // Who gets notified when the submitter replies to an IT-support-owned
   // ticket — the assigned supporter if there is one, else every company lead.
-  // Mirrors FeedbackSupportService.resolveActiveHandlers.
+  // Also doubles as "the product team's contact on the IT-support side" once
+  // a ticket is escalated. Mirrors FeedbackSupportService.resolveActiveHandlers.
   private async resolveSupportHandlers(fb: Feedback): Promise<any[]> {
     if (fb.assignedSupporterId) {
       const supporter = await this.userRepo.findById(fb.assignedSupporterId);
@@ -201,8 +212,8 @@ export class FeedbackCommentService {
     return supporters.filter((s: any) => s.isSupportLead);
   }
 
-  // Who gets notified when the submitter replies to a product-tier ticket —
-  // same fan-out as a brand-new submission (org admins + project members).
+  // Who gets notified when the submitter replies to a product-tier ticket, or
+  // when IT support posts on a now-escalated one — org admins + project members.
   private async resolveProductTeamHandlers(fb: Feedback, organizationId?: string | null): Promise<any[]> {
     const [orgAdmins, members] = await Promise.all([
       organizationId ? this.authRepo.findByRoleAndOrg(UserRole.ADMIN, organizationId) : Promise.resolve([]),
@@ -233,25 +244,50 @@ export class FeedbackCommentService {
       authorType: "staff",
       authorId: actor.id,
       authorName,
+      authorRole: actor.role,
       body,
       attachments,
     });
     await this.feedbackRepo.incrementCommentCount(feedbackId);
 
-    const [project, company, recipient] = await Promise.all([
+    const [project, company] = await Promise.all([
       this.projectRepo.findById(fb.projectId),
       fb.clientCompanyId ? this.companyRepo.findById(fb.clientCompanyId) : Promise.resolve(null),
-      this.resolveExternalRecipient(fb),
     ]);
 
-    sendFeedbackCommentEmail(
-      recipient.email,
-      recipient.name,
-      ticketLabel(fb),
-      authorName,
-      `${env.appUrl}/my-tickets`,
-      project?.organizationId ?? null
-    ).catch((e: Error) => console.error("[feedback] comment email failed:", e.message));
+    if (this.isEscalated(fb)) {
+      // Both staff sides of an escalated ticket now share this thread —
+      // notify whichever side didn't post, in-app + email, same as any
+      // other staff notification (they both have real accounts/inboxes).
+      const posterIsSupport = actor.role === UserRole.IT_SUPPORT;
+      const recipients = posterIsSupport
+        ? await this.resolveProductTeamHandlers(fb, project?.organizationId)
+        : await this.resolveSupportHandlers(fb);
+      if (recipients.length) {
+        this.notificationService
+          .notifyFeedbackComment(recipients, {
+            feedbackId: fb.id,
+            projectId: fb.projectId,
+            projectName: project?.name ?? "",
+            title: ticketLabel(fb),
+            commenterName: authorName,
+            support: !posterIsSupport,
+            organizationId: project?.organizationId ?? null,
+          })
+          .catch((e: Error) => console.error("[feedback] comment notify failed:", e.message));
+      }
+    } else {
+      // Pre-escalation or a direct ticket — the other side is the true,
+      // unauthenticated submitter, who has no in-app inbox to notify.
+      sendFeedbackCommentEmail(
+        fb.submitterEmail,
+        fb.submitterName,
+        ticketLabel(fb),
+        authorName,
+        `${env.appUrl}/my-tickets`,
+        project?.organizationId ?? null
+      ).catch((e: Error) => console.error("[feedback] comment email failed:", e.message));
+    }
 
     ActivityService.Instance.log(actor, {
       action: "feedback.comment_added",
@@ -268,7 +304,7 @@ export class FeedbackCommentService {
   // ── Submitter-facing (public, unauthenticated) ──────────────────────────
 
   async listForSubmitter(feedbackId: string, email: string, code: string) {
-    await this.loadForSubmitter(feedbackId, email, code);
+    await this.loadForSubmitterByCode(feedbackId, email, code);
     return this.commentRepo.findByFeedback(feedbackId);
   }
 
@@ -278,23 +314,42 @@ export class FeedbackCommentService {
     code: string,
     body: string,
     files?: UploadedFile[]
-  ) {
-    const fb = await this.loadForSubmitter(feedbackId, email, code);
+  ): Promise<FeedbackComment> {
+    const fb = await this.loadForSubmitterByCode(feedbackId, email, code);
+    return this.createSubmitterComment(fb, body, files);
+  }
+
+  // Backs the reply box on the public confirmation-link page — the ticket id
+  // itself is the credential (see loadForSubmitterByLink above), no email/code.
+  async addForConfirmationLink(
+    feedbackId: string,
+    body: string,
+    files?: UploadedFile[]
+  ): Promise<FeedbackComment> {
+    const fb = await this.loadForSubmitterByLink(feedbackId);
+    return this.createSubmitterComment(fb, body, files);
+  }
+
+  private async createSubmitterComment(
+    fb: Feedback,
+    body: string,
+    files?: UploadedFile[]
+  ): Promise<FeedbackComment> {
     this.assertAttachmentCount(files);
 
     const attachments = await this.uploadAttachments(files);
     const comment = await this.commentRepo.create({
-      feedbackId,
+      feedbackId: fb.id,
       authorType: "submitter",
       authorId: null,
       authorName: fb.submitterName,
       body,
       attachments,
     });
-    await this.feedbackRepo.incrementCommentCount(feedbackId);
+    await this.feedbackRepo.incrementCommentCount(fb.id);
 
     const project = await this.projectRepo.findById(fb.projectId);
-    const support = this.isSupportOwned(fb);
+    const support = Boolean(fb.clientCompanyId) && fb.supportStatus !== SupportStatus.ESCALATED;
     const recipients = support
       ? await this.resolveSupportHandlers(fb)
       : await this.resolveProductTeamHandlers(fb, project?.organizationId);

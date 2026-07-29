@@ -66,4 +66,20 @@ export class FeedbackCommentController {
       next(err);
     }
   }
+
+  // Backs the reply box on the public confirmation-link page — the ticket id
+  // itself is the credential, no email/code (see FeedbackCommentService.addForConfirmationLink).
+  static async publicCreateViaLink(req: any, res: any, next: any) {
+    try {
+      const files = (req.files ?? []) as { buffer: Buffer; originalname: string; mimetype: string; size: number }[];
+      const comment = await FeedbackCommentService.Instance.addForConfirmationLink(
+        req.validated.params.id,
+        req.validated.body.body,
+        files
+      );
+      res.status(201).json(ApiResponse.created("Comment posted", toFeedbackCommentResponse(comment)));
+    } catch (err) {
+      next(err);
+    }
+  }
 }

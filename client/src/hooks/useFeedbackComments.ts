@@ -24,6 +24,7 @@ function toComment(doc: QueryDocumentSnapshot<DocumentData>): FeedbackComment {
     feedbackId: data.feedbackId,
     authorType: data.authorType,
     authorId: data.authorId ?? null,
+    authorRole: data.authorRole ?? null,
     authorName: data.authorName || "Deleted user",
     body: data.body,
     attachments: Array.isArray(data.attachments) ? data.attachments : [],

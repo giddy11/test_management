@@ -173,3 +173,11 @@ export const publicAddCommentSchema = z.object({
     body: z.string().min(1).max(3000),
   }),
 });
+
+// Reply from the public confirmation-link page — the ticket id in the URL is
+// the only credential (same trust model as the confirm/reopen action on that
+// same page), no email/code.
+export const publicAddCommentViaLinkSchema = z.object({
+  params: z.object({ id: z.string().uuid() }),
+  body: z.object({ body: z.string().min(1).max(3000) }),
+});

@@ -77,12 +77,15 @@ export interface FeedbackCommentAttachment {
 
 // A message in a ticket's comment thread — either an internal staff member
 // (authorId set) or the ticket's submitter (no account — authorId is null,
-// authorType is "submitter").
+// authorType is "submitter"). Once a company ticket is escalated, both the
+// product team AND the escalating company's IT support post as "staff" on
+// the same thread — authorRole (UserRole) is how the UI tells them apart.
 export interface FeedbackComment {
   id: string
   feedbackId: string
   authorType: "staff" | "submitter"
   authorId: string | null
+  authorRole: string | null
   authorName: string
   body: string
   attachments: FeedbackCommentAttachment[]

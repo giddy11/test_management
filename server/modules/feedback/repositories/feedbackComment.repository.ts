@@ -26,6 +26,11 @@ export interface FeedbackComment {
   authorType: string;
   authorId: string | null;
   authorName: string;
+  // Set only when authorType is "staff" — the poster's UserRole at the time
+  // (admin/user/superadmin/it_support), so the UI can badge which side of a
+  // three-way (submitter / IT support / product team) thread a message is
+  // from. Denormalized, same reasoning as authorName (Firestore has no join).
+  authorRole: string | null;
   body: string;
   attachments: FeedbackCommentAttachment[];
   createdAt: Date | null;
@@ -39,6 +44,7 @@ function toComment(snap: any): FeedbackComment {
     authorType: data.authorType,
     authorId: data.authorId ?? null,
     authorName: data.authorName ?? null,
+    authorRole: data.authorRole ?? null,
     body: data.body,
     attachments: Array.isArray(data.attachments) ? data.attachments : [],
     createdAt: data.createdAt ? data.createdAt.toDate() : null,
@@ -70,12 +76,13 @@ export class FeedbackCommentRepository {
     }
   }
 
-  // data: { feedbackId, authorType, authorId, authorName, body, attachments? }
+  // data: { feedbackId, authorType, authorId, authorName, authorRole?, body, attachments? }
   async create(data: {
     feedbackId: string;
     authorType: string;
     authorId: string | null;
     authorName: string;
+    authorRole?: string | null;
     body: string;
     attachments?: FeedbackCommentAttachment[];
   }): Promise<FeedbackComment> {
@@ -87,6 +94,7 @@ export class FeedbackCommentRepository {
           authorType: data.authorType,
           authorId: data.authorId ?? null,
           authorName: data.authorName ?? null,
+          authorRole: data.authorRole ?? null,
           body: data.body,
           attachments: data.attachments ?? [],
           createdAt: FieldValue.serverTimestamp(),
