@@ -1,7 +1,7 @@
 // modules/feedback/dto/feedback.dto.ts
 import type { Feedback } from "../entities/feedback.entity";
 import type { FeedbackStatusHistory } from "../entities/feedbackStatusHistory.entity";
-import type { FeedbackComment } from "../entities/feedbackComment.entity";
+import type { FeedbackComment } from "../repositories/feedbackComment.repository";
 
 const { FeedbackStatus, SupportStatus } = require("../../../config/constants");
 const { formatReferenceCode } = require("../../../shared/utils/referenceCode");
@@ -65,6 +65,9 @@ export function toFeedbackResponse(fb: Feedback | null) {
   };
 }
 
+// Kept for API completeness (non-web clients / the server's own REST
+// response to a just-posted comment) — the web app's read side is a
+// realtime Firestore listener instead, see client/src/hooks/useFeedbackComments.ts.
 export function toFeedbackCommentResponse(c: FeedbackComment) {
   return {
     id: c.id,
@@ -74,11 +77,10 @@ export function toFeedbackCommentResponse(c: FeedbackComment) {
     authorName: c.authorName,
     body: c.body,
     attachments: (c.attachments ?? []).map((a) => ({
-      id: a.id,
-      fileName: a.fileName,
-      fileUrl: a.fileUrl,
+      url: a.url,
+      name: a.name,
       mimeType: a.mimeType,
-      fileSizeBytes: a.fileSizeBytes,
+      bytes: a.bytes,
     })),
     createdAt: c.createdAt,
   };

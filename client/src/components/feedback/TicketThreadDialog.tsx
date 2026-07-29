@@ -1,8 +1,10 @@
 // Public/unauthenticated ticket comment thread — the submitter's side,
-// opened from MyTicketsPage. Proves ownership with the same email + OTP code
-// as the "My Tickets" lookup itself (see FeedbackEndpoints.publicComments) —
-// no account, no separate credential.
-import { useEffect, useRef, useState } from "react"
+// opened from MyTicketsPage. Reads are the same realtime Firestore listener
+// staff use (see useFeedbackCommentThread — Firestore only requires "signed
+// in, even anonymously" for this collection). Posting proves ownership with
+// the same email + OTP code as the "My Tickets" lookup itself (see
+// FeedbackEndpoints.publicAddComment) — no account, no separate credential.
+import { useRef, useState } from "react"
 import { FileText, Paperclip, Send, X } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
@@ -16,8 +18,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { FeedbackEndpoints } from "@/endpoints/feedback.endpoints"
+import { useFeedbackCommentThread } from "@/hooks/useFeedbackComments"
 import { ApiError } from "@/transport/http"
-import type { FeedbackComment, FeedbackCommentAttachment, MyTicket } from "@/types/feedback.types"
+import type { FeedbackCommentAttachment, MyTicket } from "@/types/feedback.types"
 
 const MAX_ATTACHMENTS = 5
 const MAX_FILE_MB = 10
@@ -31,12 +34,12 @@ function formatBytes(bytes: number): string {
 }
 
 function AttachmentChip({ attachment }: { attachment: FeedbackCommentAttachment }) {
-  if (attachment.mimeType.startsWith("image/")) {
+  if (attachment.mimeType?.startsWith("image/")) {
     return (
-      <a href={attachment.fileUrl} target="_blank" rel="noreferrer">
+      <a href={attachment.url} target="_blank" rel="noreferrer">
         <img
-          src={attachment.fileUrl}
-          alt={attachment.fileName}
+          src={attachment.url}
+          alt={attachment.name ?? "Attachment"}
           className="size-20 rounded-md border object-cover transition-opacity hover:opacity-80"
         />
       </a>
@@ -44,14 +47,14 @@ function AttachmentChip({ attachment }: { attachment: FeedbackCommentAttachment 
   }
   return (
     <a
-      href={attachment.fileUrl}
+      href={attachment.url}
       target="_blank"
       rel="noreferrer"
       className="flex items-center gap-2 rounded-md border bg-background px-2.5 py-1.5 text-xs hover:bg-accent"
     >
       <FileText className="size-3.5 shrink-0 text-muted-foreground" />
-      <span className="max-w-[10rem] truncate">{attachment.fileName}</span>
-      <span className="text-muted-foreground">{formatBytes(attachment.fileSizeBytes)}</span>
+      <span className="max-w-[10rem] truncate">{attachment.name ?? "Attachment"}</span>
+      {attachment.bytes != null && <span className="text-muted-foreground">{formatBytes(attachment.bytes)}</span>}
     </a>
   )
 }
@@ -64,38 +67,19 @@ interface Props {
 }
 
 export function TicketThreadDialog({ ticket, email, code, onOpenChange }: Props) {
-  const [comments, setComments] = useState<FeedbackComment[]>([])
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const { data: comments, isLoading, isError } = useFeedbackCommentThread(ticket?.id ?? "")
   const [body, setBody] = useState("")
   const [files, setFiles] = useState<File[]>([])
   const [sending, setSending] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const load = async (ticketId: string) => {
-    setLoading(true)
-    setError(null)
-    try {
-      const res = await FeedbackEndpoints.publicComments(ticketId, email, code)
-      if (res.success) {
-        setComments(res.data ?? [])
-      } else {
-        setError(res.message || "Couldn't load the conversation")
-      }
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Couldn't load the conversation")
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    if (!ticket) return
+  // Clear the draft when a different ticket's thread is opened.
+  const [lastTicketId, setLastTicketId] = useState<string | null>(null)
+  if (ticket && ticket.id !== lastTicketId) {
+    setLastTicketId(ticket.id)
     setBody("")
     setFiles([])
-    load(ticket.id)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ticket?.id])
+  }
 
   const addFiles = (list: FileList | null) => {
     if (!list) return
@@ -121,9 +105,9 @@ export function TicketThreadDialog({ ticket, email, code, onOpenChange }: Props)
     try {
       const res = await FeedbackEndpoints.publicAddComment(ticket.id, email, code, body.trim(), files)
       if (res.success) {
+        // The thread updates on its own via the realtime listener.
         setBody("")
         setFiles([])
-        await load(ticket.id)
       } else {
         toast.error(res.message || "Failed to send")
       }
@@ -145,11 +129,13 @@ export function TicketThreadDialog({ ticket, email, code, onOpenChange }: Props)
           <DialogDescription>Your conversation with the support team.</DialogDescription>
         </DialogHeader>
 
-        {loading && <p className="py-6 text-center text-sm text-muted-foreground">Loading…</p>}
+        {isLoading && <p className="py-6 text-center text-sm text-muted-foreground">Loading…</p>}
 
-        {!loading && error && <p className="text-sm text-destructive">{error}</p>}
+        {!isLoading && isError && (
+          <p className="text-sm text-destructive">Couldn't load the conversation — try again shortly.</p>
+        )}
 
-        {!loading && !error && (
+        {!isLoading && !isError && (
           <div className="space-y-4">
             {comments.length === 0 && (
               <p className="text-sm text-muted-foreground">No messages yet.</p>
@@ -171,8 +157,8 @@ export function TicketThreadDialog({ ticket, email, code, onOpenChange }: Props)
                   <p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">{c.body}</p>
                   {c.attachments.length > 0 && (
                     <div className="mt-2 flex flex-wrap gap-2">
-                      {c.attachments.map((a) => (
-                        <AttachmentChip key={a.id} attachment={a} />
+                      {c.attachments.map((a, i) => (
+                        <AttachmentChip key={`${a.url}-${i}`} attachment={a} />
                       ))}
                     </div>
                   )}

@@ -28,12 +28,10 @@ export const FeedbackEndpoints = {
   history: (id: string) =>
     wrapCall<FeedbackStatusHistoryEntry[]>("GET", `/api/v1/feedback/${id}/history`),
 
-  // Ticket comment thread — same shape reused for the product-team routes
-  // and the IT-support portal routes below (the server resolves which tier
-  // owns the ticket).
-  comments: (id: string) =>
-    wrapCall<FeedbackComment[]>("GET", `/api/v1/feedback/${id}/comments`),
-
+  // Ticket comment thread — write only; reads are a realtime Firestore
+  // listener instead (see hooks/useFeedbackComments.ts). Same shape reused
+  // for the IT-support portal and public routes below (the server resolves
+  // which tier owns the ticket / verifies the submitter's credential).
   addComment: (id: string, body: string, files: File[] = []) =>
     uploadFilesWithFields<FeedbackComment>(
       `/api/v1/feedback/${id}/comments`,
@@ -81,9 +79,6 @@ export const FeedbackEndpoints = {
   supportNotifySubmitter: (id: string, note: string) =>
     wrapCall<Feedback>("POST", `/api/v1/support/feedback/${id}/notify-submitter`, { note }),
 
-  supportComments: (id: string) =>
-    wrapCall<FeedbackComment[]>("GET", `/api/v1/support/feedback/${id}/comments`),
-
   supportAddComment: (id: string, body: string, files: File[] = []) =>
     uploadFilesWithFields<FeedbackComment>(
       `/api/v1/support/feedback/${id}/comments`,
@@ -125,12 +120,10 @@ export const FeedbackEndpoints = {
   listMyTickets: (email: string, code: string) =>
     wrapCall<MyTicket[]>("POST", "/api/v1/public/feedback/my-tickets", { email, code }),
 
-  // Ticket comment thread, submitter side — proves ownership with the same
+  // Ticket comment thread, submitter side — write only (reads are the same
+  // realtime Firestore listener staff use). Proves ownership with the same
   // email + code pair as the My Tickets lookup above (sent in the body, same
   // as everywhere else that credential is used).
-  publicComments: (id: string, email: string, code: string) =>
-    wrapCall<FeedbackComment[]>("POST", `/api/v1/public/feedback/${id}/comments/view`, { email, code }),
-
   publicAddComment: (id: string, email: string, code: string, body: string, files: File[] = []) =>
     uploadFilesWithFields<FeedbackComment>(
       `/api/v1/public/feedback/${id}/comments`,

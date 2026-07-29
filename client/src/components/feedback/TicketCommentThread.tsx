@@ -1,7 +1,8 @@
 // A ticket's back-and-forth comment thread — the internal (staff) side.
-// Plain REST + a short poll (see useFeedback.ts) rather than the realtime
-// Firestore listener feature-request comments use, since the other side of
-// this conversation (the ticket's submitter) has no app/Firebase auth token.
+// Reads are a realtime Firestore listener (same collection the public
+// submitter side reads too — see TicketThreadDialog.tsx); writes stay REST
+// so the server can enforce staff/tier access rules and the submitter's
+// email+code credential before anything is ever written.
 import { useRef, useState } from "react"
 import { FileText, Paperclip, Send, X } from "lucide-react"
 import { toast } from "sonner"
@@ -10,12 +11,8 @@ import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { InlineLoader } from "@/components/shared/PageLoader"
-import {
-  useAddFeedbackComment,
-  useAddSupportComment,
-  useFeedbackComments,
-  useSupportComments,
-} from "@/hooks/useFeedback"
+import { useAddFeedbackComment, useAddSupportComment } from "@/hooks/useFeedback"
+import { useFeedbackCommentThread } from "@/hooks/useFeedbackComments"
 import { useAuth } from "@/contexts/AuthContext"
 import { ApiError } from "@/transport/http"
 import type { FeedbackComment, FeedbackCommentAttachment } from "@/types/feedback.types"
@@ -35,12 +32,12 @@ function formatBytes(bytes: number): string {
 }
 
 function AttachmentChip({ attachment }: { attachment: FeedbackCommentAttachment }) {
-  if (attachment.mimeType.startsWith("image/")) {
+  if (attachment.mimeType?.startsWith("image/")) {
     return (
-      <a href={attachment.fileUrl} target="_blank" rel="noreferrer">
+      <a href={attachment.url} target="_blank" rel="noreferrer">
         <img
-          src={attachment.fileUrl}
-          alt={attachment.fileName}
+          src={attachment.url}
+          alt={attachment.name ?? "Attachment"}
           className="size-20 rounded-md border object-cover transition-opacity hover:opacity-80"
         />
       </a>
@@ -48,14 +45,14 @@ function AttachmentChip({ attachment }: { attachment: FeedbackCommentAttachment 
   }
   return (
     <a
-      href={attachment.fileUrl}
+      href={attachment.url}
       target="_blank"
       rel="noreferrer"
       className="flex items-center gap-2 rounded-md border bg-background px-2.5 py-1.5 text-xs hover:bg-accent"
     >
       <FileText className="size-3.5 shrink-0 text-muted-foreground" />
-      <span className="max-w-[10rem] truncate">{attachment.fileName}</span>
-      <span className="text-muted-foreground">{formatBytes(attachment.fileSizeBytes)}</span>
+      <span className="max-w-[10rem] truncate">{attachment.name ?? "Attachment"}</span>
+      {attachment.bytes != null && <span className="text-muted-foreground">{formatBytes(attachment.bytes)}</span>}
     </a>
   )
 }
@@ -79,8 +76,8 @@ function CommentRow({ comment, isMine }: { comment: FeedbackComment; isMine: boo
         <p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">{comment.body}</p>
         {comment.attachments.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-2">
-            {comment.attachments.map((a) => (
-              <AttachmentChip key={a.id} attachment={a} />
+            {comment.attachments.map((a, i) => (
+              <AttachmentChip key={`${a.url}-${i}`} attachment={a} />
             ))}
           </div>
         )}
@@ -92,12 +89,10 @@ function CommentRow({ comment, isMine }: { comment: FeedbackComment; isMine: boo
 export function TicketCommentThread({ feedbackId, support = false }: { feedbackId: string; support?: boolean }) {
   const { user } = useAuth()
 
-  // Both hook pairs are always called (rules of hooks) — `enabled`/inert
-  // mutations mean only the relevant one actually does anything.
-  const productComments = useFeedbackComments(feedbackId, !support)
-  const supportComments = useSupportComments(feedbackId, support)
-  const { data: comments = [], isLoading, isError } = support ? supportComments : productComments
+  const { data: comments, isLoading, isError } = useFeedbackCommentThread(feedbackId)
 
+  // Both write hooks are always called (rules of hooks) — only the relevant
+  // one is ever invoked, picked below by `support`.
   const addProductComment = useAddFeedbackComment(feedbackId)
   const addSupportComment = useAddSupportComment(feedbackId)
   const addComment = support ? addSupportComment : addProductComment

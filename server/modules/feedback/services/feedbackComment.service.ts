@@ -4,7 +4,10 @@
 // submitter routes, so the "who's allowed to read/write this ticket's
 // thread" logic lives in exactly one place instead of three.
 import { FeedbackRepository } from "../repositories/feedback.repository";
-import { FeedbackCommentRepository } from "../repositories/feedbackComment.repository";
+import {
+  FeedbackCommentRepository,
+  type FeedbackCommentAttachment,
+} from "../repositories/feedbackComment.repository";
 import { FeedbackLookupCodeRepository } from "../repositories/feedbackLookupCode.repository";
 import { ProjectRepository } from "../../project/repositories/project.repository";
 import { ProjectService } from "../../project/services/project.service";
@@ -149,23 +152,25 @@ export class FeedbackCommentService {
 
   // Screenshots go through Cloudinary's image pipeline; everything else
   // (PDF/Word/Excel) goes through the raw pipeline — see StorageService.
-  private async uploadAttachments(commentId: string, files?: UploadedFile[]): Promise<void> {
-    if (!files || files.length === 0) return;
-    const uploaded = [];
+  // Returns metadata to denormalize directly onto the Firestore comment doc
+  // (Firestore has no join, same reason supportChatMessage embeds its own).
+  private async uploadAttachments(files?: UploadedFile[]): Promise<FeedbackCommentAttachment[]> {
+    if (!files || files.length === 0) return [];
+    const uploaded: FeedbackCommentAttachment[] = [];
     for (const file of files) {
       const isImage = ALLOWED_IMAGE_TYPES.includes(file.mimetype);
       const result = isImage
         ? await this.storage.uploadImage(file.buffer, { folder: CLOUDINARY_FOLDER })
         : await this.storage.uploadRaw(file.buffer, { folder: CLOUDINARY_FOLDER });
       uploaded.push({
-        fileName: file.originalname,
-        fileUrl: result.url,
-        filePublicId: result.publicId,
+        url: result.url,
+        publicId: result.publicId,
+        name: file.originalname,
         mimeType: file.mimetype,
-        fileSizeBytes: file.size,
+        bytes: result.bytes ?? file.size,
       });
     }
-    await this.commentRepo.addAttachments(commentId, uploaded);
+    return uploaded;
   }
 
   // Who staff replies get emailed to — the escalating supporter once a
@@ -222,14 +227,15 @@ export class FeedbackCommentService {
       ? [author.firstName, author.lastName].filter(Boolean).join(" ")
       : "A staff member";
 
+    const attachments = await this.uploadAttachments(files);
     const comment = await this.commentRepo.create({
       feedbackId,
       authorType: "staff",
       authorId: actor.id,
       authorName,
       body,
+      attachments,
     });
-    await this.uploadAttachments(comment.id, files);
     await this.feedbackRepo.incrementCommentCount(feedbackId);
 
     const [project, company, recipient] = await Promise.all([
@@ -256,7 +262,7 @@ export class FeedbackCommentService {
       metadata: { projectId: fb.projectId },
     });
 
-    return (await this.commentRepo.findById(comment.id)) ?? comment;
+    return comment;
   }
 
   // ── Submitter-facing (public, unauthenticated) ──────────────────────────
@@ -276,14 +282,15 @@ export class FeedbackCommentService {
     const fb = await this.loadForSubmitter(feedbackId, email, code);
     this.assertAttachmentCount(files);
 
+    const attachments = await this.uploadAttachments(files);
     const comment = await this.commentRepo.create({
       feedbackId,
       authorType: "submitter",
       authorId: null,
       authorName: fb.submitterName,
       body,
+      attachments,
     });
-    await this.uploadAttachments(comment.id, files);
     await this.feedbackRepo.incrementCommentCount(feedbackId);
 
     const project = await this.projectRepo.findById(fb.projectId);
@@ -318,6 +325,6 @@ export class FeedbackCommentService {
       }
     );
 
-    return (await this.commentRepo.findById(comment.id)) ?? comment;
+    return comment;
   }
 }

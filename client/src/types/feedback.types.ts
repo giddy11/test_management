@@ -69,11 +69,10 @@ export interface Feedback {
 }
 
 export interface FeedbackCommentAttachment {
-  id: string
-  fileName: string
-  fileUrl: string
-  mimeType: string
-  fileSizeBytes: number
+  url: string
+  name: string | null
+  mimeType: string | null
+  bytes: number | null
 }
 
 // A message in a ticket's comment thread — either an internal staff member

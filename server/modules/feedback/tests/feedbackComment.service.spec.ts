@@ -3,7 +3,10 @@
 // tier (mirrors FeedbackService.manageFeedback / FeedbackSupportService's
 // getOwnItem+getAssignedItem), the submitter's OTP-code credential (same as
 // "My Tickets"), the escalation visibility gate (mirrors toMyTicketNote), and
-// which Cloudinary pipeline an attachment goes through by mimetype.
+// which Cloudinary pipeline an attachment goes through by mimetype. The
+// thread itself lives in Firestore (see feedbackComment.repository.ts) — the
+// repo is mocked here the same way every Firestore-backed repo is mocked
+// elsewhere in this codebase (plain jest.fn()s, no real Firestore).
 
 jest.mock("../../../shared/utils/mailer", () => ({
   sendFeedbackCommentEmail: jest.fn().mockResolvedValue(undefined),
@@ -20,9 +23,7 @@ function makeFeedbackRepo() {
 function makeCommentRepo() {
   return {
     findByFeedback: jest.fn().mockResolvedValue([]),
-    findById: jest.fn(),
-    create: jest.fn(),
-    addAttachments: jest.fn().mockResolvedValue(undefined),
+    create: jest.fn().mockImplementation((data) => Promise.resolve({ id: "c-1", ...data })),
   };
 }
 
@@ -66,8 +67,8 @@ function makeNotificationService() {
 
 function makeStorage() {
   return {
-    uploadImage: jest.fn().mockResolvedValue({ url: "https://cdn/img.png", publicId: "img-pub-1" }),
-    uploadRaw: jest.fn().mockResolvedValue({ url: "https://cdn/doc.pdf", publicId: "doc-pub-1" }),
+    uploadImage: jest.fn().mockResolvedValue({ url: "https://cdn/img.png", publicId: "img-pub-1", bytes: 10 }),
+    uploadRaw: jest.fn().mockResolvedValue({ url: "https://cdn/doc.pdf", publicId: "doc-pub-1", bytes: 10 }),
   };
 }
 
@@ -145,11 +146,9 @@ const supportLead = { id: "lead-1", role: UserRole.IT_SUPPORT, clientCompanyId: 
 
 describe("FeedbackCommentService — staff access (product tier)", () => {
   it("lets an admin/manager post even without being an assignee", async () => {
-    const { service, feedbackRepo, commentRepo, projectService } = makeService();
+    const { service, feedbackRepo, projectService } = makeService();
     projectService.canManageProject.mockResolvedValue(true);
     feedbackRepo.findById.mockResolvedValue(directTicket);
-    commentRepo.create.mockResolvedValue({ id: "c-1", feedbackId: "fb-1" });
-    commentRepo.findById.mockResolvedValue({ id: "c-1", feedbackId: "fb-1", attachments: [] });
 
     await expect(service.addForStaff(admin, "fb-1", "Can you send a screenshot?")).resolves.toBeDefined();
   });
@@ -163,11 +162,9 @@ describe("FeedbackCommentService — staff access (product tier)", () => {
   });
 
   it("lets an assignee post even without manage rights", async () => {
-    const { service, feedbackRepo, commentRepo, projectService } = makeService();
+    const { service, feedbackRepo, projectService } = makeService();
     projectService.canManageProject.mockResolvedValue(false);
     feedbackRepo.findById.mockResolvedValue({ ...directTicket, assignees: [{ id: plainUser.id }] });
-    commentRepo.create.mockResolvedValue({ id: "c-1", feedbackId: "fb-1" });
-    commentRepo.findById.mockResolvedValue({ id: "c-1", feedbackId: "fb-1", attachments: [] });
 
     await expect(service.addForStaff(plainUser, "fb-1", "here you go")).resolves.toBeDefined();
   });
@@ -212,19 +209,15 @@ describe("FeedbackCommentService — staff access (IT-support tier)", () => {
   });
 
   it("lets the assigned supporter post", async () => {
-    const { service, feedbackRepo, commentRepo } = makeService();
+    const { service, feedbackRepo } = makeService();
     feedbackRepo.findById.mockResolvedValue(supportOwnedTicket);
-    commentRepo.create.mockResolvedValue({ id: "c-1", feedbackId: "fb-2" });
-    commentRepo.findById.mockResolvedValue({ id: "c-1", feedbackId: "fb-2", attachments: [] });
 
     await expect(service.addForStaff(supporter, "fb-2", "hi")).resolves.toBeDefined();
   });
 
   it("lets a lead post even when the ticket isn't assigned to them", async () => {
-    const { service, feedbackRepo, commentRepo } = makeService();
+    const { service, feedbackRepo } = makeService();
     feedbackRepo.findById.mockResolvedValue(supportOwnedTicket);
-    commentRepo.create.mockResolvedValue({ id: "c-1", feedbackId: "fb-2" });
-    commentRepo.findById.mockResolvedValue({ id: "c-1", feedbackId: "fb-2", attachments: [] });
 
     await expect(service.addForStaff(supportLead, "fb-2", "hi")).resolves.toBeDefined();
   });
@@ -293,29 +286,26 @@ describe("FeedbackCommentService — attachment mimetype branching", () => {
     size: 10,
   });
 
-  it("routes an image attachment through the image pipeline", async () => {
+  it("routes an image attachment through the image pipeline and embeds it on the comment doc", async () => {
     const { service, feedbackRepo, commentRepo, storage, projectService } = makeService();
     projectService.canManageProject.mockResolvedValue(true);
     feedbackRepo.findById.mockResolvedValue(directTicket);
-    commentRepo.create.mockResolvedValue({ id: "c-1", feedbackId: "fb-1" });
-    commentRepo.findById.mockResolvedValue({ id: "c-1", feedbackId: "fb-1", attachments: [] });
 
     await service.addForStaff(admin, "fb-1", "see attached", [file("image/png", "shot.png")]);
 
     expect(storage.uploadImage).toHaveBeenCalledTimes(1);
     expect(storage.uploadRaw).not.toHaveBeenCalled();
-    expect(commentRepo.addAttachments).toHaveBeenCalledWith(
-      "c-1",
-      expect.arrayContaining([expect.objectContaining({ fileName: "shot.png", mimeType: "image/png" })])
+    expect(commentRepo.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        attachments: expect.arrayContaining([expect.objectContaining({ name: "shot.png", mimeType: "image/png" })]),
+      })
     );
   });
 
   it("routes a document attachment through the raw pipeline", async () => {
-    const { service, feedbackRepo, commentRepo, storage, projectService } = makeService();
+    const { service, feedbackRepo, storage, projectService } = makeService();
     projectService.canManageProject.mockResolvedValue(true);
     feedbackRepo.findById.mockResolvedValue(directTicket);
-    commentRepo.create.mockResolvedValue({ id: "c-1", feedbackId: "fb-1" });
-    commentRepo.findById.mockResolvedValue({ id: "c-1", feedbackId: "fb-1", attachments: [] });
 
     await service.addForStaff(admin, "fb-1", "see attached", [file("application/pdf", "invoice.pdf")]);
 
@@ -337,17 +327,13 @@ describe("FeedbackCommentService — attachment mimetype branching", () => {
 });
 
 describe("FeedbackCommentService — submitter reply notifies the right staff", () => {
-  const file = () => [] as any[];
-
   it("notifies the assigned supporter for an IT-support-owned ticket", async () => {
-    const { service, feedbackRepo, commentRepo, lookupCodeRepo, userRepo, notificationService } = makeService();
+    const { service, feedbackRepo, lookupCodeRepo, userRepo, notificationService } = makeService();
     lookupCodeRepo.findActive.mockResolvedValue({ id: "code-1" });
     feedbackRepo.findById.mockResolvedValue(supportOwnedTicket);
-    commentRepo.create.mockResolvedValue({ id: "c-1", feedbackId: "fb-2" });
-    commentRepo.findById.mockResolvedValue({ id: "c-1", feedbackId: "fb-2", attachments: [] });
     userRepo.findById.mockResolvedValue({ id: "sup-1", email: "sam@client.co", firstName: "Sam" });
 
-    await service.addForSubmitter("fb-2", "user@example.com", "123456", "here's more info", file());
+    await service.addForSubmitter("fb-2", "user@example.com", "123456", "here's more info", []);
 
     expect(notificationService.notifyFeedbackComment).toHaveBeenCalledWith(
       [expect.objectContaining({ id: "sup-1" })],
@@ -356,16 +342,13 @@ describe("FeedbackCommentService — submitter reply notifies the right staff", 
   });
 
   it("notifies org admins + project members for a product-tier ticket", async () => {
-    const { service, feedbackRepo, commentRepo, lookupCodeRepo, authRepo, memberRepo, notificationService } =
-      makeService();
+    const { service, feedbackRepo, lookupCodeRepo, authRepo, memberRepo, notificationService } = makeService();
     lookupCodeRepo.findActive.mockResolvedValue({ id: "code-1" });
     feedbackRepo.findById.mockResolvedValue(directTicket);
-    commentRepo.create.mockResolvedValue({ id: "c-1", feedbackId: "fb-1" });
-    commentRepo.findById.mockResolvedValue({ id: "c-1", feedbackId: "fb-1", attachments: [] });
     authRepo.findByRoleAndOrg.mockResolvedValue([{ id: "admin-1", email: "ada@example.com", firstName: "Ada" }]);
     memberRepo.findMemberUsers.mockResolvedValue([{ id: "member-1", email: "m@example.com", firstName: "Mo" }]);
 
-    await service.addForSubmitter("fb-1", "user@example.com", "123456", "here's more info", file());
+    await service.addForSubmitter("fb-1", "user@example.com", "123456", "here's more info", []);
 
     expect(notificationService.notifyFeedbackComment).toHaveBeenCalledWith(
       expect.arrayContaining([

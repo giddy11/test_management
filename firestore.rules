@@ -18,5 +18,18 @@ service cloud.firestore {
       allow read: if request.auth != null;
       allow write: if false;
     }
+    // Ticket comment threads. Unlike the two collections above, one of the
+    // legitimate readers here is a genuinely anonymous member of the public
+    // (a ticket submitter with no TestMate account) — not just an
+    // already-logged-in app user taking a secondary read path. Their only
+    // credential is the ticket's id (an unguessable uuid), the same bearer-
+    // credential trust model already used by the public confirmation page
+    // (see FeedbackService.getPublicConfirmationContext) and the "My Tickets"
+    // email+code lookup. The server independently re-verifies that email+code
+    // pair before ever writing to a thread — these rules only gate reads.
+    match /feedbackComments/{commentId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
   }
 }
