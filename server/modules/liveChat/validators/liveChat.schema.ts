@@ -53,13 +53,15 @@ export const getVisitorConversationSchema = z.object({
   body: z.object({ visitorId: z.string().uuid() }),
 });
 
-// Backs the offline/contact-form fallback and any mid-conversation "leave your email".
+// Backs the pre-chat contact form and any mid-conversation "leave your email".
 export const updateContactSchema = z.object({
   params: z.object({ token: z.string().uuid() }),
   body: z.object({
     visitorId: z.string().uuid(),
     name: z.string().trim().min(1).max(120).optional(),
     email: z.string().trim().email().max(255).optional(),
+    // E.164 (e.g. "+2348012345678") — produced by the international phone input.
+    phone: z.string().regex(/^\+[1-9]\d{6,14}$/, "Invalid phone number").optional(),
   }),
 });
 

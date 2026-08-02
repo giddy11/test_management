@@ -45,7 +45,7 @@ export const LiveChatWidgetEndpoints = {
   markRead: (token: string, visitorId: string) =>
     wrapCall<null>("POST", `/api/v1/public/live-chat/${token}/read`, { visitorId }),
 
-  updateContact: (token: string, visitorId: string, data: { name?: string; email?: string }) =>
+  updateContact: (token: string, visitorId: string, data: { name?: string; email?: string; phone?: string }) =>
     wrapCall<LiveChatVisitor>("POST", `/api/v1/public/live-chat/${token}/contact`, {
       visitorId,
       ...data,

@@ -3,16 +3,16 @@
 // always loaded inside an iframe on a third-party site (see public/live-chat-widget.js,
 // the loader script that creates that iframe and resizes it on request). Never
 // part of the authenticated app shell — no DashboardLayout, no useAuth.
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState, type CSSProperties } from "react"
 import { useParams } from "react-router-dom"
-import { Mail, MessageCircle, X } from "lucide-react"
+import { MessageCircle, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
-import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 import { WidgetComposer } from "@/components/live-chat-widget/WidgetComposer"
 import { WidgetMessageBody } from "@/components/live-chat-widget/WidgetMessageBody"
+import { PreChatForm } from "@/components/live-chat-widget/PreChatForm"
 import {
   useLiveChatWidgetConfig,
   useLiveChatVisitor,
@@ -42,13 +42,11 @@ function postToParent(payload: Record<string, unknown>) {
 export default function LiveChatWidgetPage() {
   const { token } = useParams<{ token: string }>()
   const [open, setOpen] = useState(false)
-  const [showContactForm, setShowContactForm] = useState(false)
-  const [contactEmail, setContactEmail] = useState("")
   const scrollRef = useRef<HTMLDivElement>(null)
 
   // This page is always the entire document (its own dedicated iframe) — undo
   // the app's default opaque body background so the transparent corners
-  // around the circular launcher button actually show the host page through.
+  // around the pill launcher actually show the host page through.
   useEffect(() => {
     document.documentElement.style.background = "transparent"
     document.body.style.background = "transparent"
@@ -64,6 +62,13 @@ export default function LiveChatWidgetPage() {
   const updateContact = useUpdateLiveChatContact(token)
 
   const unread = conversation?.visitorUnread ?? 0
+  // Every branded surface (pill + header) uses the project's brand color when
+  // set, with white text/icons for contrast — falls back to the app's neutral
+  // theme otherwise.
+  const branded = Boolean(config?.brandColor)
+  const brandStyle: CSSProperties | undefined = config?.brandColor
+    ? { backgroundColor: config.brandColor }
+    : undefined
 
   useEffect(() => {
     postToParent({ type: "resize", open })
@@ -87,143 +92,127 @@ export default function LiveChatWidgetPage() {
     await sendMessage.mutateAsync({ visitorId: visitor.id, body, files })
   }
 
-  const handleSaveContact = () => {
-    if (!visitor?.id || !contactEmail.trim()) return
-    updateContact.mutate(
-      { visitorId: visitor.id, email: contactEmail.trim() },
-      { onSuccess: () => setShowContactForm(false) }
-    )
+  const handleContactSubmit = (data: { name?: string; email: string; phone?: string }) => {
+    if (!visitor?.id) return
+    updateContact.mutate({ visitorId: visitor.id, ...data })
   }
 
   if (!token) return null
 
   const displayName = config?.displayName ?? "Chat"
   const greeting = config?.greetingMessage ?? "Hi! How can we help?"
+  // Until the visitor gives an email, lead with the contact form instead of
+  // the chat thread — same flow as JivoChat's "Send us a message" widget.
+  const needsContactInfo = !visitor?.email
 
   return (
     <div className="flex h-screen w-screen flex-col items-end justify-end p-2">
       {open ? (
         <div className="flex h-full w-full flex-col overflow-hidden rounded-xl border bg-background shadow-2xl">
-          <header className="flex items-center justify-between border-b bg-muted/40 px-4 py-3">
+          <header
+            style={brandStyle}
+            className={cn("flex items-center justify-between border-b px-4 py-3", !branded && "bg-muted/40")}
+          >
             <div className="flex items-center gap-2">
               <Avatar size="sm">
                 {config?.logoUrl && <AvatarImage src={config.logoUrl} alt={displayName} />}
-                <AvatarFallback>
+                <AvatarFallback className={branded ? "bg-white/20 text-white" : undefined}>
                   <MessageCircle className="size-4" />
                 </AvatarFallback>
               </Avatar>
               <div className="leading-tight">
-                <p className="text-sm font-semibold">{displayName}</p>
+                <p className={cn("text-sm font-semibold", branded && "text-white")}>{displayName}</p>
                 {conversation ? (
                   <Badge variant={LIVE_CHAT_STATUS_VARIANT[conversation.status]} className="text-[0.65rem]">
                     {LIVE_CHAT_STATUS_LABELS[conversation.status]}
                   </Badge>
                 ) : (
-                  <p className="text-xs text-muted-foreground">We usually reply within a few hours</p>
+                  <p className={cn("text-xs", branded ? "text-white/80" : "text-muted-foreground")}>
+                    We usually reply within a few hours
+                  </p>
                 )}
               </div>
             </div>
-            <Button variant="ghost" size="icon-sm" onClick={() => setOpen(false)} aria-label="Close chat">
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={() => setOpen(false)}
+              aria-label="Close chat"
+              className={branded ? "text-white hover:bg-white/20 hover:text-white" : undefined}
+            >
               <X />
             </Button>
           </header>
 
-          <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
-            <div className="flex flex-col items-start">
-              <div className="max-w-[85%] rounded-2xl rounded-bl-sm bg-muted px-3 py-2 text-foreground">
-                <p className="text-sm leading-relaxed">{greeting}</p>
-              </div>
+          {needsContactInfo ? (
+            <div className="flex-1 overflow-y-auto">
+              <PreChatForm pending={updateContact.isPending} onSubmit={handleContactSubmit} />
             </div>
-
-            {messagesLoading && conversationId ? (
-              <p className="text-center text-xs text-muted-foreground">Loading…</p>
-            ) : (
-              messages.map((m) => {
-                const mine = m.authorRole === "visitor"
-                return (
-                  <div key={m.id} className={cn("flex flex-col", mine ? "items-end" : "items-start")}>
-                    {!mine && (
-                      <span className="mb-0.5 px-1 text-[0.7rem] font-medium text-muted-foreground">
-                        {m.authorName || (m.authorRole === "bot" ? "Bot" : displayName)}
-                      </span>
-                    )}
-                    <div
-                      className={cn(
-                        "max-w-[85%] rounded-2xl px-3 py-2",
-                        mine
-                          ? "rounded-br-sm bg-primary text-primary-foreground"
-                          : "rounded-bl-sm bg-muted text-foreground"
-                      )}
-                    >
-                      <WidgetMessageBody body={m.body} attachments={m.attachments} />
-                    </div>
-                    <span className="mt-0.5 px-1 text-[0.65rem] text-muted-foreground">
-                      {formatTime(m.createdAt)}
-                    </span>
+          ) : (
+            <>
+              <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
+                <div className="flex flex-col items-start">
+                  <div className="max-w-[85%] rounded-2xl rounded-bl-sm bg-muted px-3 py-2 text-foreground">
+                    <p className="text-sm leading-relaxed">{greeting}</p>
                   </div>
-                )
-              })
-            )}
-          </div>
+                </div>
 
-          <div className="border-t p-3">
-            {!visitor?.email && (
-              <div className="mb-2">
-                {showContactForm ? (
-                  <div className="flex items-center gap-1.5">
-                    <Input
-                      type="email"
-                      value={contactEmail}
-                      onChange={(e) => setContactEmail(e.target.value)}
-                      placeholder="you@example.com"
-                      className="h-8 text-xs"
-                    />
-                    <Button
-                      size="sm"
-                      className="h-8"
-                      onClick={handleSaveContact}
-                      disabled={updateContact.isPending}
-                    >
-                      Save
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      onClick={() => setShowContactForm(false)}
-                      aria-label="Dismiss"
-                    >
-                      <X className="size-3.5" />
-                    </Button>
-                  </div>
+                {messagesLoading && conversationId ? (
+                  <p className="text-center text-xs text-muted-foreground">Loading…</p>
                 ) : (
-                  <button
-                    type="button"
-                    onClick={() => setShowContactForm(true)}
-                    className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
-                  >
-                    <Mail className="size-3.5" />
-                    Leave your email so we can follow up
-                  </button>
+                  messages.map((m) => {
+                    const mine = m.authorRole === "visitor"
+                    return (
+                      <div key={m.id} className={cn("flex flex-col", mine ? "items-end" : "items-start")}>
+                        {!mine && (
+                          <span className="mb-0.5 px-1 text-[0.7rem] font-medium text-muted-foreground">
+                            {m.authorName || (m.authorRole === "bot" ? "Bot" : displayName)}
+                          </span>
+                        )}
+                        <div
+                          className={cn(
+                            "max-w-[85%] rounded-2xl px-3 py-2",
+                            mine
+                              ? "rounded-br-sm bg-primary text-primary-foreground"
+                              : "rounded-bl-sm bg-muted text-foreground"
+                          )}
+                        >
+                          <WidgetMessageBody body={m.body} attachments={m.attachments} />
+                        </div>
+                        <span className="mt-0.5 px-1 text-[0.65rem] text-muted-foreground">
+                          {formatTime(m.createdAt)}
+                        </span>
+                      </div>
+                    )
+                  })
                 )}
               </div>
-            )}
-            <WidgetComposer pending={sendMessage.isPending} onSend={handleSend} />
-          </div>
+
+              <div className="border-t p-3">
+                <WidgetComposer pending={sendMessage.isPending} onSend={handleSend} />
+              </div>
+            </>
+          )}
         </div>
       ) : (
-        <Button
-          size="icon-lg"
-          className="relative size-14 rounded-full shadow-lg"
+        <button
+          type="button"
           onClick={() => setOpen(true)}
           aria-label="Open chat"
+          style={brandStyle}
+          className={cn(
+            "relative flex h-full w-full items-center justify-center gap-2 rounded-full px-5 text-sm font-medium text-white shadow-lg transition-transform hover:scale-[1.02]",
+            !branded && "bg-primary"
+          )}
         >
-          <MessageCircle className="size-6" />
+          <MessageCircle className="size-5 shrink-0" />
+          <span className="truncate">Send us a message</span>
           {unread > 0 && (
-            <span className="absolute -right-0.5 -top-0.5 flex size-5 items-center justify-center rounded-full bg-destructive text-[0.7rem] font-semibold text-white">
+            <span className="absolute -right-1.5 -top-1.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-destructive text-[0.7rem] font-semibold">
               {unread > 9 ? "9+" : unread}
             </span>
           )}
-        </Button>
+        </button>
       )}
     </div>
   )

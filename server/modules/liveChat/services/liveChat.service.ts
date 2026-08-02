@@ -284,11 +284,11 @@ export class LiveChatService {
     await this.convRepo.update(conversation.id, { visitorUnread: 0 });
   }
 
-  // Backs the offline/contact-form fallback and any mid-conversation "leave your email".
+  // Backs the pre-chat contact form and any mid-conversation "leave your email".
   async updateContact(
     token: string,
     visitorId: string,
-    data: { name?: string; email?: string }
+    data: { name?: string; email?: string; phone?: string }
   ): Promise<LiveChatVisitor | null> {
     const { visitor } = await this.loadVisitor(token, visitorId);
     await this.visitorRepo.updateContact(visitor.id, data);

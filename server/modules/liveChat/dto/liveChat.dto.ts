@@ -10,6 +10,7 @@ export function toVisitorResponse(v: LiveChatVisitor | null) {
     id: v.id,
     name: v.name ?? null,
     email: v.email ?? null,
+    phone: v.phone ?? null,
     currentUrl: v.currentUrl ?? null,
     referrer: v.referrer ?? null,
     firstSeenAt: v.firstSeenAt,

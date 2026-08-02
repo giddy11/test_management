@@ -55,11 +55,15 @@ export class LiveChatVisitorRepository {
     });
   }
 
-  // Backs the offline/contact form and any mid-conversation "leave your email".
-  async updateContact(id: string, data: { name?: string | null; email?: string | null }): Promise<void> {
+  // Backs the pre-chat contact form and any mid-conversation "leave your email".
+  async updateContact(
+    id: string,
+    data: { name?: string | null; email?: string | null; phone?: string | null }
+  ): Promise<void> {
     await this.repo.update(id, {
       ...(data.name !== undefined ? { name: data.name } : {}),
       ...(data.email !== undefined ? { email: data.email } : {}),
+      ...(data.phone !== undefined ? { phone: data.phone } : {}),
     });
   }
 

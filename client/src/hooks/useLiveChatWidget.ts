@@ -169,7 +169,15 @@ export function useMarkLiveChatRead(token: string | undefined) {
 export function useUpdateLiveChatContact(token: string | undefined) {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async ({ visitorId, ...data }: { visitorId: string; name?: string; email?: string }) => {
+    mutationFn: async ({
+      visitorId,
+      ...data
+    }: {
+      visitorId: string
+      name?: string
+      email?: string
+      phone?: string
+    }) => {
       const res = await LiveChatWidgetEndpoints.updateContact(token as string, visitorId, data)
       if (!res.success || !res.data) throw new ApiError(res.message, res.statusCode, res.errors)
       return res.data

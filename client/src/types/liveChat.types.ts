@@ -15,6 +15,7 @@ export interface LiveChatVisitor {
   id: string
   name: string | null
   email: string | null
+  phone: string | null
   currentUrl: string | null
   referrer: string | null
   firstSeenAt: string

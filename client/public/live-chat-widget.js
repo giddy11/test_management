@@ -28,7 +28,7 @@
   var origin = new URL(currentScript.src).origin;
   var MESSAGE_SOURCE = "testmate-live-chat-widget"; // must match LiveChatWidgetPage.tsx
 
-  var CLOSED_SIZE = { width: 84, height: 84 };
+  var CLOSED_SIZE = { width: 230, height: 56 }; // wide pill launcher, not a square icon button
   var OPEN_SIZE = { width: 400, height: 650 };
   var MOBILE_BREAKPOINT = 640;
   var EDGE_OFFSET = 20;

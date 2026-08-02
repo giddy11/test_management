@@ -14,6 +14,8 @@ export interface LiveChatVisitor {
   projectId: string;
   name: string | null;
   email: string | null;
+  // E.164 (e.g. "+2348012345678") — same format as Feedback.submitterPhone.
+  phone: string | null;
   // Denormalized "where are they right now" — refreshed on each widget
   // page-load ping, powers the operator dashboard's live-visitor view.
   currentUrl: string | null;
@@ -44,6 +46,11 @@ const LiveChatVisitor = new EntitySchema<LiveChatVisitor>({
     email: {
       type: "varchar",
       length: 255,
+      nullable: true,
+    },
+    phone: {
+      type: "varchar",
+      length: 30,
       nullable: true,
     },
     currentUrl: {
