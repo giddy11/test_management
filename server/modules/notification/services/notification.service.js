@@ -500,6 +500,23 @@ class NotificationService {
     ]);
   }
 
+  // A visitor messaged a project's embedded live-chat widget — the widget has
+  // no in-app inbox to reply through, so unlike support-chat there's no reply
+  // notification back the other way; staff see replies land live in the widget.
+  // ctx: { conversationId, projectId, senderName, preview }
+  async notifyNewLiveChatMessage(recipients, ctx) {
+    if (!recipients.length) return;
+    await this.repo.createMany(
+      recipients.map((u) => ({
+        userId: u.id,
+        type: NotificationType.LIVE_CHAT_MESSAGE,
+        title: `New live-chat message from ${ctx.senderName}`,
+        body: ctx.preview,
+        data: { conversationId: ctx.conversationId, projectId: ctx.projectId },
+      }))
+    );
+  }
+
   // ctx: { bugId, projectId, title }
   async notifyBugAssigned(user, ctx) {
     const url = `${env.appUrl}/projects/${ctx.projectId}/bugs/${ctx.bugId}`;

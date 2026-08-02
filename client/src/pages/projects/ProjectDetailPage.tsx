@@ -10,6 +10,7 @@ import { RunsTab } from "@/components/testmgmt/RunsTab"
 import { FeatureRequestsTab } from "@/components/featureRequests/FeatureRequestsTab"
 import { BugsTab } from "@/components/bugs/BugsTab"
 import { FeedbackTab } from "@/components/feedback/FeedbackTab"
+import { LiveChatTab } from "@/components/live-chat/LiveChatTab"
 import { useProject } from "@/hooks/useProjects"
 import { useDashboard } from "@/hooks/useDashboard"
 import { useAuth } from "@/contexts/AuthContext"
@@ -17,7 +18,7 @@ import { PageLoader } from "@/components/shared/PageLoader"
 import { UserRole } from "@/types/auth.types"
 import type { SuiteBreakdown } from "@/types/testMgmt.types"
 
-const PROJECT_TABS = ["suites", "runs", "feature-requests", "bugs", "feedback"] as const
+const PROJECT_TABS = ["suites", "runs", "feature-requests", "bugs", "feedback", "live-chat"] as const
 
 export default function ProjectDetailPage() {
   const { projectId = "" } = useParams()
@@ -99,6 +100,7 @@ export default function ProjectDetailPage() {
           <TabsTrigger value="feature-requests">Feature Requests</TabsTrigger>
           <TabsTrigger value="bugs">Bug Fixes</TabsTrigger>
           <TabsTrigger value="feedback" data-tour="feedback-tab-trigger">Tickets</TabsTrigger>
+          <TabsTrigger value="live-chat">Live Chat</TabsTrigger>
         </TabsList>
         <TabsContent value="suites" className="mt-4">
           <SuitesTab
@@ -119,6 +121,9 @@ export default function ProjectDetailPage() {
         </TabsContent>
         <TabsContent value="feedback" className="mt-4">
           <FeedbackTab projectId={projectId} canManage={canManage} />
+        </TabsContent>
+        <TabsContent value="live-chat" className="mt-4">
+          <LiveChatTab projectId={projectId} />
         </TabsContent>
       </Tabs>
     </div>

@@ -15,6 +15,7 @@ export interface Project {
   suiteCount: number
   members?: ProjectMember[]
   feedbackToken?: string | null
+  liveChatToken?: string | null
   createdAt: string
 }
 

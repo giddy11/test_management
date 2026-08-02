@@ -94,6 +94,11 @@ export class ProjectRepository {
     return this.repo.findOne({ where: { feedbackToken: token } });
   }
 
+  // Embeddable live-chat widget lookup — same trust model as findByFeedbackToken.
+  async findByLiveChatToken(token: string): Promise<Project | null> {
+    return this.repo.findOne({ where: { liveChatToken: token } });
+  }
+
   async create(data: Partial<Project>): Promise<Project> {
     return this.repo.save(this.repo.create(data));
   }

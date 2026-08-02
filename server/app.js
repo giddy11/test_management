@@ -38,6 +38,8 @@ const feedbackSupportRoutes = require("./modules/feedback/routes/feedbackSupport
 const clientCompanyRoutes = require("./modules/clientCompany/routes/clientCompany.routes");
 const integrationClientCompanyRoutes = require("./modules/clientCompany/routes/integrationClientCompany.routes");
 const supportChatRoutes = require("./modules/supportChat/routes/supportChat.routes");
+const liveChatRoutes = require("./modules/liveChat/routes/liveChat.routes");
+const publicLiveChatRoutes = require("./modules/liveChat/routes/publicLiveChat.routes");
 
 function createApp() {
   const app = express();
@@ -83,7 +85,9 @@ function createApp() {
   api.use("/support/feedback", feedbackSupportRoutes); // it_support role only
   api.use("/client-companies", clientCompanyRoutes); // admin-only management
   api.use("/support-chat", supportChatRoutes); // in-app user <-> super-admin chat
+  api.use("/live-chat", liveChatRoutes); // operator inbox for the embeddable widget
   api.use("/public/feedback", publicFeedbackRoutes); // unauthenticated, token-gated
+  api.use("/public/live-chat", publicLiveChatRoutes); // unauthenticated, token-gated (widget)
   api.use("/integrations/companies", integrationClientCompanyRoutes); // server-to-server, unauthenticated
   app.use("/api/v1", api);
 

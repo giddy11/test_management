@@ -20,6 +20,7 @@ import FeatureRequestDetailPage from "@/pages/featureRequests/FeatureRequestDeta
 import BugDetailPage from "@/pages/bugs/BugDetailPage"
 import OrganizationsPage from "@/pages/OrganizationsPage"
 import SettingsPage from "@/pages/SettingsPage"
+import LiveChatWidgetPage from "@/pages/widget/LiveChatWidgetPage"
 import PublicFeedbackPage from "@/pages/public/PublicFeedbackPage"
 import PublicFeedbackConfirmPage from "@/pages/public/PublicFeedbackConfirmPage"
 import MyTicketsPage from "@/pages/public/MyTicketsPage"
@@ -52,6 +53,9 @@ export default function App() {
           {/* Public product documentation */}
           <Route path="/docs" element={<DocsPage />} />
           <Route path="/doc" element={<Navigate to="/docs" replace />} />
+          {/* Embeddable live-chat widget — always loaded inside an iframe on a
+              third-party site by public/live-chat-widget.js, never visited directly */}
+          <Route path="/widget/live-chat/:token" element={<LiveChatWidgetPage />} />
 
           {/* Authenticated */}
           <Route element={<ProtectedRoute />}>

@@ -31,5 +31,13 @@ service cloud.firestore {
       allow read: if request.auth != null;
       allow write: if false;
     }
+    // Live-chat widget messages. Same trust model as feedbackComments above —
+    // the widget signs the visitor in anonymously, and their real credential
+    // (the visitor id issued on first load) is re-verified server-side before
+    // any write, not by these rules.
+    match /liveChatMessages/{messageId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
   }
 }

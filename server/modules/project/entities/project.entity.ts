@@ -10,6 +10,9 @@ export interface Project {
   organizationId: string | null;
   // When set, the public feedback form at /feedback/<token> is enabled.
   feedbackToken: string | null;
+  // When set, the embeddable live-chat widget is enabled for this project —
+  // same on/off + credential model as feedbackToken above.
+  liveChatToken: string | null;
   createdAt: Date;
   deletedAt: Date | null;
   owner?: unknown;
@@ -48,6 +51,12 @@ const Project = new EntitySchema<Project>({
     // Secret token enabling the public feedback form; null = disabled.
     feedbackToken: {
       name: "feedback_token",
+      type: "uuid",
+      nullable: true,
+    },
+    // Secret token enabling the embeddable live-chat widget; null = disabled.
+    liveChatToken: {
+      name: "live_chat_token",
       type: "uuid",
       nullable: true,
     },

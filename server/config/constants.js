@@ -121,10 +121,19 @@ const NotificationType = Object.freeze({
   // In-app support chat: a user messaged the super admins, or a super admin replied.
   SUPPORT_CHAT_MESSAGE: "support_chat_message",
   SUPPORT_CHAT_REPLY: "support_chat_reply",
+  // A website visitor messaged a project's embedded live-chat widget.
+  LIVE_CHAT_MESSAGE: "live_chat_message",
 });
 
 // Lifecycle of an in-app support-chat conversation.
 const SupportChatStatus = Object.freeze({
+  OPEN: "open",
+  CLOSED: "closed",
+});
+
+// Lifecycle of a live-chat conversation between a website visitor (via the
+// embeddable widget) and a project's staff.
+const LiveChatStatus = Object.freeze({
   OPEN: "open",
   CLOSED: "closed",
 });
@@ -176,6 +185,7 @@ module.exports = {
   OtpType,
   NotificationType,
   SupportChatStatus,
+  LiveChatStatus,
   FeatureRequestStatus,
   BugSeverity,
   BugPriority,
@@ -195,6 +205,7 @@ module.exports = {
     otpType: Object.values(OtpType),
     notificationType: Object.values(NotificationType),
     supportChatStatus: Object.values(SupportChatStatus),
+    liveChatStatus: Object.values(LiveChatStatus),
     featureRequestStatus: Object.values(FeatureRequestStatus),
     bugSeverity: Object.values(BugSeverity),
     bugPriority: Object.values(BugPriority),
