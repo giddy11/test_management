@@ -8,6 +8,7 @@ import { useParams } from "react-router-dom"
 import { Mail, MessageCircle, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 import { WidgetComposer } from "@/components/live-chat-widget/WidgetComposer"
@@ -21,6 +22,7 @@ import {
   useMarkLiveChatRead,
   useUpdateLiveChatContact,
 } from "@/hooks/useLiveChatWidget"
+import { LIVE_CHAT_STATUS_LABELS, LIVE_CHAT_STATUS_VARIANT } from "@/types/liveChat.types"
 
 // Must match PARENT_MESSAGE_SOURCE in public/live-chat-widget.js.
 const PARENT_MESSAGE_SOURCE = "testmate-live-chat-widget"
@@ -112,7 +114,13 @@ export default function LiveChatWidgetPage() {
               </Avatar>
               <div className="leading-tight">
                 <p className="text-sm font-semibold">{displayName}</p>
-                <p className="text-xs text-muted-foreground">We usually reply within a few hours</p>
+                {conversation ? (
+                  <Badge variant={LIVE_CHAT_STATUS_VARIANT[conversation.status]} className="text-[0.65rem]">
+                    {LIVE_CHAT_STATUS_LABELS[conversation.status]}
+                  </Badge>
+                ) : (
+                  <p className="text-xs text-muted-foreground">We usually reply within a few hours</p>
+                )}
               </div>
             </div>
             <Button variant="ghost" size="icon-sm" onClick={() => setOpen(false)} aria-label="Close chat">

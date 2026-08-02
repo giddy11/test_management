@@ -171,18 +171,18 @@ export class LiveChatService {
 
   // ── Visitor messaging (public) ──────────────────────────────────────────────
 
-  // The widget binds to a single open conversation per visitor, created lazily
-  // on first send — mirrors SupportChatService.getOrCreateMyConversation.
+  // The widget binds to a single active conversation per visitor, created
+  // lazily on first send — mirrors SupportChatService.getOrCreateMyConversation.
   private async getOrCreateConversation(
     project: Project,
     visitor: LiveChatVisitor
   ): Promise<LiveChatConversation> {
-    const existing = await this.convRepo.findOpenByVisitor(visitor.id);
+    const existing = await this.convRepo.findActiveByVisitor(visitor.id);
     if (existing) return existing;
     const created = await this.convRepo.create({
       projectId: project.id,
       visitorId: visitor.id,
-      status: LiveChatStatus.OPEN,
+      status: LiveChatStatus.NEW,
     });
     return (await this.convRepo.findById(created.id)) as LiveChatConversation;
   }
@@ -224,11 +224,18 @@ export class LiveChatService {
 
     const previewText = preview(text, attachments.length);
 
+    // A visitor messaging again after being marked resolved reopens the same
+    // thread (they're continuing the same issue); new/in_progress are
+    // unaffected — only staff action moves those forward.
+    const nextStatus =
+      conversation.status === LiveChatStatus.RESOLVED ? LiveChatStatus.IN_PROGRESS : conversation.status;
+
     // Firestore write + Postgres denormalization aren't one transaction
     // (different stores) — accepted eventual-consistency tradeoff, same as
     // support-chat and feedback comments.
     await this.convRepo.update(conversation.id, {
-      status: LiveChatStatus.OPEN,
+      status: nextStatus,
+      closedAt: null,
       lastMessageAt: new Date(),
       lastMessagePreview: previewText,
       lastSenderRole: "visitor",
@@ -255,7 +262,7 @@ export class LiveChatService {
   // instead) — see LiveChatMessageRepository.fetchPaginated.
   async fetchMessagesForVisitor(token: string, visitorId: string, params: { page?: number; limit?: number }) {
     const { visitor } = await this.loadVisitor(token, visitorId);
-    const conversation = await this.convRepo.findOpenByVisitor(visitor.id);
+    const conversation = await this.convRepo.findActiveByVisitor(visitor.id);
     if (!conversation) {
       return { data: [], meta: buildMeta(params.page ?? 1, params.limit ?? 50, 0, 0) };
     }
@@ -267,12 +274,12 @@ export class LiveChatService {
   // message (created lazily, same as support chat).
   async getVisitorConversation(token: string, visitorId: string): Promise<LiveChatConversation | null> {
     const { visitor } = await this.loadVisitor(token, visitorId);
-    return this.convRepo.findOpenByVisitor(visitor.id);
+    return this.convRepo.findActiveByVisitor(visitor.id);
   }
 
   async markReadByVisitor(token: string, visitorId: string): Promise<void> {
     const { visitor } = await this.loadVisitor(token, visitorId);
-    const conversation = await this.convRepo.findOpenByVisitor(visitor.id);
+    const conversation = await this.convRepo.findActiveByVisitor(visitor.id);
     if (!conversation) return;
     await this.convRepo.update(conversation.id, { visitorUnread: 0 });
   }
@@ -340,9 +347,11 @@ export class LiveChatService {
 
     const previewText = preview(text, attachments.length);
 
-    // Answering a closed thread reopens it so the visitor's reply lands somewhere.
+    // Any staff reply is "we're actively on it" — moves new/resolved/closed
+    // forward (or keeps in_progress as-is); answering a closed thread reopens
+    // it so the visitor's reply lands somewhere.
     await this.convRepo.update(conversation.id, {
-      status: LiveChatStatus.OPEN,
+      status: LiveChatStatus.IN_PROGRESS,
       closedAt: null,
       lastMessageAt: new Date(),
       lastMessagePreview: previewText,
@@ -371,7 +380,11 @@ export class LiveChatService {
         throw new AppError("You can only assign members of this project", 422);
       }
     }
-    return this.convRepo.update(conversation.id, { assignedAgentId: agentId });
+    // Claiming an untouched conversation is itself "we're on it" — same
+    // signal as a reply, without requiring one first.
+    const statusPatch =
+      agentId && conversation.status === LiveChatStatus.NEW ? { status: LiveChatStatus.IN_PROGRESS } : {};
+    return this.convRepo.update(conversation.id, { assignedAgentId: agentId, ...statusPatch });
   }
 
   async setStatus(actor: Actor, id: string, status: string) {

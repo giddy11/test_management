@@ -5,7 +5,7 @@
 // platform, and reading from live_chat_conversations/liveChatMessages
 // instead of the in-app support-chat's own tables/collection.
 import { useEffect, useMemo, useRef, useState } from "react"
-import { CheckCircle2, RotateCcw, UserPlus } from "lucide-react"
+import { CheckCircle2, RotateCcw, UserPlus, XCircle } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -23,7 +23,12 @@ import {
 } from "@/hooks/useLiveChatInbox"
 import { useAuth } from "@/contexts/AuthContext"
 import { UserRole } from "@/types/auth.types"
-import type { LiveChatConversation, LiveChatStatus } from "@/types/liveChat.types"
+import {
+  LIVE_CHAT_STATUS_LABELS,
+  LIVE_CHAT_STATUS_VARIANT,
+  type LiveChatConversation,
+  type LiveChatStatus,
+} from "@/types/liveChat.types"
 
 function formatTime(iso: string) {
   return new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
@@ -57,7 +62,9 @@ function Thread({ conversation }: { conversation: LiveChatConversation }) {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight
   }, [messages])
 
-  const closed = conversation.status === "closed"
+  const status = conversation.status
+  const closed = status === "closed"
+  const resolved = status === "resolved"
   const isMine = conversation.assignedAgent?.id === user?.id
   const visitorName = conversation.visitor?.name ?? "Anonymous visitor"
 
@@ -70,7 +77,8 @@ function Thread({ conversation }: { conversation: LiveChatConversation }) {
             {conversation.visitor?.email ?? conversation.visitor?.currentUrl ?? "No contact info"}
           </p>
         </div>
-        <div className="flex shrink-0 items-center gap-1.5">
+        <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+          <Badge variant={LIVE_CHAT_STATUS_VARIANT[status]}>{LIVE_CHAT_STATUS_LABELS[status]}</Badge>
           {conversation.assignedAgent ? (
             isMine ? (
               <Button
@@ -96,22 +104,35 @@ function Thread({ conversation }: { conversation: LiveChatConversation }) {
               </Button>
             )
           )}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setStatus.mutate({ id: conversation.id, status: closed ? "open" : "closed" })}
-            disabled={setStatus.isPending}
-          >
-            {closed ? (
-              <>
-                <RotateCcw className="size-4" /> Reopen
-              </>
-            ) : (
-              <>
-                <CheckCircle2 className="size-4" /> Mark closed
-              </>
-            )}
-          </Button>
+          {!resolved && !closed && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setStatus.mutate({ id: conversation.id, status: "resolved" })}
+              disabled={setStatus.isPending}
+            >
+              <CheckCircle2 className="size-4" /> Mark resolved
+            </Button>
+          )}
+          {closed ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setStatus.mutate({ id: conversation.id, status: "in_progress" })}
+              disabled={setStatus.isPending}
+            >
+              <RotateCcw className="size-4" /> Reopen
+            </Button>
+          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setStatus.mutate({ id: conversation.id, status: "closed" })}
+              disabled={setStatus.isPending}
+            >
+              <XCircle className="size-4" /> Close
+            </Button>
+          )}
         </div>
       </header>
 
@@ -166,9 +187,9 @@ export function LiveChatTab({ projectId }: Props) {
   const { user } = useAuth()
   const isAdmin = user?.role === UserRole.ADMIN || user?.role === UserRole.SUPERADMIN
 
-  const [tab, setTab] = useState<"open" | "closed" | "all">("open")
-  const status = tab === "all" ? undefined : (tab as LiveChatStatus)
-  const { data: conversations, isLoading } = useLiveChatConversations(projectId, status)
+  const [tab, setTab] = useState<LiveChatStatus | "all">("new")
+  const statusFilter = tab === "all" ? undefined : tab
+  const { data: conversations, isLoading } = useLiveChatConversations(projectId, statusFilter)
   const [selectedId, setSelectedId] = useState<string | null>(null)
 
   const list = useMemo(() => conversations ?? [], [conversations])
@@ -190,7 +211,9 @@ export function LiveChatTab({ projectId }: Props) {
 
       <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
         <TabsList>
-          <TabsTrigger value="open">Open</TabsTrigger>
+          <TabsTrigger value="new">New</TabsTrigger>
+          <TabsTrigger value="in_progress">In progress</TabsTrigger>
+          <TabsTrigger value="resolved">Resolved</TabsTrigger>
           <TabsTrigger value="closed">Closed</TabsTrigger>
           <TabsTrigger value="all">All</TabsTrigger>
         </TabsList>
@@ -234,20 +257,16 @@ export function LiveChatTab({ projectId }: Props) {
                       {c.lastSenderRole === "agent" && "You: "}
                       {c.lastMessagePreview ?? "No messages yet"}
                     </span>
-                    {(c.status === "closed" || c.assignedAgent) && (
-                      <div className="flex flex-wrap items-center gap-1">
-                        {c.status === "closed" && (
-                          <Badge variant="secondary" className="w-fit text-[0.65rem]">
-                            Closed
-                          </Badge>
-                        )}
-                        {c.assignedAgent && (
-                          <Badge variant="outline" className="w-fit text-[0.65rem]">
-                            {c.assignedAgent.name}
-                          </Badge>
-                        )}
-                      </div>
-                    )}
+                    <div className="flex flex-wrap items-center gap-1">
+                      <Badge variant={LIVE_CHAT_STATUS_VARIANT[c.status]} className="w-fit text-[0.65rem]">
+                        {LIVE_CHAT_STATUS_LABELS[c.status]}
+                      </Badge>
+                      {c.assignedAgent && (
+                        <Badge variant="outline" className="w-fit text-[0.65rem]">
+                          {c.assignedAgent.name}
+                        </Badge>
+                      )}
+                    </div>
                   </button>
                 </li>
               ))}

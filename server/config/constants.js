@@ -132,9 +132,18 @@ const SupportChatStatus = Object.freeze({
 });
 
 // Lifecycle of a live-chat conversation between a website visitor (via the
-// embeddable widget) and a project's staff.
+// embeddable widget) and a project's staff — shown to the visitor so they
+// know where their request stands, same idea as FeedbackStatus. NEW/IN_PROGRESS
+// are system-driven (see LiveChatService's status transitions on reply/assign);
+// RESOLVED/CLOSED are staff-set. "Active" (bindable to the widget's current
+// thread — see findActiveByVisitor) means anything except CLOSED: a visitor
+// messaging again after RESOLVED reopens the same thread to IN_PROGRESS,
+// while CLOSED is the one true terminal state — a new message after that
+// starts a fresh conversation.
 const LiveChatStatus = Object.freeze({
-  OPEN: "open",
+  NEW: "new",
+  IN_PROGRESS: "in_progress",
+  RESOLVED: "resolved",
   CLOSED: "closed",
 });
 

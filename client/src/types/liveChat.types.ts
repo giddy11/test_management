@@ -21,8 +21,30 @@ export interface LiveChatVisitor {
   lastSeenAt: string
 }
 
-export type LiveChatStatus = "open" | "closed"
+// Shown to the visitor so they know where their request stands — see the
+// matching comment on the server's LiveChatStatus. NEW/IN_PROGRESS are
+// system-driven; RESOLVED/CLOSED are staff-set.
+export type LiveChatStatus = "new" | "in_progress" | "resolved" | "closed"
 export type LiveChatSenderRole = "visitor" | "agent" | "bot"
+
+export const LIVE_CHAT_STATUSES: LiveChatStatus[] = ["new", "in_progress", "resolved", "closed"]
+
+export const LIVE_CHAT_STATUS_LABELS: Record<LiveChatStatus, string> = {
+  new: "New",
+  in_progress: "In progress",
+  resolved: "Resolved",
+  closed: "Closed",
+}
+
+// Shared by the widget and the operator inbox — deliberately gentle (not
+// alarming) since the widget shows this straight to the visitor; unread
+// counts already carry the "needs attention" signal on the staff side.
+export const LIVE_CHAT_STATUS_VARIANT: Record<LiveChatStatus, "default" | "secondary" | "outline"> = {
+  new: "secondary",
+  in_progress: "default",
+  resolved: "default",
+  closed: "outline",
+}
 
 export interface LiveChatConversation {
   id: string

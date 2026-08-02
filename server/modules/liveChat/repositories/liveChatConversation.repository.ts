@@ -1,5 +1,5 @@
 // modules/liveChat/repositories/liveChatConversation.repository.ts
-import type { Repository } from "typeorm";
+import { Not, type Repository } from "typeorm";
 import { LiveChatConversation } from "../entities/liveChatConversation.entity";
 import { AppDataSource } from "../../../infrastructure/database/dataSource";
 import { LiveChatStatus } from "../../../config/constants";
@@ -31,11 +31,13 @@ export class LiveChatConversationRepository {
     });
   }
 
-  // A visitor has at most one open conversation per project — that's the one
-  // the widget binds to (enforced by a partial unique index; see the migration).
-  findOpenByVisitor(visitorId: string): Promise<LiveChatConversation | null> {
+  // A visitor has at most one active (non-closed) conversation per project —
+  // that's the one the widget binds to (enforced by a partial unique index;
+  // see the migration). new/in_progress/resolved all count as active; only
+  // closed doesn't — see LiveChatStatus's comment for why.
+  findActiveByVisitor(visitorId: string): Promise<LiveChatConversation | null> {
     return this.repo.findOne({
-      where: { visitorId, status: LiveChatStatus.OPEN },
+      where: { visitorId, status: Not(LiveChatStatus.CLOSED) },
       relations: { visitor: true, assignedAgent: true },
     });
   }

@@ -70,7 +70,9 @@ export const fetchConversationsSchema = z.object({
     projectId: z.string().uuid(),
     page: z.coerce.number().int().min(1).default(1),
     limit: z.coerce.number().int().min(1).max(100).default(20),
-    status: z.enum([LiveChatStatus.OPEN, LiveChatStatus.CLOSED]).optional(),
+    status: z
+      .enum([LiveChatStatus.NEW, LiveChatStatus.IN_PROGRESS, LiveChatStatus.RESOLVED, LiveChatStatus.CLOSED])
+      .optional(),
     assignedAgentId: z.string().uuid().optional(),
     unassigned: z.coerce.boolean().optional(),
   }),
@@ -103,7 +105,7 @@ export const assignAgentSchema = z.object({
 export const setStatusSchema = z.object({
   params: z.object({ id: z.string().uuid() }),
   body: z.object({
-    status: z.enum([LiveChatStatus.OPEN, LiveChatStatus.CLOSED]),
+    status: z.enum([LiveChatStatus.NEW, LiveChatStatus.IN_PROGRESS, LiveChatStatus.RESOLVED, LiveChatStatus.CLOSED]),
   }),
 });
 

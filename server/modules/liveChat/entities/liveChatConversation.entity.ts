@@ -52,7 +52,7 @@ const LiveChatConversation = new EntitySchema<LiveChatConversation>({
     status: {
       type: "varchar",
       length: 20,
-      default: LiveChatStatus.OPEN,
+      default: LiveChatStatus.NEW,
     },
     assignedAgentId: {
       name: "assigned_agent_id",
