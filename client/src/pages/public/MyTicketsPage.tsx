@@ -41,10 +41,14 @@ const STATUS_VARIANT: Record<MyTicket["status"], "default" | "secondary" | "outl
 type Step = "loading" | "email" | "code" | "list"
 
 // The code stays valid for repeated lookups until it naturally expires
-// (same TTL as the email it came in) — it's read-only access to your own
-// tickets, not a one-shot action. Caching the code itself (not the fetched
-// list) means a page refresh re-runs a real fetch instead of replaying a
-// stale snapshot, so a ticket raised after the last visit still shows up.
+// (same long TTL as the email it came in — see TICKET_LOOKUP_CODE_TTL_MINUTES)
+// — it's read-only access to your own tickets, not a one-shot action.
+// localStorage (not sessionStorage) so that TTL is actually honored across
+// tabs/visits instead of forcing a fresh OTP on every new tab — a stale/used
+// credential just fails the silent re-fetch below and falls back to "email".
+// Caching the code itself (not the fetched list) means a page refresh re-runs
+// a real fetch instead of replaying a stale snapshot, so a ticket raised
+// after the last visit still shows up.
 const CREDENTIAL_KEY = "tm_my_tickets_credential"
 
 interface StoredCredential {
@@ -54,7 +58,7 @@ interface StoredCredential {
 
 function loadStoredCredential(): StoredCredential | null {
   try {
-    const raw = sessionStorage.getItem(CREDENTIAL_KEY)
+    const raw = localStorage.getItem(CREDENTIAL_KEY)
     if (!raw) return null
     const parsed = JSON.parse(raw) as Partial<StoredCredential>
     if (!parsed.email || !parsed.code) return null
@@ -65,11 +69,11 @@ function loadStoredCredential(): StoredCredential | null {
 }
 
 function saveStoredCredential(email: string, code: string) {
-  sessionStorage.setItem(CREDENTIAL_KEY, JSON.stringify({ email, code }))
+  localStorage.setItem(CREDENTIAL_KEY, JSON.stringify({ email, code }))
 }
 
 function clearStoredCredential() {
-  sessionStorage.removeItem(CREDENTIAL_KEY)
+  localStorage.removeItem(CREDENTIAL_KEY)
 }
 
 export default function MyTicketsPage() {
@@ -405,7 +409,7 @@ export default function MyTicketsPage() {
 
       <TicketThreadDialog
         ticket={threadTicket}
-        // Always read fresh from sessionStorage rather than the `email`/`code`
+        // Always read fresh from localStorage rather than the `email`/`code`
         // input state above — those only ever hold a value on the manual
         // entry path; a returning visitor lands straight on the "list" step
         // via the cached credential and never populates them.

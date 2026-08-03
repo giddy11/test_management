@@ -88,8 +88,8 @@ const env = {
   // own ticket history, not an account action, so this is deliberately much
   // longer-lived than otpTtlMinutes — long enough that checking back on a
   // ticket days later doesn't mean emailing yourself a new code every time.
-  // Default 2 days.
-  ticketLookupCodeTtlMinutes: Number(process.env.TICKET_LOOKUP_CODE_TTL_MINUTES || 2 * 24 * 60),
+  // Default 7 days.
+  ticketLookupCodeTtlMinutes: Number(process.env.TICKET_LOOKUP_CODE_TTL_MINUTES || 7 * 24 * 60),
 };
 
 module.exports = { env };
