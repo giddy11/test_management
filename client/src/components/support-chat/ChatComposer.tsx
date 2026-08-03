@@ -92,12 +92,14 @@ export function ChatComposer({ onSend, pending, placeholder, className }: Props)
   const handleSend = () => {
     const body = draft.trim()
     if (pending || (!body && files.length === 0)) return
-    onSend(body, files)
-      .then(() => {
-        setDraft("")
-        setFiles([])
-      })
-      .catch(() => toast.error("Couldn't send your message — please try again"))
+    const sentFiles = files
+    setDraft("")
+    setFiles([])
+    onSend(body, sentFiles).catch(() => {
+      toast.error("Couldn't send your message — please try again")
+      setDraft(body)
+      setFiles(sentFiles)
+    })
   }
 
   return (
