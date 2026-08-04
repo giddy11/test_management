@@ -93,7 +93,10 @@ export function useUpdateLiveChatSettings() {
       projectId,
       ...patch
     }: { projectId: string } & Partial<
-      Pick<LiveChatSettings, "displayName" | "logoUrl" | "greetingMessage" | "offlineMessage" | "brandColor">
+      Pick<
+        LiveChatSettings,
+        "displayName" | "logoUrl" | "greetingMessage" | "offlineMessage" | "brandColor" | "requireAccount"
+      >
     >) => {
       const res = await LiveChatAdminEndpoints.updateSettings(projectId, patch)
       if (!res.success || !res.data) throw new ApiError(res.message, res.statusCode, res.errors)

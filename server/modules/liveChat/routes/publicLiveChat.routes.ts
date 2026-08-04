@@ -6,6 +6,8 @@ import { LiveChatController } from "../controllers/liveChat.controller";
 import {
   widgetTokenParamSchema,
   startVisitorSchema,
+  registerAccountSchema,
+  loginAccountSchema,
   sendVisitorMessageSchema,
   fetchVisitorMessagesSchema,
   getVisitorConversationSchema,
@@ -39,6 +41,16 @@ const sessionLimiter = rateLimit({
   message: { success: false, message: "Too many requests — please try again shortly", statusCode: 429 },
 });
 
+// Password auth on the open internet — same bar as the main app's
+// authRateLimiter, to slow brute-forcing a visitor account's password.
+const accountAuthLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: "Too many attempts — please try again later", statusCode: 429 },
+});
+
 router.get("/:token", sessionLimiter, validate(widgetTokenParamSchema), LiveChatController.widgetConfig);
 
 router.post(
@@ -46,6 +58,23 @@ router.post(
   sessionLimiter,
   validate(startVisitorSchema),
   LiveChatController.startVisitor
+);
+
+// Account sign-in — the opt-in alternative to the anonymous flow above (see
+// LiveChatSettings.requireAccount). Both return the same visitor shape
+// startVisitor does, so the widget's post-bootstrap code doesn't need to care
+// which front door was used.
+router.post(
+  "/:token/auth/register",
+  accountAuthLimiter,
+  validate(registerAccountSchema),
+  LiveChatController.registerAccount
+);
+router.post(
+  "/:token/auth/login",
+  accountAuthLimiter,
+  validate(loginAccountSchema),
+  LiveChatController.loginAccount
 );
 
 router.post(

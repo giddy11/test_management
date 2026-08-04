@@ -70,6 +70,9 @@ const {
 const {
   LiveChatSettings,
 } = require("../../modules/liveChat/entities/liveChatSettings.entity");
+const {
+  LiveChatAccount,
+} = require("../../modules/liveChat/entities/liveChatAccount.entity");
 
 const AppDataSource = new DataSource({
   type: "postgres",
@@ -113,6 +116,7 @@ const AppDataSource = new DataSource({
     LiveChatVisitor,
     LiveChatConversation,
     LiveChatSettings,
+    LiveChatAccount,
   ],
   migrations: ["infrastructure/database/migrations/*.{js,ts}"],
 });

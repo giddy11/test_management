@@ -8,6 +8,38 @@ export const widgetTokenParamSchema = z.object({
   params: z.object({ token: z.string().uuid() }),
 });
 
+// Same password policy as the main app's registerSchema (auth.schema.js) —
+// lighter-weight account (no email verification), but the password itself
+// shouldn't be any weaker.
+const accountPasswordRule = z
+  .string()
+  .min(8)
+  .max(64)
+  .regex(/[A-Z]/, "Must contain an uppercase letter")
+  .regex(/[0-9]/, "Must contain a number");
+
+export const registerAccountSchema = z.object({
+  params: z.object({ token: z.string().uuid() }),
+  body: z.object({
+    name: z.string().trim().min(1).max(120),
+    email: z.string().trim().email().max(255),
+    password: accountPasswordRule,
+    phone: z.string().regex(/^\+[1-9]\d{6,14}$/, "Invalid phone number").optional(),
+    currentUrl: z.string().trim().max(2048).optional(),
+    referrer: z.string().trim().max(2048).optional(),
+  }),
+});
+
+export const loginAccountSchema = z.object({
+  params: z.object({ token: z.string().uuid() }),
+  body: z.object({
+    email: z.string().trim().email().max(255),
+    password: z.string().min(1),
+    currentUrl: z.string().trim().max(2048).optional(),
+    referrer: z.string().trim().max(2048).optional(),
+  }),
+});
+
 // Called on widget mount. visitorId is omitted on a brand-new browser (the
 // server issues one); sent back on every later call once the widget persists it.
 export const startVisitorSchema = z.object({
@@ -132,6 +164,7 @@ export const updateSettingsSchema = z.object({
     greetingMessage: z.string().trim().max(500).nullable().optional(),
     offlineMessage: z.string().trim().max(500).nullable().optional(),
     brandColor: z.string().trim().max(20).nullable().optional(),
+    requireAccount: z.boolean().optional(),
   }),
 });
 

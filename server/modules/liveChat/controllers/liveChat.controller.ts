@@ -36,6 +36,30 @@ export class LiveChatController {
     }
   }
 
+  static async registerAccount(req: any, res: any, next: any) {
+    try {
+      const visitor = await LiveChatService.Instance.registerAccount(
+        req.validated.params.token,
+        req.validated.body
+      );
+      res.status(201).json(ApiResponse.created("Account created", toVisitorResponse(visitor)));
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  static async loginAccount(req: any, res: any, next: any) {
+    try {
+      const visitor = await LiveChatService.Instance.loginAccount(
+        req.validated.params.token,
+        req.validated.body
+      );
+      res.status(200).json(ApiResponse.ok("Logged in", toVisitorResponse(visitor)));
+    } catch (err) {
+      next(err);
+    }
+  }
+
   static async sendVisitorMessage(req: any, res: any, next: any) {
     try {
       const message = await LiveChatService.Instance.sendVisitorMessage(

@@ -22,6 +22,20 @@ export const LiveChatWidgetEndpoints = {
     data: { visitorId?: string; currentUrl?: string; referrer?: string }
   ) => wrapCall<LiveChatVisitor>("POST", `/api/v1/public/live-chat/${token}/visitors`, data),
 
+  // Account sign-in — the opt-in alternative to startVisitor above (see
+  // LiveChatWidgetConfig.requireAccount). Both resolve to the same visitor
+  // shape, so everything downstream (messaging, read receipts) is identical
+  // regardless of which front door was used.
+  register: (
+    token: string,
+    data: { name: string; email: string; password: string; phone?: string; currentUrl?: string; referrer?: string }
+  ) => wrapCall<LiveChatVisitor>("POST", `/api/v1/public/live-chat/${token}/auth/register`, data),
+
+  login: (
+    token: string,
+    data: { email: string; password: string; currentUrl?: string; referrer?: string }
+  ) => wrapCall<LiveChatVisitor>("POST", `/api/v1/public/live-chat/${token}/auth/login`, data),
+
   getConversation: (token: string, visitorId: string) =>
     wrapCall<LiveChatConversation | null>("POST", `/api/v1/public/live-chat/${token}/conversation`, {
       visitorId,
@@ -94,7 +108,12 @@ export const LiveChatAdminEndpoints = {
 
   updateSettings: (
     projectId: string,
-    patch: Partial<Pick<LiveChatSettings, "displayName" | "logoUrl" | "greetingMessage" | "offlineMessage" | "brandColor">>
+    patch: Partial<
+      Pick<
+        LiveChatSettings,
+        "displayName" | "logoUrl" | "greetingMessage" | "offlineMessage" | "brandColor" | "requireAccount"
+      >
+    >
   ) => wrapCall<LiveChatSettings>("PATCH", `/api/v1/live-chat/projects/${projectId}/settings`, obj(patch)),
 
   setLink: (projectId: string, enabled: boolean) =>

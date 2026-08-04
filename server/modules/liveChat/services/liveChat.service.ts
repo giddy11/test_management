@@ -16,6 +16,7 @@ import {
   type LiveChatMessageAttachment,
 } from "../repositories/liveChatMessage.repository";
 import { LiveChatSettingsRepository } from "../repositories/liveChatSettings.repository";
+import { LiveChatAccountRepository } from "../repositories/liveChatAccount.repository";
 import { ProjectRepository } from "../../project/repositories/project.repository";
 import { ProjectService } from "../../project/services/project.service";
 import { ProjectMemberRepository } from "../../project/repositories/projectMember.repository";
@@ -26,6 +27,7 @@ import type { Project } from "../../project/entities/project.entity";
 import type { Actor } from "../../../shared/types/actor";
 
 const { AuthRepository } = require("../../auth/repositories/auth.repository");
+const { hashPassword, comparePassword } = require("../../../shared/utils/password");
 const { NotificationService } = require("../../notification/services/notification.service");
 const { StorageService } = require("../../../shared/services/storage.service");
 const { ALLOWED_IMAGE_TYPES } = require("../../../shared/middleware/upload.middleware");
@@ -58,6 +60,7 @@ export class LiveChatService {
   convRepo: LiveChatConversationRepository;
   messageRepo: LiveChatMessageRepository;
   settingsRepo: LiveChatSettingsRepository;
+  accountRepo: LiveChatAccountRepository;
   projectRepo: ProjectRepository;
   projectService: ProjectService;
   memberRepo: ProjectMemberRepository;
@@ -70,6 +73,7 @@ export class LiveChatService {
     convRepo = LiveChatConversationRepository.Instance,
     messageRepo = LiveChatMessageRepository.Instance,
     settingsRepo = LiveChatSettingsRepository.Instance,
+    accountRepo = LiveChatAccountRepository.Instance,
     projectRepo = ProjectRepository.Instance,
     projectService = ProjectService.Instance,
     memberRepo = ProjectMemberRepository.Instance,
@@ -81,6 +85,7 @@ export class LiveChatService {
     this.convRepo = convRepo;
     this.messageRepo = messageRepo;
     this.settingsRepo = settingsRepo;
+    this.accountRepo = accountRepo;
     this.projectRepo = projectRepo;
     this.projectService = projectService;
     this.memberRepo = memberRepo;
@@ -130,6 +135,7 @@ export class LiveChatService {
       offlineMessage:
         settings.offlineMessage || "We're not online right now — leave a message and we'll get back to you.",
       brandColor: settings.brandColor,
+      requireAccount: settings.requireAccount,
     };
   }
 
@@ -155,6 +161,88 @@ export class LiveChatService {
       currentUrl: data.currentUrl ?? null,
       referrer: data.referrer ?? null,
     });
+  }
+
+  // ── Account auth (public, opt-in per project) ───────────────────────────────
+  // Alternative front door to startVisitor above: instead of a free-form
+  // pre-chat form, the visitor proves identity with a real password. Both
+  // paths converge on the same thing — a LiveChatVisitor row whose id the
+  // widget persists client-side — so every other endpoint (messaging, read
+  // receipts, etc.) is completely unaware of which front door was used.
+
+  private async assertAccountsRequired(project: Project): Promise<void> {
+    const settings = await this.settingsRepo.getOrCreate(project.id);
+    if (!settings.requireAccount) {
+      throw new AppError("This widget doesn't use account sign-in", 400);
+    }
+  }
+
+  async registerAccount(
+    token: string,
+    data: { name: string; email: string; password: string; phone?: string; currentUrl?: string; referrer?: string }
+  ): Promise<LiveChatVisitor> {
+    const project = await this.resolveProjectByToken(token);
+    await this.assertAccountsRequired(project);
+
+    const email = data.email.trim().toLowerCase();
+    const existing = await this.accountRepo.findByProjectAndEmail(project.id, email);
+    if (existing) {
+      throw new AppError("An account with this email already exists — try logging in instead", 409);
+    }
+
+    const account = await this.accountRepo.create({
+      projectId: project.id,
+      email,
+      password: await hashPassword(data.password),
+      name: data.name.trim(),
+      phone: data.phone ?? null,
+    });
+    await this.accountRepo.touchLastLogin(account.id);
+
+    return this.visitorRepo.create({
+      projectId: project.id,
+      accountId: account.id,
+      name: account.name,
+      email: account.email,
+      phone: account.phone,
+      currentUrl: data.currentUrl ?? null,
+      referrer: data.referrer ?? null,
+    });
+  }
+
+  async loginAccount(
+    token: string,
+    data: { email: string; password: string; currentUrl?: string; referrer?: string }
+  ): Promise<LiveChatVisitor> {
+    const project = await this.resolveProjectByToken(token);
+    await this.assertAccountsRequired(project);
+
+    const email = data.email.trim().toLowerCase();
+    const account = await this.accountRepo.findByProjectAndEmail(project.id, email);
+    if (!account || !(await comparePassword(data.password, account.password))) {
+      throw new AppError("Invalid email or password", 401);
+    }
+    await this.accountRepo.touchLastLogin(account.id);
+
+    const existingVisitor = await this.visitorRepo.findByAccountId(account.id);
+    if (!existingVisitor) {
+      // Shouldn't normally happen (a visitor is created at registration) —
+      // recover gracefully rather than leaving the account unusable.
+      return this.visitorRepo.create({
+        projectId: project.id,
+        accountId: account.id,
+        name: account.name,
+        email: account.email,
+        phone: account.phone,
+        currentUrl: data.currentUrl ?? null,
+        referrer: data.referrer ?? null,
+      });
+    }
+    await this.visitorRepo.touch(existingVisitor.id, {
+      currentUrl: data.currentUrl ?? null,
+      referrer: data.referrer ?? null,
+    });
+    return (await this.visitorRepo.findById(existingVisitor.id)) as LiveChatVisitor;
   }
 
   // A visitor id from one project's widget must never resolve against another

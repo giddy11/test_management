@@ -31,13 +31,33 @@ export class LiveChatVisitorRepository {
     return this.repo.findOne({ where: { id, projectId } });
   }
 
-  // Called once, on the widget's first load for a given browser — the id is
-  // then persisted client-side (localStorage) and reused on every later call.
-  create(data: { projectId: string; currentUrl?: string | null; referrer?: string | null }) {
+  // At most one visitor row per account (partial unique index) — logging in
+  // on a new device resolves back to this same row.
+  findByAccountId(accountId: string): Promise<LiveChatVisitor | null> {
+    return this.repo.findOne({ where: { accountId } });
+  }
+
+  // Called once, on the widget's first load for a given browser (anonymous
+  // mode) or once at register/login time (account mode, with accountId/name/
+  // email/phone already known) — the id is then persisted client-side
+  // (localStorage) and reused on every later call.
+  create(data: {
+    projectId: string;
+    accountId?: string | null;
+    name?: string | null;
+    email?: string | null;
+    phone?: string | null;
+    currentUrl?: string | null;
+    referrer?: string | null;
+  }) {
     const now = new Date();
     return this.repo.save(
       this.repo.create({
         projectId: data.projectId,
+        accountId: data.accountId ?? null,
+        name: data.name ?? null,
+        email: data.email ?? null,
+        phone: data.phone ?? null,
         currentUrl: data.currentUrl ?? null,
         referrer: data.referrer ?? null,
         lastSeenAt: now,

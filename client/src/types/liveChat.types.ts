@@ -9,6 +9,9 @@ export interface LiveChatWidgetConfig {
   greetingMessage: string
   offlineMessage: string
   brandColor: string | null
+  // When true, the widget gates on a real login/signup (LiveChatAccount)
+  // instead of the free-form pre-chat contact form.
+  requireAccount: boolean
 }
 
 export interface LiveChatVisitor {
@@ -88,5 +91,6 @@ export interface LiveChatSettings {
   greetingMessage: string | null
   offlineMessage: string | null
   brandColor: string | null
+  requireAccount: boolean
   updatedAt: string
 }

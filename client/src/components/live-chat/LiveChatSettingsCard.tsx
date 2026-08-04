@@ -64,6 +64,19 @@ export function LiveChatSettingsCard({ projectId }: Props) {
     toast.success("Embed snippet copied — paste it into your site")
   }
 
+  const toggleRequireAccount = (value: boolean) => {
+    updateSettings.mutate(
+      { projectId, requireAccount: value },
+      {
+        onError: (e) => toast.error(e instanceof ApiError ? e.message : "Failed"),
+        onSuccess: () =>
+          toast.success(
+            value ? "Visitors must now log in to chat" : "Visitors can chat without an account again"
+          ),
+      }
+    )
+  }
+
   const saveBranding = () => {
     updateSettings.mutate(
       {
@@ -112,6 +125,23 @@ export function LiveChatSettingsCard({ projectId }: Props) {
 
         {embedToken && (
           <div className="grid gap-3 border-t pt-4 sm:grid-cols-2">
+            <div className="flex items-center justify-between gap-3 rounded-lg border p-3 sm:col-span-2">
+              <div>
+                <p className="text-sm font-medium">Require a TestMate account to chat</p>
+                <p className="text-xs text-muted-foreground">
+                  Visitors log in or sign up instead of filling out a contact form — lets them pick up
+                  their conversation from any device.
+                </p>
+              </div>
+              <Button
+                size="sm"
+                variant={settings?.requireAccount ? "default" : "outline"}
+                onClick={() => toggleRequireAccount(!settings?.requireAccount)}
+                disabled={updateSettings.isPending}
+              >
+                {settings?.requireAccount ? "Required" : "Optional"}
+              </Button>
+            </div>
             <div className="space-y-1.5">
               <Label htmlFor="lc-display-name">Display name</Label>
               <Input

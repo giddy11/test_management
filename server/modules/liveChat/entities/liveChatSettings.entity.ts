@@ -17,6 +17,10 @@ export interface LiveChatSettings {
   // backs the offline/contact-form fallback.
   offlineMessage: string | null;
   brandColor: string | null;
+  // Opt-in: gate the widget behind a real login/signup (LiveChatAccount)
+  // instead of the free-form pre-chat contact form. Off by default so
+  // existing projects keep working unchanged.
+  requireAccount: boolean;
   updatedBy: string | null;
   updatedAt: Date;
   project?: unknown;
@@ -60,6 +64,11 @@ const LiveChatSettings = new EntitySchema<LiveChatSettings>({
       type: "varchar",
       length: 20,
       nullable: true,
+    },
+    requireAccount: {
+      name: "require_account",
+      type: "boolean",
+      default: false,
     },
     updatedBy: {
       name: "updated_by",

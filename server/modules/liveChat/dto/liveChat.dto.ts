@@ -71,6 +71,7 @@ export function toSettingsResponse(s: LiveChatSettings | null) {
     greetingMessage: s.greetingMessage ?? null,
     offlineMessage: s.offlineMessage ?? null,
     brandColor: s.brandColor ?? null,
+    requireAccount: s.requireAccount,
     updatedAt: s.updatedAt,
   };
 }

@@ -42,12 +42,23 @@ export function useLiveChatWidgetConfig(token: string | undefined) {
 // Bootstraps once per token: reuses the id persisted from a prior visit (so
 // conversation history survives a page reload/return visit), or lets the
 // server issue a new one — same idea as a session token, just anonymous.
-export function useLiveChatVisitor(token: string | undefined) {
+//
+// requireAccount gates that auto-create: for account-required projects, no
+// cached id means "hasn't logged in yet", not "give me a fresh anonymous
+// one" — the query resolves to null instead, and the page renders
+// LiveChatAuthForm; useRegisterLiveChatAccount/useLoginLiveChatAccount below
+// are what actually populate this query on success. Stays disabled entirely
+// until requireAccount is known (config has loaded), so an account-required
+// project never has a one-frame window where it'd auto-create anonymously.
+export function useLiveChatVisitor(token: string | undefined, requireAccount: boolean | undefined) {
   return useQuery({
     queryKey: [LIVE_CHAT_KEY, token, "visitor"],
     queryFn: async () => {
       const key = visitorStorageKey(token as string)
       const existingId = localStorage.getItem(key) ?? undefined
+
+      if (requireAccount && !existingId) return null
+
       const res = await LiveChatWidgetEndpoints.startVisitor(token as string, {
         visitorId: existingId,
         currentUrl: window.location.href,
@@ -57,9 +68,50 @@ export function useLiveChatVisitor(token: string | undefined) {
       localStorage.setItem(key, res.data.id)
       return res.data
     },
-    enabled: Boolean(token),
+    enabled: Boolean(token) && requireAccount !== undefined,
     staleTime: Infinity,
     retry: false,
+  })
+}
+
+// Account sign-in — the opt-in alternative to the anonymous auto-create above.
+// Both resolve to the same visitor shape and persist the same localStorage
+// key, so every other hook in this file is unaware of which was used.
+export function useRegisterLiveChatAccount(token: string | undefined) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (data: { name: string; email: string; password: string; phone?: string }) => {
+      const res = await LiveChatWidgetEndpoints.register(token as string, {
+        ...data,
+        currentUrl: window.location.href,
+        referrer: document.referrer || undefined,
+      })
+      if (!res.success || !res.data) throw new ApiError(res.message, res.statusCode, res.errors)
+      return res.data
+    },
+    onSuccess: (visitor: LiveChatVisitor) => {
+      localStorage.setItem(visitorStorageKey(token as string), visitor.id)
+      qc.setQueryData([LIVE_CHAT_KEY, token, "visitor"], visitor)
+    },
+  })
+}
+
+export function useLoginLiveChatAccount(token: string | undefined) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (data: { email: string; password: string }) => {
+      const res = await LiveChatWidgetEndpoints.login(token as string, {
+        ...data,
+        currentUrl: window.location.href,
+        referrer: document.referrer || undefined,
+      })
+      if (!res.success || !res.data) throw new ApiError(res.message, res.statusCode, res.errors)
+      return res.data
+    },
+    onSuccess: (visitor: LiveChatVisitor) => {
+      localStorage.setItem(visitorStorageKey(token as string), visitor.id)
+      qc.setQueryData([LIVE_CHAT_KEY, token, "visitor"], visitor)
+    },
   })
 }
 

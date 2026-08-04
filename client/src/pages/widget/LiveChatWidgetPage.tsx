@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils"
 import { WidgetComposer } from "@/components/live-chat-widget/WidgetComposer"
 import { WidgetMessageBody } from "@/components/live-chat-widget/WidgetMessageBody"
 import { PreChatForm } from "@/components/live-chat-widget/PreChatForm"
+import { LiveChatAuthForm } from "@/components/live-chat-widget/LiveChatAuthForm"
 import {
   useLiveChatWidgetConfig,
   useLiveChatVisitor,
@@ -21,8 +22,11 @@ import {
   useSendLiveChatMessage,
   useMarkLiveChatRead,
   useUpdateLiveChatContact,
+  useRegisterLiveChatAccount,
+  useLoginLiveChatAccount,
 } from "@/hooks/useLiveChatWidget"
 import { LIVE_CHAT_STATUS_LABELS, LIVE_CHAT_STATUS_VARIANT } from "@/types/liveChat.types"
+import { ApiError } from "@/transport/http"
 
 // Must match PARENT_MESSAGE_SOURCE in public/live-chat-widget.js.
 const PARENT_MESSAGE_SOURCE = "testmate-live-chat-widget"
@@ -53,13 +57,15 @@ export default function LiveChatWidgetPage() {
   }, [])
 
   const { data: config } = useLiveChatWidgetConfig(token)
-  const { data: visitor } = useLiveChatVisitor(token)
+  const { data: visitor } = useLiveChatVisitor(token, config?.requireAccount)
   const { data: conversation } = useLiveChatConversation(token, visitor?.id)
   const conversationId = conversation?.id
   const { data: messages, isLoading: messagesLoading } = useLiveChatMessages(conversationId)
   const sendMessage = useSendLiveChatMessage(token)
   const markRead = useMarkLiveChatRead(token)
   const updateContact = useUpdateLiveChatContact(token)
+  const registerAccount = useRegisterLiveChatAccount(token)
+  const loginAccount = useLoginLiveChatAccount(token)
 
   const unread = conversation?.visitorUnread ?? 0
   // Every branded surface (pill + header) uses the project's brand color when
@@ -97,13 +103,21 @@ export default function LiveChatWidgetPage() {
     updateContact.mutate({ visitorId: visitor.id, ...data })
   }
 
+  const authError = (mutation: typeof registerAccount | typeof loginAccount) =>
+    mutation.error instanceof ApiError ? mutation.error.message : mutation.isError ? "Something went wrong" : null
+
   if (!token) return null
 
   const displayName = config?.displayName ?? "Chat"
   const greeting = config?.greetingMessage ?? "Hi! How can we help?"
+  const configLoaded = config !== undefined
+  // Account-required projects gate on a real login/signup instead of the
+  // free-form contact form — useLiveChatVisitor resolves to null (not
+  // undefined) once it's confirmed there's no logged-in session yet.
+  const needsAuth = configLoaded && config.requireAccount && visitor === null
   // Until the visitor gives an email, lead with the contact form instead of
   // the chat thread — same flow as JivoChat's "Send us a message" widget.
-  const needsContactInfo = !visitor?.email
+  const needsContactInfo = configLoaded && !config.requireAccount && !visitor?.email
 
   return (
     <div className="flex h-screen w-screen flex-col items-end justify-end p-2">
@@ -144,7 +158,20 @@ export default function LiveChatWidgetPage() {
             </Button>
           </header>
 
-          {needsContactInfo ? (
+          {!configLoaded ? (
+            <div className="flex flex-1 items-center justify-center">
+              <p className="text-xs text-muted-foreground">Loading…</p>
+            </div>
+          ) : needsAuth ? (
+            <div className="flex-1 overflow-y-auto">
+              <LiveChatAuthForm
+                pending={registerAccount.isPending || loginAccount.isPending}
+                error={authError(registerAccount) ?? authError(loginAccount)}
+                onLogin={(data) => loginAccount.mutate(data)}
+                onRegister={(data) => registerAccount.mutate(data)}
+              />
+            </div>
+          ) : needsContactInfo ? (
             <div className="flex-1 overflow-y-auto">
               <PreChatForm pending={updateContact.isPending} onSubmit={handleContactSubmit} />
             </div>
