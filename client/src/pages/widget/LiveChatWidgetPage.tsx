@@ -3,7 +3,7 @@
 // always loaded inside an iframe on a third-party site (see public/live-chat-widget.js,
 // the loader script that creates that iframe and resizes it on request). Never
 // part of the authenticated app shell — no DashboardLayout, no useAuth.
-import { useEffect, useRef, useState, type CSSProperties } from "react"
+import { useCallback, useEffect, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from "react"
 import { useParams } from "react-router-dom"
 import { MessageCircle, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -80,6 +80,43 @@ export default function LiveChatWidgetPage() {
     postToParent({ type: "resize", open })
   }, [open])
 
+  // Dragging the header — this page can't move itself (it's just the
+  // iframe's content), so it only tracks the pointer and relays deltas; the
+  // loader script is what actually repositions the iframe on the host page.
+  // Resets to the default bottom-right corner next time the widget closes
+  // (the loader's job, not this page's) — same as SupportChatWidget's floater.
+  const dragInfo = useRef<{ startX: number; startY: number } | null>(null)
+  const [dragging, setDragging] = useState(false)
+
+  const handleHeaderPointerDown = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
+    if ((e.target as HTMLElement).closest("button")) return
+    dragInfo.current = { startX: e.clientX, startY: e.clientY }
+    setDragging(true)
+    postToParent({ type: "dragStart" })
+  }, [])
+
+  useEffect(() => {
+    if (!dragging) return
+    const handleMove = (e: PointerEvent) => {
+      const drag = dragInfo.current
+      if (!drag) return
+      postToParent({ type: "drag", dx: e.clientX - drag.startX, dy: e.clientY - drag.startY })
+    }
+    const handleUp = () => {
+      setDragging(false)
+      dragInfo.current = null
+      postToParent({ type: "dragEnd" })
+    }
+    document.body.style.userSelect = "none"
+    window.addEventListener("pointermove", handleMove)
+    window.addEventListener("pointerup", handleUp)
+    return () => {
+      document.body.style.userSelect = ""
+      window.removeEventListener("pointermove", handleMove)
+      window.removeEventListener("pointerup", handleUp)
+    }
+  }, [dragging])
+
   // Clear the unread badge once the panel is opened on unseen replies.
   useEffect(() => {
     if (open && unread > 0 && visitor?.id) markRead.mutate(visitor.id)
@@ -124,8 +161,13 @@ export default function LiveChatWidgetPage() {
       {open ? (
         <div className="flex h-full w-full flex-col overflow-hidden rounded-xl border bg-background shadow-2xl">
           <header
+            onPointerDown={handleHeaderPointerDown}
             style={brandStyle}
-            className={cn("flex items-center justify-between border-b px-4 py-3", !branded && "bg-muted/40")}
+            className={cn(
+              "flex touch-none items-center justify-between border-b px-4 py-3 select-none",
+              dragging ? "cursor-grabbing" : "cursor-grab",
+              !branded && "bg-muted/40"
+            )}
           >
             <div className="flex items-center gap-2">
               <Avatar size="sm">

@@ -69,14 +69,23 @@
 
   setBottomRight(CLOSED_SIZE);
 
+  var isFullscreen = false;
+  // Snapshot of the iframe's own position when a drag starts — deltas from
+  // the page (which can't move itself; it's just the iframe's content) are
+  // applied relative to this, not to the iframe's live position, so a fast
+  // drag never drifts from the pointer.
+  var dragOrigin = null;
+
   // The loader alone knows the real host-page viewport, so it (not the page
   // inside the iframe) decides desktop-panel vs. mobile-fullscreen sizing.
   function applyOpenState(open) {
+    isFullscreen = false;
     if (!open) {
-      setBottomRight(CLOSED_SIZE);
+      setBottomRight(CLOSED_SIZE); // also resets any dragged position — see dragEnd's comment
       return;
     }
     if (window.innerWidth < MOBILE_BREAKPOINT) {
+      isFullscreen = true;
       setFullscreen();
     } else {
       setBottomRight({
@@ -86,11 +95,39 @@
     }
   }
 
+  // Dragging the open panel's header — the page tracks its own pointer
+  // events (it can't reposition the iframe from inside) and relays deltas
+  // here, since only the loader can actually move the iframe on the host
+  // page. Not draggable in mobile fullscreen (nowhere to drag to), and
+  // clamped so the panel can never end up partly off-screen.
+  function handleDragStart() {
+    if (isFullscreen) return;
+    var rect = iframe.getBoundingClientRect();
+    dragOrigin = { left: rect.left, top: rect.top, width: rect.width, height: rect.height };
+  }
+
+  function handleDrag(dx, dy) {
+    if (isFullscreen || !dragOrigin) return;
+    var maxLeft = Math.max(window.innerWidth - dragOrigin.width, 0);
+    var maxTop = Math.max(window.innerHeight - dragOrigin.height, 0);
+    var left = Math.min(Math.max(dragOrigin.left + dx, 0), maxLeft);
+    var top = Math.min(Math.max(dragOrigin.top + dy, 0), maxTop);
+    iframe.style.right = "";
+    iframe.style.bottom = "";
+    iframe.style.left = left + "px";
+    iframe.style.top = top + "px";
+  }
+
   window.addEventListener("message", function (event) {
     if (event.origin !== origin) return;
     var data = event.data;
     if (!data || data.source !== MESSAGE_SOURCE) return;
     if (data.type === "resize") applyOpenState(Boolean(data.open));
+    else if (data.type === "dragStart") handleDragStart();
+    else if (data.type === "drag") handleDrag(Number(data.dx) || 0, Number(data.dy) || 0);
+    // dragEnd needs no handler — the dragged position already stuck via
+    // handleDrag, and it resets to the default corner next time the widget
+    // closes (setBottomRight above), same as SupportChatWidget's floater.
   });
 
   function mount() {
