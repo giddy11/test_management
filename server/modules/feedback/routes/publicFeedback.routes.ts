@@ -13,6 +13,7 @@ import {
   publicFetchCommentsSchema,
   publicAddCommentSchema,
   publicAddCommentViaLinkSchema,
+  submitRatingSchema,
 } from "../validators/feedback.schema";
 
 const router = require("express").Router();
@@ -112,6 +113,15 @@ router.post(
   uploadCommentAttachments("attachments"),
   validate(publicAddCommentViaLinkSchema),
   FeedbackCommentController.publicCreateViaLink
+);
+
+// A resolved ticket's one-time satisfaction rating, from the "My Tickets"
+// page — same email/code proof of ownership as /my-tickets above.
+router.post(
+  "/:id/rating",
+  commentLimiter,
+  validate(submitRatingSchema),
+  FeedbackController.submitRating
 );
 
 module.exports = router;

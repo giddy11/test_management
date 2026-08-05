@@ -5,6 +5,16 @@ import { FeedbackAttachment } from "../entities/feedbackAttachment.entity";
 import { AppDataSource } from "../../../infrastructure/database/dataSource";
 
 const { buildMeta, getOffset } = require("../../../shared/pagination/paginate");
+const { SupportStatus } = require("../../../config/constants");
+
+// The IT tier's working (non-terminal) stages — same set as
+// FeedbackSupportService's SUPPORT_PROGRESSION. Duplicated here rather than
+// imported to avoid a repository -> service dependency.
+const OPEN_SUPPORT_STATUSES = [
+  SupportStatus.LOGGED,
+  SupportStatus.ACKNOWLEDGED,
+  SupportStatus.INVESTIGATING,
+];
 
 export interface FetchFeedbackParams {
   // Omitted => cross-project (global) mode, scoped by organizationId /
@@ -181,5 +191,24 @@ export class FeedbackRepository {
   // path: comments aren't deletable (see feedbackComment.service.ts).
   async incrementCommentCount(id: string): Promise<void> {
     await this.repo.increment({ id }, "commentCount", 1);
+  }
+
+  // Open-ticket counts per supporter, keyed by user id — used to auto-assign
+  // an incoming item to whichever of the company's supporters currently has
+  // the lightest load. Terminal support states (resolved/awaiting
+  // confirmation/escalated) don't count against anyone; a supporter with none
+  // simply doesn't appear in the result.
+  async countOpenBySupporter(clientCompanyId: string): Promise<Record<string, number>> {
+    const rows = await this.repo
+      .createQueryBuilder("fb")
+      .select("fb.assigned_supporter_id", "supporterId")
+      .addSelect("COUNT(*)", "count")
+      .where("fb.client_company_id = :clientCompanyId", { clientCompanyId })
+      .andWhere("fb.deleted_at IS NULL")
+      .andWhere("fb.assigned_supporter_id IS NOT NULL")
+      .andWhere("fb.support_status IN (:...statuses)", { statuses: OPEN_SUPPORT_STATUSES })
+      .groupBy("fb.assigned_supporter_id")
+      .getRawMany();
+    return Object.fromEntries(rows.map((r: { supporterId: string; count: string }) => [r.supporterId, Number(r.count)]));
   }
 }

@@ -224,6 +224,45 @@ describe("ClientCompanyService", () => {
     });
   });
 
+  describe("setAutoAssign", () => {
+    const lead = {
+      id: "lead-1",
+      role: UserRole.IT_SUPPORT,
+      isSupportLead: true,
+      clientCompanyId: "cc-1",
+      organizationId: "org-1",
+    };
+
+    it("lets the company's own lead turn it on", async () => {
+      companyRepo.findById.mockResolvedValue(company);
+      await service.setAutoAssign(lead, "cc-1", true);
+      expect(companyRepo.update).toHaveBeenCalledWith("cc-1", { autoAssignEnabled: true });
+    });
+
+    it("403s a non-lead supporter", async () => {
+      const nonLead = { ...lead, id: "u-2", isSupportLead: false };
+      await expect(service.setAutoAssign(nonLead, "cc-1", true)).rejects.toMatchObject({
+        statusCode: 403,
+      });
+      expect(companyRepo.update).not.toHaveBeenCalled();
+    });
+
+    it("403s a lead from a different company", async () => {
+      const otherLead = { ...lead, clientCompanyId: "cc-2" };
+      await expect(service.setAutoAssign(otherLead, "cc-1", true)).rejects.toMatchObject({
+        statusCode: 403,
+      });
+      expect(companyRepo.update).not.toHaveBeenCalled();
+    });
+
+    it("403s a TestMate admin — no admin fallback for this setting", async () => {
+      await expect(service.setAutoAssign(admin, "cc-1", true)).rejects.toMatchObject({
+        statusCode: 403,
+      });
+      expect(companyRepo.update).not.toHaveBeenCalled();
+    });
+  });
+
   describe("createSupporter", () => {
     const payload = {
       firstName: "Sam",

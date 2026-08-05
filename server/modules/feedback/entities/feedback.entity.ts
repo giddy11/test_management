@@ -56,6 +56,9 @@ export interface Feedback {
   // (optional — why it isn't fixed). Cleared once the item is closed again.
   reopenReason: string | null;
   statusUpdatedAt: Date | null;
+  // The submitter's one-time satisfaction rating (1-5), given once the ticket
+  // reads as resolved to them (see SubmitterTicketStatus) — null until rated.
+  rating: number | null;
   // Denormalized from feedback_comments — comments live in their own table
   // (see feedbackComment.entity.ts), this just powers a "3 comments" badge
   // without a COUNT() join on every list fetch.
@@ -188,6 +191,10 @@ const Feedback = new EntitySchema<Feedback>({
     statusUpdatedAt: {
       name: "status_updated_at",
       type: "timestamptz",
+      nullable: true,
+    },
+    rating: {
+      type: "smallint",
       nullable: true,
     },
     commentCount: {

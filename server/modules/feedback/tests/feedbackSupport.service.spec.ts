@@ -22,6 +22,7 @@ function makeFeedbackRepo() {
     fetchPaginated: jest.fn().mockResolvedValue({ data: [], meta: {} }),
     findById: jest.fn(),
     update: jest.fn(),
+    countOpenBySupporter: jest.fn().mockResolvedValue({}),
   };
 }
 
@@ -683,6 +684,41 @@ describe("FeedbackSupportService", () => {
         { id: "proj-1", name: "Product A" }
       );
       expect(notificationService.notifySupportQueueItem).not.toHaveBeenCalled();
+    });
+
+    it("auto-assigns to the least-busy supporter when the company has it enabled", async () => {
+      const busy = { id: "sup-2", email: "busy@client.co", firstName: "Busy" };
+      const idle = { id: "sup-3", email: "idle@client.co", firstName: "Idle" };
+      userRepo.findByClientCompany.mockResolvedValue([busy, idle]);
+      feedbackRepo.countOpenBySupporter.mockResolvedValue({ "sup-2": 3 });
+
+      await service.notifyQueueItem(
+        { id: "cc-1", name: "Client Co", autoAssignEnabled: true },
+        loggedItem as any,
+        { id: "proj-1", name: "Product A", organizationId: "org-1" }
+      );
+
+      expect(feedbackRepo.update).toHaveBeenCalledWith("fb-1", { assignedSupporterId: "sup-3" });
+      expect(notificationService.notifySupportItemAssigned).toHaveBeenCalledWith(
+        idle,
+        expect.objectContaining({ feedbackId: "fb-1", assignedByName: "Auto-assignment" })
+      );
+      expect(notificationService.notifySupportQueueItem).not.toHaveBeenCalled();
+    });
+
+    it("falls back to alerting the whole queue when auto-assign is off", async () => {
+      const sup = { id: "sup-2", email: "s@client.co", firstName: "Sue" };
+      userRepo.findByClientCompany.mockResolvedValue([sup]);
+
+      await service.notifyQueueItem(
+        { id: "cc-1", name: "Client Co", autoAssignEnabled: false },
+        loggedItem as any,
+        { id: "proj-1", name: "Product A", organizationId: "org-1" }
+      );
+
+      expect(feedbackRepo.update).not.toHaveBeenCalled();
+      expect(notificationService.notifySupportItemAssigned).not.toHaveBeenCalled();
+      expect(notificationService.notifySupportQueueItem).toHaveBeenCalled();
     });
   });
 });

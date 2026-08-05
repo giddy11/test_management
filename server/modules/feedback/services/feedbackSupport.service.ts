@@ -600,15 +600,59 @@ export class FeedbackSupportService {
     return updated;
   }
 
+  // Picks whichever of the company's supporters currently has the fewest
+  // open (non-terminal) items, so incoming tickets spread evenly rather than
+  // piling on whoever happens to be first in the roster. Ties (e.g. everyone
+  // idle) are broken at random so the same person doesn't win every time.
+  private async pickLeastBusySupporter(companyId: string, supporters: any[]): Promise<any | null> {
+    if (!supporters.length) return null;
+    const counts = await this.feedbackRepo.countOpenBySupporter(companyId);
+    let min = Infinity;
+    let candidates: any[] = [];
+    for (const s of supporters) {
+      const c = counts[s.id] ?? 0;
+      if (c < min) {
+        min = c;
+        candidates = [s];
+      } else if (c === min) {
+        candidates.push(s);
+      }
+    }
+    return candidates[Math.floor(Math.random() * candidates.length)];
+  }
+
   // Called by FeedbackService.submitPublic when a company-token submission
-  // arrives — alerts the company's supporters instead of the product org.
+  // arrives. With auto-assign off (the default), alerts every one of the
+  // company's supporters, same as always. With it on, routes the item
+  // straight to whoever's least busy and notifies only them — no queue-wide
+  // alert, so it doesn't also read as "unclaimed" to everyone else.
   async notifyQueueItem(
-    company: { id: string; name: string },
+    company: { id: string; name: string; autoAssignEnabled?: boolean },
     fb: Feedback,
     project: { id: string; name: string; organizationId?: string | null }
   ) {
     const supporters = await this.userRepo.findByClientCompany(company.id);
     if (!supporters.length) return;
+
+    if (company.autoAssignEnabled) {
+      const assignee = await this.pickLeastBusySupporter(company.id, supporters);
+      if (assignee) {
+        await this.feedbackRepo.update(fb.id, { assignedSupporterId: assignee.id });
+        this.notificationService
+          .notifySupportItemAssigned(assignee, {
+            feedbackId: fb.id,
+            projectId: project.id,
+            projectName: project.name,
+            companyName: company.name,
+            title: ticketLabel(fb),
+            assignedByName: "Auto-assignment",
+            organizationId: project.organizationId ?? null,
+          })
+          .catch((e: Error) => console.error("[support] auto-assign notify failed:", e.message));
+        return;
+      }
+    }
+
     await this.notificationService.notifySupportQueueItem(supporters, {
       feedbackId: fb.id,
       projectId: project.id,

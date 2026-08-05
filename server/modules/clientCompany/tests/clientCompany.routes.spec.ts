@@ -22,6 +22,7 @@ jest.mock("../controllers/clientCompany.controller", () => ({
     update: jest.fn((req: any, res: any) => res.status(200).json({})),
     remove: jest.fn((req: any, res: any) => res.status(200).json({})),
     setLink: jest.fn((req: any, res: any) => res.status(200).json({})),
+    setAutoAssign: jest.fn((req: any, res: any) => res.status(200).json({})),
     listSupporters: jest.fn((req: any, res: any) => res.status(200).json({})),
     createSupporter: jest.fn((req: any, res: any) => res.status(200).json({})),
     removeSupporter: jest.fn((req: any, res: any) => res.status(200).json({})),
@@ -84,6 +85,16 @@ describe("client-company routes — designating the primary lead is admin-only",
 describe("client-company routes — /me is it_support-only", () => {
   it("admits it_support and blocks everyone else", () => {
     const handler = authoriseHandlerFor(clientCompanyRouter, "/me", "get");
+    expect(invoke(handler, "it_support").next).toHaveBeenCalled();
+    expect(invoke(handler, "superadmin").next).not.toHaveBeenCalled();
+    expect(invoke(handler, "admin").next).not.toHaveBeenCalled();
+    expect(invoke(handler, "user").next).not.toHaveBeenCalled();
+  });
+});
+
+describe("client-company routes — auto-assign is it_support-only, no admin fallback", () => {
+  it("admits it_support and blocks admins and plain users", () => {
+    const handler = authoriseHandlerFor(clientCompanyRouter, "/:id/auto-assign", "patch");
     expect(invoke(handler, "it_support").next).toHaveBeenCalled();
     expect(invoke(handler, "superadmin").next).not.toHaveBeenCalled();
     expect(invoke(handler, "admin").next).not.toHaveBeenCalled();

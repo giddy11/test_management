@@ -24,21 +24,35 @@ function makeLookupCodeRepo() {
 }
 
 function makeFeedbackRepo() {
-  return { findBySubmitterEmail: jest.fn().mockResolvedValue([]) };
+  return {
+    findBySubmitterEmail: jest.fn().mockResolvedValue([]),
+    findById: jest.fn(),
+    update: jest.fn(),
+  };
 }
 
-function makeService({ feedbackRepo = makeFeedbackRepo(), lookupCodeRepo = makeLookupCodeRepo() } = {}) {
+function makeProjectRepo() {
+  return {
+    findById: jest.fn().mockResolvedValue({ id: "proj-1", name: "Product A", organizationId: "org-1" }),
+  };
+}
+
+function makeService({
+  feedbackRepo = makeFeedbackRepo(),
+  lookupCodeRepo = makeLookupCodeRepo(),
+  projectRepo = makeProjectRepo(),
+} = {}) {
   const service = new FeedbackService(
     feedbackRepo as any,
     {} as any,
-    {} as any,
+    projectRepo as any,
     {} as any,
     {} as any,
     {} as any,
     {} as any,
     lookupCodeRepo as any
   );
-  return { service, feedbackRepo, lookupCodeRepo };
+  return { service, feedbackRepo, lookupCodeRepo, projectRepo };
 }
 
 describe("FeedbackService.requestMyTicketsCode", () => {
@@ -132,6 +146,102 @@ describe("FeedbackService.listMyTickets", () => {
     await service.listMyTickets("jane@example.com", "123456");
 
     expect(lookupCodeRepo.findActive).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("FeedbackService.submitRating", () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  const resolvedTicket = {
+    id: "fb-1",
+    ticketNumber: 42,
+    projectId: "proj-1",
+    project: { name: "Product A" },
+    clientCompany: null,
+    clientCompanyId: null,
+    supportStatus: null,
+    status: FeedbackStatus.CLOSED,
+    type: "bug",
+    title: "Export fails",
+    submitterEmail: "jane@example.com",
+    rating: null,
+    deletedAt: null,
+    createdAt: new Date("2026-01-01T00:00:00.000Z"),
+    statusUpdatedAt: null,
+  };
+
+  it("401s on an invalid or expired code", async () => {
+    const { service, lookupCodeRepo } = makeService();
+    lookupCodeRepo.findActive.mockResolvedValue(null);
+
+    await expect(
+      service.submitRating("fb-1", "jane@example.com", "000000", 5)
+    ).rejects.toMatchObject({ statusCode: 401 });
+  });
+
+  it("404s when the ticket belongs to a different email", async () => {
+    const feedbackRepo = makeFeedbackRepo();
+    feedbackRepo.findById.mockResolvedValue({ ...resolvedTicket, submitterEmail: "other@example.com" });
+    const { service, lookupCodeRepo } = makeService({ feedbackRepo });
+    lookupCodeRepo.findActive.mockResolvedValue({ id: "code-1" });
+
+    await expect(
+      service.submitRating("fb-1", "jane@example.com", "123456", 5)
+    ).rejects.toMatchObject({ statusCode: 404 });
+    expect(feedbackRepo.update).not.toHaveBeenCalled();
+  });
+
+  it("422s when the ticket isn't resolved yet", async () => {
+    const feedbackRepo = makeFeedbackRepo();
+    feedbackRepo.findById.mockResolvedValue({ ...resolvedTicket, status: FeedbackStatus.INVESTIGATING });
+    const { service, lookupCodeRepo } = makeService({ feedbackRepo });
+    lookupCodeRepo.findActive.mockResolvedValue({ id: "code-1" });
+
+    await expect(
+      service.submitRating("fb-1", "jane@example.com", "123456", 5)
+    ).rejects.toMatchObject({ statusCode: 422 });
+    expect(feedbackRepo.update).not.toHaveBeenCalled();
+  });
+
+  it("409s when the ticket has already been rated", async () => {
+    const feedbackRepo = makeFeedbackRepo();
+    feedbackRepo.findById.mockResolvedValue({ ...resolvedTicket, rating: 4 });
+    const { service, lookupCodeRepo } = makeService({ feedbackRepo });
+    lookupCodeRepo.findActive.mockResolvedValue({ id: "code-1" });
+
+    await expect(
+      service.submitRating("fb-1", "jane@example.com", "123456", 5)
+    ).rejects.toMatchObject({ statusCode: 409 });
+    expect(feedbackRepo.update).not.toHaveBeenCalled();
+  });
+
+  it("saves the rating once resolved and unrated", async () => {
+    const feedbackRepo = makeFeedbackRepo();
+    feedbackRepo.findById.mockResolvedValue(resolvedTicket);
+    feedbackRepo.update.mockResolvedValue({ ...resolvedTicket, rating: 5 });
+    const { service, lookupCodeRepo } = makeService({ feedbackRepo });
+    lookupCodeRepo.findActive.mockResolvedValue({ id: "code-1" });
+
+    const result = await service.submitRating("fb-1", "jane@example.com", "123456", 5);
+
+    expect(feedbackRepo.update).toHaveBeenCalledWith("fb-1", { rating: 5 });
+    expect(result.rating).toBe(5);
+  });
+
+  it("also works for a company-routed ticket resolved by IT support", async () => {
+    const feedbackRepo = makeFeedbackRepo();
+    feedbackRepo.findById.mockResolvedValue({
+      ...resolvedTicket,
+      status: FeedbackStatus.LOGGED,
+      clientCompanyId: "company-1",
+      supportStatus: SupportStatus.RESOLVED,
+    });
+    feedbackRepo.update.mockResolvedValue({ ...resolvedTicket, rating: 3 });
+    const { service, lookupCodeRepo } = makeService({ feedbackRepo });
+    lookupCodeRepo.findActive.mockResolvedValue({ id: "code-1" });
+
+    await expect(service.submitRating("fb-1", "jane@example.com", "123456", 3)).resolves.toBeDefined();
+    expect(feedbackRepo.update).toHaveBeenCalledWith("fb-1", { rating: 3 });
   });
 });
 

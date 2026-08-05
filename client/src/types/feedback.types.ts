@@ -189,6 +189,9 @@ export interface MyTicket {
   // client company's) — null if that link has since been disabled. Lets the
   // submitter raise another ticket for the same product from here.
   feedbackToken: string | null
+  // The submitter's one-time satisfaction rating (1-5) — null until rated.
+  // Only ratable once `status` is "resolved" (see server's SubmitterTicketStatus).
+  rating: number | null
   createdAt: string
   updatedAt: string
 }

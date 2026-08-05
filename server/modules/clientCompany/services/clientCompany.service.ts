@@ -189,6 +189,19 @@ export class ClientCompanyService {
     return { feedbackToken: company.feedbackToken };
   }
 
+  // Auto-assignment is the company's own operational call, not the product
+  // team's — only their own IT support lead can turn it on/off (no admin
+  // fallback; unlike a supporter account, there's no bootstrap problem here,
+  // it just defaults to off).
+  async setAutoAssign(actor: Actor, id: string, enabled: boolean) {
+    if (actor.role !== UserRole.IT_SUPPORT || !actor.isSupportLead || actor.clientCompanyId !== id) {
+      throw new AppError("Only this company's IT support lead can change this setting", 403);
+    }
+    const company = await this.companyRepo.findById(id);
+    if (!company || company.deletedAt) throw new AppError("Client company not found", 404);
+    return this.companyRepo.update(company.id, { autoAssignEnabled: enabled });
+  }
+
   // ── Server-to-server company provisioning (no auth — see route comment) ────
   // A partner's own backend calls this the moment one of their customers signs
   // up, so no TestMate admin has to add the client company by hand. Creates

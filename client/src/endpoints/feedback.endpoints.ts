@@ -120,6 +120,11 @@ export const FeedbackEndpoints = {
   listMyTickets: (email: string, code: string) =>
     wrapCall<MyTicket[]>("POST", "/api/v1/public/feedback/my-tickets", { email, code }),
 
+  // A resolved ticket's one-time satisfaction rating (1-5) — same email/code
+  // proof of ownership as the list above.
+  submitRating: (id: string, email: string, code: string, rating: number) =>
+    wrapCall<MyTicket>("POST", `/api/v1/public/feedback/${id}/rating`, { email, code, rating }),
+
   // Ticket comment thread, submitter side — write only (reads are the same
   // realtime Firestore listener staff use). Proves ownership with the same
   // email + code pair as the My Tickets lookup above (sent in the body, same

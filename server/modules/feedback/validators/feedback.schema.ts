@@ -181,3 +181,14 @@ export const publicAddCommentViaLinkSchema = z.object({
   params: z.object({ id: z.string().uuid() }),
   body: z.object({ body: z.string().min(1).max(3000) }),
 });
+
+// A resolved ticket's one-time satisfaction rating, from the "My Tickets"
+// page — same email/code proof of ownership as listMyTicketsSchema.
+export const submitRatingSchema = z.object({
+  params: z.object({ id: z.string().uuid() }),
+  body: z.object({
+    email: z.string().email().max(255),
+    code: z.string().length(6),
+    rating: z.number().int().min(1).max(5),
+  }),
+});

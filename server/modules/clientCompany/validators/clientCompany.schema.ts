@@ -48,6 +48,13 @@ export const clientCompanyLinkSchema = z.object({
   body: z.object({ enabled: z.boolean() }),
 });
 
+// Self-service only — see clientCompany.routes.ts and
+// ClientCompanyService.setAutoAssign.
+export const setAutoAssignSchema = z.object({
+  params: z.object({ id: z.string().uuid() }),
+  body: z.object({ enabled: z.boolean() }),
+});
+
 // Same password rules as user.schema.js createUserSchema.
 export const createSupporterSchema = z.object({
   params: z.object({ id: z.string().uuid() }),

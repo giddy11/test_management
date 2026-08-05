@@ -27,6 +27,10 @@ export const ClientCompanyEndpoints = {
   setLink: (id: string, enabled: boolean) =>
     wrapCall<{ feedbackToken: string | null }>("POST", `/api/v1/client-companies/${id}/link`, { enabled }),
 
+  // Self-service — the company's own IT support lead only (no admin fallback).
+  setAutoAssign: (id: string, enabled: boolean) =>
+    wrapCall<ClientCompany>("PATCH", `/api/v1/client-companies/${id}/auto-assign`, { enabled }),
+
   listSupporters: (id: string) =>
     wrapCall<Supporter[]>("GET", `/api/v1/client-companies/${id}/supporters`),
 

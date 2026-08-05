@@ -7,6 +7,7 @@ export interface ClientCompanyResponseDTO {
   name: string;
   contactEmail: string | null;
   feedbackToken: string | null;
+  autoAssignEnabled: boolean;
   supporterCount: number;
   createdAt: Date;
 }
@@ -35,6 +36,7 @@ export function toClientCompanyResponse(
     name: company.name,
     contactEmail: company.contactEmail ?? null,
     feedbackToken: company.feedbackToken ?? null,
+    autoAssignEnabled: company.autoAssignEnabled ?? false,
     supporterCount,
     createdAt: company.createdAt,
   };

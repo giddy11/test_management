@@ -12,6 +12,9 @@ export interface ClientCompany {
   contactEmail: string | null;
   // Token for this company's public feedback form — null = form disabled.
   feedbackToken: string | null;
+  // Opt-in, set by the company's own IT support lead: route each incoming
+  // ticket to their least-busy supporter instead of alerting the whole queue.
+  autoAssignEnabled: boolean;
   createdAt: Date;
   deletedAt: Date | null;
   project?: unknown;
@@ -44,6 +47,11 @@ const ClientCompany = new EntitySchema<ClientCompany>({
       name: "feedback_token",
       type: "uuid",
       nullable: true,
+    },
+    autoAssignEnabled: {
+      name: "auto_assign_enabled",
+      type: "boolean",
+      default: false,
     },
     createdAt: {
       name: "created_at",

@@ -15,6 +15,7 @@ import {
   supporterParamSchema,
   setSupporterLeadSchema,
   setPrimarySupportLeadSchema,
+  setAutoAssignSchema,
 } from "../validators/clientCompany.schema";
 
 const router = require("express").Router();
@@ -61,6 +62,16 @@ router.patch(
   ...supporterManagers,
   validate(setSupporterLeadSchema),
   ClientCompanyController.setSupporterLead
+);
+
+// Auto-assign is the flip side of createSupporter's restriction — self-service
+// only, no admin fallback at all (see ClientCompanyService.setAutoAssign).
+router.patch(
+  "/:id/auto-assign",
+  authMiddleware,
+  authorise("it_support"),
+  validate(setAutoAssignSchema),
+  ClientCompanyController.setAutoAssign
 );
 
 // Designating the primary lead is admin-only, never self-service — peer

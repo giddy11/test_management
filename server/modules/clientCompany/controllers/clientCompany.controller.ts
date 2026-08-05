@@ -90,6 +90,21 @@ export class ClientCompanyController {
     }
   }
 
+  static async setAutoAssign(req: any, res: any, next: any) {
+    try {
+      const company = await ClientCompanyService.Instance.setAutoAssign(
+        req.user,
+        req.validated.params.id,
+        req.validated.body.enabled
+      );
+      res
+        .status(200)
+        .json(ApiResponse.ok("Auto-assign setting updated", company && toClientCompanyResponse(company)));
+    } catch (err) {
+      next(err);
+    }
+  }
+
   // ── Partner integration API (server-to-server, unauthenticated) ────────────
   static async integrationProvision(req: any, res: any, next: any) {
     try {

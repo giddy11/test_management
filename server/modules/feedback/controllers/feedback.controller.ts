@@ -79,6 +79,20 @@ export class FeedbackController {
     }
   }
 
+  static async submitRating(req: any, res: any, next: any) {
+    try {
+      const ticket = await FeedbackService.Instance.submitRating(
+        req.validated.params.id,
+        req.validated.body.email,
+        req.validated.body.code,
+        req.validated.body.rating
+      );
+      res.status(200).json(ApiResponse.ok("Thanks for rating!", ticket));
+    } catch (err) {
+      next(err);
+    }
+  }
+
   // ── Authenticated ───────────────────────────────────────────────────────────
   static async fetchAll(req: any, res: any, next: any) {
     try {

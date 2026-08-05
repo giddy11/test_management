@@ -61,6 +61,7 @@ export function toFeedbackResponse(fb: Feedback | null) {
     attachments: (fb.attachments ?? []).map((a) => ({ id: a.id, url: a.url })),
     commentCount: fb.commentCount ?? 0,
     statusUpdatedAt: fb.statusUpdatedAt ?? null,
+    rating: fb.rating ?? null,
     createdAt: fb.createdAt,
   };
 }
@@ -172,6 +173,7 @@ export function toMyTicketResponse(fb: Feedback) {
     status: toSubmitterStatus(fb),
     note: toMyTicketNote(fb),
     feedbackToken,
+    rating: fb.rating ?? null,
     createdAt: fb.createdAt,
     updatedAt: fb.statusUpdatedAt ?? fb.createdAt,
   };

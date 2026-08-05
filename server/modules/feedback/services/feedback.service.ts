@@ -11,7 +11,13 @@ import { ProjectRepository } from "../../project/repositories/project.repository
 import { ProjectMemberRepository } from "../../project/repositories/projectMember.repository";
 import { ProjectService } from "../../project/services/project.service";
 import { ClientCompanyRepository } from "../../clientCompany/repositories/clientCompany.repository";
-import { ticketCode, ticketLabel, toMyTicketResponse, toSubmitterStatus } from "../dto/feedback.dto";
+import {
+  SubmitterTicketStatus,
+  ticketCode,
+  ticketLabel,
+  toMyTicketResponse,
+  toSubmitterStatus,
+} from "../dto/feedback.dto";
 import type { Actor } from "../../../shared/types/actor";
 import type { Feedback } from "../entities/feedback.entity";
 import type { Project } from "../../project/entities/project.entity";
@@ -648,6 +654,43 @@ export class FeedbackService {
 
     const rows = await this.feedbackRepo.findBySubmitterEmail(email);
     return rows.map(toMyTicketResponse);
+  }
+
+  // A resolved ticket's one-time satisfaction rating. Same ownership proof as
+  // the rest of "My Tickets" (email + the emailed OTP code) — works for both
+  // tiers since rating is a plain field on the row, not part of either
+  // lifecycle. Only allowed once the ticket reads as "resolved" to the
+  // submitter, and only once per ticket.
+  async submitRating(id: string, email: string, code: string, rating: number) {
+    const active = await this.lookupCodeRepo.findActive(email, hashToken(code));
+    if (!active) throw new AppError("Invalid or expired code", 401);
+
+    const fb = await this.feedbackRepo.findById(id);
+    if (!fb || fb.deletedAt || fb.submitterEmail.toLowerCase() !== email.toLowerCase()) {
+      throw new AppError("Feedback not found", 404);
+    }
+    if (toSubmitterStatus(fb) !== SubmitterTicketStatus.RESOLVED) {
+      throw new AppError("You can only rate a ticket once it's resolved", 422);
+    }
+    if (fb.rating != null) {
+      throw new AppError("This ticket has already been rated", 409);
+    }
+
+    const updated = await this.feedbackRepo.update(fb.id, { rating } as any);
+
+    const project = await this.projectRepo.findById(fb.projectId);
+    ActivityService.Instance.log(
+      { id: null, organizationId: project?.organizationId ?? null },
+      {
+        action: "feedback.rated",
+        summary: `Submitter rated "${fb.title}" ${rating}/5 in project "${project?.name}"`,
+        entityType: "feedback",
+        entityId: fb.id,
+        metadata: { projectId: fb.projectId, rating },
+      }
+    );
+
+    return toMyTicketResponse(updated as Feedback);
   }
 
   // ── Feedback-form link management (admin) ───────────────────────────────────

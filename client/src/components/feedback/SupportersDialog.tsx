@@ -21,6 +21,7 @@ import { ConfirmDialog } from "@/components/shared/ConfirmDialog"
 import {
   useCreateSupporter,
   useRemoveSupporter,
+  useSetAutoAssign,
   useSetSupporterLead,
   useSupporters,
 } from "@/hooks/useClientCompanies"
@@ -43,6 +44,7 @@ export function SupportersDialog({ company, onOpenChange }: Props) {
   const createSupporter = useCreateSupporter(companyId)
   const removeSupporter = useRemoveSupporter(companyId)
   const setLead = useSetSupporterLead(companyId)
+  const setAutoAssign = useSetAutoAssign()
   const [adding, setAdding] = useState(false)
   const [removing, setRemoving] = useState<Supporter | null>(null)
   const [wantsLead, setWantsLead] = useState(false)
@@ -95,6 +97,18 @@ export function SupportersDialog({ company, onOpenChange }: Props) {
     toast.success("Link copied")
   }
 
+  const toggleAutoAssign = (enabled: boolean) => {
+    if (!company) return
+    setAutoAssign.mutate(
+      { id: company.id, enabled },
+      {
+        onError: (e) => toast.error(e instanceof ApiError ? e.message : "Something went wrong"),
+        onSuccess: () =>
+          toast.success(enabled ? "Auto-assign turned on" : "Auto-assign turned off"),
+      }
+    )
+  }
+
   return (
     <Dialog open={Boolean(company)} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
@@ -119,6 +133,24 @@ export function SupportersDialog({ company, onOpenChange }: Props) {
           <p className="text-sm text-muted-foreground">
             Your product team hasn't enabled a ticket form link yet.
           </p>
+        )}
+
+        {!isAdmin && company && (
+          <label className="flex cursor-pointer items-start gap-2 rounded-md border p-3">
+            <Checkbox
+              className="mt-0.5"
+              checked={company.autoAssignEnabled}
+              disabled={setAutoAssign.isPending}
+              onCheckedChange={(v) => toggleAutoAssign(v === true)}
+            />
+            <span className="text-sm">
+              Auto-assign incoming tickets
+              <span className="block text-xs font-normal text-muted-foreground">
+                New tickets route straight to whoever on your team currently has the fewest open
+                items, instead of alerting everyone. They're emailed the moment it lands.
+              </span>
+            </span>
+          </label>
         )}
 
         {isLoading && <p className="text-sm text-muted-foreground">Loading supporters…</p>}

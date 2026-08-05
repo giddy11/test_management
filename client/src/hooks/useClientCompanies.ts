@@ -82,6 +82,18 @@ export function useSetClientCompanyLink() {
   })
 }
 
+export function useSetAutoAssign() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, enabled }: { id: string; enabled: boolean }) => {
+      const res = await ClientCompanyEndpoints.setAutoAssign(id, enabled)
+      if (!res.success || !res.data) throw new ApiError(res.message, res.statusCode, res.errors)
+      return res.data
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: [COMPANIES_KEY] }),
+  })
+}
+
 export function useSupporters(companyId: string, enabled: boolean) {
   return useQuery({
     queryKey: [COMPANIES_KEY, companyId, "supporters"],

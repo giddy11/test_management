@@ -10,6 +10,7 @@ import {
   Mail,
   MessageSquare,
   PlusCircle,
+  Star,
   TicketCheck,
   XCircle,
 } from "lucide-react"
@@ -74,6 +75,84 @@ function saveStoredCredential(email: string, code: string) {
 
 function clearStoredCredential() {
   localStorage.removeItem(CREDENTIAL_KEY)
+}
+
+// A resolved ticket's one-time satisfaction rating — read-only once given
+// (see server's one-rating-per-ticket rule), otherwise five clickable stars
+// that submit immediately on click.
+function TicketRatingControl({
+  ticket,
+  onRated,
+}: {
+  ticket: MyTicket
+  onRated: (ticketId: string, rating: number) => void
+}) {
+  const [hovered, setHovered] = useState<number | null>(null)
+  const [submitting, setSubmitting] = useState(false)
+
+  if (ticket.rating != null) {
+    return (
+      <div className="mt-2 flex items-center gap-1 text-xs text-muted-foreground">
+        <span>Your rating:</span>
+        {[1, 2, 3, 4, 5].map((n) => (
+          <Star
+            key={n}
+            className={
+              n <= ticket.rating!
+                ? "size-3.5 fill-amber-400 text-amber-400"
+                : "size-3.5 text-muted-foreground/30"
+            }
+          />
+        ))}
+      </div>
+    )
+  }
+
+  const submit = async (value: number) => {
+    const stored = loadStoredCredential()
+    if (!stored) return
+    setSubmitting(true)
+    try {
+      const res = await FeedbackEndpoints.submitRating(ticket.id, stored.email, stored.code, value)
+      if (res.success) {
+        toast.success("Thanks for rating!")
+        onRated(ticket.id, value)
+      } else {
+        toast.error(res.message || "Something went wrong — please try again")
+      }
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Something went wrong — please try again")
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <div className="mt-2 flex items-center gap-2">
+      <span className="text-xs text-muted-foreground">How was the support?</span>
+      <div className="flex items-center gap-0.5" onMouseLeave={() => setHovered(null)}>
+        {[1, 2, 3, 4, 5].map((n) => (
+          <button
+            key={n}
+            type="button"
+            disabled={submitting}
+            onMouseEnter={() => setHovered(n)}
+            onClick={() => submit(n)}
+            className="p-0.5 disabled:opacity-50"
+            aria-label={`Rate ${n} star${n === 1 ? "" : "s"}`}
+          >
+            <Star
+              className={
+                (hovered ?? 0) >= n
+                  ? "size-4 fill-amber-400 text-amber-400"
+                  : "size-4 text-muted-foreground/40"
+              }
+            />
+          </button>
+        ))}
+      </div>
+    </div>
+  )
 }
 
 export default function MyTicketsPage() {
@@ -396,6 +475,16 @@ export default function MyTicketsPage() {
                       </Link>
                     )}
                   </div>
+                  {t.status === "resolved" && (
+                    <TicketRatingControl
+                      ticket={t}
+                      onRated={(ticketId, rating) =>
+                        setTickets(
+                          (prev) => prev?.map((x) => (x.id === ticketId ? { ...x, rating } : x)) ?? prev
+                        )
+                      }
+                    />
+                  )}
                 </div>
               ))}
               <Button variant="outline" onClick={startOver}>
