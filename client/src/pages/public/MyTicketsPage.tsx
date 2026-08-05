@@ -302,7 +302,7 @@ export default function MyTicketsPage() {
                 </p>
               )}
               {tickets?.map((t) => (
-                <div key={t.id} className="rounded-md border p-3">
+                <div key={t.id} className="min-w-0 rounded-md border p-3">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-mono text-xs text-muted-foreground">{t.ticketCode}</span>
                     <span className="text-sm font-medium">{t.title}</span>
@@ -318,7 +318,7 @@ export default function MyTicketsPage() {
                   {t.note && (
                     <div className="mt-2 rounded-md border-l-2 border-primary bg-muted/60 px-2.5 py-1.5">
                       <p className="text-xs font-medium text-muted-foreground">Note from support</p>
-                      <p className="whitespace-pre-line text-sm">{t.note}</p>
+                      <p className="whitespace-pre-line break-words text-sm">{t.note}</p>
                     </div>
                   )}
                   {t.status === "pending_your_confirmation" && (

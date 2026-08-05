@@ -65,6 +65,16 @@ export const projectSchema = z.object({
 export const clientCompanySchema = z.object({
   name: z.string().min(1, "Company name is required").max(200),
   contactEmail: z.string().email("Enter a valid email").optional().or(z.literal("")),
+  // Only shown/required when adding a company — on edit these are unused
+  // placeholders (see ClientCompanyFormDialog).
+  supporterFirstName: z.string().min(1, "First name is required").max(100),
+  supporterLastName: z.string().min(1, "Last name is required").max(100),
+  supporterEmail: z.string().email("Enter a valid email"),
+  supporterPassword: z
+    .string()
+    .min(8, "At least 8 characters")
+    .regex(/[A-Z]/, "Must contain an uppercase letter")
+    .regex(/[0-9]/, "Must contain a number"),
 })
 
 export const createSupporterSchema = z.object({

@@ -93,12 +93,21 @@ describe("ClientCompanyService", () => {
   });
 
   describe("createCompany", () => {
+    const supporter = {
+      firstName: "Sam",
+      lastName: "Support",
+      email: "sam@client.co",
+      password: "Password1",
+    };
+
     it("creates the company when the email is unused in the application", async () => {
       companyRepo.create.mockResolvedValue({ ...company, contactEmail: "a@b.com" });
+      userRepo.create.mockImplementation(async (d: any) => ({ id: "u-9", ...d }));
 
       const created = await service.createCompany(admin, "proj-1", {
         name: "Client Co",
         contactEmail: "a@b.com",
+        supporter,
       });
 
       expect(companyRepo.findByEmail).toHaveBeenCalledWith("a@b.com");
@@ -109,7 +118,7 @@ describe("ClientCompanyService", () => {
       companyRepo.findByEmail.mockResolvedValue({ ...company, id: "cc-2", projectId: "proj-2" });
 
       await expect(
-        service.createCompany(admin, "proj-1", { name: "Client Co 2", contactEmail: "a@b.com" })
+        service.createCompany(admin, "proj-1", { name: "Client Co 2", contactEmail: "a@b.com", supporter })
       ).rejects.toMatchObject({ statusCode: 409 });
       expect(companyRepo.create).not.toHaveBeenCalled();
     });
@@ -118,9 +127,35 @@ describe("ClientCompanyService", () => {
       userRepo.findByEmail.mockResolvedValue({ id: "user-9" });
 
       await expect(
-        service.createCompany(admin, "proj-1", { name: "Client Co", contactEmail: "staff@org.com" })
+        service.createCompany(admin, "proj-1", { name: "Client Co", contactEmail: "staff@org.com", supporter })
       ).rejects.toMatchObject({ statusCode: 409 });
       expect(companyRepo.create).not.toHaveBeenCalled();
+    });
+
+    it("409s when the first supporter's email is already taken, before creating the company", async () => {
+      userRepo.findByEmail.mockResolvedValue({ id: "user-9" });
+
+      await expect(
+        service.createCompany(admin, "proj-1", { name: "Client Co", supporter })
+      ).rejects.toMatchObject({ statusCode: 409 });
+      expect(companyRepo.create).not.toHaveBeenCalled();
+    });
+
+    it("automatically creates the first supporter as the company's primary lead", async () => {
+      companyRepo.create.mockResolvedValue(company);
+      userRepo.create.mockImplementation(async (d: any) => ({ id: "u-9", ...d }));
+
+      await service.createCompany(admin, "proj-1", { name: "Client Co", supporter });
+
+      expect(userRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          email: supporter.email,
+          role: UserRole.IT_SUPPORT,
+          clientCompanyId: company.id,
+          isSupportLead: true,
+          isPrimarySupportLead: true,
+        })
+      );
     });
   });
 
@@ -245,6 +280,40 @@ describe("ClientCompanyService", () => {
         expect.objectContaining({ isSupportLead: true })
       );
       expect((user as any).isSupportLead).toBe(true);
+    });
+
+    it("lets an admin bootstrap a company that currently has no supporters", async () => {
+      companyRepo.findById.mockResolvedValue(company);
+      userRepo.findByClientCompany.mockResolvedValue([]);
+      userRepo.create.mockImplementation(async (d: any) => ({ id: "u-9", ...d }));
+
+      await expect(service.createSupporter(admin, "cc-1", payload)).resolves.toBeDefined();
+    });
+
+    it("403s an admin adding a supporter once the company already has one", async () => {
+      companyRepo.findById.mockResolvedValue(company);
+      userRepo.findByClientCompany.mockResolvedValue([{ id: "u-1", isSupportLead: true }]);
+
+      await expect(service.createSupporter(admin, "cc-1", payload)).rejects.toMatchObject({
+        statusCode: 403,
+      });
+      expect(userRepo.create).not.toHaveBeenCalled();
+    });
+
+    it("lets the company's own lead add a supporter regardless of roster size", async () => {
+      const lead = {
+        id: "lead-1",
+        role: UserRole.IT_SUPPORT,
+        isSupportLead: true,
+        clientCompanyId: "cc-1",
+        organizationId: "org-1",
+      };
+      companyRepo.findById.mockResolvedValue(company);
+      userRepo.findByClientCompany.mockResolvedValue([{ id: "lead-1", isSupportLead: true }]);
+      userRepo.create.mockImplementation(async (d: any) => ({ id: "u-9", ...d }));
+
+      await expect(service.createSupporter(lead, "cc-1", payload)).resolves.toBeDefined();
+      expect(userRepo.create).toHaveBeenCalled();
     });
   });
 

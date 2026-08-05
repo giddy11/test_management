@@ -30,6 +30,14 @@ export interface CreateClientCompanyPayload {
   projectId: string
   name: string
   contactEmail?: string
+  // The company's first IT supporter — created in the same request and
+  // automatically made its primary lead.
+  supporter: {
+    firstName: string
+    lastName: string
+    email: string
+    password: string
+  }
 }
 
 export interface UpdateClientCompanyPayload {

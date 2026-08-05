@@ -42,8 +42,24 @@ export function ClientCompanyFormDialog({ projectId, open, onOpenChange, editing
     if (open) {
       reset(
         editing
-          ? { name: editing.name, contactEmail: editing.contactEmail ?? "" }
-          : { name: "", contactEmail: "" }
+          ? {
+              name: editing.name,
+              contactEmail: editing.contactEmail ?? "",
+              // Unused in edit mode — the fields are hidden, but the schema
+              // requires them, same as UserFormDialog's placeholder password.
+              supporterFirstName: "x",
+              supporterLastName: "x",
+              supporterEmail: "placeholder@example.com",
+              supporterPassword: "Placeholder1",
+            }
+          : {
+              name: "",
+              contactEmail: "",
+              supporterFirstName: "",
+              supporterLastName: "",
+              supporterEmail: "",
+              supporterPassword: "",
+            }
       )
     }
   }, [open, editing, reset])
@@ -51,14 +67,13 @@ export function ClientCompanyFormDialog({ projectId, open, onOpenChange, editing
   const onSubmit = (values: ClientCompanyForm) => {
     const onError = (err: unknown) =>
       toast.error(err instanceof ApiError ? err.message : "Something went wrong")
-    const payload = {
-      name: values.name,
-      contactEmail: values.contactEmail || undefined,
-    }
 
     if (isEdit && editing) {
       update.mutate(
-        { id: editing.id, payload },
+        {
+          id: editing.id,
+          payload: { name: values.name, contactEmail: values.contactEmail || undefined },
+        },
         {
           onError,
           onSuccess: () => {
@@ -69,11 +84,21 @@ export function ClientCompanyFormDialog({ projectId, open, onOpenChange, editing
       )
     } else {
       create.mutate(
-        { projectId, ...payload },
+        {
+          projectId,
+          name: values.name,
+          contactEmail: values.contactEmail || undefined,
+          supporter: {
+            firstName: values.supporterFirstName,
+            lastName: values.supporterLastName,
+            email: values.supporterEmail,
+            password: values.supporterPassword,
+          },
+        },
         {
           onError,
           onSuccess: () => {
-            toast.success("Client company added")
+            toast.success("Client company added — its first IT supporter has been emailed sign-in details")
             onOpenChange(false)
           },
         }
@@ -104,6 +129,44 @@ export function ClientCompanyFormDialog({ projectId, open, onOpenChange, editing
             error={errors.contactEmail?.message}
             {...register("contactEmail")}
           />
+
+          {!isEdit && (
+            <div className="grid gap-4 rounded-md border p-3">
+              <p className="text-xs font-medium text-muted-foreground">
+                First IT supporter — becomes this company's primary lead and is emailed sign-in
+                details.
+              </p>
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  id="cc-sup-first"
+                  label="First name"
+                  error={errors.supporterFirstName?.message}
+                  {...register("supporterFirstName")}
+                />
+                <FormField
+                  id="cc-sup-last"
+                  label="Last name"
+                  error={errors.supporterLastName?.message}
+                  {...register("supporterLastName")}
+                />
+              </div>
+              <FormField
+                id="cc-sup-email"
+                label="Email"
+                type="email"
+                error={errors.supporterEmail?.message}
+                {...register("supporterEmail")}
+              />
+              <FormField
+                id="cc-sup-password"
+                label="Temporary password"
+                type="text"
+                error={errors.supporterPassword?.message}
+                {...register("supporterPassword")}
+              />
+            </div>
+          )}
+
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
               Cancel

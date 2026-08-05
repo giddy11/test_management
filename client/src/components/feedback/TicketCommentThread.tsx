@@ -86,7 +86,7 @@ function CommentRow({ comment, isMine }: { comment: FeedbackComment; isMine: boo
             {new Date(comment.createdAt).toLocaleString()}
           </span>
         </div>
-        <p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">{comment.body}</p>
+        <p className="mt-1 whitespace-pre-wrap break-words text-sm text-muted-foreground">{comment.body}</p>
         {comment.attachments.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-2">
             {comment.attachments.map((a, i) => (

@@ -103,12 +103,21 @@ export class ClientCompanyService {
   async createCompany(
     actor: Actor,
     projectId: string,
-    data: { name: string; contactEmail?: string | null }
+    data: {
+      name: string;
+      contactEmail?: string | null;
+      supporter: { firstName: string; lastName: string; email: string; password: string };
+    }
   ) {
     const project = await this.projectService.getProject(actor, projectId);
     if (data.contactEmail) {
       await this.assertContactEmailAvailable(data.contactEmail);
     }
+    // Checked up front, before the company row exists, so a taken email
+    // can't leave the company created with no supporter to show for it.
+    const existingSupporter = await this.userRepo.findByEmail(data.supporter.email);
+    if (existingSupporter) throw new AppError("An account with this email already exists", 409);
+
     const company = await this.companyRepo.create({
       projectId,
       name: data.name,
@@ -122,6 +131,17 @@ export class ClientCompanyService {
       clientCompanyId: company.id,
       metadata: { projectId },
     });
+
+    // The company's very first supporter is automatically its primary lead —
+    // there's no one else yet to defer to.
+    await this.createSupporterAccount(
+      actor,
+      company,
+      project,
+      { ...data.supporter, isSupportLead: true },
+      true
+    );
+
     return company;
   }
 
@@ -172,10 +192,11 @@ export class ClientCompanyService {
   // ── Server-to-server company provisioning (no auth — see route comment) ────
   // A partner's own backend calls this the moment one of their customers signs
   // up, so no TestMate admin has to add the client company by hand. Creates
-  // only the ClientCompany record — its first IT support account is a
-  // separate, explicit step via createSupporter, same as the in-app flow. No
-  // actor here — this is machine traffic, so there's no activity log entry
-  // (no human to attribute it to).
+  // only the ClientCompany record — unlike createCompany (the in-app flow),
+  // there's no human here to supply a first supporter's details, so that
+  // stays a separate, explicit step via createSupporter. No actor here —
+  // this is machine traffic, so there's no activity log entry (no human to
+  // attribute it to).
   async provisionCompany(data: {
     projectId: string;
     name: string;
@@ -205,36 +226,18 @@ export class ClientCompanyService {
   }
 
   // Same recipe as UserService.createUser, but the account is an it_support
-  // user tied to the client company; companyName shows THEIR company.
-  async createSupporter(
+  // user tied to the client company; companyName shows THEIR company. Shared
+  // by createSupporter (explicit "add a supporter" action) and createCompany
+  // (the company's automatic first supporter).
+  private async createSupporterAccount(
     actor: Actor,
-    id: string,
-    data: {
-      firstName: string;
-      lastName: string;
-      email: string;
-      password: string;
-      isSupportLead?: boolean;
-    }
+    company: ClientCompany,
+    project: { name: string },
+    data: { firstName: string; lastName: string; email: string; password: string; isSupportLead?: boolean },
+    isPrimarySupportLead: boolean
   ) {
-    const company = await this.getAccessibleForSupporterManagement(actor, id);
-    // Access is already established above (product-team or the company's own
-    // lead) — a raw lookup avoids re-running the admin-oriented project
-    // access check, which an IT support actor wouldn't pass.
-    const project: any = await this.projectRepo.findById(company.projectId);
-
     const existing = await this.userRepo.findByEmail(data.email);
     if (existing) throw new AppError("An account with this email already exists", 409);
-
-    // The company's very first lead becomes its primary lead automatically —
-    // only reachable here when actor is an admin, since a self-service lead
-    // creating a supporter implies the company already has at least one lead
-    // (themselves), so this can never be gamed by a peer lead.
-    let isPrimarySupportLead = false;
-    if (data.isSupportLead) {
-      const existingSupporters = await this.userRepo.findByClientCompany(company.id);
-      isPrimarySupportLead = !existingSupporters.some((s: any) => s.isSupportLead);
-    }
 
     const user = await this.userRepo.create({
       firstName: data.firstName,
@@ -271,6 +274,43 @@ export class ClientCompanyService {
     });
 
     return user;
+  }
+
+  async createSupporter(
+    actor: Actor,
+    id: string,
+    data: {
+      firstName: string;
+      lastName: string;
+      email: string;
+      password: string;
+      isSupportLead?: boolean;
+    }
+  ) {
+    const company = await this.getAccessibleForSupporterManagement(actor, id);
+    // Access is already established above (product-team or the company's own
+    // lead) — a raw lookup avoids re-running the admin-oriented project
+    // access check, which an IT support actor wouldn't pass.
+    const project: any = await this.projectRepo.findById(company.projectId);
+    const existingSupporters = await this.userRepo.findByClientCompany(company.id);
+
+    // Adding supporters is the company's own call, not the product team's —
+    // a TestMate admin can only step in to bootstrap a company that
+    // currently has none (its automatic first supporter — see createCompany
+    // — never got created, or its last one was since removed).
+    if (actor.role !== UserRole.IT_SUPPORT && existingSupporters.length > 0) {
+      throw new AppError("Only this company's IT support lead can add supporters", 403);
+    }
+
+    // The company's very first lead becomes its primary lead automatically —
+    // only reachable here when actor is an admin (the bootstrap case above),
+    // since a self-service lead creating a supporter implies the company
+    // already has at least one lead (themselves), so this can never be gamed
+    // by a peer lead.
+    const isPrimarySupportLead =
+      Boolean(data.isSupportLead) && !existingSupporters.some((s: any) => s.isSupportLead);
+
+    return this.createSupporterAccount(actor, company, project, data, isPrimarySupportLead);
   }
 
   // A company's roster must never end up non-empty with zero leads — that

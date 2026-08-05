@@ -207,8 +207,8 @@ export function SupportItemDialog({ feedback, onOpenChange }: Props) {
 
         {feedback && (
           <div className="grid gap-6 md:grid-cols-[1.15fr_1fr]">
-          <div className="grid gap-4 md:max-h-[65vh] md:overflow-y-auto md:pr-4">
-            <p className="max-h-52 overflow-y-auto whitespace-pre-line rounded-md bg-muted p-3 text-sm">
+          <div className="min-w-0 grid gap-4 md:max-h-[65vh] md:overflow-y-auto md:pr-4">
+            <p className="max-h-52 overflow-y-auto whitespace-pre-line break-words rounded-md bg-muted p-3 text-sm">
               {feedback.description}
             </p>
 
@@ -278,7 +278,7 @@ export function SupportItemDialog({ feedback, onOpenChange }: Props) {
                   )}
                 </p>
                 {feedback.supportResponse && (
-                  <p className="mt-0.5 whitespace-pre-line text-sm">{feedback.supportResponse}</p>
+                  <p className="mt-0.5 whitespace-pre-line break-words text-sm">{feedback.supportResponse}</p>
                 )}
               </div>
             )}
@@ -416,7 +416,7 @@ export function SupportItemDialog({ feedback, onOpenChange }: Props) {
             )}
           </div>
 
-            <div className="border-t pt-4 md:max-h-[65vh] md:overflow-y-auto md:border-l md:border-t-0 md:pl-6 md:pt-0">
+            <div className="min-w-0 border-t pt-4 md:max-h-[65vh] md:overflow-y-auto md:border-l md:border-t-0 md:pl-6 md:pt-0">
               <TicketCommentThread feedbackId={feedback.id} support />
             </div>
           </div>

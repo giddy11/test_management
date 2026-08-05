@@ -156,7 +156,7 @@ export default function SupportQueuePage() {
             <CardContent className="flex items-start justify-between gap-3 pt-0">
               <p className="line-clamp-2 text-sm text-muted-foreground">{fb.description}</p>
               <Button size="sm" variant="outline" className="shrink-0" onClick={() => setViewing(fb)}>
-                {fb.supportStatus && SUPPORT_PROGRESSION.includes(fb.supportStatus) ? "Triage" : "View"}
+                {fb.supportStatus && SUPPORT_PROGRESSION.includes(fb.supportStatus) ? "Manage" : "View"}
               </Button>
             </CardContent>
           </Card>

@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { Crown, ShieldCheck, Trash2, UserPlus } from "lucide-react"
+import { Copy, Crown, ShieldCheck, Trash2, UserPlus } from "lucide-react"
 import { toast } from "sonner"
 import {
   Dialog,
@@ -85,6 +85,16 @@ export function SupportersDialog({ company, onOpenChange }: Props) {
   const initials = (name: string) =>
     name.split(" ").map((p) => p[0]).slice(0, 2).join("").toUpperCase() || "?"
 
+  // Adding supporters is the company's own call — a TestMate admin can only
+  // step in to bootstrap a company that currently has none (mirrors the
+  // service-side check in ClientCompanyService.createSupporter).
+  const canAdd = !isAdmin || (!isLoading && supporters.length === 0)
+
+  const copyLink = (token: string) => {
+    navigator.clipboard.writeText(`${window.location.origin}/feedback/${token}`)
+    toast.success("Link copied")
+  }
+
   return (
     <Dialog open={Boolean(company)} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
@@ -95,6 +105,21 @@ export function SupportersDialog({ company, onOpenChange }: Props) {
             they resolve what they can and escalate the rest to your team.
           </DialogDescription>
         </DialogHeader>
+
+        {company?.feedbackToken ? (
+          <div className="flex flex-wrap items-center gap-2 rounded-md border p-3">
+            <code className="max-w-56 truncate rounded bg-muted px-2 py-1 text-xs">
+              {`${window.location.origin}/feedback/${company.feedbackToken}`}
+            </code>
+            <Button size="sm" variant="outline" onClick={() => copyLink(company.feedbackToken!)}>
+              <Copy className="mr-1 size-3.5" /> Copy link
+            </Button>
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            Your product team hasn't enabled a ticket form link yet.
+          </p>
+        )}
 
         {isLoading && <p className="text-sm text-muted-foreground">Loading supporters…</p>}
         {!isLoading && supporters.length === 0 && (
@@ -165,51 +190,57 @@ export function SupportersDialog({ company, onOpenChange }: Props) {
           })}
         </div>
 
-        {adding ? (
-          <form className="grid gap-3 rounded-md border p-3" onSubmit={handleSubmit(onSubmit)}>
-            <div className="grid grid-cols-2 gap-3">
-              <FormField id="sp-first" label="First name" error={errors.firstName?.message} {...register("firstName")} />
-              <FormField id="sp-last" label="Last name" error={errors.lastName?.message} {...register("lastName")} />
-            </div>
-            <FormField id="sp-email" label="Email" type="email" error={errors.email?.message} {...register("email")} />
-            <FormField
-              id="sp-password"
-              label="Temporary password"
-              type="text"
-              error={errors.password?.message}
-              {...register("password")}
-            />
-            <label className="flex cursor-pointer items-center gap-2">
-              <Checkbox checked={wantsLead} onCheckedChange={(c) => setWantsLead(c === true)} />
-              <span className="text-sm">
-                Make IT support lead
-                <span className="block text-xs font-normal text-muted-foreground">
-                  Leads can assign incoming tickets to other supporters in this company.
+        {canAdd &&
+          (adding ? (
+            <form className="grid gap-3 rounded-md border p-3" onSubmit={handleSubmit(onSubmit)}>
+              <div className="grid grid-cols-2 gap-3">
+                <FormField id="sp-first" label="First name" error={errors.firstName?.message} {...register("firstName")} />
+                <FormField id="sp-last" label="Last name" error={errors.lastName?.message} {...register("lastName")} />
+              </div>
+              <FormField id="sp-email" label="Email" type="email" error={errors.email?.message} {...register("email")} />
+              <FormField
+                id="sp-password"
+                label="Temporary password"
+                type="text"
+                error={errors.password?.message}
+                {...register("password")}
+              />
+              <label className="flex cursor-pointer items-center gap-2">
+                <Checkbox checked={wantsLead} onCheckedChange={(c) => setWantsLead(c === true)} />
+                <span className="text-sm">
+                  Make IT support lead
+                  <span className="block text-xs font-normal text-muted-foreground">
+                    Leads can assign incoming tickets to other supporters in this company.
+                  </span>
                 </span>
-              </span>
-            </label>
-            <div className="flex justify-end gap-2">
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                onClick={() => {
-                  setAdding(false)
-                  setWantsLead(false)
-                  reset()
-                }}
-              >
-                Cancel
-              </Button>
-              <Button type="submit" size="sm" disabled={createSupporter.isPending}>
-                {createSupporter.isPending ? "Adding…" : "Add supporter"}
-              </Button>
-            </div>
-          </form>
-        ) : (
-          <Button size="sm" variant="outline" className="justify-self-start" onClick={() => setAdding(true)}>
-            <UserPlus className="mr-1 size-3.5" /> Add supporter
-          </Button>
+              </label>
+              <div className="flex justify-end gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    setAdding(false)
+                    setWantsLead(false)
+                    reset()
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" size="sm" disabled={createSupporter.isPending}>
+                  {createSupporter.isPending ? "Adding…" : "Add supporter"}
+                </Button>
+              </div>
+            </form>
+          ) : (
+            <Button size="sm" variant="outline" className="justify-self-start" onClick={() => setAdding(true)}>
+              <UserPlus className="mr-1 size-3.5" /> Add supporter
+            </Button>
+          ))}
+        {isAdmin && !canAdd && (
+          <p className="text-xs text-muted-foreground">
+            Only this company's IT support lead can add more supporters.
+          </p>
         )}
 
         <ConfirmDialog

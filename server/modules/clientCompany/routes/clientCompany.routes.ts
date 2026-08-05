@@ -1,7 +1,9 @@
 // modules/clientCompany/routes/clientCompany.routes.ts — admin-only management
 // of external client companies and their public form links. Supporter-roster
 // routes are the one exception: a company's own IT support lead can manage
-// their own team too (service-enforced), not just the product team.
+// their own team too (service-enforced), not just the product team. Adding a
+// supporter is narrower still — that's the company's call alone, except to
+// bootstrap a company that currently has none (service-enforced).
 import { ClientCompanyController } from "../controllers/clientCompany.controller";
 import {
   fetchClientCompaniesSchema,

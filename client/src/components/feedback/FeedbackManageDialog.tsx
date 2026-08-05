@@ -132,7 +132,7 @@ export function FeedbackManageDialog({
         {feedback && (
           <div className="grid gap-4">
             {feedback.escalatedAt && (
-              <div className="rounded-md border-l-3 border-primary bg-primary/10 px-3 py-2">
+              <div className="min-w-0 rounded-md border-l-3 border-primary bg-primary/10 px-3 py-2">
                 <p className="flex flex-wrap items-center gap-2 text-xs font-medium text-primary">
                   Escalated from {feedback.clientCompanyName ?? "a client company"}
                   {feedback.escalatedByName && <> by {feedback.escalatedByName}</>} ·{" "}
@@ -144,7 +144,7 @@ export function FeedbackManageDialog({
                   )}
                 </p>
                 {feedback.supportResponse && (
-                  <p className="mt-0.5 whitespace-pre-line text-sm">{feedback.supportResponse}</p>
+                  <p className="mt-0.5 whitespace-pre-line break-words text-sm">{feedback.supportResponse}</p>
                 )}
                 <p className="mt-1 text-xs text-muted-foreground">
                   Stage emails go to the IT supporter — they relay to their end user.
@@ -152,7 +152,7 @@ export function FeedbackManageDialog({
               </div>
             )}
 
-            <p className="max-h-40 overflow-y-auto whitespace-pre-line rounded-md bg-muted p-3 text-sm">
+            <p className="min-w-0 max-h-40 overflow-y-auto whitespace-pre-line break-words rounded-md bg-muted p-3 text-sm">
               {feedback.description}
             </p>
 
@@ -171,11 +171,11 @@ export function FeedbackManageDialog({
             )}
 
             {feedback.reopenReason && (
-              <div className="rounded-md border-l-3 border-amber-500 bg-amber-500/10 px-3 py-2">
+              <div className="min-w-0 rounded-md border-l-3 border-amber-500 bg-amber-500/10 px-3 py-2">
                 <p className="text-xs font-medium text-amber-600 dark:text-amber-400">
                   Submitter said this isn't fixed:
                 </p>
-                <p className="mt-0.5 whitespace-pre-line text-sm">{feedback.reopenReason}</p>
+                <p className="mt-0.5 whitespace-pre-line break-words text-sm">{feedback.reopenReason}</p>
               </div>
             )}
 
