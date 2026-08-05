@@ -120,7 +120,7 @@ export function FeedbackManageDialog({
 
   return (
     <Dialog open={Boolean(feedback)} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+      <DialogContent className="max-h-[90vh] overflow-x-hidden overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Manage ticket{feedback && ` ${feedback.ticketCode}`}</DialogTitle>
           <DialogDescription>
@@ -152,7 +152,7 @@ export function FeedbackManageDialog({
               </div>
             )}
 
-            <p className="min-w-0 max-h-40 overflow-y-auto whitespace-pre-line break-words rounded-md bg-muted p-3 text-sm">
+            <p className="mt-2 min-w-0 whitespace-pre-line break-words rounded-md bg-muted p-3 text-sm">
               {feedback.description}
             </p>
 

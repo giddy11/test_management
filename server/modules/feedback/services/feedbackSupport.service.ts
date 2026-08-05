@@ -212,6 +212,13 @@ export class FeedbackSupportService {
     assertValidSupportTransition(fb.supportStatus as string, nextStatus);
     if (fb.supportStatus === nextStatus) return fb;
 
+    // Nobody's on the hook for it yet — a lead (the only actor who can reach
+    // this on an unassigned item; see getAssignedItem) must assign it to
+    // themselves or a teammate before it can move past "logged".
+    if (nextStatus === SupportStatus.ACKNOWLEDGED && !fb.assignedSupporterId) {
+      throw new AppError("Assign this ticket to a supporter before acknowledging it", 422);
+    }
+
     const enteredAt = new Date();
     const trimmedNote = note?.trim() || undefined;
     const updated = await this.feedbackRepo.update(fb.id, {

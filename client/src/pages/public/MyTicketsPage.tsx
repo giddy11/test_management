@@ -28,6 +28,7 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { TicketThreadDialog } from "@/components/feedback/TicketThreadDialog"
+import { RatingStars } from "@/components/feedback/RatingStars"
 import { FeedbackEndpoints } from "@/endpoints/feedback.endpoints"
 import { ApiError } from "@/transport/http"
 import { FEEDBACK_TYPE_LABELS, MY_TICKET_STATUS_LABELS, type MyTicket } from "@/types/feedback.types"
@@ -92,18 +93,9 @@ function TicketRatingControl({
 
   if (ticket.rating != null) {
     return (
-      <div className="mt-2 flex items-center gap-1 text-xs text-muted-foreground">
+      <div className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
         <span>Your rating:</span>
-        {[1, 2, 3, 4, 5].map((n) => (
-          <Star
-            key={n}
-            className={
-              n <= ticket.rating!
-                ? "size-3.5 fill-amber-400 text-amber-400"
-                : "size-3.5 text-muted-foreground/30"
-            }
-          />
-        ))}
+        <RatingStars value={ticket.rating} />
       </div>
     )
   }

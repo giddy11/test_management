@@ -280,10 +280,39 @@ describe("FeedbackSupportService", () => {
       expect(feedbackRepo.update).toHaveBeenCalled();
     });
 
-    it("lets a lead act regardless of assignment", async () => {
-      feedbackRepo.findById.mockResolvedValue({ ...loggedItem, assignedSupporterId: null });
+    it("lets a lead act on a peer's assigned item, regardless of assignment", async () => {
+      feedbackRepo.findById.mockResolvedValue({
+        ...loggedItem,
+        supportStatus: SupportStatus.ACKNOWLEDGED,
+        assignedSupporterId: "sup-2",
+      });
       feedbackRepo.update.mockResolvedValue({
         ...loggedItem,
+        supportStatus: SupportStatus.INVESTIGATING,
+        assignedSupporterId: "sup-2",
+      });
+      await service.updateStatus(lead, "fb-1", SupportStatus.INVESTIGATING);
+      expect(feedbackRepo.update).toHaveBeenCalled();
+    });
+  });
+
+  // Nobody's on the hook for an item until someone is assigned to it — a lead
+  // can reach an unassigned item (the peer-ownership gate above doesn't stop
+  // them), but the workflow itself still refuses to move it past "logged".
+  describe("acknowledgment requires assignment", () => {
+    it("422s a lead moving an unassigned item to acknowledged", async () => {
+      feedbackRepo.findById.mockResolvedValue({ ...loggedItem, assignedSupporterId: null });
+      await expect(
+        service.updateStatus(lead, "fb-1", SupportStatus.ACKNOWLEDGED)
+      ).rejects.toMatchObject({ statusCode: 422 });
+      expect(feedbackRepo.update).not.toHaveBeenCalled();
+    });
+
+    it("allows acknowledging once the item is assigned", async () => {
+      feedbackRepo.findById.mockResolvedValue({ ...loggedItem, assignedSupporterId: "sup-1" });
+      feedbackRepo.update.mockResolvedValue({
+        ...loggedItem,
+        assignedSupporterId: "sup-1",
         supportStatus: SupportStatus.ACKNOWLEDGED,
       });
       await service.updateStatus(lead, "fb-1", SupportStatus.ACKNOWLEDGED);

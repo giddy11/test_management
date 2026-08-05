@@ -28,6 +28,7 @@ import {
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog"
 import { FeedbackTimeline } from "@/components/feedback/FeedbackTimeline"
 import { TicketCommentThread } from "@/components/feedback/TicketCommentThread"
+import { RatingStars } from "@/components/feedback/RatingStars"
 import {
   useAssignSupportItem,
   useEscalateSupportItem,
@@ -90,7 +91,12 @@ export function SupportItemDialog({ feedback, onOpenChange }: Props) {
   const currentIndex = current ? SUPPORT_PROGRESSION.indexOf(current) : -1
   const nextStage = currentIndex >= 0 ? SUPPORT_PROGRESSION[currentIndex + 1] : undefined
   const canConclude = current === "investigating"
-  const isStageSelectable = (s: SupportStatus) => s === current || s === nextStage
+  // Nobody's on the hook for it yet — it has to be assigned to someone before
+  // it can move past "logged" (mirrors the server-side rule in
+  // FeedbackSupportService.updateStatus).
+  const needsAssignmentToAcknowledge = !feedback?.assignedSupporterId
+  const isStageSelectable = (s: SupportStatus) =>
+    (s === current || s === nextStage) && !(s === "acknowledged" && needsAssignmentToAcknowledge)
   // Leads can act on anything in the queue (they're the ones who assign it in
   // the first place); a non-lead supporter can only act on tickets assigned
   // to them — mirrors the server-side gate in FeedbackSupportService.
@@ -187,7 +193,7 @@ export function SupportItemDialog({ feedback, onOpenChange }: Props) {
 
   return (
     <Dialog open={Boolean(feedback)} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl lg:max-w-4xl">
+      <DialogContent className="max-h-[90vh] overflow-x-hidden overflow-y-auto sm:max-w-3xl lg:max-w-4xl">
         <DialogHeader>
           <DialogTitle className="flex flex-wrap items-center gap-2">
             {feedback && (
@@ -207,8 +213,8 @@ export function SupportItemDialog({ feedback, onOpenChange }: Props) {
 
         {feedback && (
           <div className="grid gap-6 md:grid-cols-[1.15fr_1fr]">
-          <div className="min-w-0 grid gap-4 md:max-h-[65vh] md:overflow-y-auto md:pr-4">
-            <p className="max-h-52 overflow-y-auto whitespace-pre-line break-words rounded-md bg-muted p-3 text-sm">
+          <div className="min-w-0 grid gap-4 overflow-x-hidden md:max-h-[65vh] md:overflow-y-auto md:pr-6">
+            <p className="mt-2 whitespace-pre-line break-words rounded-md bg-muted p-3 text-sm">
               {feedback.description}
             </p>
 
@@ -270,7 +276,7 @@ export function SupportItemDialog({ feedback, onOpenChange }: Props) {
             )}
 
             {!isActive && (
-              <div className="rounded-md border-l-3 border-primary bg-primary/10 px-3 py-2">
+              <div className="min-w-0 rounded-md border-l-3 border-primary bg-primary/10 px-3 py-2">
                 <p className="text-xs font-medium text-primary">
                   {SUPPORT_STATUS_LABELS[current ?? "logged"]}
                   {current === "escalated" && (
@@ -279,6 +285,12 @@ export function SupportItemDialog({ feedback, onOpenChange }: Props) {
                 </p>
                 {feedback.supportResponse && (
                   <p className="mt-0.5 whitespace-pre-line break-words text-sm">{feedback.supportResponse}</p>
+                )}
+                {feedback.rating != null && (
+                  <div className="mt-1.5 flex items-center gap-1.5">
+                    <span className="text-xs text-muted-foreground">Submitter rating:</span>
+                    <RatingStars value={feedback.rating} />
+                  </div>
                 )}
               </div>
             )}
@@ -379,16 +391,24 @@ export function SupportItemDialog({ feedback, onOpenChange }: Props) {
                       size="sm"
                       variant="secondary"
                       onClick={saveStage}
-                      disabled={updateStatus.isPending || !stage || stage === current || !canAct}
+                      disabled={
+                        updateStatus.isPending ||
+                        !stage ||
+                        stage === current ||
+                        !canAct ||
+                        (stage === "acknowledged" && needsAssignmentToAcknowledge)
+                      }
                       title={canAct ? undefined : cannotActReason}
                     >
                       {updateStatus.isPending ? "Saving…" : "Save stage"}
                     </Button>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    {nextStage
-                      ? `Next stage: ${SUPPORT_STATUS_LABELS[nextStage]}`
-                      : "Ready to resolve locally or escalate to the product team"}
+                    {nextStage === "acknowledged" && needsAssignmentToAcknowledge
+                      ? "Assign this ticket to a supporter before acknowledging it"
+                      : nextStage
+                        ? `Next stage: ${SUPPORT_STATUS_LABELS[nextStage]}`
+                        : "Ready to resolve locally or escalate to the product team"}
                   </p>
                 </div>
 
@@ -416,7 +436,7 @@ export function SupportItemDialog({ feedback, onOpenChange }: Props) {
             )}
           </div>
 
-            <div className="min-w-0 border-t pt-4 md:max-h-[65vh] md:overflow-y-auto md:border-l md:border-t-0 md:pl-6 md:pt-0">
+            <div className="min-w-0 overflow-x-hidden border-t pt-4 md:max-h-[65vh] md:overflow-y-auto md:border-l md:border-t-0 md:pl-6 md:pt-0">
               <TicketCommentThread feedbackId={feedback.id} support />
             </div>
           </div>

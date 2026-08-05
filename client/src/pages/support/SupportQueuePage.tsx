@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/select"
 import { SupportItemDialog } from "@/components/support/SupportItemDialog"
 import { SupportersDialog } from "@/components/feedback/SupportersDialog"
+import { RatingStars } from "@/components/feedback/RatingStars"
 import { useSupportQueue, useSupportTeammates } from "@/hooks/useFeedback"
 import { useMyClientCompany } from "@/hooks/useClientCompanies"
 import { useAuth } from "@/contexts/AuthContext"
@@ -25,7 +26,6 @@ import {
   SUPPORT_PROGRESSION,
   SUPPORT_STATUSES,
   SUPPORT_STATUS_LABELS,
-  type Feedback,
   type FeedbackType,
   type SupportStatus,
 } from "@/types/feedback.types"
@@ -37,7 +37,10 @@ export default function SupportQueuePage() {
   const [typeFilter, setTypeFilter] = useState<string>("all")
   const [assignedFilter, setAssignedFilter] = useState<string>("all")
   const [page, setPage] = useState(1)
-  const [viewing, setViewing] = useState<Feedback | null>(null)
+  // The id, not the object — so the open dialog tracks the live query data
+  // (e.g. right after assigning it) instead of the stale snapshot captured
+  // when it was opened.
+  const [viewingId, setViewingId] = useState<string | null>(null)
   const [managingTeam, setManagingTeam] = useState(false)
 
   const { data: teammates = [] } = useSupportTeammates(isLead)
@@ -59,6 +62,7 @@ export default function SupportQueuePage() {
 
   const items = data?.data ?? []
   const meta = data?.meta
+  const viewing = items.find((i) => i.id === viewingId) ?? null
 
   return (
     <div className="space-y-4">
@@ -147,6 +151,11 @@ export default function SupportQueuePage() {
                     Product team: {FEEDBACK_STATUS_LABELS[fb.status]}
                   </Badge>
                 )}
+                {fb.rating != null && (
+                  <Badge variant="outline" className="gap-1">
+                    <RatingStars value={fb.rating} />
+                  </Badge>
+                )}
               </div>
               <CardDescription>
                 From {fb.submitterName} ({fb.submitterEmail}) ·{" "}
@@ -155,7 +164,7 @@ export default function SupportQueuePage() {
             </CardHeader>
             <CardContent className="flex items-start justify-between gap-3 pt-0">
               <p className="line-clamp-2 text-sm text-muted-foreground">{fb.description}</p>
-              <Button size="sm" variant="outline" className="shrink-0" onClick={() => setViewing(fb)}>
+              <Button size="sm" variant="outline" className="shrink-0" onClick={() => setViewingId(fb.id)}>
                 {fb.supportStatus && SUPPORT_PROGRESSION.includes(fb.supportStatus) ? "Manage" : "View"}
               </Button>
             </CardContent>
@@ -175,7 +184,7 @@ export default function SupportQueuePage() {
         </div>
       )}
 
-      <SupportItemDialog feedback={viewing} onOpenChange={(o) => !o && setViewing(null)} />
+      <SupportItemDialog feedback={viewing} onOpenChange={(o) => !o && setViewingId(null)} />
 
       <SupportersDialog
         company={managingTeam ? myCompany ?? null : null}

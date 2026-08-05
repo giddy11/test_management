@@ -65,6 +65,9 @@ export interface Feedback {
   // Denormalized — comments live in their own thread, see FeedbackComment below.
   commentCount: number
   statusUpdatedAt: string | null
+  // The submitter's one-time satisfaction rating (1-5) — null until rated,
+  // and only ratable once the ticket reads as resolved to them.
+  rating: number | null
   createdAt: string
 }
 
