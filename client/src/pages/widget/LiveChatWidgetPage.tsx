@@ -80,19 +80,47 @@ export default function LiveChatWidgetPage() {
     postToParent({ type: "resize", open })
   }, [open])
 
-  // Dragging the header — this page can't move itself (it's just the
-  // iframe's content), so it only tracks the pointer and relays deltas; the
-  // loader script is what actually repositions the iframe on the host page.
-  // Resets to the default bottom-right corner next time the widget closes
-  // (the loader's job, not this page's) — same as SupportChatWidget's floater.
+  // Dragging the header (open) or the launcher pill (closed) — this page
+  // can't move itself (it's just the iframe's content), so it only tracks
+  // the pointer and relays deltas; the loader script is what actually
+  // repositions the iframe on the host page. Resets to the default
+  // bottom-right corner next time the widget closes (the loader's job, not
+  // this page's) — same as SupportChatWidget's floater.
   const dragInfo = useRef<{ startX: number; startY: number } | null>(null)
   const [dragging, setDragging] = useState(false)
+  // The launcher pill is also a click-to-open button, so a genuine drag has
+  // to be distinguished from a plain click — same movement-threshold trick
+  // SupportChatWidget uses for its own draggable launcher button.
+  const hasDraggedRef = useRef(false)
 
-  const handleHeaderPointerDown = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
-    if ((e.target as HTMLElement).closest("button")) return
+  const startDrag = useCallback((e: ReactPointerEvent<HTMLElement>) => {
+    hasDraggedRef.current = false
     dragInfo.current = { startX: e.clientX, startY: e.clientY }
     setDragging(true)
     postToParent({ type: "dragStart" })
+  }, [])
+
+  const handleHeaderPointerDown = useCallback(
+    (e: ReactPointerEvent<HTMLDivElement>) => {
+      if ((e.target as HTMLElement).closest("button")) return
+      startDrag(e)
+    },
+    [startDrag]
+  )
+
+  const handleLauncherPointerDown = useCallback(
+    (e: ReactPointerEvent<HTMLButtonElement>) => startDrag(e),
+    [startDrag]
+  )
+
+  // Suppresses the launcher's click-to-open when the pointerdown/up turned
+  // out to be a real drag rather than a tap.
+  const handleLauncherClick = useCallback(() => {
+    if (hasDraggedRef.current) {
+      hasDraggedRef.current = false
+      return
+    }
+    setOpen(true)
   }, [])
 
   useEffect(() => {
@@ -100,7 +128,10 @@ export default function LiveChatWidgetPage() {
     const handleMove = (e: PointerEvent) => {
       const drag = dragInfo.current
       if (!drag) return
-      postToParent({ type: "drag", dx: e.clientX - drag.startX, dy: e.clientY - drag.startY })
+      const dx = e.clientX - drag.startX
+      const dy = e.clientY - drag.startY
+      if (Math.abs(dx) > 4 || Math.abs(dy) > 4) hasDraggedRef.current = true
+      postToParent({ type: "drag", dx, dy })
     }
     const handleUp = () => {
       setDragging(false)
@@ -269,11 +300,13 @@ export default function LiveChatWidgetPage() {
       ) : (
         <button
           type="button"
-          onClick={() => setOpen(true)}
+          onPointerDown={handleLauncherPointerDown}
+          onClick={handleLauncherClick}
           aria-label="Open chat"
           style={brandStyle}
           className={cn(
-            "relative flex h-full w-full items-center justify-center gap-2 rounded-full px-5 text-sm font-medium text-white shadow-lg transition-transform hover:scale-[1.02]",
+            "relative flex h-full w-full touch-none items-center justify-center gap-2 rounded-full px-5 text-sm font-medium text-white shadow-lg transition-transform select-none",
+            dragging ? "cursor-grabbing" : "cursor-grab hover:scale-[1.02]",
             !branded && "bg-primary"
           )}
         >
