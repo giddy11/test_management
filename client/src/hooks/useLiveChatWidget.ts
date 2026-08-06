@@ -59,14 +59,27 @@ export function useLiveChatVisitor(token: string | undefined, requireAccount: bo
 
       if (requireAccount && !existingId) return null
 
-      const res = await LiveChatWidgetEndpoints.startVisitor(token as string, {
-        visitorId: existingId,
-        currentUrl: window.location.href,
-        referrer: document.referrer || undefined,
-      })
-      if (!res.success || !res.data) throw new ApiError(res.message, res.statusCode)
-      localStorage.setItem(key, res.data.id)
-      return res.data
+      try {
+        const res = await LiveChatWidgetEndpoints.startVisitor(token as string, {
+          visitorId: existingId,
+          currentUrl: window.location.href,
+          referrer: document.referrer || undefined,
+        })
+        if (!res.success || !res.data) throw new ApiError(res.message, res.statusCode)
+        localStorage.setItem(key, res.data.id)
+        return res.data
+      } catch (err) {
+        // Under an account-required project, a rejected id isn't a hard
+        // error — it just means this cached session predates requireAccount
+        // (or was never a real account to begin with). Drop it and fall back
+        // to LiveChatAuthForm instead of surfacing an error the visitor can't
+        // act on.
+        if (requireAccount) {
+          localStorage.removeItem(key)
+          return null
+        }
+        throw err
+      }
     },
     enabled: Boolean(token) && requireAccount !== undefined,
     staleTime: Infinity,

@@ -141,14 +141,24 @@ export class LiveChatService {
 
   // Called on widget mount. visitorId is omitted on a brand-new browser (the
   // server issues one, persisted client-side); sent back on every later call.
+  //
+  // Account-required projects never auto-create an anonymous visitor, and —
+  // just as importantly — never resume a cached visitorId that predates
+  // requireAccount being turned on: a browser that visited while the widget
+  // was still anonymous has an id with no accountId attached, and that
+  // shouldn't be enough to skip the login/signup gate once it's enabled.
+  // Only an id that's actually linked to an account (i.e. came from
+  // registerAccount/loginAccount) is honored here.
   async startVisitor(
     token: string,
     data: { visitorId?: string; currentUrl?: string; referrer?: string }
   ): Promise<LiveChatVisitor> {
     const project = await this.resolveProjectByToken(token);
+    const settings = await this.settingsRepo.getOrCreate(project.id);
+
     if (data.visitorId) {
       const existing = await this.visitorRepo.findByIdForProject(data.visitorId, project.id);
-      if (existing) {
+      if (existing && (!settings.requireAccount || existing.accountId)) {
         await this.visitorRepo.touch(existing.id, {
           currentUrl: data.currentUrl ?? null,
           referrer: data.referrer ?? null,
@@ -156,6 +166,11 @@ export class LiveChatService {
         return (await this.visitorRepo.findById(existing.id)) as LiveChatVisitor;
       }
     }
+
+    if (settings.requireAccount) {
+      throw new AppError("This widget requires signing in", 401);
+    }
+
     return this.visitorRepo.create({
       projectId: project.id,
       currentUrl: data.currentUrl ?? null,
