@@ -95,7 +95,13 @@ export default function LiveChatWidgetPage() {
 
   const startDrag = useCallback((e: ReactPointerEvent<HTMLElement>) => {
     hasDraggedRef.current = false
-    dragInfo.current = { startX: e.clientX, startY: e.clientY }
+    // screenX/screenY (physical-display coordinates), not clientX/clientY —
+    // clientX is relative to this iframe's own viewport, which is the very
+    // thing handleDrag repositions on every move. Deriving deltas from a
+    // frame that moves along with the drag creates a feedback loop (the
+    // loader chases a target that keeps shifting under it), which is what
+    // made the launcher feel like it was shaking/fighting the cursor.
+    dragInfo.current = { startX: e.screenX, startY: e.screenY }
     setDragging(true)
     postToParent({ type: "dragStart" })
   }, [])
@@ -128,8 +134,8 @@ export default function LiveChatWidgetPage() {
     const handleMove = (e: PointerEvent) => {
       const drag = dragInfo.current
       if (!drag) return
-      const dx = e.clientX - drag.startX
-      const dy = e.clientY - drag.startY
+      const dx = e.screenX - drag.startX
+      const dy = e.screenY - drag.startY
       if (Math.abs(dx) > 4 || Math.abs(dy) > 4) hasDraggedRef.current = true
       postToParent({ type: "drag", dx, dy })
     }
