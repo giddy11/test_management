@@ -22,7 +22,6 @@ import OrganizationsPage from "@/pages/OrganizationsPage"
 import SettingsPage from "@/pages/SettingsPage"
 import LiveChatWidgetPage from "@/pages/widget/LiveChatWidgetPage"
 import PublicFeedbackPage from "@/pages/public/PublicFeedbackPage"
-import PublicFeedbackConfirmPage from "@/pages/public/PublicFeedbackConfirmPage"
 import MyTicketsPage from "@/pages/public/MyTicketsPage"
 import DocsPage from "@/pages/docs/DocsPage"
 import AnnouncementsPage from "@/pages/AnnouncementsPage"
@@ -46,8 +45,6 @@ export default function App() {
           <Route path="/reset-password" element={<ResetPasswordPage />} />
           {/* Public feedback form — no account needed, token-gated */}
           <Route path="/feedback/:token" element={<PublicFeedbackPage />} />
-          {/* Public confirmation link from the "awaiting confirmation" status email */}
-          <Route path="/feedback/:id/confirm" element={<PublicFeedbackConfirmPage />} />
           {/* A submitter's own ticket history, no account (email + one-time code) */}
           <Route path="/my-tickets" element={<MyTicketsPage />} />
           {/* Public product documentation */}

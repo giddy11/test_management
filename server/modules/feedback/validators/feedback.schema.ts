@@ -127,16 +127,6 @@ export const feedbackIdParamSchema = z.object({
   params: z.object({ id: z.string().uuid() }),
 });
 
-// Public — the submitter's verdict via the "awaiting confirmation" email link.
-export const submitConfirmationSchema = z.object({
-  params: z.object({ id: z.string().uuid() }),
-  body: z.object({
-    confirmed: z.boolean(),
-    // Only meaningful when confirmed is false — why it isn't fixed.
-    reason: z.string().max(2000).optional(),
-  }),
-});
-
 export const feedbackLinkSchema = z.object({
   params: z.object({ id: z.string().uuid() }),
   body: z.object({ enabled: z.boolean() }),
@@ -172,14 +162,6 @@ export const publicAddCommentSchema = z.object({
     code: z.string().length(6),
     body: z.string().min(1).max(3000),
   }),
-});
-
-// Reply from the public confirmation-link page — the ticket id in the URL is
-// the only credential (same trust model as the confirm/reopen action on that
-// same page), no email/code.
-export const publicAddCommentViaLinkSchema = z.object({
-  params: z.object({ id: z.string().uuid() }),
-  body: z.object({ body: z.string().min(1).max(3000) }),
 });
 
 // A resolved ticket's one-time satisfaction rating, from the "My Tickets"

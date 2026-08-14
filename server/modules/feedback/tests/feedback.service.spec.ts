@@ -7,7 +7,6 @@
 jest.mock("../../../shared/utils/mailer", () => ({
   sendFeedbackReceivedEmail: jest.fn().mockResolvedValue(undefined),
   sendFeedbackStatusEmail: jest.fn().mockResolvedValue(undefined),
-  sendFeedbackConfirmationReceivedEmail: jest.fn().mockResolvedValue(undefined),
 }));
 
 import { FeedbackService } from "../services/feedback.service";
@@ -69,7 +68,7 @@ const baseItem = {
   escalatedById: null,
   escalatedBy: null,
   clientCompany: null,
-  status: FeedbackStatus.AWAITING_CONFIRMATION,
+  status: FeedbackStatus.RESOLVED,
   title: "Broken export",
   submitterName: "End User",
   submitterEmail: "user@example.com",
@@ -124,7 +123,6 @@ describe("FeedbackService.manageFeedback — closing", () => {
       FeedbackStatus.CLOSED,
       expect.any(String),
       null,
-      expect.any(String),
       "org-1"
     );
     expect(notificationService.notifyFeedbackClosedForSupporter).not.toHaveBeenCalled();
@@ -181,135 +179,3 @@ describe("FeedbackService.manageFeedback — closing", () => {
   });
 });
 
-// Coverage for the shared public confirmation page: one route/schema serves
-// both the product tier and (pre-escalation) the IT-support tier, so the
-// dispatch logic here matters as much as either tier's own state machine.
-describe("FeedbackService — public confirmation dispatch", () => {
-  let feedbackRepo: any;
-  let historyRepo: any;
-  let projectRepo: any;
-  let projectService: any;
-  let memberRepo: any;
-  let authRepo: any;
-  let notificationService: any;
-  let service: FeedbackService;
-
-  beforeEach(() => {
-    jest.clearAllMocks();
-    feedbackRepo = makeFeedbackRepo();
-    historyRepo = makeHistoryRepo();
-    projectRepo = makeProjectRepo();
-    projectService = makeProjectService();
-    memberRepo = makeMemberRepo();
-    authRepo = makeAuthRepo();
-    notificationService = makeNotificationService();
-    service = new FeedbackService(
-      feedbackRepo,
-      historyRepo,
-      projectRepo,
-      projectService,
-      memberRepo,
-      authRepo,
-      notificationService
-    );
-  });
-
-  describe("getPublicConfirmationContext", () => {
-    it("404s on an unknown/deleted item", async () => {
-      feedbackRepo.findById.mockResolvedValue(null);
-      await expect(service.getPublicConfirmationContext("fb-1")).rejects.toMatchObject({
-        statusCode: 404,
-      });
-    });
-
-    it("collapses a direct item's product status", async () => {
-      feedbackRepo.findById.mockResolvedValue({
-        ...baseItem,
-        clientCompanyId: null,
-        clientCompany: null,
-        supportStatus: null,
-        status: FeedbackStatus.AWAITING_CONFIRMATION,
-      });
-      projectRepo.findById.mockResolvedValue({ id: "proj-1", name: "Product A", feedbackToken: "tok-1" });
-
-      const ctx = await service.getPublicConfirmationContext("fb-1");
-
-      expect(ctx.status).toBe("pending_your_confirmation");
-      expect(ctx.feedbackToken).toBe("tok-1");
-    });
-
-    it("collapses a pre-escalation company-routed item's support status instead", async () => {
-      feedbackRepo.findById.mockResolvedValue({
-        ...baseItem,
-        clientCompanyId: "cc-1",
-        clientCompany: { name: "Acme", feedbackToken: "company-tok" },
-        supportStatus: SupportStatus.AWAITING_CONFIRMATION,
-        status: FeedbackStatus.LOGGED, // the product tier hasn't started yet
-      });
-      projectRepo.findById.mockResolvedValue({ id: "proj-1", name: "Product A", feedbackToken: "proj-tok" });
-
-      const ctx = await service.getPublicConfirmationContext("fb-1");
-
-      expect(ctx.status).toBe("pending_your_confirmation");
-      expect(ctx.feedbackToken).toBe("company-tok");
-    });
-  });
-
-  describe("submitConfirmation", () => {
-    it("404s on an unknown/deleted item before any dispatch", async () => {
-      feedbackRepo.findById.mockResolvedValue(null);
-      await expect(service.submitConfirmation("fb-1", true)).rejects.toMatchObject({
-        statusCode: 404,
-      });
-    });
-
-    it("delegates to FeedbackSupportService for a pre-escalation company-routed item", async () => {
-      feedbackRepo.findById.mockResolvedValue({
-        ...baseItem,
-        clientCompanyId: "cc-1",
-        supportStatus: SupportStatus.AWAITING_CONFIRMATION,
-        status: FeedbackStatus.LOGGED,
-      });
-      const { FeedbackSupportService } = require("../services/feedbackSupport.service");
-      const spy = jest
-        .spyOn(FeedbackSupportService.Instance, "submitConfirmation")
-        .mockResolvedValue({ id: "fb-1" } as any);
-
-      const result = await service.submitConfirmation("fb-1", false, "Still broken");
-
-      expect(spy).toHaveBeenCalledWith("fb-1", false, "Still broken");
-      expect(result).toEqual({ id: "fb-1" });
-      expect(feedbackRepo.update).not.toHaveBeenCalled();
-      spy.mockRestore();
-    });
-
-    it("still handles a direct item's own product-tier confirmation", async () => {
-      feedbackRepo.findById.mockResolvedValue({
-        ...baseItem,
-        clientCompanyId: null,
-        supportStatus: null,
-        status: FeedbackStatus.AWAITING_CONFIRMATION,
-      });
-      feedbackRepo.update.mockResolvedValue({ ...baseItem, status: FeedbackStatus.CLOSED });
-
-      await service.submitConfirmation("fb-1", true);
-
-      expect(feedbackRepo.update).toHaveBeenCalledWith(
-        "fb-1",
-        expect.objectContaining({ status: FeedbackStatus.CLOSED })
-      );
-    });
-
-    it("409s an already-escalated item once its own product status has moved past awaiting confirmation", async () => {
-      feedbackRepo.findById.mockResolvedValue({
-        ...baseItem,
-        clientCompanyId: "cc-1",
-        supportStatus: SupportStatus.ESCALATED,
-        status: FeedbackStatus.INVESTIGATING,
-      });
-      await expect(service.submitConfirmation("fb-1", true)).rejects.toMatchObject({
-        statusCode: 409,
-      });
-    });
-  });
-});

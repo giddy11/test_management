@@ -441,45 +441,6 @@ describe("FeedbackCommentService — staff comment notification routing", () => 
   });
 });
 
-describe("FeedbackCommentService — addForConfirmationLink (ticket id as the only credential)", () => {
-  it("posts a reply with no email/code, for a direct ticket", async () => {
-    const { service, feedbackRepo } = makeService();
-    feedbackRepo.findById.mockResolvedValue(directTicket);
-
-    await expect(service.addForConfirmationLink("fb-1", "adding more detail")).resolves.toBeDefined();
-  });
-
-  it("posts a reply with no email/code, for a pre-escalation company ticket", async () => {
-    const { service, feedbackRepo } = makeService();
-    feedbackRepo.findById.mockResolvedValue(supportOwnedTicket);
-
-    await expect(service.addForConfirmationLink("fb-2", "adding more detail")).resolves.toBeDefined();
-  });
-
-  it("blocks a reply on an escalated-but-unrelayed ticket, same as the code-based path", async () => {
-    const { service, feedbackRepo } = makeService();
-    feedbackRepo.findById.mockResolvedValue(escalatedUnrelayedTicket);
-
-    await expect(service.addForConfirmationLink("fb-3", "adding more detail")).rejects.toMatchObject({
-      statusCode: 403,
-    });
-  });
-
-  it("allows a reply once support has relayed a fix", async () => {
-    const { service, feedbackRepo } = makeService();
-    feedbackRepo.findById.mockResolvedValue(escalatedRelayedTicket);
-
-    await expect(service.addForConfirmationLink("fb-4", "thanks, confirming it's fixed")).resolves.toBeDefined();
-  });
-
-  it("404s on a missing/deleted ticket", async () => {
-    const { service, feedbackRepo } = makeService();
-    feedbackRepo.findById.mockResolvedValue(null);
-
-    await expect(service.addForConfirmationLink("fb-nope", "hello?")).rejects.toMatchObject({ statusCode: 404 });
-  });
-});
-
 describe("FeedbackCommentService — submitter reply notifies the right staff", () => {
   it("notifies the assigned supporter for an IT-support-owned ticket", async () => {
     const { service, feedbackRepo, lookupCodeRepo, userRepo, notificationService } = makeService();

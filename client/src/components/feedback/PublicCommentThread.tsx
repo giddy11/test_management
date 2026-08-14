@@ -1,10 +1,9 @@
-// The submitter-facing comment thread body (list + composer) — shared by the
-// "My Tickets" dialog (TicketThreadDialog) and the public confirmation-link
-// page (PublicFeedbackConfirmPage). They differ only in how a reply proves
-// ownership (email+code vs. the ticket id alone as a bearer credential), so
-// that's injected as `onSubmit` rather than duplicated here. Reads are the
-// same realtime Firestore listener staff use (see useFeedbackCommentThread —
-// Firestore only requires "signed in, even anonymously" for this collection).
+// The submitter-facing comment thread body (list + composer) — used by the
+// "My Tickets" dialog (TicketThreadDialog). How a reply proves ownership
+// (email+code) is injected as `onSubmit` rather than hardcoded here. Reads
+// are the same realtime Firestore listener staff use (see
+// useFeedbackCommentThread — Firestore only requires "signed in, even
+// anonymously" for this collection).
 import { useRef, useState } from "react"
 import { FileText, Paperclip, Send, X } from "lucide-react"
 import { toast } from "sonner"

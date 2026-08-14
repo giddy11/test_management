@@ -1,24 +1,24 @@
 export type FeedbackType = "feature_request" | "bug" | "complaint"
 
+// No submitter-confirmation gate — the ticket's comment thread is how they
+// flag a resolution that didn't actually hold.
 export type FeedbackStatus =
   | "logged"
   | "acknowledged"
   | "assigned"
   | "investigating"
   | "resolved"
-  | "awaiting_confirmation"
   | "closed"
 
 // IT-tier lifecycle for items submitted through a client company's form —
 // null for direct (project-token) submissions. Strictly sequential through
 // the working stages; resolved/escalated are terminal outcomes reached only
-// from "investigating". "resolved" itself is only reached by the submitter
-// confirming via "awaiting_confirmation" — not set directly.
+// from "investigating". No submitter-confirmation gate — the ticket's
+// comment thread is how they flag a fix that didn't actually hold.
 export type SupportStatus =
   | "logged"
   | "acknowledged"
   | "investigating"
-  | "awaiting_confirmation"
   | "resolved"
   | "escalated"
 
@@ -140,20 +140,6 @@ export interface PublicFeedbackForm {
   suites: { id: string; name: string }[]
 }
 
-// Context for the public confirmation page reached from the "awaiting
-// confirmation" status email. Serves both the product and IT-support tiers
-// (whichever is driving this ticket), so `status` is the same collapsed,
-// customer-facing value the "My Tickets" lookup uses — the page just checks
-// for "pending_your_confirmation" to tell whether the link is still actionable.
-export interface FeedbackConfirmationContext {
-  projectName: string
-  ticketNumber: number
-  ticketCode: string
-  title: string
-  status: MyTicketStatus
-  feedbackToken: string | null
-}
-
 // One entry per lifecycle stage entered, oldest first — used to render a
 // duration-per-stage timeline. `enteredAt` of the current (last) stage marks
 // where an ongoing duration is measured from.
@@ -163,14 +149,12 @@ export interface FeedbackStatusHistoryEntry {
 }
 
 // A collapsed, customer-facing status returned by the "my tickets" lookup —
-// internal triage granularity is hidden, and "resolved" isn't shown as done
-// until the submitter has confirmed it (see server's toSubmitterStatus).
-export type MyTicketStatus = "received" | "in_progress" | "pending_your_confirmation" | "resolved"
+// internal triage granularity is hidden (see server's toSubmitterStatus).
+export type MyTicketStatus = "received" | "in_progress" | "resolved"
 
 export const MY_TICKET_STATUS_LABELS: Record<MyTicketStatus, string> = {
   received: "Received",
   in_progress: "In progress",
-  pending_your_confirmation: "Awaiting your confirmation",
   resolved: "Resolved",
 }
 
@@ -205,7 +189,6 @@ export const FEEDBACK_STATUSES: FeedbackStatus[] = [
   "assigned",
   "investigating",
   "resolved",
-  "awaiting_confirmation",
   "closed",
 ]
 
@@ -215,7 +198,6 @@ export const FEEDBACK_STATUS_LABELS: Record<FeedbackStatus, string> = {
   assigned: "Assigned",
   investigating: "Investigating",
   resolved: "Resolved",
-  awaiting_confirmation: "Awaiting confirmation",
   closed: "Closed",
 }
 
@@ -229,7 +211,6 @@ export const SUPPORT_STATUSES: SupportStatus[] = [
   "logged",
   "acknowledged",
   "investigating",
-  "awaiting_confirmation",
   "resolved",
   "escalated",
 ]
@@ -242,7 +223,6 @@ export const SUPPORT_STATUS_LABELS: Record<SupportStatus, string> = {
   logged: "Logged",
   acknowledged: "Acknowledged",
   investigating: "Investigating",
-  awaiting_confirmation: "Awaiting the submitter's confirmation",
   resolved: "Resolved locally",
   escalated: "Escalated",
 }

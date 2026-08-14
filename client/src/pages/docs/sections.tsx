@@ -634,39 +634,36 @@ const ALL_SECTIONS: DocSection[] = [
           <Chip className={chipSlate}>Logged</Chip> → <Chip className={chipBlue}>Acknowledged</Chip>{" "}
           → <Chip className={chipViolet}>Assigned</Chip> →{" "}
           <Chip className={chipAmber}>Investigating</Chip> → <Chip className={chipGreen}>Resolved</Chip>{" "}
-          → <Chip className={chipBlue}>Awaiting confirmation</Chip> →{" "}
-          <Chip className={chipGreen}>Closed</Chip>.
+          → <Chip className={chipGreen}>Closed</Chip>.
         </P>
         <P>
-          The submitter is kept in the loop by email as the status changes. When a fix reaches{" "}
-          <Strong>Awaiting confirmation</Strong>, they get a link to confirm the issue is resolved —
-          or to reopen it with a reason if it isn’t. Tickets can be assigned to team members, and a
-          timeline shows how long it spent in each stage.
+          The submitter is kept in the loop by email as the status changes. There’s no
+          confirmation step to close the loop — if a <Strong>Resolved</Strong> fix doesn’t actually
+          hold, the submitter just says so in the ticket’s conversation thread. Tickets can be
+          assigned to team members, and a timeline shows how long it spent in each stage.
         </P>
         <H3>Talking to the submitter</H3>
         <P>
           Each ticket has a <Strong>conversation thread</Strong> that both sides can post to. Your
-          team replies from the ticket’s dialog; the submitter replies from their confirmation link
-          or from “My tickets” (below) — no account needed either way. Messages appear{" "}
-          <Strong>in realtime</Strong> on both sides, and either side can attach up to five files
-          per message (images, PDF, Word, Excel; 10 MB each) — handy for asking a customer for a log
-          file or a screenshot.
+          team replies from the ticket’s dialog; the submitter replies from “My tickets” (below) —
+          no account needed either way. Messages appear <Strong>in realtime</Strong> on both sides,
+          and either side can attach up to five files per message (images, PDF, Word, Excel; 10 MB
+          each) — handy for asking a customer for a log file or a screenshot.
         </P>
         <H3>“My tickets” — self-service status lookup</H3>
         <P>
           Submitters can check on everything they’ve ever raised at <Code>/my-tickets</Code>. They
           enter the email they submitted with, receive a 6-digit code by email, and see all their
           tickets across every project and company. From there they can read the conversation,
-          reply, confirm or reopen a fix, raise another ticket for the same product, and — once a
-          ticket is resolved — leave a <Strong>1–5 star rating</Strong> of the support they got. The
-          code stays valid for a while, so they don’t need a new one on every visit.
+          reply, raise another ticket for the same product, and — once a ticket is resolved — leave
+          a <Strong>1–5 star rating</Strong> of the support they got. The code stays valid for a
+          while, so they don’t need a new one on every visit.
         </P>
         <P>
           Their view deliberately hides your internal triage detail: statuses collapse to{" "}
           <Chip className={chipSlate}>Received</Chip> <Chip className={chipAmber}>In progress</Chip>{" "}
-          <Chip className={chipBlue}>Awaiting your confirmation</Chip> and{" "}
-          <Chip className={chipGreen}>Resolved</Chip>. A ticket only reads as resolved to them once
-          they have confirmed it themselves.
+          and <Chip className={chipGreen}>Resolved</Chip>. A ticket only reads as resolved to them
+          once your team actually closes it.
         </P>
         <H3>Tickets across every project</H3>
         <P>
@@ -739,7 +736,8 @@ const ALL_SECTIONS: DocSection[] = [
           <Chip className={chipSlate}>Logged</Chip> → <Chip className={chipBlue}>Acknowledged</Chip>{" "}
           → <Chip className={chipAmber}>Investigating</Chip>, and from Investigating only, either{" "}
           <Chip className={chipGreen}>Resolved locally</Chip> (a note is required and is emailed to
-          the submitter, who is then asked to confirm) or{" "}
+          the submitter — final immediately, no confirmation step; if the fix doesn't hold they just
+          say so in the ticket's conversation thread) or{" "}
           <Chip className={chipViolet}>Escalated</Chip> to your product team.
         </P>
         <UL>
@@ -1043,8 +1041,8 @@ const ALL_SECTIONS: DocSection[] = [
           <H3>Someone raised a ticket and wants to check on it — do they need an account?</H3>
           <P>
             No. Point them at <Code>/my-tickets</Code>: they enter the email they submitted with,
-            get a 6-digit code by email, and can then see every ticket they’ve raised, reply in the
-            conversation, and confirm or reopen a fix.
+            get a 6-digit code by email, and can then see every ticket they’ve raised and reply in
+            the conversation.
           </P>
         </div>
         <div>
@@ -1063,7 +1061,7 @@ const ALL_SECTIONS: DocSection[] = [
           <P>
             Live chat suits quick, conversational questions from visitors on your own site and
             leaves no lifecycle behind. The ticket form suits anything that needs tracking to a
-            resolution — it gets a code, a status, email updates, and a confirmation step. See{" "}
+            resolution — it gets a code, a status, and email updates. See{" "}
             <a href="#live-chat" className="font-medium text-primary hover:underline">
               Live chat widget
             </a>.

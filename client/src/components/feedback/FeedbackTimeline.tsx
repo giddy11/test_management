@@ -22,11 +22,10 @@ interface StageRow {
   durationMs: number | null // time spent in this stage; null while pending or unreached
 }
 
-// "resolved" (reached only via the intermediate "awaiting_confirmation" step)
-// and "escalated" are mutually exclusive terminal outcomes on the support
-// tier's timeline — once one is reached, steps unique to the other path
-// shouldn't linger as pending forever.
-const RESOLUTION_PATH = ["awaiting_confirmation", "resolved"]
+// "resolved" and "escalated" are mutually exclusive terminal outcomes on the
+// support tier's timeline — once one is reached, steps unique to the other
+// path shouldn't linger as pending forever.
+const RESOLUTION_PATH = ["resolved"]
 
 function buildRows(history: TimelineEntry[], stages: string[]): StageRow[] {
   const now = Date.now()

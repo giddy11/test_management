@@ -13,7 +13,6 @@ import { ProjectService } from "../../project/services/project.service";
 import { ClientCompanyRepository } from "../../clientCompany/repositories/clientCompany.repository";
 import {
   SubmitterTicketStatus,
-  ticketCode,
   ticketLabel,
   toMyTicketResponse,
   toSubmitterStatus,
@@ -32,7 +31,6 @@ const {
 const {
   sendFeedbackReceivedEmail,
   sendFeedbackStatusEmail,
-  sendFeedbackConfirmationReceivedEmail,
   sendTicketLookupCodeEmail,
 } = require("../../../shared/utils/mailer");
 const { generateOtp, hashToken } = require("../../../shared/utils/password");
@@ -49,7 +47,6 @@ const FEEDBACK_STATUS_LABELS: Record<string, string> = {
   [FeedbackStatus.ASSIGNED]: "Assigned",
   [FeedbackStatus.INVESTIGATING]: "Investigating",
   [FeedbackStatus.RESOLVED]: "Resolved",
-  [FeedbackStatus.AWAITING_CONFIRMATION]: "Awaiting confirmation",
   [FeedbackStatus.CLOSED]: "Closed",
 };
 
@@ -76,9 +73,7 @@ const STATUS_EMAIL_COPY: Record<string, string> = {
     "Your feedback has been assigned to a team member who will work on it.",
   [FeedbackStatus.INVESTIGATING]: "The team is actively investigating your feedback.",
   [FeedbackStatus.RESOLVED]:
-    "Your feedback has been resolved. You'll be asked to confirm the resolution shortly.",
-  [FeedbackStatus.AWAITING_CONFIRMATION]:
-    "The team believes this is resolved. Please confirm using the button below — you can also let us know if it isn't fixed yet.",
+    "Your feedback has been resolved — reply in the conversation below if it isn't fixed.",
   [FeedbackStatus.CLOSED]: "Your feedback has been closed. Thank you for helping us improve!",
 };
 
@@ -432,7 +427,6 @@ export class FeedbackService {
           updated.status,
           copy,
           updated.adminResponse ?? null,
-          `${env.appUrl}/feedback/${fb.id}/confirm`,
           project.organizationId
         ).catch((e: Error) => console.error("[feedback] status email failed:", e.message));
       }
@@ -504,124 +498,6 @@ export class FeedbackService {
     this.assertVisibleToOrg(fb);
     await this.projectService.getProject(actor, fb.projectId);
     return this.historyRepo.findByFeedback(id);
-  }
-
-  // ── Confirmation link (public, unauthenticated — reached from the status email) ─
-
-  // Read-only context for the confirmation page: what it's confirming, and
-  // whether the link is still actionable (status may have already moved on).
-  // One shared public page/route serves both tiers — collapse via the same
-  // customer-facing status the "My Tickets" lookup uses, so the page checks
-  // one canonical value ("pending_your_confirmation") regardless of whether
-  // the product or IT-support lifecycle is actually driving this ticket.
-  async getPublicConfirmationContext(id: string) {
-    const fb = await this.feedbackRepo.findById(id);
-    if (!fb || fb.deletedAt) throw new AppError("This feedback link is no longer valid", 404);
-    const project = await this.projectRepo.findById(fb.projectId);
-    // Company items link back to the company's form, direct items to the
-    // project's — null if since disabled.
-    const backLinkToken = fb.clientCompanyId
-      ? fb.clientCompany?.feedbackToken ?? null
-      : project?.feedbackToken ?? null;
-    return {
-      projectName: project?.name ?? "",
-      ticketNumber: fb.ticketNumber,
-      ticketCode: ticketCode(fb),
-      title: fb.title,
-      status: toSubmitterStatus(fb),
-      feedbackToken: backLinkToken,
-    };
-  }
-
-  // The submitter's verdict: confirmed → closed, not confirmed → reopened
-  // (back to investigating). This is the one place the strictly-ordered
-  // workflow moves backward — a deliberate exception for submitter-driven reopens.
-  async submitConfirmation(id: string, confirmed: boolean, reason?: string) {
-    const fb = await this.feedbackRepo.findById(id);
-    if (!fb || fb.deletedAt) throw new AppError("This feedback link is no longer valid", 404);
-
-    // Pre-escalation company-routed ticket — the IT tier owns this
-    // confirmation (its own AWAITING_CONFIRMATION, not the product one, since
-    // `status` hasn't started moving yet for these). Escalated items fall
-    // through to the product-tier logic below as usual.
-    if (fb.clientCompanyId && fb.supportStatus && fb.supportStatus !== SupportStatus.ESCALATED) {
-      const { FeedbackSupportService } = require("./feedbackSupport.service");
-      return FeedbackSupportService.Instance.submitConfirmation(id, confirmed, reason);
-    }
-
-    if (fb.status !== FeedbackStatus.AWAITING_CONFIRMATION) {
-      throw new AppError("This feedback has already been handled", 409);
-    }
-
-    const project = await this.projectRepo.findById(fb.projectId);
-    const newStatus = confirmed ? FeedbackStatus.CLOSED : FeedbackStatus.INVESTIGATING;
-    const enteredAt = new Date();
-    // Only relevant on a reopen — cleared once it's confirmed closed.
-    const reopenReason = confirmed ? null : reason?.trim() || null;
-
-    const updated = await this.feedbackRepo.update(fb.id, {
-      status: newStatus,
-      statusUpdatedAt: enteredAt,
-      reopenReason,
-    } as any);
-
-    this.historyRepo
-      .create({ feedbackId: fb.id, status: newStatus, enteredAt })
-      .catch((e: Error) => console.error("[feedback] history entry failed:", e.message));
-
-    ActivityService.Instance.log(
-      { id: null, organizationId: project?.organizationId ?? null },
-      {
-        action: "feedback.confirmed",
-        summary: confirmed
-          ? `Submitter confirmed "${fb.title}" resolved in project "${project?.name}" — closed`
-          : `Submitter reopened "${fb.title}" in project "${project?.name}" — back to investigating${reopenReason ? `: "${reopenReason}"` : ""}`,
-        entityType: "feedback",
-        entityId: fb.id,
-        metadata: { projectId: fb.projectId },
-      }
-    );
-
-    // Let the contact know their verdict was recorded — the escalating IT
-    // supporter for escalated items, else the original submitter. Fire-and-forget.
-    const recipient = await this.resolveEmailRecipient(fb);
-    sendFeedbackConfirmationReceivedEmail(
-      recipient.email,
-      recipient.name,
-      project?.name ?? "",
-      ticketLabel(fb),
-      confirmed,
-      project?.organizationId
-    ).catch((e: Error) => console.error("[feedback] confirmation-received email failed:", e.message));
-
-    // Alert the project's admins + members — same recipient fan-out as new
-    // feedback. Company-operational data, so superadmins are excluded.
-    Promise.all([
-      project?.organizationId
-        ? this.authRepo.findByRoleAndOrg(UserRole.ADMIN, project.organizationId)
-        : Promise.resolve([]),
-      this.memberRepo.findMemberUsers(fb.projectId),
-    ])
-      .then(([orgAdmins, members]: any[]) => {
-        const recipients = [
-          ...new Map(
-            [...orgAdmins, ...members].map((u: any) => [u.id, u])
-          ).values(),
-        ];
-        if (recipients.length) {
-          return this.notificationService.notifyFeedbackConfirmed(recipients, {
-            feedbackId: fb.id,
-            projectId: fb.projectId,
-            projectName: project?.name ?? "",
-            title: ticketLabel(fb),
-            confirmed,
-            reopenReason,
-          });
-        }
-      })
-      .catch((e: Error) => console.error("[feedback] confirmation notify failed:", e.message));
-
-    return { status: updated?.status };
   }
 
   // ── Ticket lookup — a submitter's own history, no account (public) ──────────

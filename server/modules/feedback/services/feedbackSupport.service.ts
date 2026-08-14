@@ -22,10 +22,8 @@ const {
   sendSupportResolutionEmail,
   sendSupportStatusEmail,
 } = require("../../../shared/utils/mail/support.mail");
-const { sendFeedbackConfirmationReceivedEmail } = require("../../../shared/utils/mailer");
 const { AppError } = require("../../../shared/errors/AppError");
 const { UserRole, FeedbackStatus, SupportStatus } = require("../../../config/constants");
-const { env } = require("../../../config/env");
 
 // The IT tier's working stages, in order. Resolved/escalated are terminal
 // outcomes reached via their dedicated actions — only from "investigating".
@@ -39,7 +37,6 @@ const SUPPORT_STATUS_LABELS: Record<string, string> = {
   [SupportStatus.LOGGED]: "Logged",
   [SupportStatus.ACKNOWLEDGED]: "Acknowledged",
   [SupportStatus.INVESTIGATING]: "Under investigation",
-  [SupportStatus.AWAITING_CONFIRMATION]: "Awaiting confirmation",
   [SupportStatus.RESOLVED]: "Resolved",
   [SupportStatus.ESCALATED]: "Escalated to the product team",
 };
@@ -258,11 +255,7 @@ export class FeedbackSupportService {
   // strictly ordered, like the product team's.
   private assertReadyForOutcome(fb: Feedback, verb: string): void {
     if (fb.supportStatus === SupportStatus.INVESTIGATING) return;
-    if (
-      fb.supportStatus === SupportStatus.AWAITING_CONFIRMATION ||
-      fb.supportStatus === SupportStatus.RESOLVED ||
-      fb.supportStatus === SupportStatus.ESCALATED
-    ) {
+    if (fb.supportStatus === SupportStatus.RESOLVED || fb.supportStatus === SupportStatus.ESCALATED) {
       throw new AppError(
         `This item is already ${SUPPORT_STATUS_LABELS[fb.supportStatus as string]?.toLowerCase()}`,
         409
@@ -275,18 +268,19 @@ export class FeedbackSupportService {
   }
 
   // Resolve without involving the product team. The note is required — it's
-  // the supporter's answer to the end user, sent by email along with a
-  // confirm/reopen link. RESOLVED only becomes final once the submitter
-  // confirms via submitConfirmation below — until then this sits at
-  // AWAITING_CONFIRMATION.
+  // the supporter's answer to the end user, sent by email. Final immediately:
+  // there's no separate submitter-confirmation gate — if the fix doesn't
+  // actually hold, the submitter just says so in the ticket's comment thread
+  // instead of clicking a reject link.
   async resolveLocally(actor: Actor, id: string, note: string) {
     const fb = await this.getAssignedItem(actor, id);
     this.assertReadyForOutcome(fb, "resolve");
 
     const enteredAt = new Date();
     const updated = await this.feedbackRepo.update(fb.id, {
-      supportStatus: SupportStatus.AWAITING_CONFIRMATION,
+      supportStatus: SupportStatus.RESOLVED,
       supportResponse: note,
+      supportResolvedAt: enteredAt,
     });
 
     const [project, company] = await Promise.all([
@@ -297,12 +291,10 @@ export class FeedbackSupportService {
     // The resolution email (with the note) IS the "resolved" stage email —
     // record the stage without the generic copy to avoid double-emailing.
     this.supportHistoryRepo
-      .create({ feedbackId: fb.id, status: SupportStatus.AWAITING_CONFIRMATION, enteredAt })
+      .create({ feedbackId: fb.id, status: SupportStatus.RESOLVED, enteredAt })
       .catch((e: Error) => console.error("[support] history entry failed:", e.message));
 
-    // Same public confirmation page the product tier uses, keyed by feedback
-    // id — FeedbackService.submitConfirmation dispatches here for this item.
-    const confirmUrl = `${env.appUrl}/feedback/${fb.id}/confirm`;
+    // No confirm link — this is a final resolution, not a verdict request.
     sendSupportResolutionEmail(
       fb.submitterEmail,
       fb.submitterName,
@@ -310,102 +302,18 @@ export class FeedbackSupportService {
       project?.name ?? "",
       ticketLabel(fb),
       note,
-      confirmUrl,
+      null,
       project?.organizationId ?? null
     ).catch((e: Error) => console.error("[support] resolution email failed:", e.message));
 
     ActivityService.Instance.log(actor, {
       action: "feedback.support_resolved",
-      summary: `IT support marked "${fb.title}" resolved for "${company?.name}" — awaiting the submitter's confirmation`,
+      summary: `IT support marked "${fb.title}" resolved for "${company?.name}"`,
       entityType: "feedback",
       entityId: fb.id,
       clientCompanyId: fb.clientCompanyId,
       metadata: { projectId: fb.projectId, clientCompanyId: fb.clientCompanyId },
     });
-
-    return updated;
-  }
-
-  // Whoever's actively handling this item right now — the assigned supporter
-  // if there is one, else every one of the company's leads — so a submitter's
-  // reopen never goes unnoticed.
-  private async resolveActiveHandlers(fb: Feedback): Promise<any[]> {
-    if (fb.assignedSupporterId) {
-      const supporter = await this.userRepo.findById(fb.assignedSupporterId);
-      return supporter ? [supporter] : [];
-    }
-    const supporters = await this.userRepo.findByClientCompany(fb.clientCompanyId as string);
-    return supporters.filter((s: any) => s.isSupportLead);
-  }
-
-  // The submitter's verdict via the confirm/reopen link on the resolution
-  // email — confirmed makes RESOLVED final, not confirmed reopens it to
-  // "investigating" for another pass. Public/unauthenticated: dispatched here
-  // from FeedbackService.submitConfirmation for any pre-escalation
-  // company-routed item (mirrors the product tier's own confirm flow).
-  async submitConfirmation(id: string, confirmed: boolean, reason?: string) {
-    const fb = await this.feedbackRepo.findById(id);
-    if (!fb || fb.deletedAt) throw new AppError("This feedback link is no longer valid", 404);
-    if (fb.supportStatus !== SupportStatus.AWAITING_CONFIRMATION) {
-      throw new AppError("This feedback has already been handled", 409);
-    }
-
-    const enteredAt = new Date();
-    const newStatus = confirmed ? SupportStatus.RESOLVED : SupportStatus.INVESTIGATING;
-    // Only relevant on a reopen — cleared once it's confirmed resolved.
-    const reopenReason = confirmed ? null : reason?.trim() || null;
-
-    const updated = await this.feedbackRepo.update(fb.id, {
-      supportStatus: newStatus,
-      reopenReason,
-      ...(confirmed ? { supportResolvedAt: enteredAt } : {}),
-    });
-
-    this.supportHistoryRepo
-      .create({ feedbackId: fb.id, status: newStatus, enteredAt })
-      .catch((e: Error) => console.error("[support] history entry failed:", e.message));
-
-    const [project, company] = await Promise.all([
-      this.projectRepo.findById(fb.projectId),
-      this.companyRepo.findById(fb.clientCompanyId as string),
-    ]);
-
-    ActivityService.Instance.log(
-      { id: null, organizationId: project?.organizationId ?? null },
-      {
-        action: "feedback.support_confirmed",
-        summary: confirmed
-          ? `Submitter confirmed "${fb.title}" resolved for "${company?.name}" — closed`
-          : `Submitter reopened "${fb.title}" for "${company?.name}" — back to investigating${reopenReason ? `: "${reopenReason}"` : ""}`,
-        entityType: "feedback",
-        entityId: fb.id,
-        clientCompanyId: fb.clientCompanyId,
-        metadata: { projectId: fb.projectId, clientCompanyId: fb.clientCompanyId },
-      }
-    );
-
-    sendFeedbackConfirmationReceivedEmail(
-      fb.submitterEmail,
-      fb.submitterName,
-      project?.name ?? "",
-      ticketLabel(fb),
-      confirmed,
-      project?.organizationId ?? null
-    ).catch((e: Error) => console.error("[support] confirmation-received email failed:", e.message));
-
-    this.resolveActiveHandlers(fb)
-      .then((recipients) => {
-        if (!recipients.length) return;
-        return this.notificationService.notifyFeedbackConfirmed(recipients, {
-          feedbackId: fb.id,
-          projectId: fb.projectId,
-          projectName: project?.name ?? "",
-          title: ticketLabel(fb),
-          confirmed,
-          reopenReason,
-        });
-      })
-      .catch((e: Error) => console.error("[support] confirmation notify failed:", e.message));
 
     return updated;
   }

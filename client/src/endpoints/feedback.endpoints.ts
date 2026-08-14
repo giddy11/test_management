@@ -3,7 +3,6 @@ import { wrapCall, uploadFilesWithFields } from "@/transport/http"
 import type {
   Feedback,
   FeedbackComment,
-  FeedbackConfirmationContext,
   FeedbackSeverity,
   FeedbackStatusHistoryEntry,
   FetchFeedbackParams,
@@ -103,13 +102,6 @@ export const FeedbackEndpoints = {
     )
   },
 
-  // Public confirmation link (from the "awaiting confirmation" status email).
-  confirmationContext: (id: string) =>
-    wrapCall<FeedbackConfirmationContext>("GET", `/api/v1/public/feedback/${id}/confirm`),
-
-  submitConfirmation: (id: string, confirmed: boolean, reason?: string) =>
-    wrapCall<{ status: string }>("POST", `/api/v1/public/feedback/${id}/confirm`, { confirmed, reason }),
-
   // A submitter's own ticket history, no account — email a code, then trade
   // it for the list. The code is reusable until it expires (not single-use),
   // so MyTicketsPage can silently re-fetch on refresh. Never reveals whether
@@ -134,17 +126,6 @@ export const FeedbackEndpoints = {
       `/api/v1/public/feedback/${id}/comments`,
       files,
       { email, code, body },
-      "attachments"
-    ),
-
-  // Reply from the public confirmation-link page — the ticket id in the URL
-  // is the only credential (same trust model as the confirm/reopen action on
-  // that same page), no email/code needed.
-  publicAddCommentViaLink: (id: string, body: string, files: File[] = []) =>
-    uploadFilesWithFields<FeedbackComment>(
-      `/api/v1/public/feedback/${id}/comments/link`,
-      files,
-      { body },
       "attachments"
     ),
 }

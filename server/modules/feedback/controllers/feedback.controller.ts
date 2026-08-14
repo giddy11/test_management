@@ -31,30 +31,6 @@ export class FeedbackController {
     }
   }
 
-  static async publicConfirmationContext(req: any, res: any, next: any) {
-    try {
-      const context = await FeedbackService.Instance.getPublicConfirmationContext(
-        req.validated.params.id
-      );
-      res.status(200).json(ApiResponse.ok("Feedback confirmation context", context));
-    } catch (err) {
-      next(err);
-    }
-  }
-
-  static async publicConfirm(req: any, res: any, next: any) {
-    try {
-      const result = await FeedbackService.Instance.submitConfirmation(
-        req.validated.params.id,
-        req.validated.body.confirmed,
-        req.validated.body.reason
-      );
-      res.status(200).json(ApiResponse.ok("Thanks for confirming", result));
-    } catch (err) {
-      next(err);
-    }
-  }
-
   // A submitter's own ticket history, no account — email a code, then trade
   // it for the list (reusable until it expires, so a refresh doesn't need a
   // new one). Never reveals whether the email has tickets.

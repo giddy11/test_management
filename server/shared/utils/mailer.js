@@ -201,51 +201,26 @@ const FEEDBACK_STATUS_LABELS = {
   assigned: "Assigned",
   investigating: "Under investigation",
   resolved: "Resolved",
-  awaiting_confirmation: "Awaiting your confirmation",
   closed: "Closed",
 };
 
-async function sendFeedbackStatusEmail(to, name, projectName, title, status, copy, adminResponse, confirmUrl, organizationId) {
+async function sendFeedbackStatusEmail(to, name, projectName, title, status, copy, adminResponse, organizationId) {
   const label = FEEDBACK_STATUS_LABELS[status] ?? status;
   const responseBox = adminResponse
     ? `<div style="background:#f8fafc;border-left:3px solid #6366f1;border-radius:0 6px 6px 0;padding:14px 16px;margin:0 0 24px">
         <p style="margin:0;font-size:14px;color:#374151"><strong>Note from the team:</strong><br>${escapeAndLineBreak(adminResponse)}</p>
       </div>`
     : "";
-  // "Awaiting confirmation" is the one stage that needs an action back from the
-  // submitter — a link to the confirmation page, not a reply-to-this-email ask.
-  const confirmButtons =
-    status === "awaiting_confirmation" && confirmUrl
-      ? ctaButton(confirmUrl, "Review and confirm")
-      : "";
   const body = `
     <h1 style="margin:0 0 12px;font-size:20px;font-weight:700;color:#0f172a">Update on your feedback</h1>
     <p style="margin:0 0 8px;font-size:15px;color:#374151;line-height:1.65">Hi ${name}, your feedback <strong>${title}</strong> for <strong>${projectName}</strong> is now: <strong>${label}</strong>.</p>
     <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.65">${copy}</p>
-    ${responseBox}
-    ${confirmButtons}`;
+    ${responseBox}`;
   return send({
     to,
     subject: `Feedback update — ${title} — ${projectName}`,
     html: emailLayout(body, await resolveFooterEmail(organizationId)),
-    text: `Your feedback "${title}" for ${projectName} is now ${label}. ${copy}${confirmUrl && status === "awaiting_confirmation" ? ` Confirm here: ${confirmUrl}` : ""}`,
-  });
-}
-
-// Sent after the submitter uses the confirmation link — closes the loop either way.
-async function sendFeedbackConfirmationReceivedEmail(to, name, projectName, title, confirmed, organizationId) {
-  const heading = confirmed ? "Thanks for confirming!" : "Thanks — we'll keep investigating";
-  const line = confirmed
-    ? `Your feedback <strong>${title}</strong> for <strong>${projectName}</strong> has been closed. Thanks for helping us improve!`
-    : `We've reopened your feedback <strong>${title}</strong> for <strong>${projectName}</strong> and the team will take another look.`;
-  const body = `
-    <h1 style="margin:0 0 12px;font-size:20px;font-weight:700;color:#0f172a">${heading}</h1>
-    <p style="margin:0;font-size:15px;color:#374151;line-height:1.65">Hi ${name}, ${line}</p>`;
-  return send({
-    to,
-    subject: `Feedback ${confirmed ? "closed" : "reopened"} — ${title} — ${projectName}`,
-    html: emailLayout(body, await resolveFooterEmail(organizationId)),
-    text: `Hi ${name}, ${confirmed ? `your feedback "${title}" for ${projectName} has been closed. Thanks!` : `we've reopened your feedback "${title}" for ${projectName} and will take another look.`}`,
+    text: `Your feedback "${title}" for ${projectName} is now ${label}. ${copy}`,
   });
 }
 
@@ -451,7 +426,6 @@ module.exports = {
   sendFeedbackStatusEmail,
   sendNewFeedbackAlertEmail,
   sendFeedbackAssignedEmail,
-  sendFeedbackConfirmationReceivedEmail,
   sendFeedbackCommentEmail,
   sendRunCompletedEmail,
   sendNewFeatureRequestEmail,

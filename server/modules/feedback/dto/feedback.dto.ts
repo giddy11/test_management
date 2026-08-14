@@ -98,13 +98,13 @@ export function toFeedbackTimelineResponse(rows: FeedbackStatusHistory[]) {
 // listMyTickets) ─────────────────────────────────────────────────────────────
 
 // A collapsed, customer-facing status: internal triage granularity
-// (acknowledged/assigned/investigating) is hidden, and "resolved" is
-// deliberately NOT surfaced as done until the submitter has confirmed it —
-// only `closed` reads as "resolved" externally.
+// (acknowledged/assigned/investigating) is hidden, and "resolved" isn't
+// surfaced as done until the team actually closes it — only `closed` reads
+// as "resolved" externally. No confirmation gate: the submitter's own
+// verdict, if the fix didn't hold, comes through the ticket's comment thread.
 export const SubmitterTicketStatus = Object.freeze({
   RECEIVED: "received",
   IN_PROGRESS: "in_progress",
-  PENDING_YOUR_CONFIRMATION: "pending_your_confirmation",
   RESOLVED: "resolved",
 });
 
@@ -114,7 +114,6 @@ const PRODUCT_SUBMITTER_STATUS_MAP: Record<string, string> = {
   [FeedbackStatus.ASSIGNED]: SubmitterTicketStatus.IN_PROGRESS,
   [FeedbackStatus.INVESTIGATING]: SubmitterTicketStatus.IN_PROGRESS,
   [FeedbackStatus.RESOLVED]: SubmitterTicketStatus.IN_PROGRESS,
-  [FeedbackStatus.AWAITING_CONFIRMATION]: SubmitterTicketStatus.PENDING_YOUR_CONFIRMATION,
   [FeedbackStatus.CLOSED]: SubmitterTicketStatus.RESOLVED,
 };
 
@@ -125,7 +124,6 @@ const SUPPORT_SUBMITTER_STATUS_MAP: Record<string, string> = {
   [SupportStatus.LOGGED]: SubmitterTicketStatus.RECEIVED,
   [SupportStatus.ACKNOWLEDGED]: SubmitterTicketStatus.IN_PROGRESS,
   [SupportStatus.INVESTIGATING]: SubmitterTicketStatus.IN_PROGRESS,
-  [SupportStatus.AWAITING_CONFIRMATION]: SubmitterTicketStatus.PENDING_YOUR_CONFIRMATION,
   [SupportStatus.RESOLVED]: SubmitterTicketStatus.RESOLVED,
 };
 

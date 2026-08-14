@@ -6,13 +6,10 @@ import { FeedbackCommentController } from "../controllers/feedbackComment.contro
 import {
   publicFormParamSchema,
   submitFeedbackSchema,
-  feedbackIdParamSchema,
-  submitConfirmationSchema,
   requestMyTicketsCodeSchema,
   listMyTicketsSchema,
   publicFetchCommentsSchema,
   publicAddCommentSchema,
-  publicAddCommentViaLinkSchema,
   submitRatingSchema,
 } from "../validators/feedback.schema";
 
@@ -72,21 +69,6 @@ router.post(
   FeedbackController.publicSubmit
 );
 
-// Confirmation link from the "awaiting confirmation" status email — the
-// feedback id itself is the (unguessable UUID) credential, same trust model
-// as the project's feedback_token above.
-router.get(
-  "/:id/confirm",
-  validate(feedbackIdParamSchema),
-  FeedbackController.publicConfirmationContext
-);
-router.post(
-  "/:id/confirm",
-  submitLimiter,
-  validate(submitConfirmationSchema),
-  FeedbackController.publicConfirm
-);
-
 // Ticket comment thread — the submitter proves ownership the same way
 // "My Tickets" does (email + the emailed OTP code, sent in the body so it
 // never lands in a URL/query string or a server log).
@@ -102,17 +84,6 @@ router.post(
   uploadCommentAttachments("attachments"),
   validate(publicAddCommentSchema),
   FeedbackCommentController.publicCreate
-);
-
-// Reply from the public confirmation-link page (/feedback/:id/confirm) — the
-// ticket id alone is the credential, same trust model as the confirm/reopen
-// action on that same page, so no email/code is required here.
-router.post(
-  "/:id/comments/link",
-  commentLimiter,
-  uploadCommentAttachments("attachments"),
-  validate(publicAddCommentViaLinkSchema),
-  FeedbackCommentController.publicCreateViaLink
 );
 
 // A resolved ticket's one-time satisfaction rating, from the "My Tickets"

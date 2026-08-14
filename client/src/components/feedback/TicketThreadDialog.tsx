@@ -1,8 +1,7 @@
 // Public/unauthenticated ticket comment thread — the "My Tickets" side.
 // Proves ownership with the same email + OTP code as the "My Tickets" lookup
 // itself (see FeedbackEndpoints.publicAddComment) — no account, no separate
-// credential. See PublicCommentThread for the shared list+composer body
-// (also used by PublicFeedbackConfirmPage, which proves ownership differently).
+// credential. See PublicCommentThread for the shared list+composer body.
 import {
   Dialog,
   DialogContent,

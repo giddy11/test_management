@@ -159,17 +159,6 @@ export class FeedbackCommentService {
     return fb;
   }
 
-  // Proof of ownership: the ticket id alone — the same bearer-credential
-  // trust model already used by the public confirmation link (see
-  // FeedbackService.getPublicConfirmationContext/submitConfirmation). Backs
-  // the reply box on that same page, which has no email/code to hand.
-  private async loadForSubmitterByLink(feedbackId: string): Promise<Feedback> {
-    const fb = await this.feedbackRepo.findById(feedbackId);
-    if (!fb || fb.deletedAt) throw new AppError("This feedback link is no longer valid", 404);
-    this.assertSubmitterVisible(fb);
-    return fb;
-  }
-
   private assertAttachmentCount(files?: UploadedFile[]): void {
     if (files && files.length > MAX_ATTACHMENTS_PER_COMMENT) {
       throw new AppError(`A comment can have at most ${MAX_ATTACHMENTS_PER_COMMENT} attachments`, 422);
@@ -316,17 +305,6 @@ export class FeedbackCommentService {
     files?: UploadedFile[]
   ): Promise<FeedbackComment> {
     const fb = await this.loadForSubmitterByCode(feedbackId, email, code);
-    return this.createSubmitterComment(fb, body, files);
-  }
-
-  // Backs the reply box on the public confirmation-link page — the ticket id
-  // itself is the credential (see loadForSubmitterByLink above), no email/code.
-  async addForConfirmationLink(
-    feedbackId: string,
-    body: string,
-    files?: UploadedFile[]
-  ): Promise<FeedbackComment> {
-    const fb = await this.loadForSubmitterByLink(feedbackId);
     return this.createSubmitterComment(fb, body, files);
   }
 

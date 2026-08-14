@@ -143,7 +143,7 @@ export function SupportItemDialog({ feedback, onOpenChange }: Props) {
       {
         onError,
         onSuccess: () => {
-          toast.success("Marked resolved — the submitter's been emailed your note and asked to confirm")
+          toast.success("Marked resolved — the submitter's been emailed your note")
           onOpenChange(false)
         },
       }

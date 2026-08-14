@@ -61,13 +61,14 @@ const FeedbackType = Object.freeze({
 });
 
 // Lifecycle of external feedback — the submitter is emailed at every stage.
+// No submitter-confirmation gate: the ticket's conversation thread is how
+// they flag a resolution that didn't actually hold.
 const FeedbackStatus = Object.freeze({
   LOGGED: "logged",
   ACKNOWLEDGED: "acknowledged",
   ASSIGNED: "assigned",
   INVESTIGATING: "investigating",
   RESOLVED: "resolved",
-  AWAITING_CONFIRMATION: "awaiting_confirmation",
   CLOSED: "closed",
 });
 
@@ -81,9 +82,6 @@ const SupportStatus = Object.freeze({
   LOGGED: "logged",
   ACKNOWLEDGED: "acknowledged",
   INVESTIGATING: "investigating",
-  // Reached only via resolveLocally — the submitter gets a confirm/reopen
-  // link and hasn't answered yet. RESOLVED only becomes final once they confirm.
-  AWAITING_CONFIRMATION: "awaiting_confirmation",
   RESOLVED: "resolved",
   ESCALATED: "escalated",
 });

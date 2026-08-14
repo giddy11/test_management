@@ -313,28 +313,6 @@ class NotificationService {
     ).catch((e) => console.error("[notify] support-item-assigned email failed:", e.message));
   }
 
-  // The submitter used the confirmation link to close or reopen a feedback item.
-  // ctx: { feedbackId, projectId, projectName, title, confirmed, reopenReason }
-  async notifyFeedbackConfirmed(recipients, ctx) {
-    if (!recipients.length) return;
-    const reopenBody = `The submitter said "${ctx.title}" isn't fixed — it's back to investigating${
-      ctx.reopenReason ? `: "${ctx.reopenReason}"` : ""
-    }`;
-    await this.repo.createMany(
-      recipients.map((u) => ({
-        userId: u.id,
-        type: NotificationType.FEEDBACK_CONFIRMED,
-        title: ctx.confirmed
-          ? `Feedback confirmed resolved: ${ctx.title}`
-          : `Feedback reopened: ${ctx.title}`,
-        body: ctx.confirmed
-          ? `The submitter confirmed "${ctx.title}" is resolved — it's now closed`
-          : reopenBody,
-        data: { feedbackId: ctx.feedbackId, projectId: ctx.projectId },
-      }))
-    );
-  }
-
   // ctx: { requestId, projectId, title, submittedByName }
   // Callers exclude the submitter — nobody is notified about their own action.
   async notifyNewFeatureRequest(recipients, ctx) {

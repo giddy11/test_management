@@ -5,21 +5,18 @@ import { useEffect, useState, type FormEvent } from "react"
 import { Link } from "react-router-dom"
 import {
   ArrowLeft,
-  CheckCircle2,
   KeyRound,
   Mail,
   MessageSquare,
   PlusCircle,
   Star,
   TicketCheck,
-  XCircle,
 } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
-import { Textarea } from "@/components/ui/textarea"
 import {
   Card,
   CardContent,
@@ -36,7 +33,6 @@ import { FEEDBACK_TYPE_LABELS, MY_TICKET_STATUS_LABELS, type MyTicket } from "@/
 const STATUS_VARIANT: Record<MyTicket["status"], "default" | "secondary" | "outline" | "destructive"> = {
   received: "destructive",
   in_progress: "secondary",
-  pending_your_confirmation: "default",
   resolved: "outline",
 }
 
@@ -154,11 +150,6 @@ export default function MyTicketsPage() {
   const [sending, setSending] = useState(false)
   const [verifying, setVerifying] = useState(false)
   const [tickets, setTickets] = useState<MyTicket[] | null>(null)
-  // Which ticket's "No, not fixed" reason box is open, and its draft text.
-  const [reopeningId, setReopeningId] = useState<string | null>(null)
-  const [reopenReason, setReopenReason] = useState("")
-  // Ticket currently submitting a confirm/reopen verdict.
-  const [actingId, setActingId] = useState<string | null>(null)
   // Ticket whose conversation thread dialog is open (null = closed).
   const [threadTicket, setThreadTicket] = useState<MyTicket | null>(null)
 
@@ -189,34 +180,6 @@ export default function MyTicketsPage() {
       cancelled = true
     }
   }, [])
-
-  // Re-fetches in place after a confirm/reopen so the ticket's new status
-  // shows immediately, without a full page reload.
-  const refreshTickets = async () => {
-    const stored = loadStoredCredential()
-    if (!stored) return
-    const res = await FeedbackEndpoints.listMyTickets(stored.email, stored.code)
-    if (res.success) setTickets(res.data ?? [])
-  }
-
-  const submitVerdict = async (ticketId: string, confirmed: boolean, reason?: string) => {
-    setActingId(ticketId)
-    try {
-      const res = await FeedbackEndpoints.submitConfirmation(ticketId, confirmed, reason)
-      if (res.success) {
-        toast.success(confirmed ? "Thanks for confirming!" : "Thanks — we'll keep investigating")
-        setReopeningId(null)
-        setReopenReason("")
-        await refreshTickets()
-      } else {
-        toast.error(res.message || "Something went wrong — please try again")
-      }
-    } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Something went wrong — please try again")
-    } finally {
-      setActingId(null)
-    }
-  }
 
   const startOver = () => {
     clearStoredCredential()
@@ -390,62 +353,6 @@ export default function MyTicketsPage() {
                     <div className="mt-2 rounded-md border-l-2 border-primary bg-muted/60 px-2.5 py-1.5">
                       <p className="text-xs font-medium text-muted-foreground">Note from support</p>
                       <p className="whitespace-pre-line break-words text-sm">{t.note}</p>
-                    </div>
-                  )}
-                  {t.status === "pending_your_confirmation" && (
-                    <div className="mt-2 grid gap-2 rounded-md border-l-2 border-primary bg-muted/60 px-2.5 py-2">
-                      <p className="text-xs font-medium">
-                        The team believes this is resolved — is that right?
-                      </p>
-                      {reopeningId === t.id ? (
-                        <>
-                          <Textarea
-                            rows={2}
-                            maxLength={2000}
-                            placeholder="What's still not working? (optional)"
-                            value={reopenReason}
-                            onChange={(e) => setReopenReason(e.target.value)}
-                            autoFocus
-                          />
-                          <div className="flex gap-2">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              disabled={actingId === t.id}
-                              onClick={() => { setReopeningId(null); setReopenReason("") }}
-                            >
-                              Back
-                            </Button>
-                            <Button
-                              size="sm"
-                              disabled={actingId === t.id}
-                              onClick={() => submitVerdict(t.id, false, reopenReason.trim() || undefined)}
-                            >
-                              {actingId === t.id ? "Sending…" : "Send"}
-                            </Button>
-                          </div>
-                        </>
-                      ) : (
-                        <div className="flex flex-wrap gap-2">
-                          <Button
-                            size="sm"
-                            disabled={actingId === t.id}
-                            onClick={() => submitVerdict(t.id, true)}
-                          >
-                            <CheckCircle2 className="mr-1 size-3.5" />
-                            {actingId === t.id ? "Confirming…" : "Yes, it's resolved"}
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            disabled={actingId === t.id}
-                            onClick={() => setReopeningId(t.id)}
-                          >
-                            <XCircle className="mr-1 size-3.5" />
-                            No, not fixed
-                          </Button>
-                        </div>
-                      )}
                     </div>
                   )}
                   <div className="mt-2 flex flex-wrap items-center gap-3">

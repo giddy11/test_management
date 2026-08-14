@@ -120,7 +120,7 @@ export function FeedbackManageDialog({
 
   return (
     <Dialog open={Boolean(feedback)} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-x-hidden overflow-y-auto sm:max-w-lg">
+      <DialogContent className="max-h-[90vh] overflow-x-hidden overflow-y-auto sm:max-w-3xl lg:max-w-4xl">
         <DialogHeader>
           <DialogTitle>Manage ticket{feedback && ` ${feedback.ticketCode}`}</DialogTitle>
           <DialogDescription>
@@ -130,7 +130,8 @@ export function FeedbackManageDialog({
         </DialogHeader>
 
         {feedback && (
-          <div className="grid gap-4">
+          <div className="grid gap-6 md:grid-cols-[1.15fr_1fr]">
+          <div className="min-w-0 grid gap-4 overflow-x-hidden md:max-h-[65vh] md:overflow-y-auto md:pr-6">
             {feedback.escalatedAt && (
               <div className="min-w-0 rounded-md border-l-3 border-primary bg-primary/10 px-3 py-2">
                 <p className="flex flex-wrap items-center gap-2 text-xs font-medium text-primary">
@@ -334,8 +335,9 @@ export function FeedbackManageDialog({
                 />
               )}
             </div>
+          </div>
 
-            <div className="border-t pt-4">
+            <div className="min-w-0 overflow-x-hidden border-t pt-4 md:max-h-[65vh] md:overflow-y-auto md:border-l md:border-t-0 md:pl-6 md:pt-0">
               <TicketCommentThread feedbackId={feedback.id} />
             </div>
           </div>

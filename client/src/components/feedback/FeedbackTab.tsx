@@ -47,7 +47,6 @@ const STATUS_VARIANT: Record<FeedbackStatus, "default" | "secondary" | "outline"
   assigned: "secondary",
   investigating: "secondary",
   resolved: "default",
-  awaiting_confirmation: "default",
   closed: "outline",
 }
 

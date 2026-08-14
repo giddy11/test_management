@@ -250,12 +250,9 @@ describe("toSubmitterStatus", () => {
     const fb = (status: string) => ({ status, clientCompanyId: null, supportStatus: null });
     expect(toSubmitterStatus(fb(FeedbackStatus.LOGGED))).toBe(SubmitterTicketStatus.RECEIVED);
     expect(toSubmitterStatus(fb(FeedbackStatus.ACKNOWLEDGED))).toBe(SubmitterTicketStatus.IN_PROGRESS);
-    // Deliberate: internally "resolved" hasn't been confirmed by the submitter
-    // yet, so it must NOT read as done externally.
+    // Deliberate: internally "resolved" isn't shown as done until the team
+    // actually closes it.
     expect(toSubmitterStatus(fb(FeedbackStatus.RESOLVED))).toBe(SubmitterTicketStatus.IN_PROGRESS);
-    expect(toSubmitterStatus(fb(FeedbackStatus.AWAITING_CONFIRMATION))).toBe(
-      SubmitterTicketStatus.PENDING_YOUR_CONFIRMATION
-    );
     expect(toSubmitterStatus(fb(FeedbackStatus.CLOSED))).toBe(SubmitterTicketStatus.RESOLVED);
   });
 
@@ -267,9 +264,8 @@ describe("toSubmitterStatus", () => {
     });
     expect(toSubmitterStatus(fb(SupportStatus.LOGGED))).toBe(SubmitterTicketStatus.RECEIVED);
     expect(toSubmitterStatus(fb(SupportStatus.INVESTIGATING))).toBe(SubmitterTicketStatus.IN_PROGRESS);
-    expect(toSubmitterStatus(fb(SupportStatus.AWAITING_CONFIRMATION))).toBe(
-      SubmitterTicketStatus.PENDING_YOUR_CONFIRMATION
-    );
+    // Deliberate: the IT tier has no confirmation gate — resolved reads as
+    // done for the submitter immediately, no interim "pending" stage.
     expect(toSubmitterStatus(fb(SupportStatus.RESOLVED))).toBe(SubmitterTicketStatus.RESOLVED);
   });
 
