@@ -5,7 +5,7 @@ import { FeedbackAttachment } from "../entities/feedbackAttachment.entity";
 import { AppDataSource } from "../../../infrastructure/database/dataSource";
 
 const { buildMeta, getOffset } = require("../../../shared/pagination/paginate");
-const { SupportStatus } = require("../../../config/constants");
+const { SupportStatus, FeedbackStatus } = require("../../../config/constants");
 
 // The IT tier's working (non-terminal) stages — same set as
 // FeedbackSupportService's SUPPORT_PROGRESSION. Duplicated here rather than
@@ -14,6 +14,15 @@ const OPEN_SUPPORT_STATUSES = [
   SupportStatus.LOGGED,
   SupportStatus.ACKNOWLEDGED,
   SupportStatus.INVESTIGATING,
+];
+
+// Every product-tier stage except the terminal one — mirrors OPEN_SUPPORT_STATUSES.
+const OPEN_FEEDBACK_STATUSES = [
+  FeedbackStatus.LOGGED,
+  FeedbackStatus.ACKNOWLEDGED,
+  FeedbackStatus.ASSIGNED,
+  FeedbackStatus.INVESTIGATING,
+  FeedbackStatus.RESOLVED,
 ];
 
 export interface FetchFeedbackParams {
@@ -195,9 +204,9 @@ export class FeedbackRepository {
 
   // Open-ticket counts per supporter, keyed by user id — used to auto-assign
   // an incoming item to whichever of the company's supporters currently has
-  // the lightest load. Terminal support states (resolved/awaiting
-  // confirmation/escalated) don't count against anyone; a supporter with none
-  // simply doesn't appear in the result.
+  // the lightest load. Terminal support states (resolved/escalated) don't
+  // count against anyone; a supporter with none simply doesn't appear in the
+  // result.
   async countOpenBySupporter(clientCompanyId: string): Promise<Record<string, number>> {
     const rows = await this.repo
       .createQueryBuilder("fb")
@@ -210,5 +219,23 @@ export class FeedbackRepository {
       .groupBy("fb.assigned_supporter_id")
       .getRawMany();
     return Object.fromEntries(rows.map((r: { supporterId: string; count: string }) => [r.supporterId, Number(r.count)]));
+  }
+
+  // Same idea as countOpenBySupporter, but for the product tier's many-to-many
+  // assignees — used to auto-assign a freshly-escalated item to whichever of
+  // the project's members currently has the lightest load. Scoped to this
+  // project only, same as the "assign to project members" rule elsewhere.
+  async countOpenByAssignee(projectId: string): Promise<Record<string, number>> {
+    const rows = await this.repo
+      .createQueryBuilder("fb")
+      .innerJoin("fb.assignees", "assignee")
+      .select("assignee.id", "userId")
+      .addSelect("COUNT(DISTINCT fb.id)", "count")
+      .where("fb.project_id = :projectId", { projectId })
+      .andWhere("fb.deleted_at IS NULL")
+      .andWhere("fb.status IN (:...statuses)", { statuses: OPEN_FEEDBACK_STATUSES })
+      .groupBy("assignee.id")
+      .getRawMany();
+    return Object.fromEntries(rows.map((r: { userId: string; count: string }) => [r.userId, Number(r.count)]));
   }
 }

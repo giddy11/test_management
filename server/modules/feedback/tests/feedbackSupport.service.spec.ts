@@ -23,6 +23,8 @@ function makeFeedbackRepo() {
     findById: jest.fn(),
     update: jest.fn(),
     countOpenBySupporter: jest.fn().mockResolvedValue({}),
+    countOpenByAssignee: jest.fn().mockResolvedValue({}),
+    setAssignees: jest.fn().mockImplementation((fb) => Promise.resolve(fb)),
   };
 }
 
@@ -77,7 +79,7 @@ function makeNotificationService() {
     notifyFeedbackEscalated: jest.fn().mockResolvedValue(undefined),
     notifySupportQueueItem: jest.fn().mockResolvedValue(undefined),
     notifySupportItemAssigned: jest.fn().mockResolvedValue(undefined),
-    notifyFeedbackConfirmed: jest.fn().mockResolvedValue(undefined),
+    notifyFeedbackAssigned: jest.fn().mockResolvedValue(undefined),
   };
 }
 
@@ -438,6 +440,43 @@ describe("FeedbackSupportService", () => {
       expect(supportHistoryRepo.create).toHaveBeenCalledWith(
         expect.objectContaining({ feedbackId: "fb-1", status: SupportStatus.ESCALATED })
       );
+    });
+
+    it("auto-assigns the escalated item to the least-busy project member", async () => {
+      const memberA = { id: "member-a", email: "a@co.com", firstName: "Ann" };
+      const memberB = { id: "member-b", email: "b@co.com", firstName: "Bo" };
+      feedbackRepo.findById.mockResolvedValue(investigatingItem);
+      feedbackRepo.update.mockResolvedValue({
+        ...investigatingItem,
+        supportStatus: SupportStatus.ESCALATED,
+      });
+      memberRepo.findMemberUsers.mockResolvedValue([memberA, memberB]);
+      feedbackRepo.countOpenByAssignee.mockResolvedValue({ "member-a": 3, "member-b": 0 });
+
+      await service.escalate(supporter, "fb-1", "high");
+
+      expect(feedbackRepo.setAssignees).toHaveBeenCalledWith(
+        expect.objectContaining({ supportStatus: SupportStatus.ESCALATED }),
+        [memberB]
+      );
+      expect(notificationService.notifyFeedbackAssigned).toHaveBeenCalledWith(
+        [memberB],
+        expect.objectContaining({ feedbackId: "fb-1", assignedByName: "Auto-assignment" })
+      );
+    });
+
+    it("leaves the item unassigned when the project has no members", async () => {
+      feedbackRepo.findById.mockResolvedValue(investigatingItem);
+      feedbackRepo.update.mockResolvedValue({
+        ...investigatingItem,
+        supportStatus: SupportStatus.ESCALATED,
+      });
+      memberRepo.findMemberUsers.mockResolvedValue([]);
+
+      await service.escalate(supporter, "fb-1", "high");
+
+      expect(feedbackRepo.setAssignees).not.toHaveBeenCalled();
+      expect(notificationService.notifyFeedbackAssigned).not.toHaveBeenCalled();
     });
 
     it("notifies the product org's deduped recipients", async () => {

@@ -267,12 +267,14 @@ export class FeedbackCommentService {
       }
     } else {
       // Pre-escalation or a direct ticket — the other side is the true,
-      // unauthenticated submitter, who has no in-app inbox to notify.
+      // unauthenticated submitter, who has no in-app inbox to notify. Their
+      // reply-to identity stays "Support team" — individual staff names are
+      // internal, same as the in-app conversation view.
       sendFeedbackCommentEmail(
         fb.submitterEmail,
         fb.submitterName,
         ticketLabel(fb),
-        authorName,
+        "Support team",
         `${env.appUrl}/my-tickets`,
         project?.organizationId ?? null
       ).catch((e: Error) => console.error("[feedback] comment email failed:", e.message));

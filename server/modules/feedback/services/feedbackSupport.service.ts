@@ -339,14 +339,34 @@ export class FeedbackSupportService {
       .create({ feedbackId: fb.id, status: FeedbackStatus.LOGGED, enteredAt: escalatedAt })
       .catch((e: Error) => console.error("[support] history entry failed:", e.message));
 
-    const [project, company, supporter] = await Promise.all([
+    const [project, company, supporter, members] = await Promise.all([
       this.projectRepo.findById(fb.projectId),
       this.companyRepo.findById(fb.clientCompanyId as string),
       this.authRepo.findUserById(actor.id),
+      this.memberRepo.findMemberUsers(fb.projectId),
     ]);
     const escalatedByName = supporter
       ? [supporter.firstName, supporter.lastName].filter(Boolean).join(" ")
       : "IT support";
+
+    // Same courtesy the IT tier gets on a new item — auto-assign to whoever
+    // on the product team currently has the lightest load, so an escalated
+    // ticket lands on someone's desk immediately instead of sitting unclaimed
+    // in the whole team's queue. A manager can still reassign it afterward.
+    const assignee = await this.pickLeastBusyMember(fb.projectId, members);
+    if (assignee && updated) {
+      await this.feedbackRepo.setAssignees(updated, [assignee]);
+      this.notificationService
+        .notifyFeedbackAssigned([assignee], {
+          feedbackId: fb.id,
+          projectId: fb.projectId,
+          projectName: project?.name ?? "",
+          title: ticketLabel(fb),
+          assignedByName: "Auto-assignment",
+          organizationId: project?.organizationId ?? null,
+        })
+        .catch((e: Error) => console.error("[support] escalation auto-assign notify failed:", e.message));
+    }
 
     // IT-tier timeline entry + "escalated to the product team" email to the
     // end user — the last update they get directly; IT relays from here on.
@@ -372,9 +392,8 @@ export class FeedbackSupportService {
       project?.organizationId
         ? this.authRepo.findByRoleAndOrg(UserRole.ADMIN, project.organizationId)
         : Promise.resolve([]),
-      this.memberRepo.findMemberUsers(fb.projectId),
     ])
-      .then(([orgAdmins, members]: any[]) => {
+      .then(([orgAdmins]: any[]) => {
         const recipients = [
           ...new Map(
             [...orgAdmins, ...members].map((u: any) => [u.id, u])
@@ -531,6 +550,26 @@ export class FeedbackSupportService {
         candidates = [s];
       } else if (c === min) {
         candidates.push(s);
+      }
+    }
+    return candidates[Math.floor(Math.random() * candidates.length)];
+  }
+
+  // Same idea as pickLeastBusySupporter, but for the product team — used to
+  // auto-assign a freshly-escalated item so it lands on someone's desk
+  // immediately instead of sitting unclaimed in the whole team's queue.
+  private async pickLeastBusyMember(projectId: string, members: any[]): Promise<any | null> {
+    if (!members.length) return null;
+    const counts = await this.feedbackRepo.countOpenByAssignee(projectId);
+    let min = Infinity;
+    let candidates: any[] = [];
+    for (const m of members) {
+      const c = counts[m.id] ?? 0;
+      if (c < min) {
+        min = c;
+        candidates = [m];
+      } else if (c === min) {
+        candidates.push(m);
       }
     }
     return candidates[Math.floor(Math.random() * candidates.length)];

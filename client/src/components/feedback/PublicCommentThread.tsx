@@ -114,8 +114,10 @@ export function PublicCommentThread({ feedbackId, onSubmit }: Props) {
             {comments.map((c) => (
               <div key={c.id} className="rounded-lg border bg-muted/30 p-3">
                 <div className="flex items-center gap-2">
+                  {/* Individual staff names stay internal — the submitter only
+                      ever sees "Support team", never who specifically replied. */}
                   <span className="text-sm font-medium">
-                    {c.authorType === "submitter" ? "You" : c.authorName}
+                    {c.authorType === "submitter" ? "You" : "Support team"}
                   </span>
                   <Badge variant={c.authorType === "submitter" ? "outline" : "secondary"} className="text-[10px]">
                     {c.authorType === "submitter" ? "You" : "Support"}
