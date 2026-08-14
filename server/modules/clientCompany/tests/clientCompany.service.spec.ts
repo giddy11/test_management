@@ -819,10 +819,12 @@ describe("ClientCompanyService", () => {
     const payload = {
       projectId: "proj-1",
       name: "Acme Corp",
+      supporter: { firstName: "Sam", lastName: "Support", email: "sam@client.co" },
     };
 
-    it("creates only the client company — no IT support account", async () => {
+    it("creates the client company and its first IT support account together", async () => {
       companyRepo.create.mockResolvedValue({ ...company, id: "cc-9", name: "Acme Corp" });
+      userRepo.create.mockImplementation(async (d: any) => ({ id: "u-9", ...d }));
 
       const result = await service.provisionCompany(payload);
 
@@ -830,7 +832,15 @@ describe("ClientCompanyService", () => {
       expect(companyRepo.create).toHaveBeenCalledWith(
         expect.objectContaining({ projectId: "proj-1", name: "Acme Corp" })
       );
-      expect(userRepo.create).not.toHaveBeenCalled();
+      expect(userRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          email: "sam@client.co",
+          role: UserRole.IT_SUPPORT,
+          clientCompanyId: "cc-9",
+          isSupportLead: true,
+          isPrimarySupportLead: true,
+        })
+      );
       expect(result).toEqual({ company: expect.objectContaining({ id: "cc-9" }) });
     });
 
@@ -848,6 +858,21 @@ describe("ClientCompanyService", () => {
         service.provisionCompany({ ...payload, contactEmail: "taken@b.com" })
       ).rejects.toMatchObject({ statusCode: 409 });
       expect(companyRepo.create).not.toHaveBeenCalled();
+    });
+
+    it("409s when the supporter email is already taken, before creating the company", async () => {
+      userRepo.findByEmail.mockResolvedValue({ id: "user-9" });
+
+      await expect(service.provisionCompany(payload)).rejects.toMatchObject({ statusCode: 409 });
+      expect(companyRepo.create).not.toHaveBeenCalled();
+    });
+
+    it("rolls the company back if creating the supporter fails", async () => {
+      companyRepo.create.mockResolvedValue({ ...company, id: "cc-9", name: "Acme Corp" });
+      userRepo.create.mockRejectedValue(new Error("boom"));
+
+      await expect(service.provisionCompany(payload)).rejects.toThrow("boom");
+      expect(companyRepo.softDelete).toHaveBeenCalledWith("cc-9");
     });
   });
 });

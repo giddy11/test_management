@@ -6,6 +6,7 @@ import {
   Activity,
   BookOpen,
   Bug,
+  Building2,
   CircleHelp,
   FileText,
   FolderKanban,
@@ -13,6 +14,7 @@ import {
   LayoutDashboard,
   Lightbulb,
   Megaphone,
+  MessageCircle,
   MessageSquare,
   PlayCircle,
   Rocket,
@@ -35,6 +37,10 @@ import shotTeam from "@/assets/docs/team.png"
 import shotAnnouncements from "@/assets/docs/announcements.png"
 import shotActivity from "@/assets/docs/activity.png"
 import shotSettings from "@/assets/docs/settings.png"
+import shotClientCompanies from "@/assets/docs/client-companies.png"
+import shotSupportQueue from "@/assets/docs/support-queue.png"
+import shotLiveChat from "@/assets/docs/live-chat.png"
+import shotLiveChatWidget from "@/assets/docs/live-chat-widget.png"
 
 export interface DocSection {
   id: string
@@ -69,12 +75,18 @@ function Strong({ children }: { children: ReactNode }) {
 /**
  * Screenshot slot. Renders a placeholder until a real capture is supplied:
  * import the image and pass it as `src` — the caption stays as the alt text.
+ * Pass `narrow` for portrait captures (e.g. the chat widget), which would be
+ * absurdly tall stretched to the full column width.
  */
-function Screenshot({ caption, src }: { caption: string; src?: string }) {
+function Screenshot({ caption, src, narrow }: { caption: string; src?: string; narrow?: boolean }) {
   if (src) {
     return (
       <figure className="my-4">
-        <img src={src} alt={caption} className="w-full rounded-lg border shadow-sm" />
+        <img
+          src={src}
+          alt={caption}
+          className={`rounded-lg border shadow-sm ${narrow ? "mx-auto w-full max-w-72" : "w-full"}`}
+        />
         <figcaption className="mt-2 text-center text-xs text-muted-foreground">{caption}</figcaption>
       </figure>
     )
@@ -157,8 +169,9 @@ const ALL_SECTIONS: DocSection[] = [
         </UL>
         <P>
           Around that core, TestMate adds bug tracking, feature requests with voting and comments, a
-          public ticket portal for external users, team management, an activity log, and a
-          dashboard that rolls all of it up.
+          public ticket portal for external users, a live chat widget you can embed on your own
+          website, a two-tier support model for client companies with their own IT desk, team
+          management, an activity log, and a dashboard that rolls all of it up.
         </P>
         <Screenshot caption="TestMate at a glance — the dashboard after signing in" src={shotDashboard} />
       </div>
@@ -213,10 +226,10 @@ const ALL_SECTIONS: DocSection[] = [
     id: "roles",
     title: "Roles & permissions",
     icon: ShieldCheck,
-    summary: "Company Admin and User — who sees what.",
+    summary: "Company Admin, User, and IT Support — who sees what.",
     body: (
       <div className="space-y-4">
-        <P>TestMate has two roles:</P>
+        <P>Your organisation’s own people hold one of two roles:</P>
         <UL>
           <li>
             <Strong>User</Strong> — works on testing: sees the dashboard and the projects they are
@@ -224,7 +237,21 @@ const ALL_SECTIONS: DocSection[] = [
           </li>
           <li>
             <Strong>Company Admin</Strong> — everything a User can do, plus managing the team,
-            viewing the organisation-wide activity log, and administrative views on the dashboard.
+            managing client companies, viewing the organisation-wide activity log, and
+            administrative views on the dashboard.
+          </li>
+        </UL>
+        <P>
+          There is a third role for people <Strong>outside</Strong> your organisation:
+        </P>
+        <UL>
+          <li>
+            <Strong>IT Support</Strong> — a supporter account belonging to one of your{" "}
+            <a href="#client-companies" className="font-medium text-primary hover:underline">
+              client companies
+            </a>
+            . They never see your projects, tests, or dashboard — only their own company’s ticket
+            queue, where they triage their users’ tickets and escalate what they can’t fix to you.
           </li>
         </UL>
         <Screenshot caption="The sidebar navigation, with the role preview menu open" src={shotRoles} />
@@ -306,15 +333,29 @@ const ALL_SECTIONS: DocSection[] = [
           </li>
         </OL>
         <H3>Inside a project</H3>
-        <P>A project’s detail page is organised into five tabs:</P>
-        <Screenshot caption="A project's detail page with its five tabs" src={shotProjects} />
+        <P>A project’s detail page is organised into six tabs:</P>
+        <Screenshot caption="A project's detail page and its tabs" src={shotProjects} />
         <UL>
           <li><Strong>Test Suites</Strong> — the suites and cases that make up your test plan.</li>
           <li><Strong>Test Runs</Strong> — executions of those suites.</li>
           <li><Strong>Feature Requests</Strong> — ideas and improvements, with voting and comments.</li>
           <li><Strong>Bug Fixes</Strong> — reported bugs and their lifecycle.</li>
-          <li><Strong>Tickets</Strong> — submissions from the public ticket portal.</li>
+          <li>
+            <Strong>Tickets</Strong> — submissions from the public ticket portal, plus the
+            project’s public form link and its client companies.
+          </li>
+          <li>
+            <Strong>Live Chat</Strong> — the operator inbox for the embeddable chat widget, and
+            (for admins) the widget’s settings.
+          </li>
         </UL>
+        <P>
+          The <Strong>Project ID</Strong> shown under the project name is what the{" "}
+          <a href="#company-provisioning" className="font-medium text-primary hover:underline">
+            provisioning API
+          </a>{" "}
+          uses to identify this project.
+        </P>
       </div>
     ),
   },
@@ -511,6 +552,15 @@ const ALL_SECTIONS: DocSection[] = [
           assigned to a team member, and the report tracks who reported it and when each status
           change happened.
         </P>
+        <H3>Reference codes &amp; shareable links</H3>
+        <P>
+          Every bug gets a human-readable reference code like <Code>BF-20260728-014</Code> — the
+          date it was reported plus its number in a single running sequence. Quote it in standups,
+          commit messages, or chat instead of a long id. The <Strong>Copy link</Strong> button on a
+          bug copies a permalink built from that code (
+          <Code>/projects/…/bugs/ref/BF-20260728-014</Code>), so the link stays readable and keeps
+          working. Feature requests work the same way with an <Code>FR-</Code> prefix.
+        </P>
       </div>
     ),
   },
@@ -541,6 +591,14 @@ const ALL_SECTIONS: DocSection[] = [
           (or <Chip className={chipZinc}>Rejected</Chip>), optionally attaching an{" "}
           <Strong>admin response</Strong> explaining the decision.
         </P>
+        <H3>Reference codes &amp; shareable links</H3>
+        <P>
+          Each request carries a reference code like <Code>FR-20260728-014</Code>, and{" "}
+          <Strong>Copy link</Strong> gives you a permalink built from it (
+          <Code>/projects/…/feature-requests/ref/FR-20260728-014</Code>) — readable enough to paste
+          into a roadmap doc or a chat message. Bugs use the same scheme with a <Code>BF-</Code>{" "}
+          prefix.
+        </P>
       </div>
     ),
   },
@@ -564,7 +622,13 @@ const ALL_SECTIONS: DocSection[] = [
           area it relates to, their name, email, optional phone number, and optional screenshots.
         </P>
         <Screenshot caption="The public ticket form external users see" src={shotFeedbackPortal} />
-        <H3>Lifecycle & email updates</H3>
+        <H3>Ticket codes</H3>
+        <P>
+          Every submission gets a reference code like <Code>TKT-20260728-042</Code> — the date it
+          was raised plus its number in a running sequence. It’s shown to your team and to the
+          submitter, so both sides can refer to the same ticket unambiguously.
+        </P>
+        <H3>Lifecycle &amp; email updates</H3>
         <P>
           Submissions land in the project’s Tickets tab where your team manages them through{" "}
           <Chip className={chipSlate}>Logged</Chip> → <Chip className={chipBlue}>Acknowledged</Chip>{" "}
@@ -579,6 +643,216 @@ const ALL_SECTIONS: DocSection[] = [
           or to reopen it with a reason if it isn’t. Tickets can be assigned to team members, and a
           timeline shows how long it spent in each stage.
         </P>
+        <H3>Talking to the submitter</H3>
+        <P>
+          Each ticket has a <Strong>conversation thread</Strong> that both sides can post to. Your
+          team replies from the ticket’s dialog; the submitter replies from their confirmation link
+          or from “My tickets” (below) — no account needed either way. Messages appear{" "}
+          <Strong>in realtime</Strong> on both sides, and either side can attach up to five files
+          per message (images, PDF, Word, Excel; 10 MB each) — handy for asking a customer for a log
+          file or a screenshot.
+        </P>
+        <H3>“My tickets” — self-service status lookup</H3>
+        <P>
+          Submitters can check on everything they’ve ever raised at <Code>/my-tickets</Code>. They
+          enter the email they submitted with, receive a 6-digit code by email, and see all their
+          tickets across every project and company. From there they can read the conversation,
+          reply, confirm or reopen a fix, raise another ticket for the same product, and — once a
+          ticket is resolved — leave a <Strong>1–5 star rating</Strong> of the support they got. The
+          code stays valid for a while, so they don’t need a new one on every visit.
+        </P>
+        <P>
+          Their view deliberately hides your internal triage detail: statuses collapse to{" "}
+          <Chip className={chipSlate}>Received</Chip> <Chip className={chipAmber}>In progress</Chip>{" "}
+          <Chip className={chipBlue}>Awaiting your confirmation</Chip> and{" "}
+          <Chip className={chipGreen}>Resolved</Chip>. A ticket only reads as resolved to them once
+          they have confirmed it themselves.
+        </P>
+        <H3>Tickets across every project</H3>
+        <P>
+          <Strong>All tickets</Strong> in the sidebar is the same list without the per-project
+          clicking — every ticket from every project you can see, filterable by project, status,
+          type, and free-text search. Tickets still sitting in a client company’s own IT queue don’t
+          appear here until that company escalates them (see{" "}
+          <a href="#client-companies" className="font-medium text-primary hover:underline">
+            Client companies &amp; IT support
+          </a>
+          ).
+        </P>
+      </div>
+    ),
+  },
+  {
+    id: "client-companies",
+    title: "Client companies & IT support",
+    icon: Building2,
+    summary: "Give a customer's own IT desk the first pass at their users' tickets.",
+    body: (
+      <div className="space-y-4">
+        <P>
+          If your product is used by other organisations, you probably don’t want every one of their
+          end users filing tickets straight into your queue. A <Strong>client company</Strong> is
+          one of those customer organisations, with its own <Strong>IT support</Strong> accounts who
+          triage their users’ tickets first — and escalate to you only what they can’t resolve
+          themselves.
+        </P>
+        <Screenshot
+          caption="The client companies card on a project's Tickets tab"
+          src={shotClientCompanies}
+        />
+        <H3>Adding a client company</H3>
+        <P>
+          Admins manage client companies from the project’s <Strong>Tickets</Strong> tab. Adding one
+          asks for the company name, an optional contact email, and the details of its{" "}
+          <Strong>first IT supporter</Strong> (name, email, password) — that account is created at
+          the same time and automatically becomes the company’s <Strong>primary lead</Strong>. They
+          get an invite email with their sign-in details, and their email is already verified, so
+          they can sign in right away.
+        </P>
+        <P>
+          Each company gets <Strong>its own ticket form link</Strong>, enabled from the moment it’s
+          created. Submissions through that link go to <Strong>that company’s</Strong> queue, not
+          yours — unlike the project-level link, whose submissions come straight to you.
+        </P>
+        <H3>Supporters and leads</H3>
+        <P>
+          Beyond that first account, a company manages its own roster: its{" "}
+          <Strong>IT support lead</Strong> uses <Strong>Manage my team</Strong> in their portal to
+          add, remove, and promote supporters. Your admins can only step in to bootstrap a company
+          that has no supporters at all — the ordinary roster is the customer’s own business. A few
+          guardrails apply:
+        </P>
+        <UL>
+          <li>A company with supporters must always have at least one lead — demote or remove the last one and TestMate asks you to promote someone first.</li>
+          <li>Leads can’t remove themselves or change their own lead status — that’s how someone locks themselves out.</li>
+          <li>The <Strong>primary lead</Strong> can only be changed or removed by a TestMate admin, not by a peer lead.</li>
+          <li>A company must have zero supporters before it can be deleted.</li>
+        </UL>
+        <H3>The ticket queue</H3>
+        <P>
+          Signing in as an IT supporter lands on <Strong>Ticket queue</Strong> instead of the
+          dashboard — their company’s tickets only, with tabs per stage and filters by type and
+          assignee. The workflow is strictly sequential, and{" "}
+          <Strong>the end user is emailed at every stage change</Strong>:
+        </P>
+        <P>
+          <Chip className={chipSlate}>Logged</Chip> → <Chip className={chipBlue}>Acknowledged</Chip>{" "}
+          → <Chip className={chipAmber}>Investigating</Chip>, and from Investigating only, either{" "}
+          <Chip className={chipGreen}>Resolved locally</Chip> (a note is required and is emailed to
+          the submitter, who is then asked to confirm) or{" "}
+          <Chip className={chipViolet}>Escalated</Chip> to your product team.
+        </P>
+        <UL>
+          <li>
+            A ticket must be <Strong>assigned to a supporter before it can be acknowledged</Strong>{" "}
+            — nobody is on the hook for an unclaimed ticket.
+          </li>
+          <li>
+            Leads can act on anything in their queue and assign work to teammates; a non-lead
+            supporter can only act on tickets assigned to them.
+          </li>
+          <li>
+            <Strong>Auto-assign</Strong> (off by default, switched on by the company’s lead) routes
+            each new ticket straight to the least-busy supporter and notifies only them, instead of
+            alerting the whole queue.
+          </li>
+        </UL>
+        <Screenshot caption="An IT supporter's ticket queue" src={shotSupportQueue} />
+        <H3>Escalation, and what you see</H3>
+        <P>
+          Escalating asks for a <Strong>severity</Strong> (<Chip className={chipSlate}>Low</Chip>{" "}
+          <Chip className={chipBlue}>Medium</Chip> <Chip className={chipAmber}>High</Chip>{" "}
+          <Chip className={chipRed}>Critical</Chip>) telling your team how urgent it is, plus an
+          optional note that stays internal — the submitter never sees it. Escalation can’t be
+          undone.
+        </P>
+        <P>
+          Only escalated tickets reach your project’s Tickets tab and the All tickets list; you then
+          work them through the normal ticket lifecycle. The supporter keeps watching your progress
+          from their own queue. Once you close the ticket, they get a{" "}
+          <Strong>Notify submitter — it’s fixed</Strong> action to relay the news in their own words:
+          the end user hears from the IT desk they contacted, not from a system they’ve never used.
+        </P>
+        <P>
+          After escalation the ticket’s conversation thread becomes three-way — the submitter, the
+          escalating company’s IT support, and your product team all post to the same thread, each
+          badged so it’s clear who is speaking.
+        </P>
+      </div>
+    ),
+  },
+  {
+    id: "live-chat",
+    title: "Live chat widget",
+    icon: MessageCircle,
+    summary: "Embed a chat widget on your own site and answer from inside TestMate.",
+    body: (
+      <div className="space-y-4">
+        <P>
+          Live chat is for the conversations that shouldn’t become tickets — a visitor on your
+          marketing site or in your product with a quick question. You embed a widget on your own
+          website; your team answers from the project’s <Strong>Live Chat</Strong> tab.
+        </P>
+        <H3>Turning it on</H3>
+        <OL>
+          <li>
+            Open the project’s <Strong>Live Chat</Strong> tab and click{" "}
+            <Strong>Enable live chat</Strong> (admins only).
+          </li>
+          <li>
+            Copy the embed snippet and paste it into your site’s HTML, just before{" "}
+            <Code>&lt;/body&gt;</Code>:
+          </li>
+        </OL>
+        <CodeBlock>{`<script async
+  src="https://<your-domain>/live-chat-widget.js"
+  data-token="<your widget token>"></script>`}</CodeBlock>
+        <P>
+          That’s the whole integration. The script adds a floating launcher and renders the chat in
+          an isolated iframe, so it can’t collide with your site’s own styles or scripts — and it
+          goes fullscreen on small screens. <Strong>Disable</Strong> revokes the token and takes the
+          widget down everywhere it’s embedded.
+        </P>
+        <Screenshot
+          caption="What a visitor sees when they open the widget on your site"
+          src={shotLiveChatWidget}
+          narrow
+        />
+        <H3>Widget settings</H3>
+        <Screenshot caption="The widget's embed snippet and settings" src={shotLiveChat} />
+        <UL>
+          <li><Strong>Display name</Strong> — the name at the top of the widget (defaults to the project name).</li>
+          <li><Strong>Brand color</Strong> — matches the widget to your site.</li>
+          <li><Strong>Greeting message</Strong> — the first thing a visitor reads.</li>
+          <li><Strong>Offline message</Strong> — shown when nobody is around to answer.</li>
+          <li>
+            <Strong>Require a TestMate account to chat</Strong> — off by default. When off, visitors
+            fill in a short pre-chat form (email required; name and phone optional) and start
+            typing. When on, they log in or sign up first, which lets them pick their conversation
+            back up from any device.
+          </li>
+        </UL>
+        <H3>Answering from the inbox</H3>
+        <P>
+          Below the settings, the tab is a two-pane inbox: conversations on the left with unread
+          badges and the visitor’s last message, the live thread on the right. Anyone on the project
+          can read and reply; admins additionally see the settings card.
+        </P>
+        <UL>
+          <li>
+            Conversations move through <Chip className={chipSlate}>New</Chip>{" "}
+            <Chip className={chipAmber}>In progress</Chip> <Chip className={chipGreen}>Resolved</Chip>{" "}
+            <Chip className={chipZinc}>Closed</Chip> — the first two are set automatically as the
+            conversation gets going, the last two by you. A closed conversation can be reopened.
+          </li>
+          <li>
+            <Strong>Assign to me</Strong> claims a conversation so teammates know it’s covered;
+            unassign to hand it back.
+          </li>
+          <li>
+            Replies are realtime in both directions, and messages can carry file attachments.
+          </li>
+        </UL>
       </div>
     ),
   },
@@ -593,8 +867,11 @@ const ALL_SECTIONS: DocSection[] = [
           Setting up a new client company by hand is fine for a handful of companies, but doesn't
           scale if your own product signs up new customers on its own. This{" "}
           <Strong>server-to-server</Strong> endpoint lets your backend call TestMate the moment
-          one of your customers registers, creating the <Strong>client company</Strong> record
-          immediately.
+          one of your customers registers, creating the{" "}
+          <a href="#client-companies" className="font-medium text-primary hover:underline">
+            client company
+          </a>{" "}
+          record immediately.
         </P>
         <P>
           This endpoint takes no API key — the request identifies its target project directly
@@ -608,17 +885,27 @@ const ALL_SECTIONS: DocSection[] = [
   -d '{
     "projectId": "<project id>",
     "name": "Acme Corp",
-    "contactEmail": "billing@acme.com"
+    "contactEmail": "billing@acme.com",
+    "supporter": {
+      "firstName": "Jamie",
+      "lastName": "Ops",
+      "email": "jamie@acme.com"
+    }
   }'`}</CodeBlock>
         <P>
-          <Code>contactEmail</Code> is optional. This call creates only the company record — it
-          doesn't create any IT support account for it. Add its first supporter afterward as a
-          separate, explicit step: a TestMate admin uses the company's <Strong>Supporters</Strong>{" "}
-          panel (or <Code>POST /api/v1/client-companies/:id/supporters</Code>, authenticated) to
-          create that account, same as any other client company.
+          <Code>contactEmail</Code> is optional; <Code>supporter</Code> isn't — same as the in-app
+          "Add client company" flow, the company's first IT support account (its primary lead) is
+          created in the same call, so there's no window where the company's tickets sit in a queue
+          nobody can see. There's no <Code>password</Code> field: your backend isn't a human
+          choosing one, so TestMate generates one and emails it to <Code>supporter.email</Code> via
+          the usual invite. The company's ticket form link is enabled immediately, and the response
+          includes the new <Code>company</Code>.
         </P>
         <P>
-          The response includes the new <Code>company</Code>.
+          Need more than one supporter, or to add one later? Use the company's{" "}
+          <Strong>Supporters</Strong> panel (or{" "}
+          <Code>POST /api/v1/client-companies/:id/supporters</Code>, authenticated) — same as any
+          other client company.
         </P>
         <H3>Security notes</H3>
         <UL>
@@ -691,7 +978,7 @@ const ALL_SECTIONS: DocSection[] = [
     id: "settings",
     title: "Settings",
     icon: Settings,
-    summary: "Profile, security, guided tours, and theme.",
+    summary: "Profile, security, notifications, guided tours, and theme.",
     body: (
       <div className="space-y-4">
         <UL>
@@ -705,11 +992,17 @@ const ALL_SECTIONS: DocSection[] = [
             <Strong>Help</Strong> — replay the interactive <Strong>guided tours</Strong> that walk
             you through key workflows step by step. Some tours need at least one project to exist.
           </li>
+          <li>
+            <Strong>Notifications</Strong> — turn the <Strong>alert sound</Strong> on or off. It
+            plays when a new notification or support chat message arrives; the setting follows your
+            account, not the browser.
+          </li>
         </UL>
         <P>
           The <Strong>theme toggle</Strong> in the top-right corner of the app (and of this page)
           switches between light, dark, and system themes. Notifications arrive under the{" "}
-          <Strong>bell icon</Strong> in the header.
+          <Strong>bell icon</Strong> in the header, and the floating <Strong>support chat</Strong>{" "}
+          button lets you message the TestMate team without leaving the app.
         </P>
         <Screenshot caption="Settings — profile, security, and help tabs" src={shotSettings} />
       </div>
@@ -743,6 +1036,36 @@ const ALL_SECTIONS: DocSection[] = [
             email updates as their ticket progresses. See{" "}
             <a href="#feedback-portal" className="font-medium text-primary hover:underline">
               Public ticket portal
+            </a>.
+          </P>
+        </div>
+        <div>
+          <H3>Someone raised a ticket and wants to check on it — do they need an account?</H3>
+          <P>
+            No. Point them at <Code>/my-tickets</Code>: they enter the email they submitted with,
+            get a 6-digit code by email, and can then see every ticket they’ve raised, reply in the
+            conversation, and confirm or reopen a fix.
+          </P>
+        </div>
+        <div>
+          <H3>A customer’s tickets aren’t showing up in my project. Why?</H3>
+          <P>
+            If they submitted through a <Strong>client company’s</Strong> form link, their tickets
+            go to that company’s own IT support queue first. You only see them once that team
+            escalates. See{" "}
+            <a href="#client-companies" className="font-medium text-primary hover:underline">
+              Client companies &amp; IT support
+            </a>.
+          </P>
+        </div>
+        <div>
+          <H3>Should I use live chat or the ticket form?</H3>
+          <P>
+            Live chat suits quick, conversational questions from visitors on your own site and
+            leaves no lifecycle behind. The ticket form suits anything that needs tracking to a
+            resolution — it gets a code, a status, email updates, and a confirmation step. See{" "}
+            <a href="#live-chat" className="font-medium text-primary hover:underline">
+              Live chat widget
             </a>.
           </P>
         </div>
@@ -782,7 +1105,8 @@ const group = (label: string, ids: string[]): DocGroup => ({
 export const DOC_GROUPS: DocGroup[] = [
   group("Getting started", ["introduction", "getting-started", "roles"]),
   group("Core testing workflow", ["dashboard", "projects", "suites-and-cases", "test-runs"]),
-  group("Tracking & tickets", ["bugs", "feature-requests", "feedback-portal", "company-provisioning"]),
+  group("Tracking & tickets", ["bugs", "feature-requests", "feedback-portal"]),
+  group("Support & live chat", ["client-companies", "live-chat", "company-provisioning"]),
   group("Administration", ["team", "activity"]),
   group("Help", ["announcements", "settings", "faq"]),
 ]

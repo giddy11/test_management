@@ -75,14 +75,20 @@ export const createSupporterSchema = z.object({
 
 // Server-to-server company provisioning — unauthenticated, so the caller
 // identifies the target project directly instead of via a resolved key.
-// Creates only the ClientCompany record — its first IT support account is a
-// separate, explicit step (see createSupporterSchema); unlike the in-app
-// flow, there's no human here to supply the first supporter's details.
+// Creates the ClientCompany record and its first IT support account (its
+// primary lead) together, same as the in-app flow — but no password field:
+// the partner's backend isn't a human choosing one, so one is generated
+// server-side and emailed to the supporter via the usual invite.
 export const integrationProvisionCompanySchema = z.object({
   body: z.object({
     projectId: z.string().uuid(),
     name: z.string().min(1).max(200),
     contactEmail: z.string().email().max(255).optional(),
+    supporter: z.object({
+      firstName: z.string().min(1).max(100),
+      lastName: z.string().min(1).max(100),
+      email: z.string().email(),
+    }),
   }),
 });
 

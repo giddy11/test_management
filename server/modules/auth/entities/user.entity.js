@@ -32,7 +32,6 @@ const User = new EntitySchema({
     email: {
       type: "varchar",
       length: 255,
-      unique: true,
     },
     isEmailVerified: {
       name: "is_email_verified",
@@ -156,7 +155,9 @@ const User = new EntitySchema({
     },
   },
   indices: [
-    { name: "idx_users_email", columns: ["email"], unique: true },
+    // Partial: only active users. A removed user's email must be reusable
+    // (e.g. re-adding a client company supporter with the same address).
+    { name: "idx_users_email", columns: ["email"], unique: true, where: `"deleted_at" IS NULL` },
     { name: "idx_users_google_id", columns: ["googleId"] },
     { name: "idx_users_organization_id", columns: ["organizationId"] },
     { name: "idx_users_client_company_id", columns: ["clientCompanyId"] },

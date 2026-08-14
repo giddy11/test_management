@@ -13,7 +13,7 @@ const { UserRepository } = require("../../user/repositories/user.repository");
 const { ActivityService } = require("../../activity/services/activity.service");
 const { AppError } = require("../../../shared/errors/AppError");
 const { UserRole, AuthProvider } = require("../../../config/constants");
-const { hashPassword } = require("../../../shared/utils/password");
+const { hashPassword, generateTempPassword } = require("../../../shared/utils/password");
 const { sendSupporterInviteEmail } = require("../../../shared/utils/mail/support.mail");
 const { env } = require("../../../config/env");
 
@@ -122,7 +122,29 @@ export class ClientCompanyService {
       projectId,
       name: data.name,
       contactEmail: data.contactEmail ?? null,
+      // Ticket form is on from the start — no reason to make an admin take a
+      // second step to enable it right after creating the company.
+      feedbackToken: randomUUID(),
     });
+
+    // The company's very first supporter is automatically its primary lead —
+    // there's no one else yet to defer to. If this fails (e.g. a duplicate
+    // email that slipped past the check above in a race), roll the company
+    // back too — otherwise it's left dangling with no supporters, which
+    // permanently blocks its contact email on every retry.
+    try {
+      await this.createSupporterAccount(
+        actor,
+        company,
+        project,
+        { ...data.supporter, isSupportLead: true },
+        true
+      );
+    } catch (e) {
+      await this.companyRepo.softDelete(company.id);
+      throw e;
+    }
+
     ActivityService.Instance.log(actor, {
       action: "client_company.created",
       summary: `Added client company "${company.name}" to project "${project.name}"`,
@@ -131,16 +153,6 @@ export class ClientCompanyService {
       clientCompanyId: company.id,
       metadata: { projectId },
     });
-
-    // The company's very first supporter is automatically its primary lead —
-    // there's no one else yet to defer to.
-    await this.createSupporterAccount(
-      actor,
-      company,
-      project,
-      { ...data.supporter, isSupportLead: true },
-      true
-    );
 
     return company;
   }
@@ -204,16 +216,16 @@ export class ClientCompanyService {
 
   // ── Server-to-server company provisioning (no auth — see route comment) ────
   // A partner's own backend calls this the moment one of their customers signs
-  // up, so no TestMate admin has to add the client company by hand. Creates
-  // only the ClientCompany record — unlike createCompany (the in-app flow),
-  // there's no human here to supply a first supporter's details, so that
-  // stays a separate, explicit step via createSupporter. No actor here —
-  // this is machine traffic, so there's no activity log entry (no human to
-  // attribute it to).
+  // up, so no TestMate admin has to add the client company (or its first
+  // supporter) by hand — same all-or-nothing pairing as createCompany, just
+  // with no human actor to attribute it to (ActivityService.log tolerates a
+  // null actor) and a server-generated password in place of one a human
+  // would type into the in-app form.
   async provisionCompany(data: {
     projectId: string;
     name: string;
     contactEmail?: string | null;
+    supporter: { firstName: string; lastName: string; email: string };
   }) {
     const project = await this.projectRepo.findById(data.projectId);
     if (!project || project.deletedAt) throw new AppError("Project not found", 404);
@@ -221,12 +233,30 @@ export class ClientCompanyService {
     if (data.contactEmail) {
       await this.assertContactEmailAvailable(data.contactEmail);
     }
+    const existingSupporter = await this.userRepo.findByEmail(data.supporter.email);
+    if (existingSupporter) throw new AppError("An account with this email already exists", 409);
 
     const company = await this.companyRepo.create({
       projectId: project.id,
       name: data.name,
       contactEmail: data.contactEmail ?? null,
+      feedbackToken: randomUUID(),
     });
+
+    // Mirrors createCompany's rollback: a failed supporter insert must not
+    // leave a supporter-less company dangling behind it.
+    try {
+      await this.createSupporterAccount(
+        null,
+        company,
+        project,
+        { ...data.supporter, password: generateTempPassword(), isSupportLead: true },
+        true
+      );
+    } catch (e) {
+      await this.companyRepo.softDelete(company.id);
+      throw e;
+    }
 
     return { company };
   }
@@ -240,17 +270,24 @@ export class ClientCompanyService {
 
   // Same recipe as UserService.createUser, but the account is an it_support
   // user tied to the client company; companyName shows THEIR company. Shared
-  // by createSupporter (explicit "add a supporter" action) and createCompany
-  // (the company's automatic first supporter).
+  // by createSupporter (explicit "add a supporter" action), createCompany
+  // (the company's automatic first supporter) and provisionCompany (same,
+  // but with no human actor — actor is null and ActivityService.log handles
+  // that).
   private async createSupporterAccount(
-    actor: Actor,
+    actor: Actor | null,
     company: ClientCompany,
-    project: { name: string },
+    project: { name: string; organizationId?: string | null },
     data: { firstName: string; lastName: string; email: string; password: string; isSupportLead?: boolean },
     isPrimarySupportLead: boolean
   ) {
     const existing = await this.userRepo.findByEmail(data.email);
     if (existing) throw new AppError("An account with this email already exists", 409);
+
+    // Prefer the acting admin's org; falls back to the project's own when
+    // there's no actor (provisionCompany) so the record still lands under
+    // the right organisation.
+    const organizationId = actor?.organizationId ?? project.organizationId ?? null;
 
     const user = await this.userRepo.create({
       firstName: data.firstName,
@@ -259,10 +296,10 @@ export class ClientCompanyService {
       password: await hashPassword(data.password),
       role: UserRole.IT_SUPPORT,
       companyName: company.name,
-      organizationId: actor.organizationId ?? null,
+      organizationId,
       clientCompanyId: company.id,
       provider: AuthProvider.LOCAL,
-      isEmailVerified: true, // created by an admin — no self-verification needed
+      isEmailVerified: true, // created on their behalf — no self-verification needed
       isSupportLead: data.isSupportLead ?? false,
       isPrimarySupportLead,
     });
@@ -274,7 +311,7 @@ export class ClientCompanyService {
       project.name,
       data.password,
       `${env.appUrl}/login`,
-      actor.organizationId ?? null
+      organizationId
     ).catch((e: Error) => console.error("[mailer] supporter invite failed:", e.message));
 
     ActivityService.Instance.log(actor, {
