@@ -118,6 +118,8 @@ class DashboardRepository {
        JOIN projects p ON r.project_id = p.id
        ${caseJoin}
        WHERE ${pScope}${caseScope}
+         AND EXISTS (SELECT 1 FROM test_cases live_tc
+                     WHERE live_tc.id = res.test_case_id AND live_tc.deleted_at IS NULL)
        GROUP BY COALESCE(res.status::text, 'pending')`,
       params
     );
@@ -263,6 +265,12 @@ class DashboardRepository {
       runFilters += ` AND r.status = $${filterParams.length}`;
     }
 
+    // Results whose test case was deleted can't be executed or labelled any
+    // more, so they're excluded here too — otherwise a run's totals here would
+    // disagree with the run detail page (see TestRunResultRepository.LIVE_CASE).
+    // In the JOIN, not the WHERE, so a run with no live results still lists.
+    const liveCaseJoin = ` AND EXISTS (SELECT 1 FROM test_cases live_tc WHERE live_tc.id = res.test_case_id AND live_tc.deleted_at IS NULL)`;
+
     // Optional assignee scope for the counts — applied in the results JOIN so
     // unassigned results become NULL and fall out of the aggregates.
     const dataParams = [...filterParams];
@@ -298,7 +306,7 @@ class DashboardRepository {
        JOIN projects p ON r.project_id = p.id
        LEFT JOIN test_suites ts ON ts.id = r.suite_id
        LEFT JOIN users u ON r.created_by_id = u.id
-       LEFT JOIN test_run_results res ON res.run_id = r.id${assigneeJoin}
+       LEFT JOIN test_run_results res ON res.run_id = r.id${liveCaseJoin}${assigneeJoin}
        WHERE ${pScope}${runFilters}
        GROUP BY r.id, p.name, ts.name, u.first_name, u.last_name
        ORDER BY r.created_at DESC

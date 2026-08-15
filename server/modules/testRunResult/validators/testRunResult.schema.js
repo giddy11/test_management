@@ -34,7 +34,8 @@ const fetchResultsSchema = z.object({
     page: z.coerce.number().int().min(1).default(1),
     limit: z.coerce.number().int().min(1).max(100).default(20),
     runId: z.string().uuid(),
-    status: z.enum(enums.resultStatus).optional(),
+    // "pending" = not yet executed (null status on the row).
+    status: z.enum([...enums.resultStatus, "pending"]).optional(),
     search: z.string().trim().min(1).max(200).optional(),
   }),
 });

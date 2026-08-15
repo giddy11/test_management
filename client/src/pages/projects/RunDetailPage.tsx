@@ -7,6 +7,13 @@ import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { SummaryBar } from "@/components/shared/SummaryBar"
 import { ResultRow } from "@/components/testmgmt/ResultRow"
 import { PageLoader } from "@/components/shared/PageLoader"
@@ -24,7 +31,9 @@ export default function RunDetailPage() {
   const [page, setPage] = useState(1)
   const [searchInput, setSearchInput] = useState("")
   const search = useDebounce(searchInput, 300)
-  const { data: runResults } = useResults(runId, { page, search: search || undefined })
+  // undefined = all statuses; "pending" = recorded as Not Run.
+  const [statusFilter, setStatusFilter] = useState<ResultStatus | "pending" | undefined>()
+  const { data: runResults } = useResults(runId, { page, search: search || undefined, status: statusFilter })
   const results = runResults?.data ?? []
   const meta = runResults?.meta
   const updateRun = useUpdateRun()
@@ -36,8 +45,8 @@ export default function RunDetailPage() {
 
   useEffect(() => setPage(1), [search])
 
-  // Clear selection when navigating pages or search results change
-  useEffect(() => { setSelected(new Set()) }, [page, search])
+  // Clear selection when navigating pages or the visible result set changes
+  useEffect(() => { setSelected(new Set()) }, [page, search, statusFilter])
 
   const allSelected = results.length > 0 && results.every((r) => selected.has(r.id))
   const someSelected = selected.size > 0
@@ -177,17 +186,40 @@ export default function RunDetailPage() {
         </Card>
       ) : null}
 
-      <Input
-        placeholder="Search test cases…"
-        value={searchInput}
-        onChange={(e) => setSearchInput(e.target.value)}
-        className="sm:max-w-xs"
-      />
+      {/* Filters */}
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+        <Input
+          placeholder="Search test cases…"
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
+          className="sm:max-w-xs"
+        />
+        <Select
+          value={statusFilter ?? "all"}
+          onValueChange={(v) => {
+            setStatusFilter(v === "all" ? undefined : (v as ResultStatus | "pending"))
+            setPage(1)
+          }}
+        >
+          <SelectTrigger className="sm:w-[160px]" data-cy="result-status-filter">
+            <SelectValue placeholder="Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All statuses</SelectItem>
+            {RESULT_STATUSES.map((s) => (
+              <SelectItem key={s} value={s}>{RESULT_META[s].label}</SelectItem>
+            ))}
+            <SelectItem value="pending">{RESULT_META.pending.label}</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
 
       <div className="space-y-2">
         {results.length === 0 && (
           <p className="text-sm text-muted-foreground">
-            {search ? "No test cases match your search." : "No test cases assigned to you in this run."}
+            {search || statusFilter
+              ? "No test cases match your filters."
+              : "No test cases assigned to you in this run."}
           </p>
         )}
 

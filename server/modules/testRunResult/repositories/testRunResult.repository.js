@@ -4,6 +4,15 @@ const { TestRunResult } = require("../entities/testRunResult.entity");
 const { buildMeta, getOffset } = require("../../../shared/pagination/paginate");
 const { RunStatus } = require("../../../config/constants");
 
+// Deleting a test case is a soft delete, so its run_result rows survive — but
+// they can no longer be labelled (the case join comes back empty) or executed.
+// Both the list and the counts skip them so a deleted case stops showing up in
+// a run as a bare id, and the summary totals agree with the rows on screen.
+const LIVE_CASE = `EXISTS (
+  SELECT 1 FROM test_cases live_tc
+  WHERE live_tc.id = result.test_case_id AND live_tc.deleted_at IS NULL
+)`;
+
 class TestRunResultRepository {
   static Instance = new TestRunResultRepository();
 
@@ -19,12 +28,15 @@ class TestRunResultRepository {
       .leftJoin("result.testCase", "tc")
       .addSelect(["tc.id", "tc.title", "tc.description", "tc.priority", "tc.steps", "tc.expectedResult", "tc.tags"])
       .where("result.run_id = :runId", { runId }) // indexed FK
+      .andWhere(LIVE_CASE)
       .orderBy("result.executedAt", "DESC", "NULLS LAST")
       .addOrderBy("tc.title", "ASC")
       .skip(offset)
       .take(limit);
 
-    if (status) {
+    if (status === "pending") {
+      qb.andWhere("result.status IS NULL");
+    } else if (status) {
       qb.andWhere("result.status = :status", { status });
     }
     if (assigneeId) {
@@ -85,6 +97,7 @@ class TestRunResultRepository {
       .select("result.status", "status")
       .addSelect("COUNT(*)", "count")
       .where("result.run_id = :runId", { runId })
+      .andWhere(LIVE_CASE)
       .groupBy("result.status");
 
     if (assigneeId) {

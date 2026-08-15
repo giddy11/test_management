@@ -107,6 +107,30 @@ export interface RecordResultPayload {
   notes?: string | null
 }
 
+// ── Test Case Notes ────────────────────────────────────────────────────────────
+// A running thread on the case itself. Distinct from TestRunResult.notes, which
+// belong to one execution of the case.
+export interface TestCaseNote {
+  id: string
+  testCaseId: string
+  body: string
+  authorId: string | null
+  authorName: string | null
+  createdAt: string
+}
+
+// A note recorded during a run, shown read-only on the case detail page.
+export interface CaseRunNote {
+  id: string
+  runId: string
+  runName: string
+  status: ResultStatus | null
+  notes: string
+  executedById: string | null
+  executedByName: string | null
+  executedAt: string | null
+}
+
 // ── Attachments ────────────────────────────────────────────────────────────────
 export interface Attachment {
   id: string

@@ -2,6 +2,7 @@
 import { wrapCall, uploadCall, uploadWithFields, downloadFile } from "@/transport/http"
 import type {
   Attachment,
+  CaseRunNote,
   CreateCasePayload,
   CreateRunPayload,
   CreateSuitePayload,
@@ -10,6 +11,7 @@ import type {
   RecordResultPayload,
   RecentRun,
   TestCase,
+  TestCaseNote,
   TestRun,
   TestRunResult,
   TestSuite,
@@ -67,6 +69,18 @@ export const AttachmentEndpoints = {
     uploadCall<Attachment[]>(`/api/v1/test-cases/${caseId}/attachments`, files, "images"),
   remove: (caseId: string, attachmentId: string) =>
     wrapCall<null>("DELETE", `/api/v1/test-cases/${caseId}/attachments/${attachmentId}`),
+}
+
+export const CaseNoteEndpoints = {
+  fetchAll: (caseId: string) =>
+    wrapCall<TestCaseNote[]>("GET", `/api/v1/test-cases/${caseId}/notes`),
+  // Read-only notes recorded against this case while executing runs.
+  fetchRunNotes: (caseId: string) =>
+    wrapCall<CaseRunNote[]>("GET", `/api/v1/test-cases/${caseId}/run-notes`),
+  create: (caseId: string, body: string) =>
+    wrapCall<TestCaseNote>("POST", `/api/v1/test-cases/${caseId}/notes`, { body }),
+  remove: (caseId: string, noteId: string) =>
+    wrapCall<null>("DELETE", `/api/v1/test-cases/${caseId}/notes/${noteId}`),
 }
 
 export const ResultAttachmentEndpoints = {

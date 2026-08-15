@@ -19,6 +19,7 @@ const projectRoutes = require("./modules/project/routes/project.routes");
 const testSuiteRoutes = require("./modules/testSuite/routes/testSuite.routes");
 const testCaseRoutes = require("./modules/testCase/routes/testCase.routes");
 const testCaseAttachmentRoutes = require("./modules/testCase/routes/testCaseAttachment.routes");
+const testCaseNoteRoutes = require("./modules/testCase/routes/testCaseNote.routes");
 const testCaseImportRoutes = require("./modules/testCase/routes/testCaseImport.routes");
 const testRunRoutes = require("./modules/testRun/routes/testRun.routes");
 const testRunResultRoutes = require("./modules/testRunResult/routes/testRunResult.routes");
@@ -68,6 +69,7 @@ function createApp() {
   api.use("/test-suites", testSuiteRoutes);
   api.use("/test-cases", testCaseImportRoutes); // /template, /import — before /:id
   api.use("/test-cases", testCaseAttachmentRoutes); // /:id/attachments — mounted first
+  api.use("/test-cases", testCaseNoteRoutes); // /:id/notes, /:id/run-notes
   api.use("/test-cases", testCaseRoutes);
   api.use("/test-runs", testRunRoutes);
   api.use("/test-run-results", testRunResultRoutes);

@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { PriorityBadge, CaseStatusBadge } from "@/components/shared/StatusBadge"
 import { AttachmentsSection } from "@/components/testmgmt/AttachmentsSection"
+import { CaseNotesSection, RunNotesSection } from "@/components/testmgmt/CaseNotesSection"
 import { PageLoader } from "@/components/shared/PageLoader"
 import { useCase } from "@/hooks/useCases"
 export default function TestCaseDetailPage() {
@@ -64,6 +65,21 @@ export default function TestCaseDetailPage() {
           <AttachmentsSection caseId={tc.id} canManage={true} />
         </CardContent>
       </Card>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card>
+          <CardContent className="pt-6">
+            {/* Same bar as attachments — anyone who can see the case can add a note. */}
+            <CaseNotesSection caseId={tc.id} />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="pt-6">
+            <RunNotesSection caseId={tc.id} projectId={projectId} />
+          </CardContent>
+        </Card>
+      </div>
     </div>
   )
 }

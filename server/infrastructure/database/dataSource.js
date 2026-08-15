@@ -16,6 +16,7 @@ const { TestCase } = require("../../modules/testCase/entities/testCase.entity");
 const {
   TestCaseAttachment,
 } = require("../../modules/testCase/entities/testCaseAttachment.entity");
+const { TestCaseNote } = require("../../modules/testCase/entities/testCaseNote.entity");
 const { TestRun } = require("../../modules/testRun/entities/testRun.entity");
 const {
   TestRunResult,
@@ -94,6 +95,7 @@ const AppDataSource = new DataSource({
     TestSuite,
     TestCase,
     TestCaseAttachment,
+    TestCaseNote,
     TestRun,
     TestRunResult,
     Notification,
