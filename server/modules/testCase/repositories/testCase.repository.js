@@ -100,6 +100,32 @@ class TestCaseRepository {
     });
   }
 
+  // Full detail of the latest run result per case, keyed by case id. Export-only:
+  // the paginated list needs nothing but the status (see _attachComputed), and
+  // this joins two more tables. Same "latest" ordering as _attachComputed, so the
+  // detail always describes the row behind that status.
+  async latestResultDetailsForCases(ids) {
+    if (!ids || ids.length === 0) return new Map();
+    const ds = this.repo.manager.connection;
+    const rows = await ds.query(
+      `SELECT DISTINCT ON (res.test_case_id)
+         res.test_case_id,
+         res.status,
+         res.actual_result,
+         res.notes,
+         res.executed_at,
+         r.name AS run_name,
+         trim(concat(u.first_name, ' ', u.last_name)) AS executed_by
+       FROM test_run_results res
+       JOIN test_runs r ON r.id = res.run_id
+       LEFT JOIN users u ON u.id = res.executed_by_id
+       WHERE res.test_case_id = ANY($1::uuid[])
+       ORDER BY res.test_case_id, res.executed_at DESC NULLS LAST, res.id DESC`,
+      [ids]
+    );
+    return new Map(rows.map((r) => [r.test_case_id, r]));
+  }
+
   // Unbounded — all non-deleted cases in a suite, with assignees + computed fields.
   // Used only by export. When assigneeId is provided, only returns cases that user is assigned to.
   async findAllForExport(suiteId, assigneeId = null) {

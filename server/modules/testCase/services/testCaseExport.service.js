@@ -26,13 +26,20 @@ const EXPORT_COLUMNS = [
   { header: "Assigned To", key: "assignees", width: 28 },
   { header: "Deadline", key: "deadline", width: 16 },
   { header: "Latest Run Result", key: "latestResultStatus", width: 18 },
+  { header: "Run", key: "runName", width: 26 },
+  { header: "Executed By", key: "executedBy", width: 24 },
+  { header: "Executed At", key: "executedAt", width: 20 },
+  { header: "Actual Result", key: "actualResult", width: 38 },
+  { header: "Result Notes", key: "resultNotes", width: 38 },
   { header: "Attachment URLs", key: "attachments", width: 40 },
   { header: "Created At", key: "createdAt", width: 20 },
 ];
 
 const titleCase = (s) => (s ? s[0].toUpperCase() + s.slice(1) : s);
 
-function formatRow(tc, attachments) {
+// `latest` is the row from TestCaseRepository.latestResultDetailsForCases, or
+// undefined when the case has never been part of a run.
+function formatRow(tc, attachments, latest) {
   return {
     externalId: tc.externalId ?? "",
     title: tc.title,
@@ -52,6 +59,11 @@ function formatRow(tc, attachments) {
         : tc.latestResultStatus === "pending"
         ? "Pending"
         : titleCase(tc.latestResultStatus),
+    runName: latest?.run_name ?? "",
+    executedBy: latest?.executed_by || "",
+    executedAt: latest?.executed_at ? new Date(latest.executed_at).toISOString() : "",
+    actualResult: latest?.actual_result ?? "",
+    resultNotes: latest?.notes ?? "",
     attachments: attachments.map((a) => a.fileUrl).join("\n"),
     createdAt: tc.createdAt ? new Date(tc.createdAt).toISOString() : "",
   };
@@ -99,7 +111,7 @@ class TestCaseExportService {
   }
 
   // Adds one formatted worksheet for `suite` to `workbook`.
-  addSuiteSheet(workbook, suite, cases, attachmentsByCase, usedNames) {
+  addSuiteSheet(workbook, suite, cases, attachmentsByCase, usedNames, latestResults = new Map()) {
     const ws = workbook.addWorksheet(sanitizeSheetName(suite.name, usedNames));
     ws.columns = EXPORT_COLUMNS;
 
@@ -111,10 +123,10 @@ class TestCaseExportService {
 
     for (const tc of cases) {
       const attachments = attachmentsByCase.get(tc.id) ?? [];
-      ws.addRow(formatRow(tc, attachments));
+      ws.addRow(formatRow(tc, attachments, latestResults.get(tc.id)));
     }
 
-    ["description", "steps", "expectedResult", "attachments", "assignees"].forEach((key) => {
+    ["description", "steps", "expectedResult", "attachments", "assignees", "actualResult", "resultNotes"].forEach((key) => {
       ws.getColumn(key).alignment = { wrapText: true, vertical: "top" };
     });
 
@@ -136,11 +148,14 @@ class TestCaseExportService {
     const suite = await this.suiteService.getTestSuite(actor, suiteId);
     const assigneeId = actor.role === UserRole.USER ? actor.id : null;
     const cases = await this.tcRepo.findAllForExport(suiteId, assigneeId);
-    const attachmentsByCase = await this.attachmentsForCases(cases);
+    const [attachmentsByCase, latestResults] = await Promise.all([
+      this.attachmentsForCases(cases),
+      this.tcRepo.latestResultDetailsForCases(cases.map((c) => c.id)),
+    ]);
 
     const wb = new ExcelJS.Workbook();
     wb.creator = "TestMate";
-    this.addSuiteSheet(wb, suite, cases, attachmentsByCase, new Set());
+    this.addSuiteSheet(wb, suite, cases, attachmentsByCase, new Set(), latestResults);
 
     return {
       buffer: await wb.xlsx.writeBuffer(),
@@ -190,8 +205,11 @@ class TestCaseExportService {
           422
         );
       }
-      const attachmentsByCase = await this.attachmentsForCases(cases);
-      this.addSuiteSheet(wb, suite, cases, attachmentsByCase, usedNames);
+      const [attachmentsByCase, latestResults] = await Promise.all([
+        this.attachmentsForCases(cases),
+        this.tcRepo.latestResultDetailsForCases(cases.map((c) => c.id)),
+      ]);
+      this.addSuiteSheet(wb, suite, cases, attachmentsByCase, usedNames, latestResults);
     }
 
     return {
