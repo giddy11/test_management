@@ -33,6 +33,19 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+  /* Brand accents, taken from the product mark in public/favicon.svg
+     (#863bff / #7e14ff violet with a #47bfff cyan highlight). Additive: the
+     app's own surfaces stay on the neutral tokens above — these are for the
+     public marketing pages, which need more than greyscale.
+       brand            — accent text and icons (5.1:1 on white)
+       brand-strong     — solid fills that carry white text (6.1:1)
+       brand-accent     — the cyan end of brand gradients
+       brand-soft       — tinted surfaces */
+  --brand: oklch(0.568 0.264 293.4);
+  --brand-strong: oklch(0.534 0.288 292.9);
+  --brand-accent: oklch(0.765 0.139 236.3);
+  --brand-soft: oklch(0.938 0.034 298.5);
+  --brand-foreground: oklch(0.985 0 0);
 }
 
 .dark {
@@ -62,6 +75,13 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+  /* Lifted so accent text clears 4.5:1 on the dark background; brand-strong
+     stays deep enough to keep white button text readable. */
+  --brand: oklch(0.7 0.19 293.4);
+  --brand-strong: oklch(0.55 0.26 292.9);
+  --brand-accent: oklch(0.79 0.13 236.3);
+  --brand-soft: oklch(0.3 0.075 296);
+  --brand-foreground: oklch(0.985 0 0);
 }
 
 @theme inline {
@@ -95,6 +115,11 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+  --color-brand: var(--brand);
+  --color-brand-strong: var(--brand-strong);
+  --color-brand-accent: var(--brand-accent);
+  --color-brand-soft: var(--brand-soft);
+  --color-brand-foreground: var(--brand-foreground);
 }
 
 @layer base {
@@ -194,6 +219,29 @@
 }
 .PhoneInput .PhoneInputInput {
   flex: 1;
+}
+
+/* ─── Landing page aurora ──────────────────────────────────────────────── */
+/* Slow drift on the blurred brand blobs behind the hero. Decorative only. */
+.tm-aurora {
+  animation: tm-aurora-drift 20s ease-in-out infinite alternate;
+}
+.tm-aurora-slow {
+  animation-duration: 28s;
+  animation-direction: alternate-reverse;
+}
+@keyframes tm-aurora-drift {
+  from {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  to {
+    transform: translate3d(2%, -8%, 0) scale(1.12);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tm-aurora {
+    animation: none;
+  }
 }
 
 /* ─── Site banner marquee ──────────────────────────────────────────────── */

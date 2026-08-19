@@ -10,6 +10,10 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default: "bg-primary text-primary-foreground hover:bg-primary/90",
+        // Brand gradient — for the public marketing pages, which use the
+        // accents from the product mark rather than the neutral app tokens.
+        brand:
+          "bg-linear-to-r from-brand-strong to-brand text-brand-foreground shadow-lg shadow-brand/25 hover:brightness-110 hover:shadow-brand/35 focus-visible:ring-brand/40",
         destructive:
           "bg-destructive text-white hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:bg-destructive/60 dark:focus-visible:ring-destructive/40",
         outline:
