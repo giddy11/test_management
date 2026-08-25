@@ -366,7 +366,7 @@ export const FAQS: Faq[] = [
   {
     question: "Someone raised a ticket and wants to check on it — do they need an account?",
     answer:
-      "No. They go to /my-tickets, enter the email they submitted with, and get a 6-digit code by email. From there they can see every ticket they have raised and reply in the conversation.",
+      "No. They go to https://test-management-three.vercel.app/my-tickets, enter the email they submitted with, and get a 6-digit code by email. From there they can see every ticket they have raised and reply in the conversation.",
   },
   {
     question: "What is the difference between a bug's severity and its priority?",
