@@ -22,6 +22,8 @@ import OrganizationsPage from "@/pages/OrganizationsPage"
 import SettingsPage from "@/pages/SettingsPage"
 import LiveChatWidgetPage from "@/pages/widget/LiveChatWidgetPage"
 import LandingPage from "@/pages/public/LandingPage"
+import PrivacyPage from "@/pages/public/PrivacyPage"
+import TermsPage from "@/pages/public/TermsPage"
 import PublicFeedbackPage from "@/pages/public/PublicFeedbackPage"
 import MyTicketsPage from "@/pages/public/MyTicketsPage"
 import DocsPage from "@/pages/docs/DocsPage"
@@ -42,6 +44,9 @@ export default function App() {
           {/* Public */}
           {/* Marketing home — redirects signed-in users to their role's home */}
           <Route path="/" element={<LandingPage />} />
+          {/* Legal — public, and reachable while signed in */}
+          <Route path="/privacy" element={<PrivacyPage />} />
+          <Route path="/terms" element={<TermsPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />

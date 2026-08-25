@@ -428,6 +428,21 @@ export const FOOTER_COLUMNS: FooterColumn[] = [
       { label: "Track a ticket", to: "/my-tickets" },
     ],
   },
+  {
+    title: "Legal",
+    links: [
+      { label: "Privacy Policy", to: "/privacy" },
+      { label: "Terms & Conditions", to: "/terms" },
+      { label: "Sub-processors", to: "/privacy#sharing" },
+      { label: "Data retention", to: "/privacy#retention" },
+    ],
+  },
+]
+
+/** Repeated in the footer's bottom bar, where people look for them first. */
+export const FOOTER_LEGAL_LINKS: FooterLink[] = [
+  { label: "Privacy", to: "/privacy" },
+  { label: "Terms", to: "/terms" },
 ]
 
 // PLACEHOLDER SLOT — intentionally empty. Add the product's real profiles and

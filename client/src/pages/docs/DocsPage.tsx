@@ -16,6 +16,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet"
 import { ThemeToggle } from "@/components/shared/ThemeToggle"
+import { useScrollSpy } from "@/hooks/useScrollSpy"
 import { useAuth } from "@/contexts/AuthContext"
 import { DOC_GROUPS, DOC_SECTIONS } from "./sections"
 
@@ -29,44 +30,6 @@ const QUICK_START = [
   { label: "Write test cases", href: "#suites-and-cases" },
   { label: "Run your tests", href: "#test-runs" },
 ]
-
-function useScrollSpy(ids: string[]) {
-  const [activeId, setActiveId] = useState(ids[0] ?? "")
-
-  useEffect(() => {
-    // Active section = the last one whose top sits at or above the reading
-    // line (just below the sticky header; sections use scroll-mt-20 = 80px).
-    let ticking = false
-    const update = () => {
-      ticking = false
-      let current = ids[0] ?? ""
-      for (const id of ids) {
-        const el = document.getElementById(id)
-        if (el && el.getBoundingClientRect().top <= 96) current = id
-      }
-      // The last section can be too short to ever cross the reading line, so
-      // reaching the bottom of the page counts as reading it.
-      const bottomReached =
-        window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2
-      if (bottomReached && ids.length > 0) current = ids[ids.length - 1]
-      setActiveId(current)
-    }
-    const onScroll = () => {
-      if (ticking) return
-      ticking = true
-      requestAnimationFrame(update)
-    }
-    update()
-    window.addEventListener("scroll", onScroll, { passive: true })
-    window.addEventListener("resize", onScroll)
-    return () => {
-      window.removeEventListener("scroll", onScroll)
-      window.removeEventListener("resize", onScroll)
-    }
-  }, [ids])
-
-  return activeId
-}
 
 function loadReadIds(): string[] {
   try {

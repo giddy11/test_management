@@ -6,6 +6,7 @@ import { Wordmark } from "@/components/landing/Wordmark"
 import { cn } from "@/lib/utils"
 import {
   FOOTER_COLUMNS,
+  FOOTER_LEGAL_LINKS,
   FOOTER_TAGLINE,
   SOCIAL_LINKS,
   type FooterLink,
@@ -36,7 +37,8 @@ export function LandingFooter() {
   return (
     <footer className="py-12 sm:py-16">
       <div className="mx-auto max-w-[90rem] px-4 sm:px-6">
-        <div className="grid gap-10 md:grid-cols-[1.5fr_repeat(3,1fr)]">
+        {/* Five tracks only once there is room; two columns of links on tablets. */}
+        <div className="grid gap-10 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-[1.5fr_repeat(4,1fr)]">
           <div>
             <Wordmark />
             <p className="mt-4 max-w-xs text-sm text-pretty text-muted-foreground">
@@ -90,9 +92,17 @@ export function LandingFooter() {
           <p className="text-xs text-muted-foreground">
             © {new Date().getFullYear()} TestMate. All rights reserved.
           </p>
-          <p className="text-xs text-muted-foreground">
-            Built for teams that would rather ship than reconcile spreadsheets.
-          </p>
+          <nav aria-label="Legal">
+            <ul className="flex items-center gap-x-4 text-xs">
+              {FOOTER_LEGAL_LINKS.map((link) => (
+                <li key={link.label}>
+                  <Link to={link.to} className={cn(LINK_CLASS, "text-xs")}>
+                    {link.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </nav>
         </div>
       </div>
     </footer>
