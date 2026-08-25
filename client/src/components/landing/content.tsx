@@ -1,6 +1,11 @@
-// components/landing/content.ts — every string, list, and asset the landing
+// components/landing/content.tsx — every string, list, and asset the landing
 // page renders. Copy is derived from the product documentation
 // (pages/docs/sections.tsx); nothing here is invented marketing.
+//
+// A .tsx file because some copy needs to link somewhere. Keep it to data and
+// short inline markup — no components, so it stays fast-refresh friendly.
+import type { ReactNode } from "react"
+import { Link } from "react-router-dom"
 import {
   Activity,
   Bug,
@@ -349,7 +354,8 @@ export const BENEFIT_GROUPS: BenefitGroup[] = [
 // ── FAQ ────────────────────────────────────────────────────────────────────
 export interface Faq {
   question: string
-  answer: string
+  /** Plain text, or JSX where the answer needs to link somewhere. */
+  answer: ReactNode
 }
 
 export const FAQS: Faq[] = [
@@ -365,8 +371,18 @@ export const FAQS: Faq[] = [
   },
   {
     question: "Someone raised a ticket and wants to check on it — do they need an account?",
-    answer:
-      "No. They go to https://test-management-three.vercel.app/my-tickets, enter the email they submitted with, and get a 6-digit code by email. From there they can see every ticket they have raised and reply in the conversation.",
+    // Relative route, not an absolute URL: this stays correct on any domain and
+    // navigates client-side instead of reloading the app.
+    answer: (
+      <>
+        No. They go to{" "}
+        <Link to="/my-tickets" className="font-medium text-brand hover:underline">
+          /my-tickets
+        </Link>
+        , enter the email they submitted with, and get a 6-digit code by email. From there
+        they can see every ticket they have raised and reply in the conversation.
+      </>
+    ),
   },
   {
     question: "What is the difference between a bug's severity and its priority?",

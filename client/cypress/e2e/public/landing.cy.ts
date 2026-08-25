@@ -57,6 +57,20 @@ describe("Landing page", () => {
     cy.dataCy("landing-faq").should("contain.text", "Admins create accounts from the Team page")
   })
 
+  it("links to the ticket-tracking page from its FAQ answer", () => {
+    cy.dataCy("landing-faq").scrollIntoView()
+    cy.dataCy("landing-faq").contains("button", "check on it").click()
+
+    cy.dataCy("landing-faq")
+      .find('a[href="/my-tickets"]')
+      .should("be.visible")
+      // A relative route, so it keeps working on any domain.
+      .and("not.contain.text", "http")
+      .click()
+
+    cy.location("pathname").should("eq", "/my-tickets")
+  })
+
   it("collapses into a mobile menu and never scrolls sideways", () => {
     cy.viewport(390, 844)
     cy.dataCy("landing-menu").should("be.visible").click()
