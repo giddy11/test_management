@@ -1,7 +1,6 @@
 // components/legal/LegalLayout.tsx — shared shell for the Privacy Policy and
 // Terms & Conditions. Standalone like DocsPage, but reusing the landing header
 // and footer so the public pages read as one site.
-import { useEffect } from "react"
 import { Link } from "react-router-dom"
 import { ArrowUp } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -20,15 +19,8 @@ export function LegalLayout({ document: doc, counterpart }: LegalLayoutProps) {
   const ids = doc.sections.map((section) => section.id)
   const activeId = useScrollSpy(ids)
 
-  // Honour deep links (/privacy#retention) — on a fresh load the browser's own
-  // anchor jump happens before React has rendered the target element.
-  useEffect(() => {
-    const id = window.location.hash.slice(1)
-    if (id && ids.includes(id)) window.document.getElementById(id)?.scrollIntoView()
-    // Deliberately once, on mount: re-running on every ids identity change
-    // would yank the reader back to the anchor mid-scroll.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  // Deep links (/privacy#retention) are handled by <ScrollToTop>, which owns
+  // scroll position for every route.
 
   return (
     <div className="min-h-svh bg-background" data-cy="legal-page">

@@ -1,6 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom"
 import { AuthProvider } from "@/contexts/AuthContext"
 import { ProtectedRoute } from "@/components/ProtectedRoute"
+import { ScrollToTop } from "@/components/ScrollToTop"
 import { RequireVerified } from "@/components/RequireVerified"
 import { DashboardLayout } from "@/components/layout/DashboardLayout"
 import LoginPage from "@/pages/auth/LoginPage"
@@ -39,6 +40,7 @@ const INTERNAL_ROLES = [UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.USER]
 export default function App() {
   return (
     <BrowserRouter>
+      <ScrollToTop />
       <AuthProvider>
         <Routes>
           {/* Public */}

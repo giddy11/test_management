@@ -63,6 +63,30 @@ describe("Legal pages", () => {
     cy.get('footer a[href="/terms"]').should("exist")
   })
 
+  // The footer links are at the bottom of a long page, so without scroll
+  // restoration the new route opens mid-document.
+  PAGES.forEach((page) => {
+    it(`opens at the top when reached from the footer (${page.path})`, () => {
+      cy.visit("/")
+      cy.scrollTo("bottom")
+      cy.window().its("scrollY").should("be.greaterThan", 0)
+
+      cy.get(`footer a[href="${page.path}"]`).first().click()
+      cy.location("pathname").should("eq", page.path)
+      cy.window().its("scrollY").should("eq", 0)
+      cy.get("h1").should("contain.text", page.heading).and("be.visible")
+    })
+  })
+
+  it("still lands on the anchor for a hash link from the footer", () => {
+    cy.visit("/")
+    cy.scrollTo("bottom")
+    cy.get('footer a[href="/privacy#sharing"]').first().click()
+    cy.location("pathname").should("eq", "/privacy")
+    cy.get("#sharing").should("be.visible")
+    cy.window().its("scrollY").should("be.greaterThan", 0)
+  })
+
   // Both legal pages and the docs page share useScrollSpy — guard the docs
   // page against a regression in the extraction.
   it("leaves the docs contents nav working", () => {
