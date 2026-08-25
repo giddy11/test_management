@@ -99,9 +99,9 @@ describe("Legal pages", () => {
 
   it("keeps landing-page section links as in-page anchors", () => {
     cy.visit("/")
-    cy.get("header").contains("a", "Benefits").click()
+    cy.get("header").contains("a", "Security").click()
     cy.location("pathname").should("eq", "/")
-    cy.get("#benefits").should("be.visible")
+    cy.get("#security").should("be.visible")
   })
 
   it("still lands on the anchor for a hash link from the footer", () => {

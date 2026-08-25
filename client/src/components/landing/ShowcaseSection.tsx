@@ -9,7 +9,12 @@ import {
   PhoneFrame,
   ProductShot,
 } from "@/components/landing/DeviceFrame"
-import { SHOWCASES } from "@/components/landing/content"
+import { Card, CardContent } from "@/components/ui/card"
+import {
+  DASHBOARD,
+  DASHBOARD_BENEFITS,
+  SHOWCASES,
+} from "@/components/landing/content"
 
 export function ShowcaseSection() {
   return (
@@ -23,9 +28,9 @@ export function ShowcaseSection() {
       <div className="mx-auto max-w-[90rem] px-4 sm:px-6">
         <SectionHeading
           id="product-heading"
-          eyebrow="Product tour"
-          title="See the parts you will actually live in"
-          lead="Every screen below is the shipping product, not a rendering."
+          eyebrow={DASHBOARD.eyebrow}
+          title={DASHBOARD.title}
+          lead={DASHBOARD.lead}
         />
 
         <Reveal className="mt-12">
@@ -84,6 +89,35 @@ export function ShowcaseSection() {
             ))}
           </Tabs>
         </Reveal>
+
+        {/* The "why" behind the dashboard — deck, "Key Benefits". */}
+        <ul className="mx-auto mt-16 grid max-w-5xl gap-6 sm:grid-cols-2 lg:grid-cols-4">
+          {DASHBOARD_BENEFITS.map((benefit, i) => (
+            <li key={benefit.title}>
+              <Reveal delay={i * 60} className="h-full">
+                <Card className="h-full gap-4 border-brand/15 py-6">
+                  <CardContent className="space-y-3">
+                    <div className="flex items-center gap-2.5">
+                      <span
+                        className="flex size-7 items-center justify-center rounded-md bg-brand-soft text-brand dark:bg-brand-soft/40"
+                        aria-hidden
+                      >
+                        <benefit.icon className="size-4" />
+                      </span>
+                      <span className="text-xs font-semibold text-muted-foreground tabular-nums">
+                        {String(i + 1).padStart(2, "0")}
+                      </span>
+                    </div>
+                    <h3 className="font-semibold text-balance">{benefit.title}</h3>
+                    <p className="text-sm text-pretty text-muted-foreground">
+                      {benefit.description}
+                    </p>
+                  </CardContent>
+                </Card>
+              </Reveal>
+            </li>
+          ))}
+        </ul>
       </div>
     </section>
   )

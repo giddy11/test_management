@@ -21,17 +21,23 @@ export const PRODUCT_NAME = "TestMate"
 export const LAST_UPDATED = "25 August 2026"
 export const EFFECTIVE_DATE = "25 August 2026"
 
-/** Where privacy requests and legal notices go. */
-export const PRIVACY_EMAIL = "privacy@testmate.app"
-export const LEGAL_EMAIL = "legal@testmate.app"
-export const SUPPORT_EMAIL = "support@testmate.app"
+// Where privacy requests and legal notices go. The overview deck gives one
+// support address for everything; split these out if you set up dedicated
+// privacy and legal inboxes.
+export const PRIVACY_EMAIL = "support@thegrowthplug.com"
+export const LEGAL_EMAIL = "support@thegrowthplug.com"
+export const SUPPORT_EMAIL = "support@thegrowthplug.com"
 
 /** The legal entity behind this deployment. */
 export function LegalEntity() {
   return <Placeholder>[Registered company name]</Placeholder>
 }
 
-/** Registered office, for notices and for data-protection correspondence. */
+/**
+ * Registered office, for notices and for data-protection correspondence.
+ * The deck names the United Kingdom and Nigeria as operating locations, which
+ * is not the same as a registered office — that still needs filling in.
+ */
 export function RegisteredAddress() {
   return <Placeholder>[Registered office address]</Placeholder>
 }

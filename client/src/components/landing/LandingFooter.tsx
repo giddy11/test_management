@@ -1,11 +1,12 @@
 // components/landing/LandingFooter.tsx — site footer. In-page anchors stay plain
 // <a>; anything that changes route goes through react-router's Link.
 import { Link } from "react-router-dom"
-import { Mail } from "lucide-react"
+import { Globe, Mail, MapPin, Phone } from "lucide-react"
 import { Wordmark } from "@/components/landing/Wordmark"
 import { SectionLink } from "@/components/landing/SectionLink"
 import { cn } from "@/lib/utils"
 import {
+  CONTACT,
   FOOTER_COLUMNS,
   FOOTER_LEGAL_LINKS,
   FOOTER_TAGLINE,
@@ -15,9 +16,6 @@ import {
 
 const LINK_CLASS =
   "rounded-sm text-sm text-muted-foreground transition-colors outline-none hover:text-brand focus-visible:ring-[3px] focus-visible:ring-brand/40"
-
-// Support address for the public pages. Point this at your own inbox.
-const CONTACT_EMAIL = "support@testmate.app"
 
 function FooterNavLink({ link }: { link: FooterLink }) {
   // Bare anchors target landing-page sections, which do not exist on the other
@@ -47,13 +45,41 @@ export function LandingFooter() {
             <p className="mt-4 max-w-xs text-sm text-pretty text-muted-foreground">
               {FOOTER_TAGLINE}
             </p>
-            <a
-              href={`mailto:${CONTACT_EMAIL}`}
-              className={cn(LINK_CLASS, "mt-4 inline-flex items-center gap-2")}
-            >
-              <Mail className="size-4" aria-hidden />
-              {CONTACT_EMAIL}
-            </a>
+            <ul className="mt-4 space-y-2">
+              <li>
+                <a
+                  href={`mailto:${CONTACT.email}`}
+                  className={cn(LINK_CLASS, "inline-flex items-center gap-2")}
+                >
+                  <Mail className="size-4" aria-hidden />
+                  {CONTACT.email}
+                </a>
+              </li>
+              <li>
+                <a
+                  href={CONTACT.phoneHref}
+                  className={cn(LINK_CLASS, "inline-flex items-center gap-2")}
+                >
+                  <Phone className="size-4" aria-hidden />
+                  {CONTACT.phone}
+                </a>
+              </li>
+              <li>
+                <a
+                  href={CONTACT.websiteHref}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className={cn(LINK_CLASS, "inline-flex items-center gap-2")}
+                >
+                  <Globe className="size-4" aria-hidden />
+                  {CONTACT.website}
+                </a>
+              </li>
+              <li className="inline-flex items-center gap-2 text-sm text-muted-foreground">
+                <MapPin className="size-4" aria-hidden />
+                {CONTACT.locations}
+              </li>
+            </ul>
 
             {SOCIAL_LINKS.length > 0 && (
               <ul className="mt-5 flex items-center gap-1">

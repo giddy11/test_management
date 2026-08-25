@@ -6,7 +6,9 @@ import { Navigate } from "react-router-dom"
 import { PageLoader } from "@/components/shared/PageLoader"
 import { LandingHeader } from "@/components/landing/LandingHeader"
 import { HeroSection } from "@/components/landing/HeroSection"
-import { SocialProofSection } from "@/components/landing/SocialProofSection"
+import { ProblemSection } from "@/components/landing/ProblemSection"
+import { SolutionSection } from "@/components/landing/SolutionSection"
+import { SecuritySection } from "@/components/landing/SecuritySection"
 import { FeaturesSection } from "@/components/landing/FeaturesSection"
 import { HowItWorksSection } from "@/components/landing/HowItWorksSection"
 import { ShowcaseSection } from "@/components/landing/ShowcaseSection"
@@ -54,11 +56,13 @@ export default function LandingPage() {
 
       <main id="main">
         <HeroSection />
-        <SocialProofSection />
+        <ProblemSection />
+        <SolutionSection />
         <FeaturesSection />
         <HowItWorksSection />
         <ShowcaseSection />
         <BenefitsSection />
+        <SecuritySection />
         <FaqSection />
         <CtaSection />
       </main>

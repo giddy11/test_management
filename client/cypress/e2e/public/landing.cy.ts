@@ -1,11 +1,13 @@
 // The marketing home page at "/" — public, no API calls, no login.
 const SECTION_HEADINGS = [
   "hero-heading",
-  "who-its-for-heading",
+  "problem-heading",
+  "solution-heading",
   "features-heading",
   "how-it-works-heading",
   "product-heading",
   "benefits-heading",
+  "security-heading",
   "faq-heading",
   "cta-heading",
 ]
@@ -18,7 +20,7 @@ describe("Landing page", () => {
 
   it("renders every section for a visitor with no account", () => {
     cy.dataCy("landing-page").should("exist")
-    cy.get("h1").should("contain.text", "Plan your testing")
+    cy.get("h1").should("contain.text", "Higher-quality software")
     cy.dataCy("hero-primary-cta").should("have.attr", "href", "/register")
     cy.dataCy("hero-secondary-cta").should("have.attr", "href", "/docs")
     cy.dataCy("landing-header-cta").should("have.attr", "href", "/register")

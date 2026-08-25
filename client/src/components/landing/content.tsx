@@ -8,15 +8,28 @@ import type { ReactNode } from "react"
 import { Link } from "react-router-dom"
 import {
   Activity,
+  BellRing,
   Bug,
   Building2,
+  Eye,
+  FlaskConical,
   FolderKanban,
+  Gauge,
+  Headset,
+  KeyRound,
+  Layers,
+  LifeBuoy,
   Lightbulb,
   ListChecks,
+  Lock,
   MessageCircle,
   MessageSquareHeart,
   PlayCircle,
+  Repeat,
+  ScrollText,
+  Server,
   ShieldCheck,
+  TrendingUp,
   Users,
   Webhook,
   type LucideIcon,
@@ -35,22 +48,23 @@ export interface LandingNavLink {
 }
 
 export const LANDING_NAV: LandingNavLink[] = [
+  { label: "Solution", href: "#solution" },
   { label: "Features", href: "#features" },
   { label: "How it works", href: "#how-it-works" },
   { label: "Product", href: "#product" },
-  { label: "Benefits", href: "#benefits" },
+  { label: "Security", href: "#security" },
   { label: "FAQ", href: "#faq" },
 ]
 
 // ── Hero ───────────────────────────────────────────────────────────────────
 export const HERO = {
-  eyebrow: "Test management for software teams",
-  headline: "Plan your testing. Run it.",
+  eyebrow: "Software testing & IT service management",
+  headline: "Higher-quality software.",
   /** Rendered in the brand gradient, so keep it to the closing clause. */
-  headlineAccent: "Track everything that falls out of it.",
+  headlineAccent: "More efficient IT services.",
   subhead:
-    "TestMate gives your organisation one place to write test cases, execute runs, and follow the bugs, feature requests, and customer tickets that come out of them — without stitching four tools together.",
-  primaryCta: { label: "Create your organisation", to: "/register" },
+    "TestMate is an all-in-one platform for managing software testing, defects, service requests, and IT operations — so your teams stop stitching four tools together.",
+  primaryCta: { label: "Start your free trial", to: "/register" },
   secondaryCta: { label: "Read the docs", to: "/docs" },
   note: "Free to set up · Verify your email · No credit card",
 } as const
@@ -62,70 +76,83 @@ export const HERO_TRUST: string[] = [
   "Light and dark themes",
 ]
 
-// ── Social proof ───────────────────────────────────────────────────────────
-// PLACEHOLDER SLOT — intentionally empty. The logo strip renders only once real,
-// permitted customer logos are added here; nothing fictional ships by default.
-export interface ClientLogo {
-  name: string
-  /** Imported SVG/PNG asset for the customer's wordmark. */
-  src: string
-}
-export const CLIENT_LOGOS: ClientLogo[] = []
-
-// PLACEHOLDER SLOT — intentionally empty for the same reason. Add real, attributed
-// quotes only; the testimonial grid stays hidden while this is empty.
-export interface Testimonial {
-  quote: string
-  author: string
-  role: string
-}
-export const TESTIMONIALS: Testimonial[] = []
-
-/** Capability facts about the product — deliberately not business metrics. */
-export interface ProductFact {
+// ── The problem (overview deck, "The Core Problem Stats") ──────────────────
+export interface ProblemStat {
+  icon: LucideIcon
   value: string
-  label: string
+  title: string
+  description: string
 }
 
-export const PRODUCT_FACTS: ProductFact[] = [
-  // Three, not four: Super Admin is the platform-operator role and is never
-  // held by a customer's organisation, so it stays off the public pages.
-  { value: "3", label: "Roles, from Company Admin to a client's IT desk" },
-  { value: "0", label: "Accounts needed for someone to raise a ticket" },
-  { value: "2", label: "Support tiers before a ticket reaches your team" },
-  { value: "1", label: "Script tag to put live chat on your own site" },
+export const PROBLEM_STATS: ProblemStat[] = [
+  {
+    icon: Layers,
+    value: "70%",
+    title: "Tool overload",
+    description:
+      "70%+ of organisations experience challenges with fragmented IT systems and tools.",
+  },
+  {
+    icon: Repeat,
+    value: "40%",
+    title: "Recurring incidents",
+    description:
+      "40%+ of IT incidents can be linked to recurring or preventable issues.",
+  },
 ]
 
-export interface AudienceRole {
+// PLACEHOLDER — the deck states these figures without a citation. Publishing an
+// unsourced statistic is a claim you have to stand behind, so name the research
+// here and the attribution line appears under the figures.
+export const PROBLEM_STATS_SOURCE = "[Source for the figures above]"
+
+// ── The two pillars (deck, page 1) ─────────────────────────────────────────
+export interface Pillar {
   icon: LucideIcon
   title: string
   description: string
 }
 
-export const AUDIENCE_ROLES: AudienceRole[] = [
+export const PILLARS: Pillar[] = [
   {
-    icon: ListChecks,
-    title: "Testers",
+    icon: FlaskConical,
+    title: "Software Testing & Quality Management",
     description:
-      "Write repeatable cases with steps and expected results, then work through a run recording pass or fail case by case.",
+      "Helps software teams plan, execute, monitor, and improve software quality throughout the development lifecycle.",
   },
   {
-    icon: Users,
-    title: "Company Admins",
+    icon: Headset,
+    title: "IT Service Management",
     description:
-      "Create the projects, add the team, decide who sees what, and audit every action from the organisation-wide activity log.",
+      "Helps IT teams and service providers manage, deliver, monitor, and continuously improve IT services from a centralised platform.",
+  },
+]
+
+// ── The solution (deck, "The Solution & Value Proposition") ────────────────
+export interface ValueProp {
+  icon: LucideIcon
+  title: string
+  description: string
+}
+
+export const VALUE_PROPS: ValueProp[] = [
+  {
+    icon: LifeBuoy,
+    title: "Manage IT services",
+    description:
+      "Centralise incidents, service requests, and support workflows — from a public portal, live chat, or a client's own IT desk — in one platform.",
   },
   {
-    icon: Building2,
-    title: "Client IT desks",
+    icon: ShieldCheck,
+    title: "Improve software quality",
     description:
-      "Give a customer's own support team the first pass at their users' tickets, and see only what they escalate to you.",
+      "Plan and manage testing, defects, and quality processes to deliver more reliable software and digital solutions.",
   },
   {
-    icon: MessageSquareHeart,
-    title: "The people using your product",
+    icon: Eye,
+    title: "Greater visibility",
     description:
-      "Report a bug or request a feature from a public link, then follow it to resolution — no account required.",
+      "Route work, escalate it, and log every action, while providing real-time visibility into service and quality performance.",
   },
 ]
 
@@ -318,6 +345,86 @@ export const SHOWCASES: Showcase[] = [
   },
 ]
 
+// ── Smart Dashboard (deck, "Product Deep Dive" + "Key Benefits: The Why") ──
+export const DASHBOARD = {
+  eyebrow: "Product deep dive",
+  title: "One view. Complete IT visibility.",
+  lead: "The Smart Dashboard gives IT teams and service providers a real-time view of their service operations and software quality, bringing critical performance data into one centralised workspace.",
+} as const
+
+export interface DashboardBenefit {
+  icon: LucideIcon
+  title: string
+  description: string
+}
+
+export const DASHBOARD_BENEFITS: DashboardBenefit[] = [
+  {
+    icon: Activity,
+    title: "Real-time service monitoring",
+    description:
+      "Track incidents, service requests, response times, resolution times, and outstanding tickets as they move.",
+  },
+  {
+    icon: Gauge,
+    title: "Quality & performance insights",
+    description:
+      "Monitor defects, testing progress, recurring issues, service trends, and team performance.",
+  },
+  {
+    icon: TrendingUp,
+    title: "Intelligent analytics",
+    description:
+      "Identify bottlenecks, recurring problems, workload trends, and areas requiring immediate attention.",
+  },
+  {
+    icon: BellRing,
+    title: "Actionable alerts",
+    description:
+      "Surface overdue tickets, critical incidents, and unresolved issues so teams can act quickly.",
+  },
+]
+
+// ── Security (deck, "Security and Major Platform Reliability") ─────────────
+export const SECURITY = {
+  eyebrow: "Security & reliability",
+  title: "Built for secure, reliable IT service delivery",
+  lead: "TestMate is designed to support organisations that require secure access, reliable service management, controlled workflows, and continuous availability across their IT operations.",
+} as const
+
+export interface SecurityPoint {
+  icon: LucideIcon
+  title: string
+  description: string
+}
+
+export const SECURITY_POINTS: SecurityPoint[] = [
+  {
+    icon: KeyRound,
+    title: "Secure access",
+    description:
+      "Passwords are hashed, never stored in readable form. Sign-in uses short-lived tokens, with optional Google Sign-In.",
+  },
+  {
+    icon: Lock,
+    title: "Controlled workflows",
+    description:
+      "Role-based access and per-project assignment mean people see only the work that is theirs to do.",
+  },
+  {
+    icon: ScrollText,
+    title: "Full audit trail",
+    description:
+      "Every consequential action is written to the organisation's activity log — who did what, to which item, and when.",
+  },
+  {
+    icon: Server,
+    title: "Managed infrastructure",
+    description:
+      "Encrypted in transit and at rest on managed cloud infrastructure, with email verification on every account.",
+  },
+]
+
 // ── Benefits ───────────────────────────────────────────────────────────────
 export interface BenefitGroup {
   icon: LucideIcon
@@ -469,5 +576,15 @@ export interface SocialLink {
   icon: LucideIcon
 }
 export const SOCIAL_LINKS: SocialLink[] = []
+
+/** Contact details, from the TestMate overview deck. */
+export const CONTACT = {
+  email: "support@thegrowthplug.com",
+  phone: "+234 916 381 8000",
+  phoneHref: "tel:+2349163818000",
+  website: "www.thegrowthplug.com",
+  websiteHref: "https://www.thegrowthplug.com",
+  locations: "United Kingdom · Nigeria",
+} as const
 
 export const FOOTER_TAGLINE = "Simplified test planning, execution, and tracking."
