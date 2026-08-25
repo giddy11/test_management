@@ -3,6 +3,7 @@
 import { Link } from "react-router-dom"
 import { Mail } from "lucide-react"
 import { Wordmark } from "@/components/landing/Wordmark"
+import { SectionLink } from "@/components/landing/SectionLink"
 import { cn } from "@/lib/utils"
 import {
   FOOTER_COLUMNS,
@@ -19,11 +20,13 @@ const LINK_CLASS =
 const CONTACT_EMAIL = "support@testmate.app"
 
 function FooterNavLink({ link }: { link: FooterLink }) {
+  // Bare anchors target landing-page sections, which do not exist on the other
+  // pages this footer appears on — SectionLink resolves that.
   if (link.to.startsWith("#")) {
     return (
-      <a href={link.to} className={LINK_CLASS}>
+      <SectionLink href={link.to} className={LINK_CLASS}>
         {link.label}
-      </a>
+      </SectionLink>
     )
   }
   return (

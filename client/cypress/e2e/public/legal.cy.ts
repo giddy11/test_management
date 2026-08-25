@@ -78,6 +78,32 @@ describe("Legal pages", () => {
     })
   })
 
+  // The landing header and footer are reused here, but their section links
+  // point at anchors that only exist on the landing page.
+  PAGES.forEach((page) => {
+    it(`sends header section links back to the landing page (${page.path})`, () => {
+      cy.visit(page.path)
+      cy.get("header").contains("a", "Product").click()
+      cy.location("pathname").should("eq", "/")
+      cy.get("#product").should("be.visible")
+      cy.window().its("scrollY").should("be.greaterThan", 0)
+    })
+
+    it(`sends footer section links back to the landing page (${page.path})`, () => {
+      cy.visit(page.path)
+      cy.get("footer").contains("a", "How it works").click()
+      cy.location("pathname").should("eq", "/")
+      cy.get("#how-it-works").should("be.visible")
+    })
+  })
+
+  it("keeps landing-page section links as in-page anchors", () => {
+    cy.visit("/")
+    cy.get("header").contains("a", "Benefits").click()
+    cy.location("pathname").should("eq", "/")
+    cy.get("#benefits").should("be.visible")
+  })
+
   it("still lands on the anchor for a hash link from the footer", () => {
     cy.visit("/")
     cy.scrollTo("bottom")

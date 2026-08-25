@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/sheet"
 import { ThemeToggle } from "@/components/shared/ThemeToggle"
 import { Wordmark } from "@/components/landing/Wordmark"
+import { SectionLink } from "@/components/landing/SectionLink"
 import { LANDING_NAV } from "@/components/landing/content"
 import { homePathForRole } from "@/components/layout/nav"
 import { useAuth } from "@/contexts/AuthContext"
@@ -31,12 +32,12 @@ export function LandingHeader() {
           <ul className="flex items-center gap-1">
             {LANDING_NAV.map((item) => (
               <li key={item.href}>
-                <a
+                <SectionLink
                   href={item.href}
                   className="rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors outline-none hover:text-brand focus-visible:ring-[3px] focus-visible:ring-brand/40"
                 >
                   {item.label}
-                </a>
+                </SectionLink>
               </li>
             ))}
           </ul>
@@ -80,13 +81,13 @@ export function LandingHeader() {
                 <ul className="space-y-0.5">
                   {LANDING_NAV.map((item) => (
                     <li key={item.href}>
-                      <a
+                      <SectionLink
                         href={item.href}
                         onClick={() => setMenuOpen(false)}
                         className="block rounded-md px-2 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
                       >
                         {item.label}
-                      </a>
+                      </SectionLink>
                     </li>
                   ))}
                   <li>
