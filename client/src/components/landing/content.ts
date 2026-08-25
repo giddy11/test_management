@@ -83,7 +83,9 @@ export interface ProductFact {
 }
 
 export const PRODUCT_FACTS: ProductFact[] = [
-  { value: "4", label: "Roles, from Super Admin to a client's IT desk" },
+  // Three, not four: Super Admin is the platform-operator role and is never
+  // held by a customer's organisation, so it stays off the public pages.
+  { value: "3", label: "Roles, from Company Admin to a client's IT desk" },
   { value: "0", label: "Accounts needed for someone to raise a ticket" },
   { value: "2", label: "Support tiers before a ticket reaches your team" },
   { value: "1", label: "Script tag to put live chat on your own site" },
