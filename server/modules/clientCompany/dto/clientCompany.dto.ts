@@ -1,12 +1,18 @@
 // modules/clientCompany/dto/clientCompany.dto.ts
 import type { ClientCompany } from "../entities/clientCompany.entity";
 
+const { env } = require("../../../config/env");
+
 export interface ClientCompanyResponseDTO {
   id: string;
   projectId: string;
   name: string;
   contactEmail: string | null;
   feedbackToken: string | null;
+  // Ready-to-share public ticket-form link for this company — the frontend
+  // origin plus /feedback/<feedbackToken>. null whenever feedbackToken is null
+  // (form disabled), so callers don't have to assemble the URL themselves.
+  feedbackUrl: string | null;
   autoAssignEnabled: boolean;
   supporterCount: number;
   createdAt: Date;
@@ -36,6 +42,7 @@ export function toClientCompanyResponse(
     name: company.name,
     contactEmail: company.contactEmail ?? null,
     feedbackToken: company.feedbackToken ?? null,
+    feedbackUrl: company.feedbackToken ? `${env.appUrl}/feedback/${company.feedbackToken}` : null,
     autoAssignEnabled: company.autoAssignEnabled ?? false,
     supporterCount,
     createdAt: company.createdAt,

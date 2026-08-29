@@ -896,15 +896,198 @@ const ALL_SECTIONS: DocSection[] = [
           created in the same call, so there's no window where the company's tickets sit in a queue
           nobody can see. There's no <Code>password</Code> field: your backend isn't a human
           choosing one, so TestMate generates one and emails it to <Code>supporter.email</Code> via
-          the usual invite. The company's ticket form link is enabled immediately, and the response
-          includes the new <Code>company</Code>.
+          the usual invite.
         </P>
+        <H3>Response — <Code>201 Created</Code></H3>
+        <P>
+          The company's ticket form link is enabled immediately, so a success response carries the
+          new <Code>company</Code> with a ready-to-share <Code>feedbackUrl</Code> (the raw{" "}
+          <Code>feedbackToken</Code> is included too, if you'd rather build the URL yourself). The
+          supporter account is created but <Strong>not</Strong> returned — their generated password
+          reaches them only in the invite email.
+        </P>
+        <CodeBlock>{`{
+  "success": true,
+  "message": "Client company provisioned",
+  "statusCode": 201,
+  "data": {
+    "company": {
+      "id": "b1c2d3e4-6f7a-4b2c-9d1e-0a1b2c3d4e5f",
+      "projectId": "a1a2a3a4-b5b6-47c8-9d0e-1f2a3b4c5d6e",
+      "name": "Acme Corp",
+      "contactEmail": "billing@acme.com",
+      "feedbackToken": "ae4bc9af-7baa-4890-927c-28af7df9ce00",
+      "feedbackUrl": "https://<your-domain>/feedback/ae4bc9af-7baa-4890-927c-28af7df9ce00",
+      "autoAssignEnabled": false,
+      "supporterCount": 0,
+      "createdAt": "2026-08-29T12:34:56.789Z"
+    }
+  },
+  "errors": []
+}`}</CodeBlock>
+        <P>
+          Every response — success or error — uses this same envelope: <Code>success</Code>,{" "}
+          <Code>message</Code>, <Code>statusCode</Code>, <Code>data</Code>, and an{" "}
+          <Code>errors</Code> array (empty on success).
+        </P>
+        <div className="overflow-x-auto rounded-lg border">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/50 text-left">
+              <tr>
+                <th className="px-3 py-2 font-medium">Field</th>
+                <th className="px-3 py-2 font-medium">Type</th>
+                <th className="px-3 py-2 font-medium">Description</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y align-top">
+              <tr>
+                <td className="whitespace-nowrap px-3 py-2 font-medium">data.company.id</td>
+                <td className="whitespace-nowrap px-3 py-2 text-muted-foreground">string (uuid)</td>
+                <td className="px-3 py-2 text-muted-foreground">
+                  TestMate's id for the new client company. Use it for the authenticated{" "}
+                  <Code>/api/v1/client-companies/:id/*</Code> endpoints.
+                </td>
+              </tr>
+              <tr>
+                <td className="whitespace-nowrap px-3 py-2 font-medium">data.company.projectId</td>
+                <td className="whitespace-nowrap px-3 py-2 text-muted-foreground">string (uuid)</td>
+                <td className="px-3 py-2 text-muted-foreground">
+                  The project this company was created under — echoes the <Code>projectId</Code> you
+                  sent.
+                </td>
+              </tr>
+              <tr>
+                <td className="whitespace-nowrap px-3 py-2 font-medium">data.company.name</td>
+                <td className="whitespace-nowrap px-3 py-2 text-muted-foreground">string</td>
+                <td className="px-3 py-2 text-muted-foreground">The company name you sent.</td>
+              </tr>
+              <tr>
+                <td className="whitespace-nowrap px-3 py-2 font-medium">data.company.contactEmail</td>
+                <td className="whitespace-nowrap px-3 py-2 text-muted-foreground">string | null</td>
+                <td className="px-3 py-2 text-muted-foreground">
+                  The billing/contact address you sent, or <Code>null</Code> if you omitted it.
+                </td>
+              </tr>
+              <tr>
+                <td className="whitespace-nowrap px-3 py-2 font-medium">data.company.feedbackToken</td>
+                <td className="whitespace-nowrap px-3 py-2 text-muted-foreground">string (uuid) | null</td>
+                <td className="px-3 py-2 text-muted-foreground">
+                  The secret token for this company's public ticket form. Always set here (the form
+                  is enabled on creation); only <Code>null</Code> if an admin later disables the link.
+                </td>
+              </tr>
+              <tr>
+                <td className="whitespace-nowrap px-3 py-2 font-medium">data.company.feedbackUrl</td>
+                <td className="whitespace-nowrap px-3 py-2 text-muted-foreground">string | null</td>
+                <td className="px-3 py-2 text-muted-foreground">
+                  The full ticket-form URL — TestMate's app origin plus{" "}
+                  <Code>/feedback/&lt;feedbackToken&gt;</Code>. Share this with the company's users.{" "}
+                  <Code>null</Code> whenever <Code>feedbackToken</Code> is.
+                </td>
+              </tr>
+              <tr>
+                <td className="whitespace-nowrap px-3 py-2 font-medium">data.company.autoAssignEnabled</td>
+                <td className="whitespace-nowrap px-3 py-2 text-muted-foreground">boolean</td>
+                <td className="px-3 py-2 text-muted-foreground">
+                  Whether incoming tickets auto-assign to the company's least-busy supporter. Always{" "}
+                  <Code>false</Code> for a new company — only their own IT support lead can turn it on.
+                </td>
+              </tr>
+              <tr>
+                <td className="whitespace-nowrap px-3 py-2 font-medium">data.company.supporterCount</td>
+                <td className="whitespace-nowrap px-3 py-2 text-muted-foreground">number</td>
+                <td className="px-3 py-2 text-muted-foreground">
+                  Supporter accounts on the company. Reported as <Code>0</Code> in this response even
+                  though the first supporter was just created; fetch the company later for the live
+                  count.
+                </td>
+              </tr>
+              <tr>
+                <td className="whitespace-nowrap px-3 py-2 font-medium">data.company.createdAt</td>
+                <td className="whitespace-nowrap px-3 py-2 text-muted-foreground">string (ISO 8601)</td>
+                <td className="px-3 py-2 text-muted-foreground">When the company record was created.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
         <P>
           Need more than one supporter, or to add one later? Use the company's{" "}
           <Strong>Supporters</Strong> panel (or{" "}
           <Code>POST /api/v1/client-companies/:id/supporters</Code>, authenticated) — same as any
           other client company.
         </P>
+        <H3>Error responses</H3>
+        <P>
+          Errors use the same envelope with <Code>success: false</Code>, <Code>data: null</Code>, and
+          a human-readable <Code>message</Code>. Validation failures also populate <Code>errors</Code>{" "}
+          with one <Code>{`{ field, message }`}</Code> entry per invalid field (e.g.{" "}
+          <Code>{`{ "field": "body.supporter.email", "message": "Invalid email" }`}</Code>).
+        </P>
+        <div className="overflow-x-auto rounded-lg border">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/50 text-left">
+              <tr>
+                <th className="px-3 py-2 font-medium">Status</th>
+                <th className="px-3 py-2 font-medium"><Code>message</Code></th>
+                <th className="px-3 py-2 font-medium">When</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y align-top">
+              <tr>
+                <td className="whitespace-nowrap px-3 py-2 font-medium">422</td>
+                <td className="px-3 py-2 text-muted-foreground">Validation failed</td>
+                <td className="px-3 py-2 text-muted-foreground">
+                  A field is missing or malformed — bad <Code>projectId</Code>, empty{" "}
+                  <Code>name</Code>, invalid email, missing <Code>supporter</Code>. See{" "}
+                  <Code>errors</Code> for specifics.
+                </td>
+              </tr>
+              <tr>
+                <td className="whitespace-nowrap px-3 py-2 font-medium">404</td>
+                <td className="px-3 py-2 text-muted-foreground">Project not found</td>
+                <td className="px-3 py-2 text-muted-foreground">
+                  No project matches <Code>projectId</Code> (or it was deleted).
+                </td>
+              </tr>
+              <tr>
+                <td className="whitespace-nowrap px-3 py-2 font-medium">409</td>
+                <td className="px-3 py-2 text-muted-foreground">An account with this email already exists</td>
+                <td className="px-3 py-2 text-muted-foreground">
+                  <Code>supporter.email</Code> already belongs to a TestMate user.
+                </td>
+              </tr>
+              <tr>
+                <td className="whitespace-nowrap px-3 py-2 font-medium">409</td>
+                <td className="px-3 py-2 text-muted-foreground">A client company with this contact email already exists</td>
+                <td className="px-3 py-2 text-muted-foreground">
+                  <Code>contactEmail</Code> is already the contact address for another client company.
+                </td>
+              </tr>
+              <tr>
+                <td className="whitespace-nowrap px-3 py-2 font-medium">409</td>
+                <td className="px-3 py-2 text-muted-foreground">This email already belongs to a user account</td>
+                <td className="px-3 py-2 text-muted-foreground">
+                  <Code>contactEmail</Code> matches an existing user's address.
+                </td>
+              </tr>
+              <tr>
+                <td className="whitespace-nowrap px-3 py-2 font-medium">429</td>
+                <td className="px-3 py-2 text-muted-foreground">Too many requests — please slow down</td>
+                <td className="px-3 py-2 text-muted-foreground">
+                  More than 20 calls to this endpoint in a 60-second window. Back off and retry.
+                </td>
+              </tr>
+              <tr>
+                <td className="whitespace-nowrap px-3 py-2 font-medium">500</td>
+                <td className="px-3 py-2 text-muted-foreground">Internal server error</td>
+                <td className="px-3 py-2 text-muted-foreground">
+                  Unexpected failure. If the supporter couldn't be created the half-made company is
+                  rolled back, so a retry is safe.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
         <H3>Security notes</H3>
         <UL>
           <li>This endpoint has no credential check — anyone who knows (or guesses) a <Code>projectId</Code> can create companies inside that project. Treat the URL itself as sensitive, and don't expose it to untrusted clients.</li>

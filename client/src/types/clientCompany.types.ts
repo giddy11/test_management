@@ -7,6 +7,9 @@ export interface ClientCompany {
   name: string
   contactEmail: string | null
   feedbackToken: string | null
+  // Ready-to-share public ticket-form link (frontend origin + /feedback/<token>),
+  // assembled server-side. null whenever feedbackToken is null.
+  feedbackUrl: string | null
   // Opt-in, set by this company's own IT support lead: route each incoming
   // ticket to their least-busy supporter instead of alerting the whole queue.
   autoAssignEnabled: boolean
