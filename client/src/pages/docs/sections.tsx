@@ -1059,11 +1059,43 @@ const ALL_SECTIONS: DocSection[] = [
         </P>
         <H3>Error responses</H3>
         <P>
-          Errors use the same envelope with <Code>success: false</Code>, <Code>data: null</Code>, and
-          a human-readable <Code>message</Code>. Validation failures also populate <Code>errors</Code>{" "}
-          with one <Code>{`{ field, message }`}</Code> entry per invalid field (e.g.{" "}
+          Errors use the same envelope with <Code>success: false</Code> and a human-readable{" "}
+          <Code>message</Code>. Validation failures also populate <Code>errors</Code> with one{" "}
+          <Code>{`{ field, message }`}</Code> entry per invalid field (e.g.{" "}
           <Code>{`{ "field": "body.supporter.email", "message": "Invalid email" }`}</Code>).
         </P>
+        <P>
+          <Code>data</Code> is <Code>null</Code> on most errors — <Strong>except</Strong> the three{" "}
+          409s below when the conflicting company or account belongs to the{" "}
+          <Code>projectId</Code> you sent: then <Code>data.company</Code> carries that existing
+          company in the same shape as a successful create, so a retried or duplicate call (e.g. a
+          retry after a timeout) can still recover its <Code>feedbackUrl</Code> instead of just
+          hitting a dead end. A conflict against a <Strong>different</Strong> project's company never
+          returns its details — <Code>data</Code> stays <Code>null</Code> — so this can't be used to
+          probe other tenants' data.
+        </P>
+        <P>
+          <Strong>Example — <Code>409 Conflict</Code> with a recoverable company:</Strong>
+        </P>
+        <CodeBlock>{`{
+  "success": false,
+  "message": "A client company with this contact email already exists",
+  "statusCode": 409,
+  "data": {
+    "company": {
+      "id": "b1c2d3e4-6f7a-4b2c-9d1e-0a1b2c3d4e5f",
+      "projectId": "a1a2a3a4-b5b6-47c8-9d0e-1f2a3b4c5d6e",
+      "name": "Acme Corp",
+      "contactEmail": "billing@acme.com",
+      "feedbackToken": "ae4bc9af-7baa-4890-927c-28af7df9ce00",
+      "feedbackUrl": "https://<your-domain>/feedback/ae4bc9af-7baa-4890-927c-28af7df9ce00",
+      "autoAssignEnabled": false,
+      "supporterCount": 1,
+      "createdAt": "2026-08-29T12:34:56.789Z"
+    }
+  },
+  "errors": []
+}`}</CodeBlock>
         <div className="overflow-x-auto rounded-lg border">
           <table className="w-full text-sm">
             <thead className="bg-muted/50 text-left">
@@ -1094,7 +1126,9 @@ const ALL_SECTIONS: DocSection[] = [
                 <td className="whitespace-nowrap px-3 py-2 font-medium">409</td>
                 <td className="px-3 py-2 text-muted-foreground">An account with this email already exists</td>
                 <td className="px-3 py-2 text-muted-foreground">
-                  <Code>supporter.email</Code> already belongs to a TestMate user.
+                  <Code>supporter.email</Code> already belongs to a TestMate user. If that user
+                  supports a company under this same <Code>projectId</Code>,{" "}
+                  <Code>data.company</Code> is that company.
                 </td>
               </tr>
               <tr>
@@ -1102,13 +1136,17 @@ const ALL_SECTIONS: DocSection[] = [
                 <td className="px-3 py-2 text-muted-foreground">A client company with this contact email already exists</td>
                 <td className="px-3 py-2 text-muted-foreground">
                   <Code>contactEmail</Code> is already the contact address for another client company.
+                  If that company is under this same <Code>projectId</Code>, <Code>data.company</Code>{" "}
+                  is that company — the common case for a retried call.
                 </td>
               </tr>
               <tr>
                 <td className="whitespace-nowrap px-3 py-2 font-medium">409</td>
                 <td className="px-3 py-2 text-muted-foreground">This email already belongs to a user account</td>
                 <td className="px-3 py-2 text-muted-foreground">
-                  <Code>contactEmail</Code> matches an existing user's address.
+                  <Code>contactEmail</Code> matches an existing user's address. If that user supports
+                  a company under this same <Code>projectId</Code>, <Code>data.company</Code> is that
+                  company.
                 </td>
               </tr>
               <tr>

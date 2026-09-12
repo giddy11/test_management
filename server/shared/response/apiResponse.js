@@ -19,8 +19,8 @@ class ApiResponse {
     return new ApiResponse(true, message, 201, data);
   }
 
-  static error(message, code = 400, errors) {
-    return new ApiResponse(false, message, code, null, errors ?? []);
+  static error(message, code = 400, errors, data = null) {
+    return new ApiResponse(false, message, code, data, errors ?? []);
   }
 }
 

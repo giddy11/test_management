@@ -319,7 +319,7 @@
               "code": 409,
               "header": [{ "key": "Content-Type", "value": "application/json" }],
               "_postman_previewlanguage": "json",
-              "body": "{\n  \"success\": false,\n  \"message\": \"A client company with this contact email already exists\",\n  \"statusCode\": 409,\n  \"data\": null,\n  \"errors\": []\n}"
+              "body": "{\n  \"success\": false,\n  \"message\": \"A client company with this contact email already exists\",\n  \"statusCode\": 409,\n  \"data\": {\n    \"company\": {\n      \"id\": \"9b2f1e10-6b1a-4c9e-8a2d-1a2b3c4d5e6f\",\n      \"projectId\": \"3fa85f64-5717-4562-b3fc-2c963f66afa6\",\n      \"name\": \"Acme Corp\",\n      \"contactEmail\": \"billing@acme.example\",\n      \"feedbackToken\": null,\n      \"feedbackUrl\": null,\n      \"autoAssignEnabled\": false,\n      \"supporterCount\": 0,\n      \"createdAt\": \"2026-07-17T10:00:00.000Z\"\n    }\n  },\n  \"errors\": []\n}"
             },
             {
               "name": "409 Contact email belongs to a user account",

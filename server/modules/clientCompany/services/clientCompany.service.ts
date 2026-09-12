@@ -8,6 +8,7 @@ import { ProjectRepository } from "../../project/repositories/project.repository
 import { ProjectService } from "../../project/services/project.service";
 import type { Actor } from "../../../shared/types/actor";
 import type { ClientCompany } from "../entities/clientCompany.entity";
+import { toClientCompanyResponse } from "../dto/clientCompany.dto";
 
 const { UserRepository } = require("../../user/repositories/user.repository");
 const { ActivityService } = require("../../activity/services/activity.service");
@@ -231,10 +232,34 @@ export class ClientCompanyService {
     if (!project || project.deletedAt) throw new AppError("Project not found", 404);
 
     if (data.contactEmail) {
-      await this.assertContactEmailAvailable(data.contactEmail);
+      const conflictingCompany = await this.companyRepo.findByEmail(data.contactEmail);
+      if (conflictingCompany) {
+        throw new AppError(
+          "A client company with this contact email already exists",
+          409,
+          [],
+          await this.companyConflictData(conflictingCompany, data.projectId)
+        );
+      }
+      const contactUser = await this.userRepo.findByEmail(data.contactEmail);
+      if (contactUser) {
+        throw new AppError(
+          "This email already belongs to a user account",
+          409,
+          [],
+          await this.userConflictData(contactUser, data.projectId)
+        );
+      }
     }
     const existingSupporter = await this.userRepo.findByEmail(data.supporter.email);
-    if (existingSupporter) throw new AppError("An account with this email already exists", 409);
+    if (existingSupporter) {
+      throw new AppError(
+        "An account with this email already exists",
+        409,
+        [],
+        await this.userConflictData(existingSupporter, data.projectId)
+      );
+    }
 
     const company = await this.companyRepo.create({
       projectId: project.id,
@@ -259,6 +284,32 @@ export class ClientCompanyService {
     }
 
     return { company };
+  }
+
+  // Lets a partner's retried/duplicate provisioning call recover the company
+  // it already created — e.g. the ticket form's feedbackUrl — instead of just
+  // a bare "already exists". Only surfaced when the conflicting company sits
+  // under the SAME project as the request: this endpoint is unauthenticated
+  // and identifies itself solely by projectId, so handing back another
+  // tenant's company off of an arbitrary email match would be a cross-tenant
+  // data leak.
+  private async companyConflictData(company: ClientCompany, projectId: string) {
+    if (company.projectId !== projectId) return null;
+    const supporterCount = await this.userRepo.countByClientCompany(company.id);
+    return { company: toClientCompanyResponse(company, supporterCount) };
+  }
+
+  // Same idea, starting from the conflicting user account instead of the
+  // company record (the contactEmail/supporter.email matched an existing
+  // user, not a company) — resolves to that user's own client company, if any.
+  private async userConflictData(
+    user: { clientCompanyId?: string | null },
+    projectId: string
+  ) {
+    if (!user.clientCompanyId) return null;
+    const company = await this.companyRepo.findById(user.clientCompanyId);
+    if (!company || company.deletedAt) return null;
+    return this.companyConflictData(company, projectId);
   }
 
   // ── Supporter accounts ───────────────────────────────────────────────────────

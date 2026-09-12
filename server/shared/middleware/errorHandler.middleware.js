@@ -15,7 +15,7 @@ function globalErrorHandler(err, req, res, next) {
   if (err instanceof AppError) {
     return res
       .status(err.statusCode)
-      .json(ApiResponse.error(err.message, err.statusCode, err.errors));
+      .json(ApiResponse.error(err.message, err.statusCode, err.errors, err.data));
   }
 
   // Multer file-size / upload errors surface a `code` — keep them as 4xx.

@@ -1,10 +1,14 @@
 // shared/errors/AppError.js
 // Domain error. Carries an HTTP status code and never leaks internal details.
 class AppError extends Error {
-  constructor(message, statusCode = 400, errors = []) {
+  // `data` is optional and null by default everywhere except call sites that
+  // deliberately attach a recoverable payload (e.g. the existing record on a
+  // 409 conflict) — see errorHandler.middleware.js, which forwards it as-is.
+  constructor(message, statusCode = 400, errors = [], data = null) {
     super(message);
     this.statusCode = statusCode;
     this.errors = errors;
+    this.data = data;
     this.name = "AppError";
     Object.setPrototypeOf(this, new.target.prototype);
   }

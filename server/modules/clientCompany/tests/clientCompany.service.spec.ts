@@ -860,11 +860,53 @@ describe("ClientCompanyService", () => {
       expect(companyRepo.create).not.toHaveBeenCalled();
     });
 
+    it("returns the existing company on a same-project contact-email conflict, so a retry can recover its feedbackUrl", async () => {
+      companyRepo.findByEmail.mockResolvedValue(company); // company.projectId === payload.projectId
+      userRepo.countByClientCompany.mockResolvedValue(2);
+
+      await expect(
+        service.provisionCompany({ ...payload, contactEmail: "taken@b.com" })
+      ).rejects.toMatchObject({
+        statusCode: 409,
+        data: { company: expect.objectContaining({ id: "cc-1", supporterCount: 2 }) },
+      });
+    });
+
+    it("does not leak another project's company on a contact-email conflict", async () => {
+      companyRepo.findByEmail.mockResolvedValue({ ...company, id: "cc-other", projectId: "proj-2" });
+
+      await expect(
+        service.provisionCompany({ ...payload, contactEmail: "taken@b.com" })
+      ).rejects.toMatchObject({ statusCode: 409, data: null });
+    });
+
     it("409s when the supporter email is already taken, before creating the company", async () => {
       userRepo.findByEmail.mockResolvedValue({ id: "user-9" });
 
       await expect(service.provisionCompany(payload)).rejects.toMatchObject({ statusCode: 409 });
       expect(companyRepo.create).not.toHaveBeenCalled();
+    });
+
+    it("returns the existing company when the supporter email already belongs to one of its supporters", async () => {
+      userRepo.findByEmail.mockResolvedValue({ id: "user-9", clientCompanyId: "cc-1" });
+      companyRepo.findById.mockResolvedValue(company); // company.projectId === payload.projectId
+      userRepo.countByClientCompany.mockResolvedValue(1);
+
+      await expect(service.provisionCompany(payload)).rejects.toMatchObject({
+        statusCode: 409,
+        data: { company: expect.objectContaining({ id: "cc-1", supporterCount: 1 }) },
+      });
+      expect(companyRepo.create).not.toHaveBeenCalled();
+    });
+
+    it("does not leak a company when the conflicting supporter belongs to a different project's company", async () => {
+      userRepo.findByEmail.mockResolvedValue({ id: "user-9", clientCompanyId: "cc-other" });
+      companyRepo.findById.mockResolvedValue({ ...company, id: "cc-other", projectId: "proj-2" });
+
+      await expect(service.provisionCompany(payload)).rejects.toMatchObject({
+        statusCode: 409,
+        data: null,
+      });
     });
 
     it("rolls the company back if creating the supporter fails", async () => {
