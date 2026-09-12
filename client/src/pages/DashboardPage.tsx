@@ -1,5 +1,5 @@
-import { Link } from "react-router-dom"
-import { FolderKanban, Layers, ClipboardList, FlaskConical, Trophy, ChevronRight, Lightbulb, Bug } from "lucide-react"
+import { Link, useSearchParams } from "react-router-dom"
+import { FolderKanban, Layers, ClipboardList, FlaskConical, Trophy, ChevronRight, Lightbulb, Bug, LayoutDashboard, Gauge } from "lucide-react"
 import {
   Card,
   CardContent,
@@ -18,6 +18,8 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { ResultDonut, DistributionBars } from "@/components/dashboard/AnalyticsCharts"
 import { RecentRunsCard } from "@/components/dashboard/RecentRunsCard"
+import { SlaDashboard } from "@/components/sla/SlaDashboard"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { PageLoader } from "@/components/shared/PageLoader"
 import { OnboardingTour } from "@/components/onboarding/OnboardingTour"
 import { useDashboard } from "@/hooks/useDashboard"
@@ -109,21 +111,61 @@ function PassRateBadge({ rate }: { rate: number }) {
   )
 }
 
+// The dashboard has two views: the test-management overview (default) and
+// the SLA & support analytics. The active tab lives in the URL (?tab=sla) so
+// it can be linked to directly.
+type DashboardTab = "overview" | "sla"
+
 export default function DashboardPage() {
   const { user } = useAuth()
-  const { data, isLoading } = useDashboard()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const tab: DashboardTab = searchParams.get("tab") === "sla" ? "sla" : "overview"
+  const setTab = (next: string) => {
+    const params = new URLSearchParams(searchParams)
+    if (next === "sla") params.set("tab", "sla")
+    else params.delete("tab")
+    setSearchParams(params, { replace: true })
+  }
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Welcome back, {user?.firstName}</h1>
         <p className="text-sm text-muted-foreground">
-          {user?.role === "user"
-            ? "Your projects, assigned tests and results at a glance."
-            : "Track how your documented tests are being followed up and executed."}
+          {tab === "sla"
+            ? "Support ticket performance: response and resolution times, SLA compliance, and recurring issues."
+            : user?.role === "user"
+              ? "Your projects, assigned tests and results at a glance."
+              : "Track how your documented tests are being followed up and executed."}
         </p>
       </div>
 
+      <Tabs value={tab} onValueChange={setTab}>
+        <TabsList>
+          <TabsTrigger value="overview" className="gap-1.5" data-cy="dashboard-tab-overview">
+            <LayoutDashboard className="size-3.5" /> Overview
+          </TabsTrigger>
+          <TabsTrigger value="sla" className="gap-1.5" data-cy="dashboard-tab-sla">
+            <Gauge className="size-3.5" /> SLA &amp; support
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="overview" className="mt-4">
+          <OverviewTab />
+        </TabsContent>
+        <TabsContent value="sla" className="mt-4">
+          {tab === "sla" && <SlaDashboard />}
+        </TabsContent>
+      </Tabs>
+    </div>
+  )
+}
+
+function OverviewTab() {
+  const { data, isLoading } = useDashboard()
+
+  return (
+    <div className="space-y-6">
       {isLoading && <PageLoader label="Loading analytics" />}
 
       {data && (

@@ -179,3 +179,69 @@ describe("FeedbackService.manageFeedback — closing", () => {
   });
 });
 
+
+// SLA timestamps (see modules/sla): stamped once, the first time each applies.
+describe("FeedbackService.manageFeedback — SLA timestamps", () => {
+  let feedbackRepo: any;
+  let service: FeedbackService;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    feedbackRepo = makeFeedbackRepo();
+    service = new FeedbackService(
+      feedbackRepo,
+      makeHistoryRepo() as any,
+      makeProjectRepo() as any,
+      makeProjectService() as any,
+      makeMemberRepo() as any,
+      makeAuthRepo() as any,
+      makeNotificationService() as any
+    );
+  });
+
+  const fresh = {
+    ...baseItem,
+    status: FeedbackStatus.LOGGED,
+    firstResponseAt: null,
+    resolvedAt: null,
+    closedAt: null,
+  };
+
+  it("stamps firstResponseAt on the first stage past logged", async () => {
+    feedbackRepo.findById.mockResolvedValue({ ...fresh });
+    feedbackRepo.update.mockImplementation((_id: string, patch: any) => Promise.resolve({ ...fresh, ...patch }));
+
+    await service.manageFeedback(admin, "fb-1", { status: FeedbackStatus.ACKNOWLEDGED });
+
+    const patch = feedbackRepo.update.mock.calls[0][1];
+    expect(patch.firstResponseAt).toBeInstanceOf(Date);
+    expect(patch.resolvedAt).toBeUndefined();
+    expect(patch.closedAt).toBeUndefined();
+  });
+
+  it("never moves an existing firstResponseAt", async () => {
+    const already = new Date("2024-01-15T01:00:00.000Z");
+    feedbackRepo.findById.mockResolvedValue({ ...fresh, status: FeedbackStatus.ACKNOWLEDGED, firstResponseAt: already });
+    feedbackRepo.update.mockImplementation((_id: string, patch: any) => Promise.resolve({ ...fresh, ...patch }));
+
+    await service.manageFeedback(admin, "fb-1", { status: FeedbackStatus.ASSIGNED });
+
+    expect(feedbackRepo.update.mock.calls[0][1].firstResponseAt).toBeUndefined();
+  });
+
+  it("stamps resolvedAt on resolve, then closedAt (not resolvedAt again) on close", async () => {
+    feedbackRepo.findById.mockResolvedValue({ ...fresh, status: FeedbackStatus.INVESTIGATING, firstResponseAt: new Date() });
+    feedbackRepo.update.mockImplementation((_id: string, patch: any) => Promise.resolve({ ...fresh, ...patch }));
+    await service.manageFeedback(admin, "fb-1", { status: FeedbackStatus.RESOLVED });
+    const resolvePatch = feedbackRepo.update.mock.calls[0][1];
+    expect(resolvePatch.resolvedAt).toBeInstanceOf(Date);
+    expect(resolvePatch.closedAt).toBeUndefined();
+
+    const resolvedAt = new Date("2024-01-16T00:00:00.000Z");
+    feedbackRepo.findById.mockResolvedValue({ ...fresh, status: FeedbackStatus.RESOLVED, firstResponseAt: new Date(), resolvedAt });
+    await service.manageFeedback(admin, "fb-1", { status: FeedbackStatus.CLOSED });
+    const closePatch = feedbackRepo.update.mock.calls[1][1];
+    expect(closePatch.closedAt).toBeInstanceOf(Date);
+    expect(closePatch.resolvedAt).toBeUndefined();
+  });
+});

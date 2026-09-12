@@ -220,6 +220,8 @@ export class FeedbackSupportService {
     const trimmedNote = note?.trim() || undefined;
     const updated = await this.feedbackRepo.update(fb.id, {
       supportStatus: nextStatus,
+      // SLA: the first stage past "logged" is the first response (see modules/sla).
+      ...(fb.firstResponseAt ? {} : { firstResponseAt: enteredAt }),
       ...(trimmedNote ? { supportResponse: trimmedNote } : {}),
     });
 
@@ -281,6 +283,9 @@ export class FeedbackSupportService {
       supportStatus: SupportStatus.RESOLVED,
       supportResponse: note,
       supportResolvedAt: enteredAt,
+      // SLA: a local resolution ends the resolution clock (see modules/sla).
+      ...(fb.firstResponseAt ? {} : { firstResponseAt: enteredAt }),
+      ...(fb.resolvedAt ? {} : { resolvedAt: enteredAt }),
     });
 
     const [project, company] = await Promise.all([
@@ -331,6 +336,8 @@ export class FeedbackSupportService {
       escalatedAt,
       escalatedById: actor.id,
       severity,
+      // SLA: escalating is itself a response if nothing else was (see modules/sla).
+      ...(fb.firstResponseAt ? {} : { firstResponseAt: escalatedAt }),
     });
 
     // The product owner's timeline starts now — not when the end user first

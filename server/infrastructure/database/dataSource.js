@@ -74,6 +74,7 @@ const {
 const {
   LiveChatAccount,
 } = require("../../modules/liveChat/entities/liveChatAccount.entity");
+const { SlaSettings } = require("../../modules/sla/entities/slaSettings.entity");
 
 const AppDataSource = new DataSource({
   type: "postgres",
@@ -119,6 +120,7 @@ const AppDataSource = new DataSource({
     LiveChatConversation,
     LiveChatSettings,
     LiveChatAccount,
+    SlaSettings,
   ],
   migrations: ["infrastructure/database/migrations/*.{js,ts}"],
 });

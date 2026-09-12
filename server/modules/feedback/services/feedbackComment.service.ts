@@ -238,6 +238,11 @@ export class FeedbackCommentService {
       attachments,
     });
     await this.feedbackRepo.incrementCommentCount(feedbackId);
+    // SLA: a staff reply is the first response when it lands before any stage
+    // change (see modules/sla). Set once, never moved.
+    if (!fb.firstResponseAt) {
+      await this.feedbackRepo.update(fb.id, { firstResponseAt: comment.createdAt ?? new Date() });
+    }
 
     const [project, company] = await Promise.all([
       this.projectRepo.findById(fb.projectId),

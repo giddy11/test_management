@@ -1,0 +1,28 @@
+[
+  {
+    "id": "e2e-fb-1", "ticketNumber": 42, "title": "Export button does nothing", "type": "bug",
+    "status": "investigating", "supportStatus": null, "stage": "investigating", "severity": null,
+    "projectId": "e2e-proj-1", "projectName": "Apollo", "clientCompanyId": null, "clientCompanyName": null,
+    "submitterName": "End User", "suiteName": null, "rating": null,
+    "createdAt": "2026-08-20T10:00:00.000Z", "firstResponseAt": "2026-08-20T12:00:00.000Z",
+    "resolvedAt": null, "closedAt": null,
+    "firstResponseMs": 7200000, "resolutionMs": null, "pausedMs": 0, "ageMs": 604800000, "sinceUpdateMs": 86400000,
+    "firstResponseTargetMs": 86400000, "resolutionTargetMs": 432000000,
+    "firstResponseDueAt": "2026-08-21T10:00:00.000Z", "resolutionDueAt": "2026-08-25T10:00:00.000Z",
+    "firstResponseBreached": false, "resolutionBreached": true, "compliance": "breached", "isResolved": false,
+    "assignees": ["Uche Tester"], "supporterName": null, "visibleInTriage": true
+  },
+  {
+    "id": "e2e-fb-2", "ticketNumber": 43, "title": "Login page slow", "type": "complaint",
+    "status": "logged", "supportStatus": "investigating", "stage": "investigating", "severity": null,
+    "projectId": "e2e-proj-1", "projectName": "Apollo", "clientCompanyId": "e2e-cc-1", "clientCompanyName": "Client Co",
+    "submitterName": "Another User", "suiteName": null, "rating": null,
+    "createdAt": "2026-08-22T10:00:00.000Z", "firstResponseAt": "2026-08-22T10:30:00.000Z",
+    "resolvedAt": null, "closedAt": null,
+    "firstResponseMs": 1800000, "resolutionMs": null, "pausedMs": 0, "ageMs": 432000000, "sinceUpdateMs": 172800000,
+    "firstResponseTargetMs": 86400000, "resolutionTargetMs": 432000000,
+    "firstResponseDueAt": "2026-08-23T10:00:00.000Z", "resolutionDueAt": "2026-08-27T10:00:00.000Z",
+    "firstResponseBreached": false, "resolutionBreached": true, "compliance": "breached", "isResolved": false,
+    "assignees": [], "supporterName": "Sam Support", "visibleInTriage": false
+  }
+]

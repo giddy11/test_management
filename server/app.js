@@ -41,6 +41,7 @@ const integrationClientCompanyRoutes = require("./modules/clientCompany/routes/i
 const supportChatRoutes = require("./modules/supportChat/routes/supportChat.routes");
 const liveChatRoutes = require("./modules/liveChat/routes/liveChat.routes");
 const publicLiveChatRoutes = require("./modules/liveChat/routes/publicLiveChat.routes");
+const slaRoutes = require("./modules/sla/routes/sla.routes");
 
 function createApp() {
   const app = express();
@@ -74,6 +75,7 @@ function createApp() {
   api.use("/test-runs", testRunRoutes);
   api.use("/test-run-results", testRunResultRoutes);
   api.use("/dashboard", dashboardRoutes);
+  api.use("/sla", slaRoutes); // SLA tracking dashboard & analytics
   api.use("/notifications", notificationRoutes);
   api.use("/activity", activityRoutes);
   api.use("/feature-requests", featureRequestAttachmentRoutes); // /:id/attachments — mounted first

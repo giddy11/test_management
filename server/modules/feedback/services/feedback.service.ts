@@ -388,7 +388,20 @@ export class FeedbackService {
       patch.status = data.status;
     }
     if (patch.status && patch.status !== fb.status) {
-      patch.statusUpdatedAt = new Date();
+      const now = new Date();
+      patch.statusUpdatedAt = now;
+      // SLA timestamps — each is set once, the first time it applies (see
+      // modules/sla). Any stage past "logged" counts as the first response
+      // if nobody has commented yet.
+      if (!fb.firstResponseAt && patch.status !== FeedbackStatus.LOGGED) {
+        patch.firstResponseAt = now;
+      }
+      if (!fb.resolvedAt && (patch.status === FeedbackStatus.RESOLVED || patch.status === FeedbackStatus.CLOSED)) {
+        patch.resolvedAt = now;
+      }
+      if (!fb.closedAt && patch.status === FeedbackStatus.CLOSED) {
+        patch.closedAt = now;
+      }
     }
 
     const updated = Object.keys(patch).length > 0 ? await this.feedbackRepo.update(fb.id, patch as any) : await this.feedbackRepo.findById(fb.id);

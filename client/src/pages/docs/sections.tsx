@@ -309,6 +309,47 @@ const ALL_SECTIONS: DocSection[] = [
           executed results and pass rate) and organisation-wide <Strong>feature request</Strong> and{" "}
           <Strong>bug</Strong> status breakdowns.
         </P>
+
+        <H3>SLA &amp; support tab</H3>
+        <P>
+          The second tab tracks the support tickets raised through your public ticket portal
+          against your organisation's SLA rules. Every figure is computed over the same filtered
+          set of tickets, and clicking any card, bar or row drills down to the tickets behind it.
+        </P>
+        <UL>
+          <li>
+            <Strong>Tickets raised</Strong> — bugs, feature requests and complaints over time,
+            with resolutions overlaid.
+          </li>
+          <li>
+            <Strong>First response time</Strong> — from ticket creation to the first staff reply
+            or stage change, on either the IT support or product team side.
+          </li>
+          <li>
+            <Strong>Resolution time</Strong> — from creation to the ticket being resolved (locally
+            by IT support, or by the product team), minus any time in a paused stage.
+          </li>
+          <li>
+            <Strong>Waiting tickets</Strong> — open tickets, how long they've waited, and which
+            have had no response yet.
+          </li>
+          <li>
+            <Strong>SLA compliance &amp; breaches</Strong> — met vs breached against the target
+            for each ticket's severity. Open tickets are judged on a live clock, so breaches
+            appear automatically as targets pass.
+          </li>
+          <li>
+            <Strong>Issues by severity, status, product, team member and support engineer</Strong>,
+            plus <Strong>recurring issues</Strong> — the same problem reported more than once.
+          </li>
+        </UL>
+        <P>
+          Filter by date range, product, client company, status, severity, type, team member,
+          support engineer, or ticket code. Administrators set the targets per severity and pick
+          which stages pause the clock under <Strong>SLA rules</Strong>; QA users see the projects
+          they belong to, and IT support engineers see the same reports for their own company under{" "}
+          <Strong>SLA reports</Strong>.
+        </P>
       </div>
     ),
   },

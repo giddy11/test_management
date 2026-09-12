@@ -6,6 +6,7 @@ import { AppDataSource } from "../../../infrastructure/database/dataSource";
 
 const { buildMeta, getOffset } = require("../../../shared/pagination/paginate");
 const { SupportStatus, FeedbackStatus } = require("../../../config/constants");
+const { parseReferenceCode } = require("../../../shared/utils/referenceCode");
 
 // The IT tier's working (non-terminal) stages — same set as
 // FeedbackSupportService's SUPPORT_PROGRESSION. Duplicated here rather than
@@ -125,9 +126,16 @@ export class FeedbackRepository {
     if (type) qb.andWhere("fb.type = :type", { type });
     if (submitterEmail) qb.andWhere("fb.submitter_email = :submitterEmail", { submitterEmail });
     if (search) {
-      qb.andWhere("(fb.title ILIKE :search OR fb.submitter_email ILIKE :search)", {
-        search: `%${search}%`,
-      });
+      // A ticket code ("TKT-20260728-042") looks up that exact ticket — how
+      // the SLA dashboard's drill-down deep-links into the triage list.
+      const ticketNumber = parseReferenceCode("TKT", search.trim());
+      if (ticketNumber != null) {
+        qb.andWhere("fb.ticket_number = :ticketNumber", { ticketNumber });
+      } else {
+        qb.andWhere("(fb.title ILIKE :search OR fb.submitter_email ILIKE :search)", {
+          search: `%${search}%`,
+        });
+      }
     }
 
     const total = page === 1 ? await qb.getCount() : 0;

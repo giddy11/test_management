@@ -30,6 +30,8 @@ declare global {
       stubLayout(): Chainable<void>
       /** Stub the dashboard page data (aliases @overview, @recentRuns, @projects). */
       stubDashboard(): Chainable<void>
+      /** Stub the SLA & support tab (overview, drill-down tickets, filter options, rules). */
+      stubSla(): Chainable<void>
       /** Log out through the sidebar user menu. */
       logout(): Chainable<void>
       /** Wait until the shared PageLoader has disappeared. */
@@ -123,3 +125,31 @@ Cypress.Commands.add("loginByApi", (email: string, password: string) => {
 })
 
 export {}
+
+Cypress.Commands.add("stubSla", () => {
+  cy.fixture("sla/overview").then((overview) => {
+    cy.intercept("GET", apiPath("/sla/overview"), { body: ok(overview) }).as("slaOverview")
+  })
+  cy.fixture("sla/tickets").then((tickets) => {
+    cy.intercept("GET", apiPath("/sla/tickets"), { body: ok(tickets, listMeta(tickets.length)) }).as("slaTickets")
+  })
+  cy.fixture("sla/settings").then((settings) => {
+    cy.intercept("GET", apiPath("/sla/settings"), { body: ok(settings) }).as("slaSettings")
+    cy.intercept("PUT", apiPath("/sla/settings"), (req) => {
+      req.reply({ body: ok({ ...settings, ...req.body, isDefault: false }) })
+    }).as("slaSaveSettings")
+  })
+  cy.interceptApi(
+    "GET",
+    "/sla/filters",
+    {
+      body: ok({
+        projects: [{ id: "e2e-proj-1", name: "Apollo" }, { id: "e2e-proj-2", name: "Hermes" }],
+        companies: [{ id: "e2e-cc-1", name: "Client Co" }],
+        assignees: [{ id: "e2e-user-2", name: "Uche Tester" }],
+        supporters: [{ id: "e2e-sup-1", name: "Sam Support" }],
+      }),
+    },
+    "slaFilters"
+  )
+})

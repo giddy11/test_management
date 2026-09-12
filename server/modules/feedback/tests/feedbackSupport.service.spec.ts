@@ -176,6 +176,8 @@ describe("FeedbackSupportService", () => {
 
       expect(feedbackRepo.update).toHaveBeenCalledWith("fb-1", {
         supportStatus: SupportStatus.ACKNOWLEDGED,
+        // SLA: the first stage past "logged" is the ticket's first response.
+        firstResponseAt: expect.any(Date),
       });
       expect(supportHistoryRepo.create).toHaveBeenCalledWith(
         expect.objectContaining({ feedbackId: "fb-1", status: SupportStatus.ACKNOWLEDGED })
@@ -206,6 +208,7 @@ describe("FeedbackSupportService", () => {
 
       expect(feedbackRepo.update).toHaveBeenCalledWith("fb-1", {
         supportStatus: SupportStatus.ACKNOWLEDGED,
+        firstResponseAt: expect.any(Date),
         supportResponse: "Looking into it now.",
       });
       const { sendSupportStatusEmail } = require("../../../shared/utils/mail/support.mail");
@@ -233,6 +236,7 @@ describe("FeedbackSupportService", () => {
 
       expect(feedbackRepo.update).toHaveBeenCalledWith("fb-1", {
         supportStatus: SupportStatus.ACKNOWLEDGED,
+        firstResponseAt: expect.any(Date),
       });
     });
 
@@ -360,6 +364,9 @@ describe("FeedbackSupportService", () => {
         supportStatus: SupportStatus.RESOLVED,
         supportResponse: "Restart the app",
         supportResolvedAt: expect.any(Date),
+        // SLA: a local resolution stops both clocks.
+        firstResponseAt: expect.any(Date),
+        resolvedAt: expect.any(Date),
       });
       expect(supportHistoryRepo.create).toHaveBeenCalledWith(
         expect.objectContaining({ feedbackId: "fb-1", status: SupportStatus.RESOLVED })

@@ -33,6 +33,7 @@ import AllFeedbackPage from "@/pages/feedback/AllFeedbackPage"
 import SupportQueuePage from "@/pages/support/SupportQueuePage"
 import SupportActivityPage from "@/pages/support/SupportActivityPage"
 import SupportInboxPage from "@/pages/support/SupportInboxPage"
+import SupportSlaPage from "@/pages/support/SupportSlaPage"
 import { UserRole } from "@/types/auth.types"
 
 const INTERNAL_ROLES = [UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.USER]
@@ -99,6 +100,7 @@ export default function App() {
                 <Route element={<DashboardLayout />}>
                   <Route path="/support" element={<SupportQueuePage />} />
                   <Route path="/support/activity" element={<SupportActivityPage />} />
+                  <Route path="/support/sla" element={<SupportSlaPage />} />
                 </Route>
               </Route>
 

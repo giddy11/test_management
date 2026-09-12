@@ -19,7 +19,12 @@ const { sendFeedbackCommentEmail } = require("../../../shared/utils/mailer");
 const { UserRole, SupportStatus } = require("../../../config/constants");
 
 function makeFeedbackRepo() {
-  return { findById: jest.fn(), incrementCommentCount: jest.fn().mockResolvedValue(undefined) };
+  return {
+    findById: jest.fn(),
+    incrementCommentCount: jest.fn().mockResolvedValue(undefined),
+    // SLA: a staff comment stamps first_response_at when nothing else has.
+    update: jest.fn().mockResolvedValue(undefined),
+  };
 }
 
 function makeCommentRepo() {
@@ -472,5 +477,29 @@ describe("FeedbackCommentService — submitter reply notifies the right staff", 
       ]),
       expect.objectContaining({ support: false })
     );
+  });
+});
+
+// SLA (see modules/sla): a staff reply is the ticket's first response when it
+// lands before any stage change — stamped once, never moved.
+describe("FeedbackCommentService — SLA first response", () => {
+  it("stamps firstResponseAt on the first staff comment", async () => {
+    const { service, feedbackRepo, projectService } = makeService();
+    projectService.canManageProject.mockResolvedValue(true);
+    feedbackRepo.findById.mockResolvedValue({ ...directTicket, firstResponseAt: null });
+
+    await service.addForStaff(admin, "fb-1", "On it.");
+
+    expect(feedbackRepo.update).toHaveBeenCalledWith("fb-1", { firstResponseAt: expect.any(Date) });
+  });
+
+  it("leaves an existing firstResponseAt alone", async () => {
+    const { service, feedbackRepo, projectService } = makeService();
+    projectService.canManageProject.mockResolvedValue(true);
+    feedbackRepo.findById.mockResolvedValue({ ...directTicket, firstResponseAt: new Date("2024-01-01T00:00:00Z") });
+
+    await service.addForStaff(admin, "fb-1", "Any update?");
+
+    expect(feedbackRepo.update).not.toHaveBeenCalled();
   });
 });

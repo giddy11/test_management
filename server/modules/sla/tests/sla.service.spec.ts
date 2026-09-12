@@ -1,0 +1,218 @@
+// modules/sla/tests/sla.service.spec.ts
+// SlaService: role → scope narrowing, default rules merging, compliance-rate
+// maths, settings access, and the drill-down's "can the product org open
+// this ticket" flag. The SQL itself lives in the repository (mocked here).
+
+import { DEFAULT_SLA_TARGETS, SlaService, pickInterval } from "../services/sla.service";
+
+const { UserRole } = require("../../../config/constants");
+
+const emptyKpis = {
+  total: 0, bugs: 0, featureRequests: 0, complaints: 0, resolved: 0, closed: 0, open: 0,
+  awaitingResponse: 0, responded: 0, avgFirstResponseMs: null, medianFirstResponseMs: null,
+  avgResolutionMs: null, medianResolutionMs: null, firstResponseMet: 0, firstResponseBreached: 0,
+  resolutionMet: 0, resolutionBreached: 0, slaMet: 0, slaBreached: 0, slaPending: 0,
+  avgWaitingMs: null, oldestWaitingMs: null, totalPausedMs: null, avgRating: null, ratingCount: 0,
+};
+
+function makeRepo() {
+  return {
+    findSettings: jest.fn().mockResolvedValue(null),
+    saveSettings: jest.fn().mockImplementation((data) => Promise.resolve({ ...data, updatedAt: new Date() })),
+    kpis: jest.fn().mockResolvedValue({ ...emptyKpis }),
+    overTime: jest.fn().mockResolvedValue([]),
+    bySeverity: jest.fn().mockResolvedValue([]),
+    byStage: jest.fn().mockResolvedValue([]),
+    byType: jest.fn().mockResolvedValue([]),
+    byProject: jest.fn().mockResolvedValue([]),
+    byAssignee: jest.fn().mockResolvedValue([]),
+    bySupporter: jest.fn().mockResolvedValue([]),
+    recurring: jest.fn().mockResolvedValue([]),
+    tickets: jest.fn().mockResolvedValue({ data: [], meta: {} }),
+    filterOptions: jest.fn().mockResolvedValue({ projects: [], companies: [], assignees: [], supporters: [] }),
+  };
+}
+
+const admin = { id: "admin-1", role: UserRole.ADMIN, organizationId: "org-1" };
+const superadmin = { id: "sa-1", role: UserRole.SUPERADMIN, organizationId: "org-sa" };
+const user = { id: "user-1", role: UserRole.USER, organizationId: "org-1" };
+const supporter = {
+  id: "sup-1",
+  role: UserRole.IT_SUPPORT,
+  organizationId: "org-1",
+  clientCompanyId: "cc-1",
+  isSupportLead: false,
+};
+
+describe("SlaService.overview — scope per role", () => {
+  it("admins see their whole organisation", async () => {
+    const repo = makeRepo();
+    await new SlaService(repo as any).overview(admin, {});
+    expect(repo.kpis).toHaveBeenCalledWith({ organizationId: "org-1" }, expect.anything(), expect.anything());
+  });
+
+  it("superadmins are scoped to their own org like any admin", async () => {
+    const repo = makeRepo();
+    await new SlaService(repo as any).overview(superadmin, {});
+    expect(repo.kpis.mock.calls[0][0]).toEqual({ organizationId: "org-sa" });
+  });
+
+  it("plain users (QA) are narrowed to projects they're members of", async () => {
+    const repo = makeRepo();
+    await new SlaService(repo as any).overview(user, {});
+    expect(repo.kpis.mock.calls[0][0]).toEqual({ organizationId: "org-1", memberUserId: "user-1" });
+  });
+
+  it("IT supporters see only their own company, and can't widen it via the filter", async () => {
+    const repo = makeRepo();
+    await new SlaService(repo as any).overview(supporter, { clientCompanyId: "cc-other" });
+    const [scope, filters] = repo.kpis.mock.calls[0];
+    expect(scope).toEqual({ clientCompanyId: "cc-1" });
+    expect(filters.clientCompanyId).toBeUndefined();
+  });
+
+  it("rejects a supporter with no company on their account", async () => {
+    const repo = makeRepo();
+    await expect(
+      new SlaService(repo as any).overview({ ...supporter, clientCompanyId: null }, {})
+    ).rejects.toMatchObject({ statusCode: 403 });
+  });
+
+  it("passes ticket filters through and strips presentation-only params", async () => {
+    const repo = makeRepo();
+    await new SlaService(repo as any).overview(admin, {
+      from: "2026-01-01",
+      to: "2026-01-31",
+      severity: "high",
+      type: "bug",
+      assigneeId: "u-2",
+      interval: "week",
+    });
+    const [, filters] = repo.kpis.mock.calls[0];
+    expect(filters).toEqual({ from: "2026-01-01", to: "2026-01-31", severity: "high", type: "bug", assigneeId: "u-2" });
+    expect(repo.overTime).toHaveBeenCalledWith(expect.anything(), expect.anything(), expect.anything(), "week");
+  });
+});
+
+describe("SlaService — rules", () => {
+  it("uses the code defaults when the org has no saved rules", async () => {
+    const repo = makeRepo();
+    const result = await new SlaService(repo as any).overview(admin, {});
+    const [, , rules] = repo.kpis.mock.calls[0];
+    expect(rules.targets).toEqual(DEFAULT_SLA_TARGETS);
+    expect(rules.pausedStatuses).toEqual([]);
+    expect(result.rules.isDefault).toBe(true);
+  });
+
+  it("merges a saved row over the defaults so every severity key is present", async () => {
+    const repo = makeRepo();
+    repo.findSettings.mockResolvedValue({
+      organizationId: "org-1",
+      targets: { critical: { firstResponseHours: 0.5, resolutionHours: 8 } },
+      pausedStatuses: ["resolved"],
+      updatedAt: new Date(),
+    });
+    await new SlaService(repo as any).overview(admin, {});
+    const [, , rules] = repo.kpis.mock.calls[0];
+    expect(rules.targets.critical).toEqual({ firstResponseHours: 0.5, resolutionHours: 8 });
+    expect(rules.targets.default).toEqual(DEFAULT_SLA_TARGETS.default);
+    expect(rules.pausedStatuses).toEqual(["resolved"]);
+  });
+
+  it("only admins may edit; supporters and users read the org's rules", async () => {
+    const repo = makeRepo();
+    const service = new SlaService(repo as any);
+    expect((await service.getSettings(admin)).canEdit).toBe(true);
+    expect((await service.getSettings(user)).canEdit).toBe(false);
+    expect((await service.getSettings(supporter)).canEdit).toBe(false);
+  });
+
+  it("saves rules against the admin's organisation, de-duplicating paused stages", async () => {
+    const repo = makeRepo();
+    const body = {
+      targets: DEFAULT_SLA_TARGETS,
+      pausedStatuses: ["resolved", "resolved", "acknowledged"],
+    };
+    const result = await new SlaService(repo as any).updateSettings(admin, body as any);
+    expect(repo.saveSettings).toHaveBeenCalledWith(
+      expect.objectContaining({ organizationId: "org-1", pausedStatuses: ["resolved", "acknowledged"], updatedById: "admin-1" })
+    );
+    expect(result.isDefault).toBe(false);
+  });
+});
+
+describe("SlaService.overview — compliance rates", () => {
+  it("computes rates over judged tickets only, null when nothing is judged", async () => {
+    const repo = makeRepo();
+    repo.kpis.mockResolvedValue({
+      ...emptyKpis,
+      total: 10,
+      firstResponseMet: 3,
+      firstResponseBreached: 1,
+      resolutionMet: 2,
+      resolutionBreached: 2,
+      slaMet: 2,
+      slaBreached: 3,
+      slaPending: 5,
+      // pg returns bigint aggregates as strings — they must come back as numbers.
+      avgResolutionMs: "7200000",
+    });
+    const { kpis } = await new SlaService(repo as any).overview(admin, {});
+    expect(kpis.firstResponseRate).toBe(75);
+    expect(kpis.resolutionRate).toBe(50);
+    expect(kpis.complianceRate).toBe(40);
+    expect(kpis.avgResolutionMs).toBe(7_200_000);
+
+    repo.kpis.mockResolvedValue({ ...emptyKpis });
+    const fresh = await new SlaService(repo as any).overview(admin, {});
+    expect(fresh.kpis.complianceRate).toBeNull();
+  });
+
+  it("orders the severity breakdown critical → low → unset", async () => {
+    const repo = makeRepo();
+    repo.bySeverity.mockResolvedValue([
+      { severity: "unset", total: 1 },
+      { severity: "low", total: 1 },
+      { severity: "critical", total: 1 },
+    ]);
+    const { bySeverity } = await new SlaService(repo as any).overview(admin, {});
+    expect(bySeverity.map((r: { severity: string }) => r.severity)).toEqual(["critical", "low", "unset"]);
+  });
+});
+
+describe("SlaService.tickets — drill-down", () => {
+  it("flags company tickets still in the IT queue as not openable by the product org", async () => {
+    const repo = makeRepo();
+    repo.tickets.mockResolvedValue({
+      data: [
+        { id: "a", clientCompanyId: null, supportStatus: null, assignees: null },
+        { id: "b", clientCompanyId: "cc-1", supportStatus: "investigating", assignees: ["Ann"] },
+        { id: "c", clientCompanyId: "cc-1", supportStatus: "escalated", assignees: [] },
+      ],
+      meta: {},
+    });
+    const { data } = await new SlaService(repo as any).tickets(admin, { metric: "all", sort: "newest", page: 1, limit: 20 } as any);
+    expect(data.map((t: { visibleInTriage: boolean }) => t.visibleInTriage)).toEqual([true, false, true]);
+    expect(data[0].assignees).toEqual([]);
+  });
+
+  it("forwards metric/sort/paging to the repository", async () => {
+    const repo = makeRepo();
+    await new SlaService(repo as any).tickets(supporter, { metric: "breached", sort: "longest_waiting", page: 2, limit: 10 } as any);
+    expect(repo.tickets).toHaveBeenCalledWith(
+      { clientCompanyId: "cc-1" },
+      expect.anything(),
+      expect.anything(),
+      { metric: "breached", sort: "longest_waiting", page: 2, limit: 10 }
+    );
+  });
+});
+
+describe("pickInterval", () => {
+  it("buckets by day for short ranges, week for medium, month otherwise", () => {
+    expect(pickInterval("2026-01-01", "2026-01-20")).toBe("day");
+    expect(pickInterval("2026-01-01", "2026-05-01")).toBe("week");
+    expect(pickInterval("2025-01-01", "2026-01-01")).toBe("month");
+    expect(pickInterval(undefined, undefined)).toBe("month");
+  });
+});

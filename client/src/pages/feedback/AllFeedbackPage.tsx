@@ -3,6 +3,7 @@
 // projects), in one filterable list — no per-project clicking. Items still in
 // a client company's IT queue are excluded by the backend until escalated.
 import { useMemo, useState } from "react"
+import { useSearchParams } from "react-router-dom"
 import { MessageSquareHeart, Search, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
@@ -57,7 +58,10 @@ export default function AllFeedbackPage() {
   const [projectFilter, setProjectFilter] = useState<string>("all")
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [typeFilter, setTypeFilter] = useState<string>("all")
-  const [search, setSearch] = useState("")
+  // ?q= pre-fills the search — how the SLA dashboard drill-down deep-links a
+  // ticket here by its TKT code.
+  const [searchParams] = useSearchParams()
+  const [search, setSearch] = useState(searchParams.get("q") ?? "")
   const [page, setPage] = useState(1)
   const [managing, setManaging] = useState<Feedback | null>(null)
   const [deleting, setDeleting] = useState<Feedback | null>(null)

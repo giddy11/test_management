@@ -1,0 +1,60 @@
+{
+  "interval": "week",
+  "rules": {
+    "targets": {
+      "critical": { "firstResponseHours": 1, "resolutionHours": 24 },
+      "high": { "firstResponseHours": 4, "resolutionHours": 72 },
+      "medium": { "firstResponseHours": 8, "resolutionHours": 120 },
+      "low": { "firstResponseHours": 24, "resolutionHours": 240 },
+      "default": { "firstResponseHours": 24, "resolutionHours": 120 }
+    },
+    "pausedStatuses": [],
+    "isDefault": true
+  },
+  "kpis": {
+    "total": 12, "bugs": 7, "featureRequests": 4, "complaints": 1,
+    "resolved": 8, "closed": 5, "open": 4, "awaitingResponse": 2, "responded": 10,
+    "avgFirstResponseMs": 5400000, "medianFirstResponseMs": 3600000,
+    "avgResolutionMs": 172800000, "medianResolutionMs": 129600000,
+    "firstResponseMet": 8, "firstResponseBreached": 3,
+    "resolutionMet": 6, "resolutionBreached": 2,
+    "slaMet": 6, "slaBreached": 3, "slaPending": 3,
+    "avgWaitingMs": 259200000, "oldestWaitingMs": 604800000, "totalPausedMs": 0,
+    "avgRating": 4.2, "ratingCount": 5,
+    "firstResponseRate": 72.7, "resolutionRate": 75, "complianceRate": 66.7
+  },
+  "overTime": [
+    { "period": "2026-08-03", "bugs": 2, "featureRequests": 1, "complaints": 0, "total": 3, "resolved": 1, "breached": 0 },
+    { "period": "2026-08-10", "bugs": 3, "featureRequests": 2, "complaints": 1, "total": 6, "resolved": 4, "breached": 2 },
+    { "period": "2026-08-17", "bugs": 2, "featureRequests": 1, "complaints": 0, "total": 3, "resolved": 3, "breached": 1 }
+  ],
+  "bySeverity": [
+    { "severity": "critical", "total": 2, "open": 1, "resolved": 1, "met": 1, "breached": 1, "pending": 0, "avgFirstResponseMs": 1800000, "avgResolutionMs": 43200000, "firstResponseTargetMs": 3600000, "resolutionTargetMs": 86400000 },
+    { "severity": "high", "total": 3, "open": 1, "resolved": 2, "met": 2, "breached": 1, "pending": 0, "avgFirstResponseMs": 7200000, "avgResolutionMs": 100800000, "firstResponseTargetMs": 14400000, "resolutionTargetMs": 259200000 },
+    { "severity": "unset", "total": 7, "open": 2, "resolved": 5, "met": 3, "breached": 1, "pending": 3, "avgFirstResponseMs": 5400000, "avgResolutionMs": 200000000, "firstResponseTargetMs": 86400000, "resolutionTargetMs": 432000000 }
+  ],
+  "byStatus": [
+    { "status": "closed", "count": 5, "breached": 1 },
+    { "status": "resolved", "count": 3, "breached": 1 },
+    { "status": "investigating", "count": 2, "breached": 1 },
+    { "status": "logged", "count": 2, "breached": 0 }
+  ],
+  "byType": [
+    { "type": "bug", "total": 7, "resolved": 5, "breached": 2, "avgResolutionMs": 150000000 },
+    { "type": "feature_request", "total": 4, "resolved": 2, "breached": 1, "avgResolutionMs": 250000000 },
+    { "type": "complaint", "total": 1, "resolved": 1, "breached": 0, "avgResolutionMs": 40000000 }
+  ],
+  "byProject": [
+    { "projectId": "e2e-proj-1", "projectName": "Apollo", "total": 8, "open": 3, "resolved": 5, "met": 4, "breached": 2, "avgFirstResponseMs": 5400000, "avgResolutionMs": 172800000 },
+    { "projectId": "e2e-proj-2", "projectName": "Hermes", "total": 4, "open": 1, "resolved": 3, "met": 2, "breached": 1, "avgFirstResponseMs": 3600000, "avgResolutionMs": 100000000 }
+  ],
+  "byAssignee": [
+    { "userId": "e2e-user-2", "name": "Uche Tester", "total": 6, "open": 2, "resolved": 4, "met": 3, "breached": 1, "avgFirstResponseMs": 3600000, "avgResolutionMs": 120000000 }
+  ],
+  "bySupporter": [
+    { "userId": "e2e-sup-1", "name": "Sam Support", "clientCompanyName": "Client Co", "total": 3, "open": 1, "resolved": 2, "met": 2, "breached": 0, "avgFirstResponseMs": 1800000, "avgResolutionMs": 60000000 }
+  ],
+  "recurring": [
+    { "title": "Export button does nothing", "type": "bug", "projectId": "e2e-proj-1", "projectName": "Apollo", "count": 3, "open": 1, "breached": 1, "firstSeenAt": "2026-08-04T10:00:00.000Z", "lastSeenAt": "2026-08-20T10:00:00.000Z" }
+  ]
+}

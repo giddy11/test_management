@@ -56,6 +56,14 @@ export interface Feedback {
   // (optional — why it isn't fixed). Cleared once the item is closed again.
   reopenReason: string | null;
   statusUpdatedAt: Date | null;
+  // ── SLA timestamps (see modules/sla) ──────────────────────────────────────
+  // First time anyone on either tier responded: a staff comment, or the first
+  // stage change past "logged" (IT or product timeline) — whichever came first.
+  firstResponseAt: Date | null;
+  // Earliest of the IT tier's local resolution and the product tier's
+  // "resolved" stage. Never cleared — the lifecycle only moves forward.
+  resolvedAt: Date | null;
+  closedAt: Date | null;
   // The submitter's one-time satisfaction rating (1-5), given once the ticket
   // reads as resolved to them (see SubmitterTicketStatus) — null until rated.
   rating: number | null;
@@ -193,6 +201,21 @@ const Feedback = new EntitySchema<Feedback>({
       type: "timestamptz",
       nullable: true,
     },
+    firstResponseAt: {
+      name: "first_response_at",
+      type: "timestamptz",
+      nullable: true,
+    },
+    resolvedAt: {
+      name: "resolved_at",
+      type: "timestamptz",
+      nullable: true,
+    },
+    closedAt: {
+      name: "closed_at",
+      type: "timestamptz",
+      nullable: true,
+    },
     rating: {
       type: "smallint",
       nullable: true,
@@ -268,6 +291,8 @@ const Feedback = new EntitySchema<Feedback>({
     // "Assigned to me" / reassignment filters within a company's queue.
     { name: "idx_feedback_assigned_supporter", columns: ["assignedSupporterId"] },
     { name: "idx_feedback_ticket_number", columns: ["ticketNumber"], unique: true },
+    // SLA analytics date-range scans.
+    { name: "idx_feedback_created_at", columns: ["createdAt"] },
   ],
 });
 

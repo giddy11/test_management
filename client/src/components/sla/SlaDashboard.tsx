@@ -1,0 +1,659 @@
+// components/sla/SlaDashboard.tsx — SLA tracking: ticket volume, response and
+// resolution times, compliance/breaches, waiting tickets, recurring issues,
+// and per-severity / per-person breakdowns. Every figure is clickable and
+// drills down to the tickets behind it (SlaTicketsDialog) — all computed over
+// the same filtered set, so the numbers always agree.
+//
+// Rendered inside the main dashboard (product-org roles) and the IT support
+// portal (scoped server-side to the supporter's company).
+import { useMemo, useState } from "react"
+import {
+  AlertTriangle,
+  Bug,
+  CheckCircle2,
+  Clock,
+  Hourglass,
+  Lightbulb,
+  MessageSquareWarning,
+  Repeat,
+  Search,
+  Settings2,
+  ShieldCheck,
+  Star,
+  Ticket,
+  Timer,
+  type LucideIcon,
+} from "lucide-react"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { Input } from "@/components/ui/input"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import { PageLoader } from "@/components/shared/PageLoader"
+import { useSlaFilterOptions, useSlaOverview } from "@/hooks/useSla"
+import { useDebounce } from "@/hooks/useDebounce"
+import { useAuth } from "@/contexts/AuthContext"
+import { UserRole } from "@/types/auth.types"
+import { FEEDBACK_TYPE_LABELS, type FeedbackType } from "@/types/feedback.types"
+import {
+  SLA_SEVERITY_FILTER_LABELS,
+  SLA_STAGES,
+  SLA_STAGE_LABELS,
+  type SlaFilters,
+  type SlaInterval,
+  type SlaPersonRow,
+  type SlaSeverityFilter,
+  type SlaStage,
+} from "@/types/sla.types"
+import { ComplianceDonut, SeverityChart, StatusChart, TicketsOverTimeChart } from "./SlaCharts"
+import { SlaTicketsDialog, type DrillDown } from "./SlaTicketsDialog"
+import { SlaRulesDialog } from "./SlaRulesDialog"
+import { daysAgo, fmtMs, fmtPct, rateTone } from "./slaFormat"
+
+type RangePreset = "7d" | "30d" | "90d" | "365d" | "all" | "custom"
+
+const RANGE_LABELS: Record<RangePreset, string> = {
+  "7d": "Last 7 days",
+  "30d": "Last 30 days",
+  "90d": "Last 90 days",
+  "365d": "Last 12 months",
+  all: "All time",
+  custom: "Custom range",
+}
+
+const SEVERITY_FILTERS: SlaSeverityFilter[] = ["critical", "high", "medium", "low", "unset"]
+
+function KpiCard({
+  icon: Icon,
+  label,
+  value,
+  sub,
+  tone,
+  onClick,
+  testId,
+}: {
+  icon: LucideIcon
+  label: string
+  value: string | number
+  sub?: React.ReactNode
+  tone?: string
+  onClick?: () => void
+  testId?: string
+}) {
+  const body = (
+    <CardContent className="flex items-start gap-3 p-4">
+      <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+        <Icon className="size-5" />
+      </div>
+      <div className="min-w-0">
+        <div className={`text-2xl font-semibold leading-none tabular-nums ${tone ?? ""}`}>{value}</div>
+        <div className="mt-1 text-xs text-muted-foreground">{label}</div>
+        {sub && <div className="mt-1 text-xs text-muted-foreground">{sub}</div>}
+      </div>
+    </CardContent>
+  )
+  if (!onClick) return <Card data-cy={testId}>{body}</Card>
+  return (
+    <Card
+      data-cy={testId}
+      role="button"
+      tabIndex={0}
+      onClick={onClick}
+      onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && onClick()}
+      className="cursor-pointer transition-colors hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring"
+      title="Click to see these tickets"
+    >
+      {body}
+    </Card>
+  )
+}
+
+function PeopleTable({
+  rows,
+  personLabel,
+  emptyLabel,
+  onSelect,
+}: {
+  rows: SlaPersonRow[]
+  personLabel: string
+  emptyLabel: string
+  onSelect: (row: SlaPersonRow) => void
+}) {
+  if (rows.length === 0) return <p className="px-6 py-4 text-sm text-muted-foreground">{emptyLabel}</p>
+  return (
+    <div className="max-h-80 overflow-auto">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>{personLabel}</TableHead>
+            <TableHead className="text-right">Tickets</TableHead>
+            <TableHead className="text-right">Open</TableHead>
+            <TableHead className="text-right">Resolved</TableHead>
+            <TableHead className="text-right">Breached</TableHead>
+            <TableHead className="text-right">Avg response</TableHead>
+            <TableHead className="text-right">Avg resolution</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {rows.map((r) => {
+            const judged = r.met + r.breached
+            const rate = judged > 0 ? (r.met / judged) * 100 : null
+            return (
+              <TableRow key={r.userId} className="cursor-pointer" onClick={() => onSelect(r)}>
+                <TableCell>
+                  <div className="font-medium">{r.name || "Unnamed"}</div>
+                  {r.clientCompanyName && <div className="text-xs text-muted-foreground">{r.clientCompanyName}</div>}
+                </TableCell>
+                <TableCell className="text-right tabular-nums">{r.total}</TableCell>
+                <TableCell className="text-right tabular-nums">{r.open}</TableCell>
+                <TableCell className="text-right tabular-nums">{r.resolved}</TableCell>
+                <TableCell className="text-right">
+                  <span className={`tabular-nums ${r.breached > 0 ? "text-red-600" : ""}`}>{r.breached}</span>
+                  {rate != null && <span className={`ml-1 text-xs ${rateTone(rate)}`}>({fmtPct(rate)} met)</span>}
+                </TableCell>
+                <TableCell className="text-right tabular-nums text-muted-foreground">{fmtMs(r.avgFirstResponseMs)}</TableCell>
+                <TableCell className="text-right tabular-nums text-muted-foreground">{fmtMs(r.avgResolutionMs)}</TableCell>
+              </TableRow>
+            )
+          })}
+        </TableBody>
+      </Table>
+    </div>
+  )
+}
+
+export function SlaDashboard() {
+  const { user } = useAuth()
+  const isSupporter = user?.role === UserRole.IT_SUPPORT
+  const isAdmin = user?.role === UserRole.ADMIN || user?.role === UserRole.SUPERADMIN
+
+  const [range, setRange] = useState<RangePreset>("90d")
+  const [from, setFrom] = useState<string>(daysAgo(90))
+  const [to, setTo] = useState<string>("")
+  const [bucket, setBucket] = useState<SlaInterval | "auto">("auto")
+  const [projectId, setProjectId] = useState("all")
+  const [companyId, setCompanyId] = useState("all")
+  const [status, setStatus] = useState("all")
+  const [severity, setSeverity] = useState("all")
+  const [type, setType] = useState("all")
+  const [assigneeId, setAssigneeId] = useState("all")
+  const [supporterId, setSupporterId] = useState("all")
+  const [search, setSearch] = useState("")
+  const [drill, setDrill] = useState<DrillDown | null>(null)
+  const [rulesOpen, setRulesOpen] = useState(false)
+
+  const debouncedSearch = useDebounce(search, 300)
+
+  const applyRange = (preset: RangePreset) => {
+    setRange(preset)
+    if (preset === "all") {
+      setFrom("")
+      setTo("")
+    } else if (preset !== "custom") {
+      setFrom(daysAgo(Number(preset.replace("d", ""))))
+      setTo("")
+    }
+  }
+
+  const filters: SlaFilters = useMemo(
+    () => ({
+      from: from || undefined,
+      to: to || undefined,
+      projectId: projectId === "all" ? undefined : projectId,
+      clientCompanyId: companyId === "all" ? undefined : companyId,
+      status: status === "all" ? undefined : (status as SlaStage),
+      severity: severity === "all" ? undefined : (severity as SlaSeverityFilter),
+      type: type === "all" ? undefined : (type as FeedbackType),
+      assigneeId: assigneeId === "all" ? undefined : assigneeId,
+      supporterId: supporterId === "all" ? undefined : supporterId,
+      search: debouncedSearch || undefined,
+      interval: bucket === "auto" ? undefined : bucket,
+    }),
+    [from, to, projectId, companyId, status, severity, type, assigneeId, supporterId, debouncedSearch, bucket]
+  )
+
+  const { data, isLoading, isError } = useSlaOverview(filters)
+  const { data: options } = useSlaFilterOptions()
+
+  const hasFilters =
+    projectId !== "all" || companyId !== "all" || status !== "all" || severity !== "all" ||
+    type !== "all" || assigneeId !== "all" || supporterId !== "all" || search !== ""
+
+  const clearFilters = () => {
+    setProjectId("all"); setCompanyId("all"); setStatus("all"); setSeverity("all")
+    setType("all"); setAssigneeId("all"); setSupporterId("all"); setSearch("")
+  }
+
+  const k = data?.kpis
+
+  return (
+    <div className="space-y-6" data-cy="sla-dashboard">
+      {/* ── Filters ─────────────────────────────────────────────────────── */}
+      <div className="flex flex-wrap items-center gap-2">
+        <Select value={range} onValueChange={(v) => applyRange(v as RangePreset)}>
+          <SelectTrigger className="w-40" data-cy="sla-range"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            {(Object.keys(RANGE_LABELS) as RangePreset[]).map((p) => (
+              <SelectItem key={p} value={p}>{RANGE_LABELS[p]}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {range === "custom" && (
+          <>
+            <Input type="date" className="w-40" value={from} max={to || undefined} onChange={(e) => setFrom(e.target.value)} aria-label="From date" />
+            <span className="text-xs text-muted-foreground">to</span>
+            <Input type="date" className="w-40" value={to} min={from || undefined} onChange={(e) => setTo(e.target.value)} aria-label="To date" />
+          </>
+        )}
+        <Select value={bucket} onValueChange={(v) => setBucket(v as SlaInterval | "auto")}>
+          <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="auto">Auto buckets</SelectItem>
+            <SelectItem value="day">Daily</SelectItem>
+            <SelectItem value="week">Weekly</SelectItem>
+            <SelectItem value="month">Monthly</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <div className="ml-auto flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => setRulesOpen(true)} data-cy="sla-rules-button">
+            <Settings2 className="size-4" /> SLA rules
+            {data?.rules.isDefault && <Badge variant="secondary" className="ml-1">defaults</Badge>}
+          </Button>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        {!isSupporter && (
+          <Select value={projectId} onValueChange={setProjectId}>
+            <SelectTrigger className="w-44"><SelectValue placeholder="Product" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All products</SelectItem>
+              {(options?.projects ?? []).map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        )}
+        {!isSupporter && (options?.companies.length ?? 0) > 0 && (
+          <Select value={companyId} onValueChange={setCompanyId}>
+            <SelectTrigger className="w-44"><SelectValue placeholder="Client company" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All client companies</SelectItem>
+              {(options?.companies ?? []).map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        )}
+        <Select value={status} onValueChange={setStatus}>
+          <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All statuses</SelectItem>
+            {SLA_STAGES.map((s) => <SelectItem key={s} value={s}>{SLA_STAGE_LABELS[s]}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={severity} onValueChange={setSeverity}>
+          <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All severities</SelectItem>
+            {SEVERITY_FILTERS.map((s) => <SelectItem key={s} value={s}>{SLA_SEVERITY_FILTER_LABELS[s]}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={type} onValueChange={setType}>
+          <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All types</SelectItem>
+            {Object.entries(FEEDBACK_TYPE_LABELS).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        {!isSupporter && (options?.assignees.length ?? 0) > 0 && (
+          <Select value={assigneeId} onValueChange={setAssigneeId}>
+            <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All team members</SelectItem>
+              {(options?.assignees ?? []).map((u) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        )}
+        {(options?.supporters.length ?? 0) > 0 && (
+          <Select value={supporterId} onValueChange={setSupporterId}>
+            <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All support engineers</SelectItem>
+              {(options?.supporters ?? []).map((u) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        )}
+        <div className="relative">
+          <Search className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            className="w-52 pl-8"
+            placeholder="Title, email or TKT code…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+        {hasFilters && <Button variant="ghost" size="sm" onClick={clearFilters}>Clear</Button>}
+      </div>
+
+      {isLoading && !data && <PageLoader label="Crunching SLA figures" />}
+      {isError && <p className="text-sm text-destructive">Couldn't load the SLA analytics.</p>}
+
+      {data && k && (
+        <>
+          {/* ── KPI cards ─────────────────────────────────────────────────── */}
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4" data-cy="sla-kpis">
+            <KpiCard
+              icon={Ticket}
+              label="Tickets raised"
+              value={k.total}
+              sub={
+                <span className="flex flex-wrap gap-x-2">
+                  <span><Bug className="inline size-3" /> {k.bugs} bugs</span>
+                  <span><Lightbulb className="inline size-3" /> {k.featureRequests} features</span>
+                  <span><MessageSquareWarning className="inline size-3" /> {k.complaints} complaints</span>
+                </span>
+              }
+              onClick={() => setDrill({ metric: "all" })}
+              testId="sla-kpi-total"
+            />
+            <KpiCard
+              icon={CheckCircle2}
+              label="Resolved"
+              value={k.resolved}
+              sub={`${k.closed} closed · ${k.total > 0 ? Math.round((k.resolved / k.total) * 100) : 0}% of raised`}
+              onClick={() => setDrill({ metric: "resolved" })}
+              testId="sla-kpi-resolved"
+            />
+            <KpiCard
+              icon={Hourglass}
+              label="Waiting / open"
+              value={k.open}
+              sub={k.open > 0 ? `avg wait ${fmtMs(k.avgWaitingMs)} · oldest ${fmtMs(k.oldestWaitingMs)}` : "Nothing waiting"}
+              tone={k.open > 0 ? "text-yellow-600" : undefined}
+              onClick={() => setDrill({ metric: "open", title: "Waiting tickets" })}
+              testId="sla-kpi-open"
+            />
+            <KpiCard
+              icon={Clock}
+              label="Awaiting first response"
+              value={k.awaitingResponse}
+              tone={k.awaitingResponse > 0 ? "text-red-600" : undefined}
+              sub="Open tickets nobody has replied to yet"
+              onClick={() => setDrill({ metric: "awaiting_response" })}
+              testId="sla-kpi-awaiting"
+            />
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <KpiCard
+              icon={Timer}
+              label="First response time (avg)"
+              value={fmtMs(k.avgFirstResponseMs)}
+              sub={
+                <>
+                  median {fmtMs(k.medianFirstResponseMs)} ·{" "}
+                  <span className={rateTone(k.firstResponseRate)}>{fmtPct(k.firstResponseRate)} on target</span>
+                </>
+              }
+              onClick={() => setDrill({ metric: "first_response_breached" })}
+              testId="sla-kpi-first-response"
+            />
+            <KpiCard
+              icon={Timer}
+              label="Resolution time (avg)"
+              value={fmtMs(k.avgResolutionMs)}
+              sub={
+                <>
+                  median {fmtMs(k.medianResolutionMs)} ·{" "}
+                  <span className={rateTone(k.resolutionRate)}>{fmtPct(k.resolutionRate)} on target</span>
+                  {(k.totalPausedMs ?? 0) > 0 && <> · {fmtMs(k.totalPausedMs)} paused</>}
+                </>
+              }
+              onClick={() => setDrill({ metric: "resolution_breached" })}
+              testId="sla-kpi-resolution"
+            />
+            <KpiCard
+              icon={ShieldCheck}
+              label="SLA compliance"
+              value={fmtPct(k.complianceRate)}
+              tone={rateTone(k.complianceRate)}
+              sub={`${k.slaMet} met · ${k.slaBreached} breached · ${k.slaPending} within target`}
+              onClick={() => setDrill({ metric: "compliant" })}
+              testId="sla-kpi-compliance"
+            />
+            <KpiCard
+              icon={AlertTriangle}
+              label="SLA breaches"
+              value={k.slaBreached}
+              tone={k.slaBreached > 0 ? "text-red-600" : "text-green-600"}
+              sub={`${k.firstResponseBreached} response · ${k.resolutionBreached} resolution`}
+              onClick={() => setDrill({ metric: "breached" })}
+              testId="sla-kpi-breached"
+            />
+          </div>
+
+          {/* ── Trend + compliance ────────────────────────────────────────── */}
+          <div className="grid gap-4 lg:grid-cols-3">
+            <Card className="lg:col-span-2">
+              <CardHeader>
+                <CardTitle className="text-base">Bugs &amp; feature requests over time</CardTitle>
+                <CardDescription>
+                  Tickets raised per {data.interval}, by type, with resolutions overlaid
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <TicketsOverTimeChart data={data.overTime} interval={data.interval} />
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">SLA compliance</CardTitle>
+                <CardDescription>Met vs breached across both response and resolution targets</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ComplianceDonut kpis={k} onSelect={(seg) => setDrill({ metric: seg })} />
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* ── Severity + status ─────────────────────────────────────────── */}
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Issues by severity</CardTitle>
+                <CardDescription>
+                  Severity is set by IT support on escalation — targets:{" "}
+                  {data.bySeverity.map((r) => `${SLA_SEVERITY_FILTER_LABELS[r.severity]} ${fmtMs(r.resolutionTargetMs)}`).join(" · ") || "—"}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <SeverityChart
+                  data={data.bySeverity}
+                  onSelect={(sev) =>
+                    setDrill({ metric: "all", extra: { severity: sev }, title: `${SLA_SEVERITY_FILTER_LABELS[sev]} severity tickets` })
+                  }
+                />
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Tickets by status</CardTitle>
+                <CardDescription>Where tickets currently sit in the workflow</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <StatusChart
+                  data={data.byStatus}
+                  onSelect={(st) => setDrill({ metric: "all", extra: { status: st }, title: `${SLA_STAGE_LABELS[st]} tickets` })}
+                />
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* ── Recurring issues + by product ─────────────────────────────── */}
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Card>
+              <CardHeader className="flex flex-row items-center gap-2">
+                <Repeat className="size-4 text-primary" />
+                <div>
+                  <CardTitle className="text-base">Recurring issues</CardTitle>
+                  <CardDescription>The same issue reported more than once for a product</CardDescription>
+                </div>
+              </CardHeader>
+              <CardContent className="p-0">
+                {data.recurring.length === 0 ? (
+                  <p className="px-6 py-4 text-sm text-muted-foreground">No repeat reports in this range.</p>
+                ) : (
+                  <div className="max-h-80 overflow-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Issue</TableHead>
+                          <TableHead className="text-right">Reports</TableHead>
+                          <TableHead className="text-right">Open</TableHead>
+                          <TableHead className="text-right">Last seen</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {data.recurring.map((r, i) => (
+                          <TableRow
+                            key={`${r.projectId}-${r.type}-${i}`}
+                            className="cursor-pointer"
+                            onClick={() =>
+                              setDrill({
+                                metric: "all",
+                                extra: { search: r.title, projectId: r.projectId, type: r.type },
+                                title: `"${r.title}" reports`,
+                              })
+                            }
+                          >
+                            <TableCell className="max-w-[280px]">
+                              <div className="truncate font-medium" title={r.title}>{r.title}</div>
+                              <div className="text-xs text-muted-foreground">
+                                {r.projectName} · {FEEDBACK_TYPE_LABELS[r.type]}
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <Badge variant="secondary">{r.count}</Badge>
+                            </TableCell>
+                            <TableCell className="text-right tabular-nums">{r.open}</TableCell>
+                            <TableCell className="text-right text-xs text-muted-foreground">
+                              {new Date(r.lastSeenAt).toLocaleDateString()}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center gap-2">
+                <Star className="size-4 text-yellow-500" />
+                <div>
+                  <CardTitle className="text-base">By product</CardTitle>
+                  <CardDescription>
+                    Submitter satisfaction: {k.ratingCount > 0 ? `${(k.avgRating ?? 0).toFixed(1)} / 5 from ${k.ratingCount} ratings` : "no ratings yet"}
+                  </CardDescription>
+                </div>
+              </CardHeader>
+              <CardContent className="p-0">
+                {data.byProject.length === 0 ? (
+                  <p className="px-6 py-4 text-sm text-muted-foreground">No tickets yet.</p>
+                ) : (
+                  <div className="max-h-80 overflow-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Product</TableHead>
+                          <TableHead className="text-right">Tickets</TableHead>
+                          <TableHead className="text-right">Open</TableHead>
+                          <TableHead className="text-right">Breached</TableHead>
+                          <TableHead className="text-right">Avg resolution</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {data.byProject.map((p) => (
+                          <TableRow
+                            key={p.projectId}
+                            className="cursor-pointer"
+                            onClick={() => setDrill({ metric: "all", extra: { projectId: p.projectId }, title: `${p.projectName} tickets` })}
+                          >
+                            <TableCell className="font-medium">{p.projectName}</TableCell>
+                            <TableCell className="text-right tabular-nums">{p.total}</TableCell>
+                            <TableCell className="text-right tabular-nums">{p.open}</TableCell>
+                            <TableCell className="text-right">
+                              <span className={`tabular-nums ${p.breached > 0 ? "text-red-600" : ""}`}>{p.breached}</span>
+                            </TableCell>
+                            <TableCell className="text-right tabular-nums text-muted-foreground">{fmtMs(p.avgResolutionMs)}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* ── People ────────────────────────────────────────────────────── */}
+          <div className={`grid gap-4 ${isSupporter ? "" : "lg:grid-cols-2"}`}>
+            {!isSupporter && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">By team member</CardTitle>
+                  <CardDescription>Product-team assignees — a ticket with two assignees counts for both</CardDescription>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <PeopleTable
+                    rows={data.byAssignee}
+                    personLabel="Team member"
+                    emptyLabel="No assigned tickets in this range."
+                    onSelect={(r) => setDrill({ metric: "all", extra: { assigneeId: r.userId }, title: `Tickets assigned to ${r.name}` })}
+                  />
+                </CardContent>
+              </Card>
+            )}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">By support engineer</CardTitle>
+                <CardDescription>IT support engineers the tickets were routed to</CardDescription>
+              </CardHeader>
+              <CardContent className="p-0">
+                <PeopleTable
+                  rows={data.bySupporter}
+                  personLabel="Support engineer"
+                  emptyLabel="No tickets routed to a support engineer in this range."
+                  onSelect={(r) => setDrill({ metric: "all", extra: { supporterId: r.userId }, title: `Tickets handled by ${r.name}` })}
+                />
+              </CardContent>
+            </Card>
+          </div>
+
+          <p className="text-xs text-muted-foreground">
+            Times are measured from ticket creation. Open tickets are judged against their live clock, so
+            breaches appear automatically as targets pass. Date range applies to when tickets were raised;
+            historical tickets stay available for as long as they exist.
+            {isAdmin && " Change the targets under SLA rules."}
+          </p>
+        </>
+      )}
+
+      <SlaTicketsDialog drill={drill} filters={filters} onOpenChange={(o) => !o && setDrill(null)} />
+      <SlaRulesDialog open={rulesOpen} onOpenChange={setRulesOpen} />
+    </div>
+  )
+}
