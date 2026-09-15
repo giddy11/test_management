@@ -59,6 +59,10 @@ function makeMemberRepo() {
   return { findMemberUsers: jest.fn().mockResolvedValue([]) };
 }
 
+function makeHistoryRepo() {
+  return { create: jest.fn().mockResolvedValue(undefined) };
+}
+
 const admin = { id: "admin-1", role: "admin", organizationId: "org-1" };
 const user = { id: "user-1", role: "user", organizationId: "org-1" };
 
@@ -80,7 +84,7 @@ const bug = {
 };
 
 describe("BugService", () => {
-  let bugRepo, projectService, authRepo, testCaseRepo, testSuiteRepo, testRunRepo, notificationService, memberRepo, service;
+  let bugRepo, projectService, authRepo, testCaseRepo, testSuiteRepo, testRunRepo, notificationService, memberRepo, historyRepo, service;
 
   beforeEach(() => {
     bugRepo = makeBugRepo();
@@ -91,6 +95,7 @@ describe("BugService", () => {
     testRunRepo = makeTestRunRepo();
     notificationService = makeNotificationService();
     memberRepo = makeMemberRepo();
+    historyRepo = makeHistoryRepo();
     service = new BugService(
       bugRepo,
       projectService,
@@ -99,7 +104,8 @@ describe("BugService", () => {
       testSuiteRepo,
       testRunRepo,
       notificationService,
-      memberRepo
+      memberRepo,
+      historyRepo
     );
   });
 
@@ -205,6 +211,21 @@ describe("BugService", () => {
       });
       expect(created.testRunId).toBe("run-1");
     });
+
+    it("seeds bug_status_history with the Open stage at creation", async () => {
+      const createdAt = new Date("2026-01-01T00:00:00Z");
+      bugRepo.create.mockResolvedValue({ ...bug, id: "bug-2", createdAt });
+      bugRepo.findById.mockResolvedValue({ ...bug, id: "bug-2", createdAt });
+      await service.createBug(user, {
+        projectId: "proj-1",
+        title: "Login button broken",
+        description: "Clicking does nothing",
+        severity: "Minor",
+        priority: "Medium",
+      });
+      await Promise.resolve();
+      expect(historyRepo.create).toHaveBeenCalledWith({ bugId: "bug-2", status: "Open", enteredAt: createdAt });
+    });
   });
 
   describe("manageBug", () => {
@@ -249,6 +270,45 @@ describe("BugService", () => {
         "bug-1",
         expect.objectContaining({ status: "Closed", closedAt: expect.any(Date) })
       );
+    });
+
+    it("stamps firstResponseAt the first time status changes away from Open", async () => {
+      bugRepo.findById.mockResolvedValue(bug);
+      bugRepo.update.mockResolvedValue({ ...bug, status: "In Progress" });
+      await service.manageBug(admin, "bug-1", { status: "In Progress" });
+      expect(bugRepo.update).toHaveBeenCalledWith(
+        "bug-1",
+        expect.objectContaining({ status: "In Progress", firstResponseAt: expect.any(Date) })
+      );
+    });
+
+    it("doesn't overwrite an existing firstResponseAt on a later status change", async () => {
+      const responded = { ...bug, status: "In Progress", firstResponseAt: new Date("2026-01-01") };
+      bugRepo.findById.mockResolvedValue(responded);
+      bugRepo.update.mockResolvedValue({ ...responded, status: "Fixed" });
+      await service.manageBug(admin, "bug-1", { status: "Fixed" });
+      expect(bugRepo.update).toHaveBeenCalledWith(
+        "bug-1",
+        expect.not.objectContaining({ firstResponseAt: expect.anything() })
+      );
+    });
+
+    it("records a bug_status_history row when the status changes", async () => {
+      bugRepo.findById.mockResolvedValue(bug);
+      bugRepo.update.mockResolvedValue({ ...bug, status: "Fixed" });
+      await service.manageBug(admin, "bug-1", { status: "Fixed" });
+      await Promise.resolve();
+      expect(historyRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ bugId: "bug-1", status: "Fixed", enteredAt: expect.any(Date) })
+      );
+    });
+
+    it("doesn't record history when the status is unchanged", async () => {
+      bugRepo.findById.mockResolvedValue(bug);
+      bugRepo.update.mockResolvedValue({ ...bug, severity: "Major" });
+      await service.manageBug(admin, "bug-1", { severity: "Major" });
+      await Promise.resolve();
+      expect(historyRepo.create).not.toHaveBeenCalled();
     });
 
     it("clears resolvedAt/closedAt when reopened", async () => {

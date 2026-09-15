@@ -5,8 +5,13 @@ const { enums } = require("../../../config/constants");
 
 // Unified stage keys — the product-tier lifecycle plus the IT tier's extra
 // terminal state (a company ticket still in its IT queue reports its
-// supportStatus as its stage; see SlaRepository's `stage` column).
-export const SLA_STAGES: string[] = [...new Set([...enums.feedbackStatus, ...enums.supportStatus])];
+// supportStatus as its stage; see SlaRepository's `stage` column), plus bug
+// and feature-request statuses (their `stage` is just their raw status).
+export const SLA_STAGES: string[] = [
+  ...new Set([...enums.feedbackStatus, ...enums.supportStatus, ...enums.bugStatus, ...enums.featureRequestStatus]),
+];
+
+export const SLA_SOURCES = ["ticket", "bug", "feature_request"] as const;
 
 // Severity filter also accepts "unset" — tickets IT support hasn't escalated
 // (or direct submissions) carry no severity and fall under the default target.
@@ -37,6 +42,7 @@ const filterFields = {
   status: z.enum(SLA_STAGES as [string, ...string[]]).optional(),
   severity: z.enum(SLA_SEVERITY_FILTERS as [string, ...string[]]).optional(),
   type: z.enum(enums.feedbackType).optional(),
+  source: z.enum(SLA_SOURCES).optional(),
   // Product-team member the ticket is assigned to.
   assigneeId: z.string().uuid().optional(),
   // IT support engineer the ticket is routed to.
@@ -86,10 +92,15 @@ export const updateSlaSettingsSchema = z.object({
       high: targetSchema,
       critical: targetSchema,
     }),
-    // "logged" can never pause — nothing has happened yet, so pausing there
-    // would hide the wait the SLA exists to measure.
+    // An issue's very first stage (feedback: "logged", bugs: "Open",
+    // feature requests: "new") can never pause — nothing has happened yet,
+    // so pausing there would hide the wait the SLA exists to measure.
     pausedStatuses: z
-      .array(z.enum(SLA_STAGES.filter((s) => s !== "logged") as [string, ...string[]]))
+      .array(
+        z.enum(
+          SLA_STAGES.filter((s) => !["logged", "Open", "new"].includes(s)) as [string, ...string[]]
+        )
+      )
       .max(10)
       .default([]),
   }),

@@ -1,5 +1,8 @@
 // modules/featureRequest/services/featureRequest.service.js
 const { FeatureRequestRepository } = require("../repositories/featureRequest.repository");
+const {
+  FeatureRequestStatusHistoryRepository,
+} = require("../repositories/featureRequestStatusHistory.repository");
 const { FeatureRequestVoteRepository } = require("../repositories/featureRequestVote.repository");
 const {
   FeatureRequestCommentRepository,
@@ -15,6 +18,12 @@ const { AppError } = require("../../../shared/errors/AppError");
 const { parseReferenceCode } = require("../../../shared/utils/referenceCode");
 const { UserRole, FeatureRequestStatus } = require("../../../config/constants");
 
+// done/rejected are the workflow's two terminal states — SLA "resolved".
+const TERMINAL_FEATURE_REQUEST_STATUSES = new Set([
+  FeatureRequestStatus.DONE,
+  FeatureRequestStatus.REJECTED,
+]);
+
 class FeatureRequestService {
   static Instance = new FeatureRequestService();
 
@@ -25,7 +34,8 @@ class FeatureRequestService {
     authRepo = AuthRepository.Instance,
     notificationService = NotificationService.Instance,
     projectService = ProjectService.Instance,
-    memberRepo = ProjectMemberRepository.Instance
+    memberRepo = ProjectMemberRepository.Instance,
+    historyRepo = FeatureRequestStatusHistoryRepository.Instance
   ) {
     this.frRepo = frRepo;
     this.voteRepo = voteRepo;
@@ -34,6 +44,7 @@ class FeatureRequestService {
     this.notificationService = notificationService;
     this.projectService = projectService;
     this.memberRepo = memberRepo;
+    this.historyRepo = historyRepo;
   }
 
   canManage(actor) {
@@ -104,6 +115,12 @@ class FeatureRequestService {
       submittedById: actor.id,
     });
 
+    // First entry in the SLA "paused time" timeline — same pattern as
+    // FeedbackService seeding feedback_status_history on creation.
+    this.historyRepo
+      .create({ featureRequestId: fr.id, status: FeatureRequestStatus.NEW, enteredAt: fr.createdAt })
+      .catch((e) => console.error("[featureRequest] history entry failed:", e.message));
+
     ActivityService.Instance.log(actor, {
       action: "feature_request.created",
       summary: `Submitted feature request "${fr.title}" in project "${project.name}"`,
@@ -158,11 +175,33 @@ class FeatureRequestService {
     if (data.status !== undefined) {
       patch.status = data.status;
       patch.statusUpdatedAt = new Date();
+      if (!fr.firstResponseAt) {
+        patch.firstResponseAt = patch.statusUpdatedAt;
+      }
+      // done/rejected are both terminal — there's no separate "closed" step,
+      // so resolvedAt and closedAt are set (and cleared) together.
+      if (TERMINAL_FEATURE_REQUEST_STATUSES.has(data.status)) {
+        if (!fr.resolvedAt) {
+          patch.resolvedAt = patch.statusUpdatedAt;
+          patch.closedAt = patch.statusUpdatedAt;
+        }
+      } else if (TERMINAL_FEATURE_REQUEST_STATUSES.has(fr.status)) {
+        patch.resolvedAt = null;
+        patch.closedAt = null;
+      }
     }
     if (data.adminResponse !== undefined) patch.adminResponse = data.adminResponse;
 
     const updated = await this.frRepo.update(id, patch);
     const project = await this.projectService.getProject(actor, fr.projectId);
+
+    // One history row per status entered — powers the SLA "paused time"
+    // calculation and a timeline, same as FeedbackService.
+    if (patch.status && patch.status !== fr.status) {
+      this.historyRepo
+        .create({ featureRequestId: fr.id, status: patch.status, enteredAt: patch.statusUpdatedAt })
+        .catch((e) => console.error("[featureRequest] history entry failed:", e.message));
+    }
 
     ActivityService.Instance.log(actor, {
       action: "feature_request.status_updated",

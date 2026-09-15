@@ -50,7 +50,7 @@ export default function BugDetailPage() {
 
   return (
     <div className="space-y-6">
-      <Link to={`/projects/${projectId}`} className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+      <Link to={`/projects/${projectId}?tab=bugs`} className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
         <ChevronLeft className="size-4" /> Back to project
       </Link>
 
@@ -157,7 +157,7 @@ export default function BugDetailPage() {
             onError: (e) => toast.error(e instanceof ApiError ? e.message : "Failed"),
             onSuccess: () => {
               toast.success("Bug deleted")
-              navigate(`/projects/${projectId}`)
+              navigate(`/projects/${projectId}?tab=bugs`)
             },
           })
         }

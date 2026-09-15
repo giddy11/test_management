@@ -39,7 +39,7 @@ export default function FeatureRequestDetailPage() {
 
   return (
     <div className="space-y-6">
-      <Link to={`/projects/${projectId}`} className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+      <Link to={`/projects/${projectId}?tab=feature-requests`} className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
         <ChevronLeft className="size-4" /> Back to project
       </Link>
 
@@ -127,7 +127,7 @@ export default function FeatureRequestDetailPage() {
             onError: (e) => toast.error(e instanceof ApiError ? e.message : "Failed"),
             onSuccess: () => {
               toast.success("Feature request deleted")
-              navigate(`/projects/${projectId}`)
+              navigate(`/projects/${projectId}?tab=feature-requests`)
             },
           })
         }

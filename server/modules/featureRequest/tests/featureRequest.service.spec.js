@@ -65,6 +65,10 @@ function makeMemberRepo() {
   return { findMemberUsers: jest.fn().mockResolvedValue([]) };
 }
 
+function makeHistoryRepo() {
+  return { create: jest.fn().mockResolvedValue(undefined) };
+}
+
 const admin = { id: "admin-1", role: "admin", organizationId: "org-1" };
 const user = { id: "user-1", role: "user", organizationId: "org-1" };
 
@@ -83,7 +87,7 @@ const fr = {
 };
 
 describe("FeatureRequestService", () => {
-  let frRepo, voteRepo, commentRepo, authRepo, notificationService, projectService, memberRepo, service;
+  let frRepo, voteRepo, commentRepo, authRepo, notificationService, projectService, memberRepo, historyRepo, service;
 
   beforeEach(() => {
     frRepo = makeFrRepo();
@@ -93,6 +97,7 @@ describe("FeatureRequestService", () => {
     notificationService = makeNotificationService();
     projectService = makeProjectService();
     memberRepo = makeMemberRepo();
+    historyRepo = makeHistoryRepo();
     service = new FeatureRequestService(
       frRepo,
       voteRepo,
@@ -100,7 +105,8 @@ describe("FeatureRequestService", () => {
       authRepo,
       notificationService,
       projectService,
-      memberRepo
+      memberRepo,
+      historyRepo
     );
   });
 
@@ -162,6 +168,18 @@ describe("FeatureRequestService", () => {
       );
       expect(created.id).toBe("fr-2");
     });
+
+    it("seeds feature_request_status_history with the new stage at creation", async () => {
+      const createdAt = new Date("2026-01-01T00:00:00Z");
+      frRepo.create.mockResolvedValue({ ...fr, id: "fr-2", createdAt });
+      await service.createFeatureRequest(user, {
+        projectId: "proj-1",
+        title: "Dark mode",
+        description: "Please add dark mode",
+      });
+      await Promise.resolve();
+      expect(historyRepo.create).toHaveBeenCalledWith({ featureRequestId: "fr-2", status: "new", enteredAt: createdAt });
+    });
   });
 
   describe("updateStatus", () => {
@@ -181,6 +199,65 @@ describe("FeatureRequestService", () => {
         "fr-1",
         expect.objectContaining({ status: "planned", statusUpdatedAt: expect.any(Date) })
       );
+    });
+
+    it("stamps firstResponseAt the first time status changes away from new", async () => {
+      frRepo.findById.mockResolvedValue(fr);
+      frRepo.update.mockResolvedValue({ ...fr, status: "planned" });
+      await service.updateStatus(admin, "fr-1", { status: "planned" });
+      expect(frRepo.update).toHaveBeenCalledWith(
+        "fr-1",
+        expect.objectContaining({ status: "planned", firstResponseAt: expect.any(Date) })
+      );
+    });
+
+    it("stamps resolvedAt and closedAt together when status reaches done", async () => {
+      frRepo.findById.mockResolvedValue(fr);
+      frRepo.update.mockResolvedValue({ ...fr, status: "done" });
+      await service.updateStatus(admin, "fr-1", { status: "done" });
+      expect(frRepo.update).toHaveBeenCalledWith(
+        "fr-1",
+        expect.objectContaining({ status: "done", resolvedAt: expect.any(Date), closedAt: expect.any(Date) })
+      );
+    });
+
+    it("stamps resolvedAt/closedAt when status reaches rejected too", async () => {
+      frRepo.findById.mockResolvedValue(fr);
+      frRepo.update.mockResolvedValue({ ...fr, status: "rejected" });
+      await service.updateStatus(admin, "fr-1", { status: "rejected" });
+      expect(frRepo.update).toHaveBeenCalledWith(
+        "fr-1",
+        expect.objectContaining({ status: "rejected", resolvedAt: expect.any(Date), closedAt: expect.any(Date) })
+      );
+    });
+
+    it("clears resolvedAt/closedAt when moved back out of a terminal status", async () => {
+      const done = { ...fr, status: "done", resolvedAt: new Date(), closedAt: new Date() };
+      frRepo.findById.mockResolvedValue(done);
+      frRepo.update.mockResolvedValue({ ...done, status: "in_progress" });
+      await service.updateStatus(admin, "fr-1", { status: "in_progress" });
+      expect(frRepo.update).toHaveBeenCalledWith(
+        "fr-1",
+        expect.objectContaining({ status: "in_progress", resolvedAt: null, closedAt: null })
+      );
+    });
+
+    it("records a feature_request_status_history row when the status changes", async () => {
+      frRepo.findById.mockResolvedValue(fr);
+      frRepo.update.mockResolvedValue({ ...fr, status: "planned" });
+      await service.updateStatus(admin, "fr-1", { status: "planned" });
+      await Promise.resolve();
+      expect(historyRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ featureRequestId: "fr-1", status: "planned", enteredAt: expect.any(Date) })
+      );
+    });
+
+    it("doesn't record history when the status is unchanged", async () => {
+      frRepo.findById.mockResolvedValue(fr);
+      frRepo.update.mockResolvedValue({ ...fr, adminResponse: "noted" });
+      await service.updateStatus(admin, "fr-1", { adminResponse: "noted" });
+      await Promise.resolve();
+      expect(historyRepo.create).not.toHaveBeenCalled();
     });
   });
 

@@ -27,19 +27,26 @@ export interface UpdateSlaSettingsPayload {
   pausedStatuses: string[]
 }
 
-// Unified stage: the product lifecycle plus the IT tier's "escalated".
-export type SlaStage =
-  | "logged"
-  | "acknowledged"
-  | "assigned"
-  | "investigating"
-  | "resolved"
-  | "closed"
-  | "escalated"
+// Unified stage: the ticket product lifecycle plus the IT tier's
+// "escalated", or — for bug/feature-request rows — that source's own raw
+// status (e.g. "Fixed", "planned"). Kept as a plain string since it now
+// spans three status vocabularies; SLA_STAGE_LABELS covers the known ones
+// and callers fall back to the raw value for anything else.
+export type SlaStage = string
 
 export type SlaSeverityFilter = FeedbackSeverity | "unset"
 
 export type SlaInterval = "day" | "week" | "month"
+
+// Top-level kind an SLA row comes from. Distinct from FeedbackType (`type`),
+// which is a sub-category that only exists on ticket rows.
+export type SlaSource = "ticket" | "bug" | "feature_request"
+
+export const SLA_SOURCE_LABELS: Record<SlaSource, string> = {
+  ticket: "Ticket",
+  bug: "Bug",
+  feature_request: "Feature request",
+}
 
 export interface SlaFilters {
   from?: string // YYYY-MM-DD
@@ -49,6 +56,7 @@ export interface SlaFilters {
   status?: SlaStage
   severity?: SlaSeverityFilter
   type?: FeedbackType
+  source?: SlaSource
   assigneeId?: string
   supporterId?: string
   search?: string
@@ -71,9 +79,12 @@ export type SlaCompliance = "met" | "breached" | "pending"
 
 export interface SlaKpis {
   total: number
+  // Per-source counts (see SlaSource) — replaces feedback's own bug/feature
+  // request/complaint sub-category breakdown, which only ever covered
+  // ticket rows submitted through the feedback form.
+  tickets: number
   bugs: number
   featureRequests: number
-  complaints: number
   resolved: number
   closed: number
   open: number
@@ -104,9 +115,9 @@ export interface SlaKpis {
 
 export interface SlaOverTimePoint {
   period: string // YYYY-MM-DD bucket start
+  tickets: number
   bugs: number
   featureRequests: number
-  complaints: number
   total: number
   resolved: number
   breached: number
@@ -165,9 +176,20 @@ export interface SlaPersonRow {
   avgResolutionMs: number | null
 }
 
+export interface SlaSourceRow {
+  source: SlaSource
+  total: number
+  resolved: number
+  breached: number
+  avgResolutionMs: number | null
+}
+
 export interface SlaRecurringRow {
   title: string
-  type: FeedbackType
+  // Grouped by source rather than feedback's `type` sub-category — the
+  // latter is null for bug/feature-request rows, which would otherwise
+  // merge unrelated bugs and feature requests sharing a title.
+  source: SlaSource
   projectId: string
   projectName: string
   count: number
@@ -185,18 +207,24 @@ export interface SlaOverview {
   bySeverity: SlaSeverityRow[]
   byStatus: SlaStatusRow[]
   byType: SlaTypeRow[]
+  bySource: SlaSourceRow[]
   byProject: SlaProjectRow[]
   byAssignee: SlaPersonRow[]
   bySupporter: SlaPersonRow[]
   recurring: SlaRecurringRow[]
 }
 
-// A ticket row in the drill-down list, with its SLA readings.
+// A row in the drill-down list (a ticket, bug, or feature request), with its
+// SLA readings.
 export interface SlaTicket {
   id: string
-  ticketNumber: number
+  source: SlaSource
+  referenceNumber: number
+  // Already formatted with the right prefix (TKT-/BF-/FR-) for the source.
+  referenceCode: string
   title: string
-  type: FeedbackType
+  // Feedback's own sub-category — only meaningful when source === "ticket".
+  type: FeedbackType | null
   status: string
   supportStatus: string | null
   stage: SlaStage
@@ -246,7 +274,12 @@ export interface SlaFilterOptions {
   supporters: { id: string; name: string }[]
 }
 
-export const SLA_STAGE_LABELS: Record<SlaStage, string> = {
+// Ticket stages, plus bugs' and feature requests' own raw statuses — every
+// value SlaStage/`stage` can take across all three sources. A status this
+// map doesn't cover (shouldn't happen, but new enum values ship faster than
+// this dashboard) just falls back to its raw value — see fmtStage below.
+export const SLA_STAGE_LABELS: Record<string, string> = {
+  // Tickets (feedback lifecycle + IT tier).
   logged: "Logged",
   acknowledged: "Acknowledged",
   assigned: "Assigned",
@@ -254,6 +287,24 @@ export const SLA_STAGE_LABELS: Record<SlaStage, string> = {
   resolved: "Resolved",
   closed: "Closed",
   escalated: "Escalated",
+  // Bugs.
+  Open: "Open",
+  "In Progress": "In Progress",
+  Fixed: "Fixed",
+  Verified: "Verified",
+  Closed: "Closed",
+  Reopened: "Reopened",
+  // Feature requests.
+  new: "New",
+  under_review: "Under Review",
+  planned: "Planned",
+  in_progress: "In Progress",
+  done: "Done",
+  rejected: "Rejected",
+}
+
+export function fmtStage(stage: string): string {
+  return SLA_STAGE_LABELS[stage] ?? stage
 }
 
 export const SLA_STAGES: SlaStage[] = [
@@ -264,6 +315,23 @@ export const SLA_STAGES: SlaStage[] = [
   "escalated",
   "resolved",
   "closed",
+]
+
+// Every stage across all three sources, for a status filter that isn't
+// scoped to one source.
+export const SLA_ALL_STAGES: SlaStage[] = [
+  ...SLA_STAGES,
+  "Open",
+  "In Progress",
+  "Fixed",
+  "Verified",
+  "Reopened",
+  "new",
+  "under_review",
+  "planned",
+  "in_progress",
+  "done",
+  "rejected",
 ]
 
 export const SLA_SEVERITY_FILTER_LABELS: Record<SlaSeverityFilter, string> = {

@@ -107,7 +107,7 @@ export default function SuiteDetailPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <Link to={`/projects/${projectId}`} className="mb-2 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+          <Link to={`/projects/${projectId}?tab=suites`} className="mb-2 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
             <ChevronLeft className="size-4" /> Back to project
           </Link>
           <h1 className="text-2xl font-semibold tracking-tight">{suite?.name ?? "Suite"}</h1>

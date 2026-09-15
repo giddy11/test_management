@@ -115,7 +115,7 @@ export default function RunDetailPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <Link to={`/projects/${projectId}`} className="mb-2 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+          <Link to={`/projects/${projectId}?tab=runs`} className="mb-2 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
             <ChevronLeft className="size-4" /> Back to project
           </Link>
           <div className="flex flex-wrap items-center gap-3">

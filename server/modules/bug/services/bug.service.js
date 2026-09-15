@@ -1,5 +1,6 @@
 // modules/bug/services/bug.service.js
 const { BugRepository } = require("../repositories/bug.repository");
+const { BugStatusHistoryRepository } = require("../repositories/bugStatusHistory.repository");
 const { ProjectService } = require("../../project/services/project.service");
 const { AuthRepository } = require("../../auth/repositories/auth.repository");
 const { TestCaseRepository } = require("../../testCase/repositories/testCase.repository");
@@ -25,7 +26,8 @@ class BugService {
     testSuiteRepo = TestSuiteRepository.Instance,
     testRunRepo = TestRunRepository.Instance,
     notificationService = NotificationService.Instance,
-    memberRepo = ProjectMemberRepository.Instance
+    memberRepo = ProjectMemberRepository.Instance,
+    historyRepo = BugStatusHistoryRepository.Instance
   ) {
     this.bugRepo = bugRepo;
     this.projectService = projectService;
@@ -35,6 +37,7 @@ class BugService {
     this.testRunRepo = testRunRepo;
     this.notificationService = notificationService;
     this.memberRepo = memberRepo;
+    this.historyRepo = historyRepo;
   }
 
   canManage(actor) {
@@ -111,6 +114,12 @@ class BugService {
       status: BugStatus.OPEN,
     });
 
+    // First entry in the SLA "paused time" timeline — same pattern as
+    // FeedbackService seeding feedback_status_history on creation.
+    this.historyRepo
+      .create({ bugId: bug.id, status: BugStatus.OPEN, enteredAt: bug.createdAt })
+      .catch((e) => console.error("[bug] history entry failed:", e.message));
+
     ActivityService.Instance.log(actor, {
       action: "bug.created",
       summary: `Reported bug "${bug.title}" in project "${project.name}"`,
@@ -169,6 +178,9 @@ class BugService {
     if (data.status !== undefined) {
       patch.status = data.status;
       patch.statusUpdatedAt = new Date();
+      if (!bug.firstResponseAt) {
+        patch.firstResponseAt = patch.statusUpdatedAt;
+      }
       if (data.status === BugStatus.FIXED && !bug.resolvedAt) {
         patch.resolvedAt = new Date();
       }
@@ -183,6 +195,14 @@ class BugService {
 
     const updated = await this.bugRepo.update(id, patch);
     const project = await this.projectService.getProject(actor, bug.projectId);
+
+    // One history row per status entered — powers the SLA "paused time"
+    // calculation and a timeline, same as FeedbackService.
+    if (patch.status && patch.status !== bug.status) {
+      this.historyRepo
+        .create({ bugId: bug.id, status: patch.status, enteredAt: patch.statusUpdatedAt })
+        .catch((e) => console.error("[bug] history entry failed:", e.message));
+    }
 
     ActivityService.Instance.log(actor, {
       action: "bug.updated",

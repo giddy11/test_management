@@ -14,7 +14,6 @@ import {
   Clock,
   Hourglass,
   Lightbulb,
-  MessageSquareWarning,
   Repeat,
   Search,
   Settings2,
@@ -50,16 +49,18 @@ import { useAuth } from "@/contexts/AuthContext"
 import { UserRole } from "@/types/auth.types"
 import { FEEDBACK_TYPE_LABELS, type FeedbackType } from "@/types/feedback.types"
 import {
+  SLA_ALL_STAGES,
   SLA_SEVERITY_FILTER_LABELS,
-  SLA_STAGES,
-  SLA_STAGE_LABELS,
+  SLA_SOURCE_LABELS,
+  fmtStage,
   type SlaFilters,
   type SlaInterval,
   type SlaPersonRow,
   type SlaSeverityFilter,
+  type SlaSource,
   type SlaStage,
 } from "@/types/sla.types"
-import { ComplianceDonut, SeverityChart, StatusChart, TicketsOverTimeChart } from "./SlaCharts"
+import { ComplianceDonut, SeverityChart, SourceChart, StatusChart, TicketsOverTimeChart } from "./SlaCharts"
 import { SlaTicketsDialog, type DrillDown } from "./SlaTicketsDialog"
 import { SlaRulesDialog } from "./SlaRulesDialog"
 import { daysAgo, fmtMs, fmtPct, rateTone } from "./slaFormat"
@@ -140,7 +141,7 @@ function PeopleTable({
         <TableHeader>
           <TableRow>
             <TableHead>{personLabel}</TableHead>
-            <TableHead className="text-right">Tickets</TableHead>
+            <TableHead className="text-right">Issues</TableHead>
             <TableHead className="text-right">Open</TableHead>
             <TableHead className="text-right">Resolved</TableHead>
             <TableHead className="text-right">Breached</TableHead>
@@ -190,6 +191,7 @@ export function SlaDashboard() {
   const [status, setStatus] = useState("all")
   const [severity, setSeverity] = useState("all")
   const [type, setType] = useState("all")
+  const [source, setSource] = useState("all")
   const [assigneeId, setAssigneeId] = useState("all")
   const [supporterId, setSupporterId] = useState("all")
   const [search, setSearch] = useState("")
@@ -218,12 +220,13 @@ export function SlaDashboard() {
       status: status === "all" ? undefined : (status as SlaStage),
       severity: severity === "all" ? undefined : (severity as SlaSeverityFilter),
       type: type === "all" ? undefined : (type as FeedbackType),
+      source: source === "all" ? undefined : (source as SlaSource),
       assigneeId: assigneeId === "all" ? undefined : assigneeId,
       supporterId: supporterId === "all" ? undefined : supporterId,
       search: debouncedSearch || undefined,
       interval: bucket === "auto" ? undefined : bucket,
     }),
-    [from, to, projectId, companyId, status, severity, type, assigneeId, supporterId, debouncedSearch, bucket]
+    [from, to, projectId, companyId, status, severity, type, source, assigneeId, supporterId, debouncedSearch, bucket]
   )
 
   const { data, isLoading, isError } = useSlaOverview(filters)
@@ -231,11 +234,11 @@ export function SlaDashboard() {
 
   const hasFilters =
     projectId !== "all" || companyId !== "all" || status !== "all" || severity !== "all" ||
-    type !== "all" || assigneeId !== "all" || supporterId !== "all" || search !== ""
+    type !== "all" || source !== "all" || assigneeId !== "all" || supporterId !== "all" || search !== ""
 
   const clearFilters = () => {
     setProjectId("all"); setCompanyId("all"); setStatus("all"); setSeverity("all")
-    setType("all"); setAssigneeId("all"); setSupporterId("all"); setSearch("")
+    setType("all"); setSource("all"); setAssigneeId("all"); setSupporterId("all"); setSearch("")
   }
 
   const k = data?.kpis
@@ -296,11 +299,31 @@ export function SlaDashboard() {
             </SelectContent>
           </Select>
         )}
+        {!isSupporter && (
+          <Select
+            value={source}
+            onValueChange={(v) => {
+              setSource(v)
+              // Ticket-only filters would otherwise silently zero out a
+              // bug/feature-request selection — clear them on switch.
+              if (v === "bug" || v === "feature_request") {
+                setType("all"); setSupporterId("all")
+              }
+              if (v === "feature_request") setAssigneeId("all")
+            }}
+          >
+            <SelectTrigger className="w-40" data-cy="sla-source"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All sources</SelectItem>
+              {Object.entries(SLA_SOURCE_LABELS).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        )}
         <Select value={status} onValueChange={setStatus}>
           <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All statuses</SelectItem>
-            {SLA_STAGES.map((s) => <SelectItem key={s} value={s}>{SLA_STAGE_LABELS[s]}</SelectItem>)}
+            {SLA_ALL_STAGES.map((s) => <SelectItem key={s} value={s}>{fmtStage(s)}</SelectItem>)}
           </SelectContent>
         </Select>
         <Select value={severity} onValueChange={setSeverity}>
@@ -310,14 +333,17 @@ export function SlaDashboard() {
             {SEVERITY_FILTERS.map((s) => <SelectItem key={s} value={s}>{SLA_SEVERITY_FILTER_LABELS[s]}</SelectItem>)}
           </SelectContent>
         </Select>
-        <Select value={type} onValueChange={setType}>
-          <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All types</SelectItem>
-            {Object.entries(FEEDBACK_TYPE_LABELS).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
-          </SelectContent>
-        </Select>
-        {!isSupporter && (options?.assignees.length ?? 0) > 0 && (
+        {/* Feedback's own sub-category and IT-support routing only ever apply to tickets. */}
+        {source !== "bug" && source !== "feature_request" && (
+          <Select value={type} onValueChange={setType}>
+            <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All ticket types</SelectItem>
+              {Object.entries(FEEDBACK_TYPE_LABELS).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        )}
+        {!isSupporter && source !== "feature_request" && (options?.assignees.length ?? 0) > 0 && (
           <Select value={assigneeId} onValueChange={setAssigneeId}>
             <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -326,7 +352,7 @@ export function SlaDashboard() {
             </SelectContent>
           </Select>
         )}
-        {(options?.supporters.length ?? 0) > 0 && (
+        {source !== "bug" && source !== "feature_request" && (options?.supporters.length ?? 0) > 0 && (
           <Select value={supporterId} onValueChange={setSupporterId}>
             <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -339,7 +365,7 @@ export function SlaDashboard() {
           <Search className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
           <Input
             className="w-52 pl-8"
-            placeholder="Title, email or TKT code…"
+            placeholder="Title, email, or TKT/BF/FR code…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -356,13 +382,13 @@ export function SlaDashboard() {
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4" data-cy="sla-kpis">
             <KpiCard
               icon={Ticket}
-              label="Tickets raised"
+              label="Issues raised"
               value={k.total}
               sub={
                 <span className="flex flex-wrap gap-x-2">
+                  <span><Ticket className="inline size-3" /> {k.tickets} tickets</span>
                   <span><Bug className="inline size-3" /> {k.bugs} bugs</span>
                   <span><Lightbulb className="inline size-3" /> {k.featureRequests} features</span>
-                  <span><MessageSquareWarning className="inline size-3" /> {k.complaints} complaints</span>
                 </span>
               }
               onClick={() => setDrill({ metric: "all" })}
@@ -448,9 +474,9 @@ export function SlaDashboard() {
           <div className="grid gap-4 lg:grid-cols-3">
             <Card className="lg:col-span-2">
               <CardHeader>
-                <CardTitle className="text-base">Bugs &amp; feature requests over time</CardTitle>
+                <CardTitle className="text-base">Tickets, bugs &amp; feature requests over time</CardTitle>
                 <CardDescription>
-                  Tickets raised per {data.interval}, by type, with resolutions overlaid
+                  Issues raised per {data.interval}, by source, with resolutions overlaid
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -468,8 +494,22 @@ export function SlaDashboard() {
             </Card>
           </div>
 
-          {/* ── Severity + status ─────────────────────────────────────────── */}
-          <div className="grid gap-4 lg:grid-cols-2">
+          {/* ── Source + severity + status ───────────────────────────────── */}
+          <div className="grid gap-4 lg:grid-cols-3">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Issues by source</CardTitle>
+                <CardDescription>Tickets, bugs, and feature requests, side by side</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <SourceChart
+                  data={data.bySource}
+                  onSelect={(src) =>
+                    setDrill({ metric: "all", extra: { source: src }, title: `${SLA_SOURCE_LABELS[src]} issues` })
+                  }
+                />
+              </CardContent>
+            </Card>
             <Card>
               <CardHeader>
                 <CardTitle className="text-base">Issues by severity</CardTitle>
@@ -489,13 +529,13 @@ export function SlaDashboard() {
             </Card>
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">Tickets by status</CardTitle>
-                <CardDescription>Where tickets currently sit in the workflow</CardDescription>
+                <CardTitle className="text-base">Issues by status</CardTitle>
+                <CardDescription>Where issues currently sit in their workflow</CardDescription>
               </CardHeader>
               <CardContent>
                 <StatusChart
                   data={data.byStatus}
-                  onSelect={(st) => setDrill({ metric: "all", extra: { status: st }, title: `${SLA_STAGE_LABELS[st]} tickets` })}
+                  onSelect={(st) => setDrill({ metric: "all", extra: { status: st }, title: `${fmtStage(st)} issues` })}
                 />
               </CardContent>
             </Card>
@@ -528,12 +568,12 @@ export function SlaDashboard() {
                       <TableBody>
                         {data.recurring.map((r, i) => (
                           <TableRow
-                            key={`${r.projectId}-${r.type}-${i}`}
+                            key={`${r.projectId}-${r.source}-${i}`}
                             className="cursor-pointer"
                             onClick={() =>
                               setDrill({
                                 metric: "all",
-                                extra: { search: r.title, projectId: r.projectId, type: r.type },
+                                extra: { search: r.title, projectId: r.projectId, source: r.source },
                                 title: `"${r.title}" reports`,
                               })
                             }
@@ -541,7 +581,7 @@ export function SlaDashboard() {
                             <TableCell className="max-w-[280px]">
                               <div className="truncate font-medium" title={r.title}>{r.title}</div>
                               <div className="text-xs text-muted-foreground">
-                                {r.projectName} · {FEEDBACK_TYPE_LABELS[r.type]}
+                                {r.projectName} · {SLA_SOURCE_LABELS[r.source]}
                               </div>
                             </TableCell>
                             <TableCell className="text-right">
@@ -572,14 +612,14 @@ export function SlaDashboard() {
               </CardHeader>
               <CardContent className="p-0">
                 {data.byProject.length === 0 ? (
-                  <p className="px-6 py-4 text-sm text-muted-foreground">No tickets yet.</p>
+                  <p className="px-6 py-4 text-sm text-muted-foreground">No issues yet.</p>
                 ) : (
                   <div className="max-h-80 overflow-auto">
                     <Table>
                       <TableHeader>
                         <TableRow>
                           <TableHead>Product</TableHead>
-                          <TableHead className="text-right">Tickets</TableHead>
+                          <TableHead className="text-right">Issues</TableHead>
                           <TableHead className="text-right">Open</TableHead>
                           <TableHead className="text-right">Breached</TableHead>
                           <TableHead className="text-right">Avg resolution</TableHead>
@@ -615,7 +655,7 @@ export function SlaDashboard() {
               <Card>
                 <CardHeader>
                   <CardTitle className="text-base">By team member</CardTitle>
-                  <CardDescription>Product-team assignees — a ticket with two assignees counts for both</CardDescription>
+                  <CardDescription>Product-team assignees (tickets and bugs) — an issue with two assignees counts for both</CardDescription>
                 </CardHeader>
                 <CardContent className="p-0">
                   <PeopleTable
@@ -644,9 +684,10 @@ export function SlaDashboard() {
           </div>
 
           <p className="text-xs text-muted-foreground">
-            Times are measured from ticket creation. Open tickets are judged against their live clock, so
-            breaches appear automatically as targets pass. Date range applies to when tickets were raised;
-            historical tickets stay available for as long as they exist.
+            Covers tickets, bugs, and feature requests. Times are measured from issue creation. Open issues
+            are judged against their live clock, so breaches appear automatically as targets pass. Date
+            range applies to when issues were raised; historical issues stay available for as long as they
+            exist.
             {isAdmin && " Change the targets under SLA rules."}
           </p>
         </>

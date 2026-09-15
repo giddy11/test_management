@@ -37,6 +37,12 @@ const {
   FeatureRequestAttachment,
 } = require("../../modules/featureRequest/entities/featureRequestAttachment.entity");
 const { Bug } = require("../../modules/bug/entities/bug.entity");
+const {
+  BugStatusHistory,
+} = require("../../modules/bug/entities/bugStatusHistory.entity");
+const {
+  FeatureRequestStatusHistory,
+} = require("../../modules/featureRequest/entities/featureRequestStatusHistory.entity");
 const { AppUpdate } = require("../../modules/appUpdate/entities/appUpdate.entity");
 const { Feedback } = require("../../modules/feedback/entities/feedback.entity");
 const {
@@ -106,6 +112,8 @@ const AppDataSource = new DataSource({
     FeatureRequestAttachment,
     Bug,
     BugAttachment,
+    BugStatusHistory,
+    FeatureRequestStatusHistory,
     AppUpdate,
     Feedback,
     FeedbackAttachment,

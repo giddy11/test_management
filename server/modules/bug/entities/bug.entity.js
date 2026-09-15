@@ -68,6 +68,12 @@ const Bug = new EntitySchema({
       enum: enums.bugStatus,
       default: BugStatus.OPEN,
     },
+    // SLA tracking — first time the bug's status moved away from Open.
+    firstResponseAt: {
+      name: "first_response_at",
+      type: "timestamptz",
+      nullable: true,
+    },
     testCaseId: {
       name: "test_case_id",
       type: "uuid",

@@ -20,8 +20,8 @@ import { Badge } from "@/components/ui/badge"
 import { useSlaSettings, useUpdateSlaSettings } from "@/hooks/useSla"
 import { ApiError } from "@/transport/http"
 import {
+  SLA_ALL_STAGES,
   SLA_SEVERITY_KEY_LABELS,
-  SLA_STAGES,
   SLA_STAGE_LABELS,
   type SlaSeverityKey,
   type SlaTargets,
@@ -34,8 +34,10 @@ function Strong({ children }: { children: React.ReactNode }) {
 
 const SEVERITY_KEYS: SlaSeverityKey[] = ["critical", "high", "medium", "low", "default"]
 
-// Pausing at "logged" would hide the very wait the SLA measures.
-const PAUSABLE_STAGES = SLA_STAGES.filter((s) => s !== "logged")
+// An issue's very first stage (tickets: "logged", bugs: "Open", feature
+// requests: "new") can't pause — nothing has happened yet, so pausing there
+// would hide the very wait the SLA measures.
+const PAUSABLE_STAGES = SLA_ALL_STAGES.filter((s) => !["logged", "Open", "new"].includes(s))
 
 type Draft = Record<SlaSeverityKey, { firstResponseHours: string; resolutionHours: string }>
 
@@ -199,13 +201,13 @@ export function SlaRulesDialog({ open, onOpenChange }: { open: boolean; onOpenCh
             <div className="space-y-2">
               <Label className="flex items-center gap-1.5 text-sm font-medium">
                 <PauseCircle className="size-3.5 text-muted-foreground" />
-                Pause the SLA clock while a ticket is…
+                Pause the SLA clock while an issue is…
               </Label>
               <p className="text-xs text-muted-foreground">
                 Time spent in a checked stage doesn't count toward the resolution target — e.g. tick{" "}
-                <Strong>Resolved</Strong> so the wait for someone to formally close the ticket isn't
-                held against you. Applies to both the IT support and product team timelines. Nothing
-                checked (the default) means the clock runs continuously from creation to resolution.
+                <Strong>Resolved</Strong> so the wait for someone to formally close it isn't held
+                against you. Applies to tickets, bugs, and feature requests alike. Nothing checked
+                (the default) means the clock runs continuously from creation to resolution.
               </p>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                 {PAUSABLE_STAGES.map((s) => (

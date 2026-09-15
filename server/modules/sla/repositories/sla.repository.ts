@@ -1,33 +1,44 @@
 // modules/sla/repositories/sla.repository.ts
-// SLA analytics over feedback tickets. Every query here is built on ONE
-// shared CTE chain (see buildBase) so a KPI card, its chart, and its
-// drill-down list always agree — they're the same filtered ticket set with
-// the same SLA maths applied.
+// SLA analytics over three issue sources — feedback tickets, bugs, and
+// feature requests. Every query here is built on ONE shared CTE chain (see
+// buildBase) so a KPI card, its chart, and its drill-down list always agree
+// — they're the same filtered issue set with the same SLA maths applied.
 //
-// Per ticket the chain derives:
+// `base` is a UNION ALL of three normalized sub-selects (one per source),
+// each producing the same column shape (nulls where a source has no
+// equivalent — e.g. bugs/feature requests have no client company). Every
+// CTE after `base` is generic over that shape and doesn't care which table
+// a row came from.
+//
+// Per issue the chain derives:
 //   first_response_ms  created → first_response_at  (null until responded)
 //   resolution_ms      created → resolved_at, minus paused time (null until resolved)
-//   paused_ms          time spent in any configured "paused" stage, on either
-//                      tier's timeline, clipped at resolution
-//   fr_breached /      measured span (or the live age, for open tickets)
+//   paused_ms          time spent in any configured "paused" stage, on
+//                      whichever status-history table the source uses
+//   fr_breached /      measured span (or the live age, for open issues)
 //   res_breached       exceeds the severity's target
 //   compliance         'met' (resolved, nothing breached) | 'breached' | 'pending'
-//   stage              the ticket's current stage on whichever tier owns it
+//   stage              the issue's current stage (dual-tier for tickets,
+//                      plain status for bugs/feature requests)
 import type { Repository } from "typeorm";
 import { SlaSettings, type SlaTargets } from "../entities/slaSettings.entity";
 import { AppDataSource } from "../../../infrastructure/database/dataSource";
 
 const { buildMeta, getOffset } = require("../../../shared/pagination/paginate");
-const { parseReferenceCode } = require("../../../shared/utils/referenceCode");
+const { parseReferenceCode, formatReferenceCode } = require("../../../shared/utils/referenceCode");
 
 // Who the caller is allowed to see — resolved by the service from the actor.
 export interface SlaScope {
   organizationId?: string | null;
   // Plain users: only projects they're a member of.
   memberUserId?: string;
-  // IT supporters: only their own company's tickets.
+  // IT supporters: only their own company's tickets. Bugs/feature requests
+  // have no client-company concept, so a supporter's scope only ever
+  // includes the ticket branch (see buildBase).
   clientCompanyId?: string;
 }
+
+export type SlaSource = "ticket" | "bug" | "feature_request";
 
 export interface SlaQueryFilters {
   from?: string;
@@ -37,6 +48,7 @@ export interface SlaQueryFilters {
   status?: string;
   severity?: string;
   type?: string;
+  source?: SlaSource;
   assigneeId?: string;
   supporterId?: string;
   search?: string;
@@ -49,64 +61,93 @@ export interface SlaRules {
 
 type Built = { sql: string; params: unknown[] };
 
-// Every SQL predicate that narrows the ticket set lives here — the service
-// never composes SQL.
+const REFERENCE_PREFIX: Record<SlaSource, string> = {
+  ticket: "TKT",
+  bug: "BF",
+  feature_request: "FR",
+};
+
+// Bug.priority (Low/Medium/High/Urgent) → the low/medium/high/critical scale
+// SLA targets are keyed by. Bugs always carry a priority, so this always
+// resolves — unlike feedback's severity, a bug is never "unset".
+const BUG_PRIORITY_SEVERITY_CASE = `
+  CASE b.priority
+    WHEN 'Low' THEN 'low'
+    WHEN 'Medium' THEN 'medium'
+    WHEN 'High' THEN 'high'
+    WHEN 'Urgent' THEN 'critical'
+  END`;
+
+// Every SQL predicate that narrows the issue set lives here — the service
+// never composes SQL. Builds a UNION ALL of up to three normalized
+// sub-selects (ticket/bug/feature_request), skipping a branch entirely when
+// a filter makes it structurally impossible to match (e.g. a ticket-only
+// `type` filter, or an IT-support scope that bugs/feature requests have no
+// concept of) rather than filtering it out after the fact.
 function buildBase(scope: SlaScope, filters: SlaQueryFilters, rules: SlaRules): Built {
   const params: unknown[] = [JSON.stringify(rules.targets), rules.pausedStatuses];
-  const where: string[] = ["fb.deleted_at IS NULL", "p.deleted_at IS NULL"];
   const add = (value: unknown) => {
     params.push(value);
     return `$${params.length}`;
   };
 
-  if (scope.clientCompanyId) {
-    where.push(`fb.client_company_id = ${add(scope.clientCompanyId)}`);
-  } else {
-    if (scope.organizationId) where.push(`p.organization_id = ${add(scope.organizationId)}`);
-    if (scope.memberUserId) {
+  const wantSource = filters.source;
+  const includeTicket = !wantSource || wantSource === "ticket";
+  // `type` (feedback's bug/feature_request/complaint sub-category) and
+  // `supporterId` are concepts that only exist on the ticket/IT-tier model —
+  // bugs and feature requests have no matching column, so a query using
+  // either filter can only ever mean tickets.
+  const ticketOnlyFilterActive = Boolean(filters.type || filters.supporterId);
+  const includeBug =
+    (!wantSource || wantSource === "bug") && !scope.clientCompanyId && !ticketOnlyFilterActive;
+  const includeFeatureRequest =
+    (!wantSource || wantSource === "feature_request") &&
+    !scope.clientCompanyId &&
+    !ticketOnlyFilterActive &&
+    // Feature requests have no assignee concept.
+    !filters.assigneeId;
+
+  const branches: string[] = [];
+
+  if (includeTicket) {
+    const where: string[] = ["fb.deleted_at IS NULL", "p.deleted_at IS NULL"];
+    if (scope.clientCompanyId) {
+      where.push(`fb.client_company_id = ${add(scope.clientCompanyId)}`);
+    } else {
+      if (scope.organizationId) where.push(`p.organization_id = ${add(scope.organizationId)}`);
+      if (scope.memberUserId) {
+        where.push(
+          `EXISTS (SELECT 1 FROM project_members spm WHERE spm.project_id = p.id AND spm.user_id = ${add(scope.memberUserId)})`
+        );
+      }
+    }
+    if (filters.from) where.push(`fb.created_at >= ${add(filters.from)}::date`);
+    if (filters.to) where.push(`fb.created_at < (${add(filters.to)}::date + interval '1 day')`);
+    if (filters.projectId) where.push(`fb.project_id = ${add(filters.projectId)}`);
+    if (filters.clientCompanyId) where.push(`fb.client_company_id = ${add(filters.clientCompanyId)}`);
+    if (filters.type) where.push(`fb.type = ${add(filters.type)}`);
+    if (filters.severity) {
+      where.push(filters.severity === "unset" ? `fb.severity IS NULL` : `fb.severity = ${add(filters.severity)}`);
+    }
+    if (filters.assigneeId) {
       where.push(
-        `EXISTS (SELECT 1 FROM project_members spm WHERE spm.project_id = p.id AND spm.user_id = ${add(scope.memberUserId)})`
+        `EXISTS (SELECT 1 FROM feedback_assignees ffa WHERE ffa.feedback_id = fb.id AND ffa.user_id = ${add(filters.assigneeId)})`
       );
     }
-  }
-
-  // Date range is on ticket creation (inclusive calendar days, DB timezone).
-  if (filters.from) where.push(`fb.created_at >= ${add(filters.from)}::date`);
-  if (filters.to) where.push(`fb.created_at < (${add(filters.to)}::date + interval '1 day')`);
-  if (filters.projectId) where.push(`fb.project_id = ${add(filters.projectId)}`);
-  if (filters.clientCompanyId) where.push(`fb.client_company_id = ${add(filters.clientCompanyId)}`);
-  if (filters.type) where.push(`fb.type = ${add(filters.type)}`);
-  if (filters.severity) {
-    where.push(
-      filters.severity === "unset" ? `fb.severity IS NULL` : `fb.severity = ${add(filters.severity)}`
-    );
-  }
-  if (filters.assigneeId) {
-    where.push(
-      `EXISTS (SELECT 1 FROM feedback_assignees ffa WHERE ffa.feedback_id = fb.id AND ffa.user_id = ${add(filters.assigneeId)})`
-    );
-  }
-  if (filters.supporterId) where.push(`fb.assigned_supporter_id = ${add(filters.supporterId)}`);
-  if (filters.search) {
-    const ticketNumber = parseReferenceCode("TKT", filters.search);
-    if (ticketNumber != null) {
-      where.push(`fb.ticket_number = ${add(ticketNumber)}`);
-    } else {
-      const like = add(`%${filters.search}%`);
-      where.push(`(fb.title ILIKE ${like} OR fb.submitter_email ILIKE ${like})`);
+    if (filters.supporterId) where.push(`fb.assigned_supporter_id = ${add(filters.supporterId)}`);
+    if (filters.search) {
+      const ticketNumber = parseReferenceCode("TKT", filters.search);
+      if (ticketNumber != null) {
+        where.push(`fb.ticket_number = ${add(ticketNumber)}`);
+      } else {
+        const like = add(`%${filters.search}%`);
+        where.push(`(fb.title ILIKE ${like} OR fb.submitter_email ILIKE ${like})`);
+      }
     }
-  }
 
-  // The stage filter applies to the derived column, so it goes on the outer
-  // select rather than the raw WHERE.
-  const stageFilter = filters.status ? `WHERE stage = ${add(filters.status)}` : "";
-
-  const sql = `
-    WITH cfg AS (
-      SELECT $1::jsonb AS targets, $2::text[] AS paused
-    ),
-    base AS (
-      SELECT fb.id, fb.ticket_number, fb.title, fb.type, fb.status, fb.support_status, fb.severity,
+    branches.push(`
+      SELECT fb.id, 'ticket'::varchar(20) AS source, fb.ticket_number AS reference_number, fb.title, fb.type,
+        fb.status, fb.support_status, fb.severity,
         fb.project_id, p.name AS project_name, fb.client_company_id, cc.name AS client_company_name,
         fb.assigned_supporter_id, fb.submitter_name, fb.submitter_email, fb.suite_name, fb.rating,
         fb.created_at, fb.first_response_at, fb.resolved_at, fb.closed_at, fb.status_updated_at,
@@ -120,27 +161,150 @@ function buildBase(scope: SlaScope, filters: SlaQueryFilters, rules: SlaRules): 
       JOIN projects p ON p.id = fb.project_id
       LEFT JOIN client_companies cc ON cc.id = fb.client_company_id
       WHERE ${where.join(" AND ")}
+    `);
+  }
+
+  if (includeBug) {
+    const where: string[] = ["b.deleted_at IS NULL", "p.deleted_at IS NULL"];
+    if (scope.organizationId) where.push(`p.organization_id = ${add(scope.organizationId)}`);
+    if (scope.memberUserId) {
+      where.push(
+        `EXISTS (SELECT 1 FROM project_members spm WHERE spm.project_id = p.id AND spm.user_id = ${add(scope.memberUserId)})`
+      );
+    }
+    if (filters.from) where.push(`b.created_at >= ${add(filters.from)}::date`);
+    if (filters.to) where.push(`b.created_at < (${add(filters.to)}::date + interval '1 day')`);
+    if (filters.projectId) where.push(`b.project_id = ${add(filters.projectId)}`);
+    if (filters.severity) {
+      where.push(
+        filters.severity === "unset"
+          ? `(${BUG_PRIORITY_SEVERITY_CASE}) IS NULL`
+          : `(${BUG_PRIORITY_SEVERITY_CASE}) = ${add(filters.severity)}`
+      );
+    }
+    if (filters.assigneeId) where.push(`b.assigned_to_id = ${add(filters.assigneeId)}`);
+    if (filters.search) {
+      const bugNumber = parseReferenceCode("BF", filters.search);
+      if (bugNumber != null) {
+        where.push(`b.bug_number = ${add(bugNumber)}`);
+      } else {
+        where.push(`b.title ILIKE ${add(`%${filters.search}%`)}`);
+      }
+    }
+
+    branches.push(`
+      SELECT b.id, 'bug'::varchar(20) AS source, b.bug_number AS reference_number, b.title, NULL::varchar(30) AS type,
+        b.status::varchar(30) AS status, NULL::varchar(30) AS support_status, (${BUG_PRIORITY_SEVERITY_CASE})::varchar(20) AS severity,
+        b.project_id, p.name AS project_name, NULL::uuid AS client_company_id, NULL::varchar AS client_company_name,
+        NULL::uuid AS assigned_supporter_id,
+        trim(concat(ru.first_name, ' ', ru.last_name)) AS submitter_name, NULL::varchar(255) AS submitter_email,
+        NULL::varchar(200) AS suite_name, NULL::smallint AS rating,
+        b.created_at, b.first_response_at, b.resolved_at, b.closed_at, b.status_updated_at,
+        NULL::timestamptz AS escalated_at,
+        COALESCE((${BUG_PRIORITY_SEVERITY_CASE})::varchar(20), 'default') AS sev_key,
+        b.status::varchar(30) AS stage
+      FROM bugs b
+      JOIN projects p ON p.id = b.project_id
+      LEFT JOIN users ru ON ru.id = b.reported_by_id
+      WHERE ${where.join(" AND ")}
+    `);
+  }
+
+  if (includeFeatureRequest) {
+    const where: string[] = ["fr.deleted_at IS NULL", "p.deleted_at IS NULL"];
+    if (scope.organizationId) where.push(`p.organization_id = ${add(scope.organizationId)}`);
+    if (scope.memberUserId) {
+      where.push(
+        `EXISTS (SELECT 1 FROM project_members spm WHERE spm.project_id = p.id AND spm.user_id = ${add(scope.memberUserId)})`
+      );
+    }
+    if (filters.from) where.push(`fr.created_at >= ${add(filters.from)}::date`);
+    if (filters.to) where.push(`fr.created_at < (${add(filters.to)}::date + interval '1 day')`);
+    if (filters.projectId) where.push(`fr.project_id = ${add(filters.projectId)}`);
+    // Feature requests carry no severity/priority — they always fall to the
+    // default target, so only the "unset" filter can ever match.
+    if (filters.severity && filters.severity !== "unset") {
+      where.push("FALSE");
+    }
+    if (filters.search) {
+      const requestNumber = parseReferenceCode("FR", filters.search);
+      if (requestNumber != null) {
+        where.push(`fr.request_number = ${add(requestNumber)}`);
+      } else {
+        where.push(`fr.title ILIKE ${add(`%${filters.search}%`)}`);
+      }
+    }
+
+    branches.push(`
+      SELECT fr.id, 'feature_request'::varchar(20) AS source, fr.request_number AS reference_number, fr.title,
+        NULL::varchar(30) AS type,
+        fr.status::varchar(30) AS status, NULL::varchar(30) AS support_status, NULL::varchar(20) AS severity,
+        fr.project_id, p.name AS project_name, NULL::uuid AS client_company_id, NULL::varchar AS client_company_name,
+        NULL::uuid AS assigned_supporter_id,
+        trim(concat(su.first_name, ' ', su.last_name)) AS submitter_name, NULL::varchar(255) AS submitter_email,
+        NULL::varchar(200) AS suite_name, NULL::smallint AS rating,
+        fr.created_at, fr.first_response_at, fr.resolved_at, fr.closed_at, fr.status_updated_at,
+        NULL::timestamptz AS escalated_at,
+        'default'::varchar(20) AS sev_key,
+        fr.status::varchar(30) AS stage
+      FROM feature_requests fr
+      JOIN projects p ON p.id = fr.project_id
+      LEFT JOIN users su ON su.id = fr.submitted_by_id
+      WHERE ${where.join(" AND ")}
+    `);
+  }
+
+  // No branch survived the filters (e.g. source=bug for a supporter scope) —
+  // an always-empty base keeps every downstream CTE well-formed.
+  const unionedBase =
+    branches.length > 0
+      ? branches.join(" UNION ALL ")
+      : `SELECT NULL::uuid AS id, NULL::varchar AS source, NULL::int AS reference_number, NULL::varchar AS title,
+           NULL::varchar(30) AS type, NULL::varchar AS status, NULL::varchar(30) AS support_status,
+           NULL::varchar(20) AS severity, NULL::uuid AS project_id, NULL::varchar AS project_name,
+           NULL::uuid AS client_company_id, NULL::varchar AS client_company_name, NULL::uuid AS assigned_supporter_id,
+           NULL::varchar AS submitter_name, NULL::varchar(255) AS submitter_email, NULL::varchar(200) AS suite_name,
+           NULL::smallint AS rating, now() AS created_at, NULL::timestamptz AS first_response_at,
+           NULL::timestamptz AS resolved_at, NULL::timestamptz AS closed_at, NULL::timestamptz AS status_updated_at,
+           NULL::timestamptz AS escalated_at, 'default' AS sev_key, NULL::varchar AS stage
+         WHERE FALSE`;
+
+  // The stage filter applies to the derived column, so it goes on the outer
+  // select rather than the raw WHERE.
+  const stageFilter = filters.status ? `WHERE stage = ${add(filters.status)}` : "";
+
+  const sql = `
+    WITH cfg AS (
+      SELECT $1::jsonb AS targets, $2::text[] AS paused
     ),
-    -- Time each ticket spent in a paused stage on EITHER timeline, clipped
-    -- at resolution (paused time after resolving can't affect anything).
+    base AS (
+      ${unionedBase}
+    ),
+    -- Time each issue spent in a paused stage on whichever status-history
+    -- table its source uses, clipped at resolution (paused time after
+    -- resolving can't affect anything).
     paused AS (
-      SELECT h.feedback_id,
+      SELECT h.issue_id,
         SUM(GREATEST(0, EXTRACT(EPOCH FROM (
           LEAST(COALESCE(h.next_at, now()), COALESCE(b.resolved_at, now())) - h.entered_at
         ))) * 1000)::bigint AS paused_ms
       FROM (
-        SELECT feedback_id, status, entered_at,
-          LEAD(entered_at) OVER (PARTITION BY feedback_id ORDER BY entered_at, status) AS next_at
+        SELECT issue_id, status, entered_at,
+          LEAD(entered_at) OVER (PARTITION BY issue_id ORDER BY entered_at, status) AS next_at
         FROM (
-          SELECT feedback_id, status, entered_at FROM feedback_status_history
+          SELECT feedback_id AS issue_id, status, entered_at FROM feedback_status_history
           UNION ALL
           SELECT feedback_id, status, entered_at FROM feedback_support_status_history
+          UNION ALL
+          SELECT bug_id, status, entered_at FROM bug_status_history
+          UNION ALL
+          SELECT feature_request_id, status, entered_at FROM feature_request_status_history
         ) hh
       ) h
-      JOIN base b ON b.id = h.feedback_id
+      JOIN base b ON b.id = h.issue_id
       CROSS JOIN cfg
       WHERE h.status = ANY(cfg.paused)
-      GROUP BY h.feedback_id
+      GROUP BY h.issue_id
     ),
     measured AS (
       SELECT b.*,
@@ -155,12 +319,12 @@ function buildBase(scope: SlaScope, filters: SlaQueryFilters, rules: SlaRules): 
         (EXTRACT(EPOCH FROM (now() - COALESCE(b.status_updated_at, b.escalated_at, b.created_at))) * 1000)::bigint AS since_update_ms
       FROM base b
       CROSS JOIN cfg
-      LEFT JOIN paused pz ON pz.feedback_id = b.id
+      LEFT JOIN paused pz ON pz.issue_id = b.id
     ),
     sla AS (
       SELECT m.*,
         (m.resolved_at IS NOT NULL) AS is_resolved,
-        -- Open tickets are judged on their live clock, so a breach shows up
+        -- Open issues are judged on their live clock, so a breach shows up
         -- the moment the target passes — no batch job needed.
         CASE WHEN m.first_response_ms IS NOT NULL THEN m.first_response_ms > m.fr_target_ms
              ELSE m.age_ms > m.fr_target_ms END AS fr_breached,
@@ -177,6 +341,14 @@ function buildBase(scope: SlaScope, filters: SlaQueryFilters, rules: SlaRules): 
              ELSE 'pending' END AS compliance
       FROM sla s
       ${stageFilter}
+    ),
+    -- Normalized (issue_id, user_id) pairs across every source that has an
+    -- assignee concept — tickets (many-to-many) and bugs (single column).
+    -- Feature requests have none, so they never appear here.
+    issue_assignees AS (
+      SELECT feedback_id AS issue_id, user_id FROM feedback_assignees
+      UNION ALL
+      SELECT id, assigned_to_id FROM bugs WHERE assigned_to_id IS NOT NULL
     )
   `;
   return { sql, params };
@@ -228,9 +400,9 @@ export class SlaRepository {
     const [row] = await this.ds.query(
       `${sql}
        SELECT count(*)::int AS total,
-         count(*) FILTER (WHERE type = 'bug')::int AS bugs,
-         count(*) FILTER (WHERE type = 'feature_request')::int AS "featureRequests",
-         count(*) FILTER (WHERE type = 'complaint')::int AS complaints,
+         count(*) FILTER (WHERE source = 'ticket')::int AS tickets,
+         count(*) FILTER (WHERE source = 'bug')::int AS bugs,
+         count(*) FILTER (WHERE source = 'feature_request')::int AS "featureRequests",
          count(*) FILTER (WHERE is_resolved)::int AS resolved,
          count(*) FILTER (WHERE closed_at IS NOT NULL)::int AS closed,
          count(*) FILTER (WHERE NOT is_resolved)::int AS open,
@@ -258,10 +430,10 @@ export class SlaRepository {
     return row;
   }
 
-  // Tickets created per period (by type) plus resolutions per period, for the
-  // trend chart. Both series are over the same filtered set, so "resolved"
-  // counts resolutions of tickets created in range, bucketed by when they
-  // were resolved.
+  // Issues created per period (by source) plus resolutions per period, for
+  // the trend chart. Both series are over the same filtered set, so
+  // "resolved" counts resolutions of issues created in range, bucketed by
+  // when they were resolved.
   async overTime(scope: SlaScope, filters: SlaQueryFilters, rules: SlaRules, interval: string) {
     const { sql, params } = buildBase(scope, filters, rules);
     params.push(interval);
@@ -269,17 +441,17 @@ export class SlaRepository {
     return this.ds.query(
       `${sql}
        SELECT to_char(period, 'YYYY-MM-DD') AS period,
+         sum(tickets)::int AS tickets,
          sum(bugs)::int AS bugs,
          sum(feature_requests)::int AS "featureRequests",
-         sum(complaints)::int AS complaints,
          sum(created)::int AS total,
          sum(resolved)::int AS resolved,
          sum(breached)::int AS breached
        FROM (
          SELECT date_trunc(${iv}, created_at) AS period,
-           (type = 'bug')::int AS bugs,
-           (type = 'feature_request')::int AS feature_requests,
-           (type = 'complaint')::int AS complaints,
+           (source = 'ticket')::int AS tickets,
+           (source = 'bug')::int AS bugs,
+           (source = 'feature_request')::int AS feature_requests,
            1 AS created, 0 AS resolved,
            (compliance = 'breached')::int AS breached
          FROM t
@@ -323,6 +495,8 @@ export class SlaRepository {
     );
   }
 
+  // Feedback's own bug/feature_request/complaint sub-category — only ever
+  // meaningful for ticket-sourced rows.
   async byType(scope: SlaScope, filters: SlaQueryFilters, rules: SlaRules) {
     const { sql, params } = buildBase(scope, filters, rules);
     return this.ds.query(
@@ -331,7 +505,22 @@ export class SlaRepository {
          count(*) FILTER (WHERE is_resolved)::int AS resolved,
          count(*) FILTER (WHERE compliance = 'breached')::int AS breached,
          avg(resolution_ms)::bigint AS "avgResolutionMs"
-       FROM t GROUP BY type ORDER BY total DESC`,
+       FROM t WHERE source = 'ticket' GROUP BY type ORDER BY total DESC`,
+      params
+    );
+  }
+
+  // Volume/compliance split by top-level source (ticket/bug/feature_request)
+  // — the dimension that answers "does SLA cover bugs and feature requests".
+  async bySource(scope: SlaScope, filters: SlaQueryFilters, rules: SlaRules) {
+    const { sql, params } = buildBase(scope, filters, rules);
+    return this.ds.query(
+      `${sql}
+       SELECT source, count(*)::int AS total,
+         count(*) FILTER (WHERE is_resolved)::int AS resolved,
+         count(*) FILTER (WHERE compliance = 'breached')::int AS breached,
+         avg(resolution_ms)::bigint AS "avgResolutionMs"
+       FROM t GROUP BY source ORDER BY total DESC`,
       params
     );
   }
@@ -353,8 +542,10 @@ export class SlaRepository {
     );
   }
 
-  // Product-team members, via the many-to-many assignee table — a ticket
-  // with two assignees counts once for each of them.
+  // Product-team members: tickets via the many-to-many assignee table, bugs
+  // via their single assigned_to_id — normalized into issue_assignees so an
+  // issue with two ticket-assignees (or one bug-assignee) counts correctly
+  // for each. Feature requests have no assignee, so they never appear here.
   async byAssignee(scope: SlaScope, filters: SlaQueryFilters, rules: SlaRules, limit = 15) {
     const { sql, params } = buildBase(scope, filters, rules);
     params.push(limit);
@@ -370,8 +561,8 @@ export class SlaRepository {
          avg(t.first_response_ms)::bigint AS "avgFirstResponseMs",
          avg(t.resolution_ms)::bigint AS "avgResolutionMs"
        FROM t
-       JOIN feedback_assignees fa ON fa.feedback_id = t.id
-       JOIN users u ON u.id = fa.user_id
+       JOIN issue_assignees ia ON ia.issue_id = t.id
+       JOIN users u ON u.id = ia.user_id
        GROUP BY u.id, u.first_name, u.last_name
        ORDER BY total DESC, breached ASC
        LIMIT $${params.length}`,
@@ -379,7 +570,8 @@ export class SlaRepository {
     );
   }
 
-  // IT support engineers (assigned_supporter_id).
+  // IT support engineers (assigned_supporter_id) — ticket-only; see
+  // ticketOnlyFilterActive in buildBase.
   async bySupporter(scope: SlaScope, filters: SlaQueryFilters, rules: SlaRules, limit = 15) {
     const { sql, params } = buildBase(scope, filters, rules);
     params.push(limit);
@@ -405,13 +597,16 @@ export class SlaRepository {
   }
 
   // Recurring issues: the same title (case/whitespace-insensitive) reported
-  // more than once for the same project and type.
+  // more than once for the same project and source (grouping by `source`
+  // rather than `type` — the latter is null for every bug/feature-request
+  // row, which would otherwise merge unrelated bugs and feature requests
+  // that happen to share a title).
   async recurring(scope: SlaScope, filters: SlaQueryFilters, rules: SlaRules, limit = 10) {
     const { sql, params } = buildBase(scope, filters, rules);
     params.push(limit);
     return this.ds.query(
       `${sql}
-       SELECT min(title) AS title, type,
+       SELECT min(title) AS title, source,
          project_id AS "projectId", project_name AS "projectName",
          count(*)::int AS count,
          count(*) FILTER (WHERE NOT is_resolved)::int AS open,
@@ -419,7 +614,7 @@ export class SlaRepository {
          max(created_at) AS "lastSeenAt",
          min(created_at) AS "firstSeenAt"
        FROM t
-       GROUP BY lower(regexp_replace(trim(title), '\\s+', ' ', 'g')), type, project_id, project_name
+       GROUP BY lower(regexp_replace(trim(title), '\\s+', ' ', 'g')), source, project_id, project_name
        HAVING count(*) >= 2
        ORDER BY count DESC, "lastSeenAt" DESC
        LIMIT $${params.length}`,
@@ -427,7 +622,7 @@ export class SlaRepository {
     );
   }
 
-  // Drill-down: the actual tickets behind a figure, with their SLA readings.
+  // Drill-down: the actual issues behind a figure, with their SLA readings.
   async tickets(
     scope: SlaScope,
     filters: SlaQueryFilters,
@@ -447,7 +642,8 @@ export class SlaRepository {
     const dataParams = [...params, limit, getOffset(page, limit)];
     const data = await this.ds.query(
       `${sql}
-       SELECT t.id, t.ticket_number AS "ticketNumber", t.title, t.type, t.status, t.support_status AS "supportStatus",
+       SELECT t.id, t.source, t.reference_number AS "referenceNumber", t.title, t.type, t.status,
+         t.support_status AS "supportStatus",
          t.stage, t.severity, t.project_id AS "projectId", t.project_name AS "projectName",
          t.client_company_id AS "clientCompanyId", t.client_company_name AS "clientCompanyName",
          t.submitter_name AS "submitterName", t.suite_name AS "suiteName", t.rating,
@@ -460,8 +656,8 @@ export class SlaRepository {
          t.fr_breached AS "firstResponseBreached", t.res_breached AS "resolutionBreached",
          t.compliance, t.is_resolved AS "isResolved",
          (SELECT array_agg(trim(concat(au.first_name, ' ', au.last_name)) ORDER BY au.first_name)
-            FROM feedback_assignees afa JOIN users au ON au.id = afa.user_id
-            WHERE afa.feedback_id = t.id) AS assignees,
+            FROM issue_assignees aia JOIN users au ON au.id = aia.user_id
+            WHERE aia.issue_id = t.id) AS assignees,
          trim(concat(su.first_name, ' ', su.last_name)) AS "supporterName"
        FROM t
        LEFT JOIN users su ON su.id = t.assigned_supporter_id
@@ -471,12 +667,16 @@ export class SlaRepository {
       dataParams
     );
 
+    for (const row of data) {
+      row.referenceCode = formatReferenceCode(REFERENCE_PREFIX[row.source as SlaSource], row.referenceNumber, row.createdAt);
+    }
+
     return { data, meta: buildMeta(page, limit, total, data.length) };
   }
 
-  // Filter options. Projects/companies come from the tickets the caller can
+  // Filter options. Projects/companies come from the issues the caller can
   // see; people come from the users table directly so every team member and
-  // support engineer is selectable, not only those who already hold a ticket.
+  // support engineer is selectable, not only those who already hold an issue.
   async filterOptions(scope: SlaScope, rules: SlaRules) {
     const { sql, params } = buildBase(scope, {}, rules);
     const people = (where: string, whereParams: unknown[]) =>

@@ -1,4 +1,4 @@
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { toast } from "sonner"
@@ -21,6 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { FormField } from "@/components/shared/FormField"
+import { PendingAttachmentsField } from "@/components/shared/PendingAttachmentsField"
 import { useCreateBug } from "@/hooks/useBugs"
 import { useSuites } from "@/hooks/useSuites"
 import { useCases } from "@/hooks/useCases"
@@ -28,6 +29,7 @@ import { useCases } from "@/hooks/useCases"
 import { bugSchema, linesToArray, type BugForm } from "@/lib/testMgmtValidation"
 import { BUG_SEVERITIES, BUG_PRIORITIES } from "@/lib/enums"
 import { ApiError } from "@/transport/http"
+import { BugAttachmentEndpoints } from "@/endpoints/bug.endpoints"
 
 interface Props {
   open: boolean
@@ -38,6 +40,8 @@ interface Props {
 export function BugFormDialog({ open, onOpenChange, projectId }: Props) {
   const create = useCreateBug()
   const { data: suites = [] } = useSuites(projectId)
+  const [files, setFiles] = useState<File[]>([])
+  const [uploading, setUploading] = useState(false)
   // Related-test-run picker removed from the form (kept commented below in case
   // it comes back) — so the runs query is disabled too.
   // const { data: runs = [] } = useRuns(projectId)
@@ -66,6 +70,7 @@ export function BugFormDialog({ open, onOpenChange, projectId }: Props) {
         suiteId: "",
         testCaseId: "",
       })
+      setFiles([])
     }
   }, [open, reset])
 
@@ -77,12 +82,12 @@ export function BugFormDialog({ open, onOpenChange, projectId }: Props) {
   const { data: casesData } = useCases(suiteId || "")
   const cases = casesData?.data ?? []
 
-  const onSubmit = (values: BugForm) => {
+  const onSubmit = async (values: BugForm) => {
     const stepsToReproduce = values.stepsToReproduceText
       ? linesToArray(values.stepsToReproduceText)
       : undefined
-    create.mutate(
-      {
+    try {
+      const bug = await create.mutateAsync({
         projectId,
         title: values.title,
         description: values.description,
@@ -94,20 +99,26 @@ export function BugFormDialog({ open, onOpenChange, projectId }: Props) {
         priority: values.priority,
         testRunId: values.testRunId || undefined,
         testCaseId: values.testCaseId || undefined,
-      },
-      {
-        onError: (e) => toast.error(e instanceof ApiError ? e.message : "Failed"),
-        onSuccess: () => {
-          toast.success("Bug reported")
-          onOpenChange(false)
-        },
+      })
+
+      if (files.length > 0) {
+        setUploading(true)
+        const res = await BugAttachmentEndpoints.upload(bug.id, files)
+        if (!res.success) toast.error(res.message || "Bug reported, but attachments failed to upload")
       }
-    )
+
+      toast.success("Bug reported")
+      onOpenChange(false)
+    } catch (e) {
+      toast.error(e instanceof ApiError ? e.message : "Failed")
+    } finally {
+      setUploading(false)
+    }
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Report a bug</DialogTitle>
           <DialogDescription>Describe the defect so it can be triaged and fixed.</DialogDescription>
@@ -202,6 +213,8 @@ export function BugFormDialog({ open, onOpenChange, projectId }: Props) {
             </div>
           </div>
 
+          <PendingAttachmentsField files={files} onChange={setFiles} disabled={create.isPending || uploading} />
+
           {/* Related test run — removed as not needed (kept for reference):
           <div className="grid gap-1.5">
             <Label>Related test run (optional)</Label>
@@ -222,8 +235,8 @@ export function BugFormDialog({ open, onOpenChange, projectId }: Props) {
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={create.isPending} data-cy="bug-submit">
-              {create.isPending ? "Submitting…" : "Report bug"}
+            <Button type="submit" disabled={create.isPending || uploading} data-cy="bug-submit">
+              {uploading ? "Uploading…" : create.isPending ? "Submitting…" : "Report bug"}
             </Button>
           </DialogFooter>
         </form>

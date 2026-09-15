@@ -117,13 +117,14 @@ export class SlaService {
     const rules = await this.rulesFor(actor);
     const interval = query.interval ?? pickInterval(query.from, query.to);
 
-    const [kpis, overTime, bySeverity, byStatus, byType, byProject, byAssignee, bySupporter, recurring] =
+    const [kpis, overTime, bySeverity, byStatus, byType, bySource, byProject, byAssignee, bySupporter, recurring] =
       await Promise.all([
         this.repo.kpis(scope, filters, rules),
         this.repo.overTime(scope, filters, rules, interval),
         this.repo.bySeverity(scope, filters, rules),
         this.repo.byStage(scope, filters, rules),
         this.repo.byType(scope, filters, rules),
+        this.repo.bySource(scope, filters, rules),
         this.repo.byProject(scope, filters, rules),
         this.repo.byAssignee(scope, filters, rules),
         this.repo.bySupporter(scope, filters, rules),
@@ -146,6 +147,7 @@ export class SlaService {
       bySeverity: orderSeverity(bySeverity.map(numeric)),
       byStatus: byStatus.map(numeric),
       byType: byType.map(numeric),
+      bySource: bySource.map(numeric),
       byProject: byProject.map(numeric),
       byAssignee: byAssignee.map(numeric),
       bySupporter: bySupporter.map(numeric),

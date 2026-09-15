@@ -17,11 +17,13 @@ import {
 import { SLA_COLORS, fmtMs } from "./slaFormat"
 import {
   SLA_SEVERITY_FILTER_LABELS,
+  SLA_SOURCE_LABELS,
   SLA_STAGE_LABELS,
   type SlaInterval,
   type SlaKpis,
   type SlaOverTimePoint,
   type SlaSeverityRow,
+  type SlaSourceRow,
   type SlaStatusRow,
 } from "@/types/sla.types"
 
@@ -49,8 +51,9 @@ function periodLabel(period: string, interval: SlaInterval): string {
   return d.toLocaleDateString(undefined, { day: "numeric", month: "short" })
 }
 
-// Tickets raised per period, stacked by type, with resolutions as a line so
-// intake and throughput can be read against each other.
+// Issues raised per period, stacked by source (ticket/bug/feature request),
+// with resolutions as a line so intake and throughput can be read against
+// each other.
 export function TicketsOverTimeChart({
   data,
   interval,
@@ -58,7 +61,7 @@ export function TicketsOverTimeChart({
   data: SlaOverTimePoint[]
   interval: SlaInterval
 }) {
-  if (data.length === 0) return <EmptyChart label="No tickets in this range" />
+  if (data.length === 0) return <EmptyChart label="Nothing in this range" />
   const rows = data.map((p) => ({ ...p, label: periodLabel(p.period, interval) }))
   return (
     <ResponsiveContainer width="100%" height={260}>
@@ -68,9 +71,9 @@ export function TicketsOverTimeChart({
         <YAxis allowDecimals={false} tick={axisTick} tickLine={false} axisLine={false} />
         <Tooltip contentStyle={tooltipStyle} cursor={{ fill: "var(--muted)", opacity: 0.4 }} />
         <Legend wrapperStyle={{ fontSize: 12 }} />
-        <Bar dataKey="bugs" name="Bugs" stackId="raised" fill={SLA_COLORS.bug} radius={[0, 0, 0, 0]} />
-        <Bar dataKey="featureRequests" name="Feature requests" stackId="raised" fill={SLA_COLORS.featureRequest} />
-        <Bar dataKey="complaints" name="Complaints" stackId="raised" fill={SLA_COLORS.complaint} radius={[4, 4, 0, 0]} />
+        <Bar dataKey="tickets" name="Tickets" stackId="raised" fill={SLA_COLORS.ticket} radius={[0, 0, 0, 0]} />
+        <Bar dataKey="bugs" name="Bugs" stackId="raised" fill={SLA_COLORS.bug} />
+        <Bar dataKey="featureRequests" name="Feature requests" stackId="raised" fill={SLA_COLORS.featureRequest} radius={[4, 4, 0, 0]} />
         <Line
           type="monotone"
           dataKey="resolved"
@@ -80,6 +83,44 @@ export function TicketsOverTimeChart({
           dot={{ r: 3 }}
         />
       </ComposedChart>
+    </ResponsiveContainer>
+  )
+}
+
+// Volume/compliance split by top-level source — the view that answers
+// "does this cover bugs and feature requests, not just tickets".
+export function SourceChart({
+  data,
+  onSelect,
+}: {
+  data: SlaSourceRow[]
+  onSelect?: (source: SlaSourceRow["source"]) => void
+}) {
+  if (data.length === 0) return <EmptyChart label="Nothing yet" />
+  const rows = data.map((r) => ({ ...r, label: SLA_SOURCE_LABELS[r.source] }))
+  return (
+    <ResponsiveContainer width="100%" height={200}>
+      <BarChart data={rows} layout="vertical" margin={{ left: 8, right: 16 }} barCategoryGap={10}>
+        <XAxis type="number" allowDecimals={false} tick={axisTick} tickLine={false} axisLine={false} />
+        <YAxis type="category" dataKey="label" width={90} tick={axisTick} tickLine={false} axisLine={false} />
+        <Tooltip
+          contentStyle={tooltipStyle}
+          cursor={{ fill: "var(--muted)", opacity: 0.4 }}
+          formatter={(value, _name, item) => {
+            const row = item.payload as SlaSourceRow
+            return [`${value} total · ${row.breached} breached · avg resolution ${fmtMs(row.avgResolutionMs)}`, "Issues"]
+          }}
+        />
+        <Bar
+          dataKey="total"
+          name="Issues"
+          radius={[0, 6, 6, 0]}
+          onClick={(d) => onSelect?.((d as unknown as SlaSourceRow).source)}
+          className={onSelect ? "cursor-pointer" : undefined}
+        >
+          {rows.map((r) => <Cell key={r.source} fill={SLA_COLORS[r.source === "feature_request" ? "featureRequest" : r.source]} />)}
+        </Bar>
+      </BarChart>
     </ResponsiveContainer>
   )
 }

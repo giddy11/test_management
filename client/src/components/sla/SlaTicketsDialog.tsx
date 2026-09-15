@@ -35,7 +35,8 @@ import { UserRole } from "@/types/auth.types"
 import { FEEDBACK_SEVERITY_LABELS, FEEDBACK_TYPE_LABELS } from "@/types/feedback.types"
 import {
   SLA_METRIC_LABELS,
-  SLA_STAGE_LABELS,
+  SLA_SOURCE_LABELS,
+  fmtStage,
   type SlaFilters,
   type SlaMetric,
   type SlaTicket,
@@ -50,10 +51,12 @@ export interface DrillDown {
   title?: string
 }
 
-function ticketCode(t: SlaTicket): string {
-  const d = new Date(t.createdAt)
-  const stamp = `${d.getUTCFullYear()}${String(d.getUTCMonth() + 1).padStart(2, "0")}${String(d.getUTCDate()).padStart(2, "0")}`
-  return `TKT-${stamp}-${String(t.ticketNumber).padStart(3, "0")}`
+// Where a row's own detail page lives — tickets go through the all-tickets
+// search, bugs/feature requests have a direct by-code route.
+function issueLink(t: SlaTicket): string {
+  if (t.source === "bug") return `/projects/${t.projectId}/bugs/ref/${t.referenceCode}`
+  if (t.source === "feature_request") return `/projects/${t.projectId}/feature-requests/ref/${t.referenceCode}`
+  return `/all-feedback?q=${encodeURIComponent(t.referenceCode)}`
 }
 
 function ComplianceBadge({ t }: { t: SlaTicket }) {
@@ -142,11 +145,11 @@ export function SlaTicketsDialog({
     >
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-5xl">
         <DialogHeader>
-          <DialogTitle>{drill?.title ?? (drill ? SLA_METRIC_LABELS[drill.metric] : "Tickets")}</DialogTitle>
+          <DialogTitle>{drill?.title ?? (drill ? SLA_METRIC_LABELS[drill.metric] : "Issues")}</DialogTitle>
           <DialogDescription>
             {meta?.total != null && meta.total > 0
-              ? `${meta.total} ticket${meta.total === 1 ? "" : "s"} match the current filters.`
-              : "Tickets matching the current dashboard filters."}
+              ? `${meta.total} issue${meta.total === 1 ? "" : "s"} match the current filters.`
+              : "Issues matching the current dashboard filters."}
           </DialogDescription>
         </DialogHeader>
 
@@ -172,9 +175,9 @@ export function SlaTicketsDialog({
           )}
         </div>
 
-        {isLoading && <p className="py-6 text-center text-sm text-muted-foreground">Loading tickets…</p>}
+        {isLoading && <p className="py-6 text-center text-sm text-muted-foreground">Loading issues…</p>}
         {!isLoading && rows.length === 0 && (
-          <p className="py-6 text-center text-sm text-muted-foreground">No tickets match.</p>
+          <p className="py-6 text-center text-sm text-muted-foreground">No issues match.</p>
         )}
 
         {rows.length > 0 && (
@@ -182,7 +185,7 @@ export function SlaTicketsDialog({
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Ticket</TableHead>
+                  <TableHead>Issue</TableHead>
                   <TableHead>Stage</TableHead>
                   <TableHead>Severity</TableHead>
                   <TableHead>First response</TableHead>
@@ -197,8 +200,10 @@ export function SlaTicketsDialog({
                   <TableRow key={t.id}>
                     <TableCell className="max-w-[280px]">
                       <div className="flex items-center gap-2">
-                        <span className="font-mono text-xs text-muted-foreground">{ticketCode(t)}</span>
-                        <Badge variant="outline" className="text-[10px]">{FEEDBACK_TYPE_LABELS[t.type]}</Badge>
+                        <span className="font-mono text-xs text-muted-foreground">{t.referenceCode}</span>
+                        <Badge variant="outline" className="text-[10px]">
+                          {t.type ? FEEDBACK_TYPE_LABELS[t.type] : SLA_SOURCE_LABELS[t.source]}
+                        </Badge>
                       </div>
                       <div className="truncate text-sm font-medium" title={t.title}>{t.title}</div>
                       <div className="truncate text-xs text-muted-foreground">
@@ -209,7 +214,7 @@ export function SlaTicketsDialog({
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="secondary">{SLA_STAGE_LABELS[t.stage] ?? t.stage}</Badge>
+                      <Badge variant="secondary">{fmtStage(t.stage)}</Badge>
                     </TableCell>
                     <TableCell className="text-sm">
                       {t.severity ? FEEDBACK_SEVERITY_LABELS[t.severity] : <span className="text-muted-foreground">—</span>}
@@ -251,8 +256,8 @@ export function SlaTicketsDialog({
                     <TableCell>
                       {!isSupporter && t.visibleInTriage && (
                         <Link
-                          to={`/all-feedback?q=${encodeURIComponent(ticketCode(t))}`}
-                          title="Open in All tickets"
+                          to={issueLink(t)}
+                          title={t.source === "ticket" ? "Open in All tickets" : "Open"}
                           className="text-muted-foreground hover:text-foreground"
                         >
                           <ExternalLink className="size-4" />

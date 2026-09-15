@@ -39,11 +39,11 @@ export function daysAgo(n: number): string {
   return isoDate(d)
 }
 
-// Series colours — one per ticket type / outcome, consistent across charts.
+// Series colours — one per issue source / outcome, consistent across charts.
 export const SLA_COLORS = {
+  ticket: "#f59e0b",
   bug: "#f43f5e",
   featureRequest: "#6366f1",
-  complaint: "#f59e0b",
   resolved: "#22c55e",
   breached: "#ef4444",
   met: "#22c55e",

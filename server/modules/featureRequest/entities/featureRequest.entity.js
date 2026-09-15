@@ -82,6 +82,24 @@ const FeatureRequest = new EntitySchema({
       type: "timestamptz",
       nullable: true,
     },
+    // SLA tracking — first status change away from "new".
+    firstResponseAt: {
+      name: "first_response_at",
+      type: "timestamptz",
+      nullable: true,
+    },
+    // Set together when status reaches a terminal state (done/rejected);
+    // there's no separate "closed" step in the feature-request workflow.
+    resolvedAt: {
+      name: "resolved_at",
+      type: "timestamptz",
+      nullable: true,
+    },
+    closedAt: {
+      name: "closed_at",
+      type: "timestamptz",
+      nullable: true,
+    },
     createdAt: {
       name: "created_at",
       type: "timestamptz",

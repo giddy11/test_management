@@ -1,4 +1,4 @@
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { toast } from "sonner"
@@ -21,10 +21,12 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { FormField } from "@/components/shared/FormField"
+import { PendingAttachmentsField } from "@/components/shared/PendingAttachmentsField"
 import { useCreateFeatureRequest } from "@/hooks/useFeatureRequests"
 import { useSuites } from "@/hooks/useSuites"
 import { featureRequestSchema, linesToArray, type FeatureRequestForm } from "@/lib/testMgmtValidation"
 import { ApiError } from "@/transport/http"
+import { FeatureRequestAttachmentEndpoints } from "@/endpoints/featureRequest.endpoints"
 
 interface Props {
   open: boolean
@@ -35,6 +37,8 @@ interface Props {
 export function FeatureRequestFormDialog({ open, onOpenChange, projectId }: Props) {
   const create = useCreateFeatureRequest()
   const { data: suites = [] } = useSuites(projectId)
+  const [files, setFiles] = useState<File[]>([])
+  const [uploading, setUploading] = useState(false)
 
   const {
     register,
@@ -48,33 +52,42 @@ export function FeatureRequestFormDialog({ open, onOpenChange, projectId }: Prop
   const moduleValue = watch("module")
 
   useEffect(() => {
-    if (open) reset({ title: "", description: "", category: "", module: "", referenceLinksText: "" })
+    if (open) {
+      reset({ title: "", description: "", category: "", module: "", referenceLinksText: "" })
+      setFiles([])
+    }
   }, [open, reset])
 
-  const onSubmit = (values: FeatureRequestForm) => {
+  const onSubmit = async (values: FeatureRequestForm) => {
     const referenceLinks = values.referenceLinksText ? linesToArray(values.referenceLinksText) : undefined
-    create.mutate(
-      {
+    try {
+      const request = await create.mutateAsync({
         projectId,
         title: values.title,
         description: values.description,
         category: values.category || undefined,
         module: values.module || undefined,
         referenceLinks,
-      },
-      {
-        onError: (e) => toast.error(e instanceof ApiError ? e.message : "Failed"),
-        onSuccess: () => {
-          toast.success("Feature request submitted")
-          onOpenChange(false)
-        },
+      })
+
+      if (files.length > 0) {
+        setUploading(true)
+        const res = await FeatureRequestAttachmentEndpoints.upload(request.id, files)
+        if (!res.success) toast.error(res.message || "Request submitted, but attachments failed to upload")
       }
-    )
+
+      toast.success("Feature request submitted")
+      onOpenChange(false)
+    } catch (e) {
+      toast.error(e instanceof ApiError ? e.message : "Failed")
+    } finally {
+      setUploading(false)
+    }
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Suggest a feature</DialogTitle>
           <DialogDescription>Tell us what you'd like to see in TestMate.</DialogDescription>
@@ -122,12 +135,14 @@ export function FeatureRequestFormDialog({ open, onOpenChange, projectId }: Prop
             />
           </div>
 
+          <PendingAttachmentsField files={files} onChange={setFiles} disabled={create.isPending || uploading} />
+
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={create.isPending} data-cy="feature-request-submit">
-              {create.isPending ? "Submitting…" : "Submit request"}
+            <Button type="submit" disabled={create.isPending || uploading} data-cy="feature-request-submit">
+              {uploading ? "Uploading…" : create.isPending ? "Submitting…" : "Submit request"}
             </Button>
           </DialogFooter>
         </form>

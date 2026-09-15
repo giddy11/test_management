@@ -8,7 +8,7 @@ import { DEFAULT_SLA_TARGETS, SlaService, pickInterval } from "../services/sla.s
 const { UserRole } = require("../../../config/constants");
 
 const emptyKpis = {
-  total: 0, bugs: 0, featureRequests: 0, complaints: 0, resolved: 0, closed: 0, open: 0,
+  total: 0, tickets: 0, bugs: 0, featureRequests: 0, resolved: 0, closed: 0, open: 0,
   awaitingResponse: 0, responded: 0, avgFirstResponseMs: null, medianFirstResponseMs: null,
   avgResolutionMs: null, medianResolutionMs: null, firstResponseMet: 0, firstResponseBreached: 0,
   resolutionMet: 0, resolutionBreached: 0, slaMet: 0, slaBreached: 0, slaPending: 0,
@@ -24,6 +24,7 @@ function makeRepo() {
     bySeverity: jest.fn().mockResolvedValue([]),
     byStage: jest.fn().mockResolvedValue([]),
     byType: jest.fn().mockResolvedValue([]),
+    bySource: jest.fn().mockResolvedValue([]),
     byProject: jest.fn().mockResolvedValue([]),
     byAssignee: jest.fn().mockResolvedValue([]),
     bySupporter: jest.fn().mockResolvedValue([]),
