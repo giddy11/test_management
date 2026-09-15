@@ -6,6 +6,7 @@ import { FeedbackCommentController } from "../controllers/feedbackComment.contro
 import {
   publicFormParamSchema,
   submitFeedbackSchema,
+  publicCompanyTicketsSchema,
   requestMyTicketsCodeSchema,
   listMyTicketsSchema,
   publicFetchCommentsSchema,
@@ -40,6 +41,16 @@ const commentLimiter = rateLimit({
   message: { success: false, message: "Too many requests — please try again shortly", statusCode: 429 },
 });
 
+// A partner's own dashboard, refreshing/paging more often than a one-shot
+// submission would — looser than submitLimiter, same ceiling as commentLimiter.
+const listTicketsLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: "Too many requests — please try again shortly", statusCode: 429 },
+});
+
 // A submitter's own ticket history, no account — email a code (same rate
 // limit as the auth module's own OTP flows), then trade it for the list;
 // reusable until it expires, not single-use, so refreshing the page doesn't
@@ -67,6 +78,15 @@ router.post(
   uploadMany("images", 5),
   validate(submitFeedbackSchema),
   FeedbackController.publicSubmit
+);
+
+// Everything raised against this token's form — a partner's own dashboard,
+// not a single submitter's history (that's /my-tickets above).
+router.get(
+  "/:token/tickets",
+  listTicketsLimiter,
+  validate(publicCompanyTicketsSchema),
+  FeedbackController.publicListTickets
 );
 
 // Ticket comment thread — the submitter proves ownership the same way

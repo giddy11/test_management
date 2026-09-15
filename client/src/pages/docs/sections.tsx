@@ -1171,7 +1171,317 @@ const ALL_SECTIONS: DocSection[] = [
         <UL>
           <li>This endpoint has no credential check — anyone who knows (or guesses) a <Code>projectId</Code> can create companies inside that project. Treat the URL itself as sensitive, and don't expose it to untrusted clients.</li>
           <li>Only call it from your backend — never from frontend JavaScript or a mobile app bundle, where the request (and your <Code>projectId</Code>) would be visible to anyone.</li>
-          <li>There's no idempotency key here — a same-email retry after an uncertain response (e.g. a timeout) fails with a <Code>409</Code> rather than safely returning the original company, so don't blindly re-POST on failure without checking first.</li>
+          <li>There's no idempotency key here — a same-email retry after an uncertain response (e.g. a timeout) still fails with a <Code>409</Code>. If the retry targets the <Strong>same</Strong> <Code>projectId</Code> as the original call, that response's <Code>data.company</Code> is the company that was actually created, so you can recover from it safely; only a cross-project conflict leaves you with no way to tell whether the original call succeeded.</li>
+        </UL>
+      </div>
+    ),
+  },
+  {
+    id: "ticket-form-api",
+    title: "Ticket submission API",
+    icon: Webhook,
+    summary: "Build your own ticket form and post straight into TestMate.",
+    body: (
+      <div className="space-y-4">
+        <P>
+          The <a href="#feedback-portal" className="font-medium text-primary hover:underline">
+            public ticket portal
+          </a>{" "}
+          works by sending people to TestMate's own hosted <Code>/feedback/&lt;token&gt;</Code> page.
+          If you'd rather keep them on your own product entirely — your own layout, your own fields
+          arranged your way — build that form yourself and call the same two endpoints it uses
+          under the hood. No page navigation, no TestMate branding.
+        </P>
+        <P>
+          These take the project's (or client company's) <Code>feedbackToken</Code> — the same one
+          in the hosted link — as the only credential, so there's nothing to authenticate up front.
+          Copy it from the project's <Strong>Tickets</Strong> tab (or a client company's own page).
+        </P>
+        <H3>Get the form's context</H3>
+        <P><Code>GET /api/v1/public/feedback/&lt;token&gt;</Code></P>
+        <P>
+          Call this first to get what you need to render the form — the product name (and, for a
+          client company's token, which company will triage it first), plus its list of test suites
+          for an optional "which part of the application" field.
+        </P>
+        <CodeBlock>{`curl https://<your-domain>/api/v1/public/feedback/fd6afc72-537c-4335-b24b-e34d97dc88cb`}</CodeBlock>
+        <CodeBlock>{`{
+  "success": true,
+  "message": "Feedback form",
+  "statusCode": 200,
+  "data": {
+    "projectName": "DOMS",
+    "clientCompanyName": "Slotbeer Construction",
+    "suites": [
+      { "id": "b3c1a2e4-1111-4b2c-9d1e-0a1b2c3d4e5f", "name": "Payments" },
+      { "id": "c4d2b3f5-2222-4b2c-9d1e-0a1b2c3d4e5f", "name": "Onboarding" }
+    ]
+  },
+  "errors": []
+}`}</CodeBlock>
+        <P>
+          <Code>clientCompanyName</Code> is <Code>null</Code> for a project-level token. Skip the
+          "part of the application" field entirely if <Code>suites</Code> is empty — that's what the
+          hosted form does too.
+        </P>
+        <H3>Submit a ticket</H3>
+        <P><Code>POST /api/v1/public/feedback/&lt;token&gt;</Code></P>
+        <P>
+          <Code>multipart/form-data</Code> — required so screenshots can ride along with the other
+          fields in one request.
+        </P>
+        <div className="overflow-x-auto rounded-lg border">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/50 text-left">
+              <tr>
+                <th className="px-3 py-2 font-medium">Field</th>
+                <th className="px-3 py-2 font-medium">Type</th>
+                <th className="px-3 py-2 font-medium">Notes</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y align-top">
+              <tr>
+                <td className="whitespace-nowrap px-3 py-2 font-medium">type</td>
+                <td className="whitespace-nowrap px-3 py-2 text-muted-foreground">string</td>
+                <td className="px-3 py-2 text-muted-foreground">
+                  One of <Code>feature_request</Code>, <Code>bug</Code>, <Code>complaint</Code>.
+                </td>
+              </tr>
+              <tr>
+                <td className="whitespace-nowrap px-3 py-2 font-medium">title</td>
+                <td className="whitespace-nowrap px-3 py-2 text-muted-foreground">string</td>
+                <td className="px-3 py-2 text-muted-foreground">1–200 characters.</td>
+              </tr>
+              <tr>
+                <td className="whitespace-nowrap px-3 py-2 font-medium">description</td>
+                <td className="whitespace-nowrap px-3 py-2 text-muted-foreground">string</td>
+                <td className="px-3 py-2 text-muted-foreground">1–5000 characters.</td>
+              </tr>
+              <tr>
+                <td className="whitespace-nowrap px-3 py-2 font-medium">suiteName</td>
+                <td className="whitespace-nowrap px-3 py-2 text-muted-foreground">string, optional</td>
+                <td className="px-3 py-2 text-muted-foreground">
+                  A <Code>name</Code> from the <Code>suites</Code> list above — free text, not
+                  validated against it. Omit if the submitter doesn't know or it doesn't apply.
+                </td>
+              </tr>
+              <tr>
+                <td className="whitespace-nowrap px-3 py-2 font-medium">submitterName</td>
+                <td className="whitespace-nowrap px-3 py-2 text-muted-foreground">string</td>
+                <td className="px-3 py-2 text-muted-foreground">1–120 characters.</td>
+              </tr>
+              <tr>
+                <td className="whitespace-nowrap px-3 py-2 font-medium">submitterEmail</td>
+                <td className="whitespace-nowrap px-3 py-2 text-muted-foreground">string</td>
+                <td className="px-3 py-2 text-muted-foreground">
+                  Where lifecycle updates and the "My tickets" lookup code are sent.
+                </td>
+              </tr>
+              <tr>
+                <td className="whitespace-nowrap px-3 py-2 font-medium">submitterPhone</td>
+                <td className="whitespace-nowrap px-3 py-2 text-muted-foreground">string, optional</td>
+                <td className="px-3 py-2 text-muted-foreground">
+                  E.164 format, e.g. <Code>+2348012345678</Code>.
+                </td>
+              </tr>
+              <tr>
+                <td className="whitespace-nowrap px-3 py-2 font-medium">images</td>
+                <td className="whitespace-nowrap px-3 py-2 text-muted-foreground">file[], optional</td>
+                <td className="px-3 py-2 text-muted-foreground">
+                  <Strong>The actual image file bytes</Strong> (multipart), not a URL — up to 5
+                  files, PNG/JPEG/WebP only, 5&nbsp;MB each. Repeat the{" "}
+                  <Code>images</Code> field once per file. TestMate uploads them to its own
+                  storage and hands back a URL in the ticket's <Code>attachments</Code>.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <CodeBlock>{`curl -X POST https://<your-domain>/api/v1/public/feedback/fd6afc72-537c-4335-b24b-e34d97dc88cb \\
+  -F "type=complaint" \\
+  -F "title=Invoice totals look wrong" \\
+  -F "description=The tax line doesn't match what's on the PDF export." \\
+  -F "submitterName=Jamie Ops" \\
+  -F "submitterEmail=jamie@acme.com" \\
+  -F "submitterPhone=+2348012345678" \\
+  -F "images=@screenshot-1.png"`}</CodeBlock>
+        <H3>Response — <Code>201 Created</Code></H3>
+        <CodeBlock>{`{
+  "success": true,
+  "message": "Thanks! Your feedback has been logged.",
+  "statusCode": 201,
+  "data": { "id": "e3f4a5b6-7c8d-4e9f-a0b1-c2d3e4f5a6b7" },
+  "errors": []
+}`}</CodeBlock>
+        <P>
+          That's the ticket's internal <Code>id</Code>, not its human-readable reference code (e.g.{" "}
+          <Code>TKT-20260915-007</Code>) — the hosted form doesn't show that either, it just confirms
+          submission and relies on the confirmation email for the reference. Point the submitter at{" "}
+          <Code>/my-tickets</Code> (or build your own status lookup on{" "}
+          <Code>POST /api/v1/public/feedback/my-tickets/code</Code> +{" "}
+          <Code>POST /api/v1/public/feedback/my-tickets</Code>, the same email/code flow) if they need
+          to check on it later.
+        </P>
+        <H3>Error responses</H3>
+        <div className="overflow-x-auto rounded-lg border">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/50 text-left">
+              <tr>
+                <th className="px-3 py-2 font-medium">Status</th>
+                <th className="px-3 py-2 font-medium"><Code>message</Code></th>
+                <th className="px-3 py-2 font-medium">When</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y align-top">
+              <tr>
+                <td className="whitespace-nowrap px-3 py-2 font-medium">404</td>
+                <td className="px-3 py-2 text-muted-foreground">This feedback form is not available</td>
+                <td className="px-3 py-2 text-muted-foreground">
+                  The token is wrong, or the form link was disabled on the project/company.
+                </td>
+              </tr>
+              <tr>
+                <td className="whitespace-nowrap px-3 py-2 font-medium">422</td>
+                <td className="px-3 py-2 text-muted-foreground">Validation failed</td>
+                <td className="px-3 py-2 text-muted-foreground">
+                  A field is missing, too long, or malformed — see <Code>errors</Code>. Also used for
+                  a rejected image (wrong type or over 5&nbsp;MB).
+                </td>
+              </tr>
+              <tr>
+                <td className="whitespace-nowrap px-3 py-2 font-medium">429</td>
+                <td className="px-3 py-2 text-muted-foreground">Too many submissions — please try again later</td>
+                <td className="px-3 py-2 text-muted-foreground">
+                  More than 20 submissions from the same IP in an hour.
+                </td>
+              </tr>
+              <tr>
+                <td className="whitespace-nowrap px-3 py-2 font-medium">500</td>
+                <td className="px-3 py-2 text-muted-foreground">Internal server error</td>
+                <td className="px-3 py-2 text-muted-foreground">Unexpected failure.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <H3>List your tickets</H3>
+        <P><Code>GET /api/v1/public/feedback/&lt;token&gt;/tickets</Code></P>
+        <P>
+          For your own dashboard to show everything raised against this token — same
+          token as above, no separate login. Paginated, newest first.
+        </P>
+        <CodeBlock>{`curl "https://<your-domain>/api/v1/public/feedback/fd6afc72-537c-4335-b24b-e34d97dc88cb/tickets?page=1&limit=20"`}</CodeBlock>
+        <div className="overflow-x-auto rounded-lg border">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/50 text-left">
+              <tr>
+                <th className="px-3 py-2 font-medium">Query param</th>
+                <th className="px-3 py-2 font-medium">Type</th>
+                <th className="px-3 py-2 font-medium">Notes</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y align-top">
+              <tr>
+                <td className="whitespace-nowrap px-3 py-2 font-medium">page</td>
+                <td className="whitespace-nowrap px-3 py-2 text-muted-foreground">integer, optional</td>
+                <td className="px-3 py-2 text-muted-foreground">1-indexed. Default <Code>1</Code>.</td>
+              </tr>
+              <tr>
+                <td className="whitespace-nowrap px-3 py-2 font-medium">limit</td>
+                <td className="whitespace-nowrap px-3 py-2 text-muted-foreground">integer, optional</td>
+                <td className="px-3 py-2 text-muted-foreground">Default <Code>20</Code>, max <Code>100</Code>.</td>
+              </tr>
+              <tr>
+                <td className="whitespace-nowrap px-3 py-2 font-medium">type</td>
+                <td className="whitespace-nowrap px-3 py-2 text-muted-foreground">string, optional</td>
+                <td className="px-3 py-2 text-muted-foreground">
+                  Filter to one of <Code>feature_request</Code>, <Code>bug</Code>, <Code>complaint</Code>.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <CodeBlock>{`{
+  "success": true,
+  "message": "Tickets fetched",
+  "statusCode": 200,
+  "data": [
+    {
+      "id": "e3f4a5b6-7c8d-4e9f-a0b1-c2d3e4f5a6b7",
+      "ticketCode": "TKT-20260915-007",
+      "type": "complaint",
+      "title": "Invoice totals look wrong",
+      "description": "The tax line doesn't match what's on the PDF export.",
+      "suiteName": null,
+      "submitterName": "Jamie Ops",
+      "submitterEmail": "jamie@acme.com",
+      "submitterPhone": "+2348012345678",
+      "status": "in_progress",
+      "attachments": [
+        { "id": "att-1", "url": "https://res.cloudinary.com/.../screenshot-1.png" }
+      ],
+      "rating": null,
+      "createdAt": "2026-09-15T09:12:00.000Z",
+      "updatedAt": "2026-09-15T10:00:00.000Z"
+    }
+  ],
+  "errors": [],
+  "meta": { "page": 1, "limit": 20, "total": 1, "totalPages": 1, "hasNext": false, "hasPrev": false }
+}`}</CodeBlock>
+        <P>
+          <Code>status</Code> is collapsed to <Code>received</Code> / <Code>in_progress</Code> /{" "}
+          <Code>resolved</Code> — the same simplified view your end users get on TestMate's own "My
+          tickets" page. Internal triage detail (acknowledged/assigned/investigating/escalated/etc.)
+          is deliberately hidden here too.
+        </P>
+        <div className="overflow-x-auto rounded-lg border">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/50 text-left">
+              <tr>
+                <th className="px-3 py-2 font-medium">Status</th>
+                <th className="px-3 py-2 font-medium"><Code>message</Code></th>
+                <th className="px-3 py-2 font-medium">When</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y align-top">
+              <tr>
+                <td className="whitespace-nowrap px-3 py-2 font-medium">404</td>
+                <td className="px-3 py-2 text-muted-foreground">This feedback form is not available</td>
+                <td className="px-3 py-2 text-muted-foreground">
+                  The token is wrong, or the form link was disabled.
+                </td>
+              </tr>
+              <tr>
+                <td className="whitespace-nowrap px-3 py-2 font-medium">422</td>
+                <td className="px-3 py-2 text-muted-foreground">Validation failed</td>
+                <td className="px-3 py-2 text-muted-foreground">Bad <Code>page</Code>, <Code>limit</Code>, or <Code>type</Code>.</td>
+              </tr>
+              <tr>
+                <td className="whitespace-nowrap px-3 py-2 font-medium">429</td>
+                <td className="px-3 py-2 text-muted-foreground">Too many requests — please try again shortly</td>
+                <td className="px-3 py-2 text-muted-foreground">
+                  More than 60 requests from the same IP in 15 minutes.
+                </td>
+              </tr>
+              <tr>
+                <td className="whitespace-nowrap px-3 py-2 font-medium">500</td>
+                <td className="px-3 py-2 text-muted-foreground">Internal server error</td>
+                <td className="px-3 py-2 text-muted-foreground">Unexpected failure.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <H3>Cross-origin calls</H3>
+        <P>
+          Unlike the rest of TestMate's API, everything under{" "}
+          <Code>/api/v1/public/feedback/*</Code> sends permissive CORS headers — call it directly
+          from your own frontend's JavaScript, from whatever domain your product runs on, no server
+          proxy required. It's safe to open up because the token is already meant to be shared in a
+          plain URL, these routes never use cookies, and submission is separately rate-limited above.
+        </P>
+        <H3>Security notes</H3>
+        <UL>
+          <li>Treat the <Code>feedbackToken</Code> the same way you'd treat the hosted link — anyone who has it can submit tickets under that project or company, <Strong>and read every ticket raised against it</Strong> (names, emails, phone numbers, descriptions). Don't log it in a place a browser extension or third-party script could scrape it from, and rotate it (via a TestMate admin) if it ever leaks.</li>
+          <li>There's no per-submitter identity check beyond the email they type in — <Code>submitterEmail</Code> is trusted as given, the same as the hosted form.</li>
         </UL>
       </div>
     ),
@@ -1366,7 +1676,12 @@ export const DOC_GROUPS: DocGroup[] = [
   group("Getting started", ["introduction", "getting-started", "roles"]),
   group("Core testing workflow", ["dashboard", "projects", "suites-and-cases", "test-runs"]),
   group("Tracking & tickets", ["bugs", "feature-requests", "feedback-portal"]),
-  group("Support & live chat", ["client-companies", "live-chat", "company-provisioning"]),
+  group("Support & live chat", [
+    "client-companies",
+    "live-chat",
+    "company-provisioning",
+    "ticket-form-api",
+  ]),
   group("Administration", ["team", "activity"]),
   group("Help", ["announcements", "settings", "faq"]),
 ]

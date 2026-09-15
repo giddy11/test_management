@@ -66,6 +66,31 @@ export function toFeedbackResponse(fb: Feedback | null) {
   };
 }
 
+// A partner's own dashboard listing everything raised against its form —
+// same collapsed status as toMyTicketResponse (internal triage stays
+// internal), but includes submitter identity since this is an aggregate view
+// across many submitters, not one already-known submitter's own history.
+// Never includes assignee/escalation identities — those are TestMate-internal
+// staff, not the partner's business.
+export function toCompanyTicketResponse(fb: Feedback) {
+  return {
+    id: fb.id,
+    ticketCode: ticketCode(fb),
+    type: fb.type,
+    title: fb.title,
+    description: fb.description,
+    suiteName: fb.suiteName ?? null,
+    submitterName: fb.submitterName,
+    submitterEmail: fb.submitterEmail,
+    submitterPhone: fb.submitterPhone ?? null,
+    status: toSubmitterStatus(fb),
+    attachments: (fb.attachments ?? []).map((a) => ({ id: a.id, url: a.url })),
+    rating: fb.rating ?? null,
+    createdAt: fb.createdAt,
+    updatedAt: fb.statusUpdatedAt ?? fb.createdAt,
+  };
+}
+
 // Kept for API completeness (non-web clients / the server's own REST
 // response to a just-posted comment) — the web app's read side is a
 // realtime Firestore listener instead, see client/src/hooks/useFeedbackComments.ts.

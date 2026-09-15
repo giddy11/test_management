@@ -31,6 +31,20 @@ export class FeedbackController {
     }
   }
 
+  // A partner's own dashboard listing everything raised against its form —
+  // same token as publicSubmit, paginated.
+  static async publicListTickets(req: any, res: any, next: any) {
+    try {
+      const result = await FeedbackService.Instance.listPublicTickets(
+        req.validated.params.token,
+        req.validated.query
+      );
+      res.status(200).json(ApiResponse.ok("Tickets fetched", result.data, result.meta));
+    } catch (err) {
+      next(err);
+    }
+  }
+
   // A submitter's own ticket history, no account — email a code, then trade
   // it for the list (reusable until it expires, so a refresh doesn't need a
   // new one). Never reveals whether the email has tickets.

@@ -46,13 +46,32 @@ const slaRoutes = require("./modules/sla/routes/sla.routes");
 function createApp() {
   const app = express();
 
-  app.use(helmet());
-  app.use(
-    cors({
-      origin: env.corsOrigins.length ? env.corsOrigins : true,
-      credentials: true,
-    })
-  );
+  // The app itself is restricted to its own known frontends (credentialed —
+  // cookies/session-bearing requests). The public feedback API is different:
+  // it's meant to be called directly from a THIRD PARTY's own frontend (a
+  // partner building their own ticket form UI instead of sending users to
+  // our hosted /feedback/:token page), so its origin can't be known ahead of
+  // time. That's safe to open up — the same feedbackToken is already treated
+  // as shareable in a plain URL, the routes take no cookies, and submission
+  // is separately rate-limited (see publicFeedback.routes.ts).
+  //
+  // Two things gate a cross-origin browser read, and both default to
+  // same-origin-only: the CORS headers (above) and helmet's
+  // Cross-Origin-Resource-Policy header, which browsers enforce independently
+  // of CORS — an open CORS policy alone still gets silently blocked in
+  // Chrome/Firefox unless CORP also allows it. Both need the same carve-out.
+  const isPublicFeedback = (req) => req.path.startsWith("/api/v1/public/feedback");
+
+  const restrictedHelmet = helmet();
+  const openHelmet = helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } });
+  app.use((req, res, next) => (isPublicFeedback(req) ? openHelmet : restrictedHelmet)(req, res, next));
+
+  const restrictedCors = cors({
+    origin: env.corsOrigins.length ? env.corsOrigins : true,
+    credentials: true,
+  });
+  const openCors = cors({ origin: true });
+  app.use((req, res, next) => (isPublicFeedback(req) ? openCors : restrictedCors)(req, res, next));
   app.use(express.json({ limit: "1mb" }));
   app.use(express.urlencoded({ extended: true }));
 

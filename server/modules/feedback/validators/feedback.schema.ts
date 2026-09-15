@@ -25,6 +25,17 @@ export const submitFeedbackSchema = z.object({
   }),
 });
 
+// A partner's own dashboard listing everything raised against its project's
+// (or client company's) form — same token as submitFeedbackSchema, paginated.
+export const publicCompanyTicketsSchema = z.object({
+  params: z.object({ token: z.string().uuid() }),
+  query: z.object({
+    page: z.coerce.number().int().min(1).default(1),
+    limit: z.coerce.number().int().min(1).max(100).default(20),
+    type: z.enum(feedbackTypes).optional(),
+  }),
+});
+
 // ── Submitter's own ticket history (public, no account) ─────────────────────
 
 export const requestMyTicketsCodeSchema = z.object({

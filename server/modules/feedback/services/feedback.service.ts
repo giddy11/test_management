@@ -14,6 +14,7 @@ import { ClientCompanyRepository } from "../../clientCompany/repositories/client
 import {
   SubmitterTicketStatus,
   ticketLabel,
+  toCompanyTicketResponse,
   toMyTicketResponse,
   toSubmitterStatus,
 } from "../dto/feedback.dto";
@@ -281,6 +282,25 @@ export class FeedbackService {
     this.notifyProjectTeamOfNewFeedback(project, fb);
 
     return { id: fb.id };
+  }
+
+  // A partner's own dashboard listing everything raised against its form —
+  // same token as submitPublic, so no separate credential to manage. Reuses
+  // fetchPaginated's existing clientCompanyId/projectId scoping (same query
+  // the IT-support queue and admin triage list run), just through the
+  // collapsed, submitter-safe DTO instead of the staff-facing one.
+  async listPublicTickets(
+    token: string,
+    params: { page?: number; limit?: number; type?: string }
+  ) {
+    const { project, company } = await this.resolveFormToken(token);
+    const result = await this.feedbackRepo.fetchPaginated({
+      ...(company ? { clientCompanyId: company.id } : { projectId: project.id }),
+      page: params.page,
+      limit: params.limit,
+      type: params.type,
+    });
+    return { data: result.data.map(toCompanyTicketResponse), meta: result.meta };
   }
 
   // ── Authenticated (project members/admins) ──────────────────────────────────
