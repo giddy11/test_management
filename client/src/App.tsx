@@ -105,7 +105,7 @@ export default function App() {
                 </Route>
               </Route>
 
-              <Route element={<ProtectedRoute anyOf={["user.read", "audit.read"]} />}>
+              <Route element={<ProtectedRoute anyOf={["user.create", "audit.read"]} />}>
                 <Route element={<DashboardLayout />}>
                   <Route path="/team" element={<TeamPage />} />
                   <Route path="/activity" element={<ActivityPage />} />

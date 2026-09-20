@@ -40,7 +40,9 @@ export const NAV_ITEMS: NavItem[] = [
   { title: "All tickets", to: "/all-feedback", icon: MessageSquareHeart, permission: "ticket.read" },
   { title: "Ticket queue", to: "/support", icon: Headset, permission: "supportqueue.read" },
   { title: "SLA reports", to: "/support/sla", icon: Gauge, permission: "sla.read" },
-  { title: "Team", to: "/team", icon: Users, permission: "user.read", tourId: "nav-team" },
+  // user.read is deliberately NOT the bar here: engineers hold it so the
+  // assignee picker works, but the Team page exists to manage people.
+  { title: "Team", to: "/team", icon: Users, permission: "user.create", tourId: "nav-team" },
   { title: "Organisations", to: "/platform", icon: Building2, permission: "platform.read" },
   { title: "Announcements", to: "/announcements", icon: Megaphone, permission: "announcement.manage" },
   { title: "Support inbox", to: "/support-inbox", icon: MessagesSquare, permission: "supportchat.read" },

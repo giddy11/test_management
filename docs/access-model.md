@@ -18,7 +18,7 @@
    `can(actor, 'result.enter')`.
 2. **Permission codes are `resource.action`**, lowercase, single dot.
 3. **Deny by default.** A route with no declared permission fails closed with 403. A route
-   that is deliberately public declares that explicitly (`public()`), so the absence of a
+   that is deliberately public declares that explicitly (`publicRoute(...)`), so the absence of a
    declaration is always a bug, never a policy.
 4. **Separation of duties.** Whoever records a result is not automatically whoever amends it.
    Whoever reports a defect is not automatically whoever verifies the fix. Whoever operates a
@@ -399,6 +399,21 @@ is enforced in repository queries and service guards, **never in the UI**. The e
 scoping layer (`ProjectService.assertAccess`, `SlaService.scopeFor`, client-company filters)
 is kept intact and sits *below* the permission check.
 
+The scoping questions themselves are answered by named helpers in
+`server/shared/access/scope.js`, so "what an actor can see" is still derived from role data
+rather than a role name:
+
+| Helper | Answers |
+|---|---|
+| `seesAllProjects(actor)` | `project.readall` — every project in the organisation, or only your own. This is what `actor.role === UserRole.USER` used to express. |
+| `isExternalSupporter(actor)` | Has a `client_company_id`, i.e. sits on the customer side of the boundary. |
+| `isOrphanedSupporter(actor)` | Works a support queue but has no company attached — a broken account, denied outright rather than scoped to the organisation. |
+| `seesOrganisationAnalytics(actor)` | `analytics.read` — organisation-wide reporting, or only your own slice. |
+| `isAdministrativeAudience(actor)` | Counts as an admin for "admins only" broadcasts. Not an authorisation check. |
+
+These are never a substitute for a permission check: the route's `requirePermission` has
+already run by the time any of them is called.
+
 | Role | Scoping rule |
 |---|---|
 | **Super administrator** | None. The only principal that crosses organisation boundaries. |
@@ -416,7 +431,7 @@ is kept intact and sits *below* the permission check.
 
 The three unauthenticated principals from the audit are **not** given roles. They keep their
 token-based access, which is a separate authentication mechanism, and their routes declare
-`public()` so they satisfy deny-by-default explicitly:
+`publicRoute(...)` so they satisfy deny-by-default explicitly:
 
 - Public ticket submitter — `projects.feedback_token`, plus email + one-time code for history.
 - Live-chat visitor — `projects.live_chat_token`, then a server-issued `visitorId`.
@@ -534,8 +549,10 @@ them under the permission checks.
 can(actor, 'result.enter')            // boolean; true if any of the actor's roles grants it, or '*'
 requirePermission('result.enter')     // Express middleware -> 403 on failure
 requireAny('bug.triage','bug.verify') // Express middleware, union
-public()                              // explicit opt-out, satisfies deny-by-default
+requireAuthenticatedOnly(reason)      // signed in, no permission needed (own profile etc.)
+publicRoute(reason)                   // explicit opt-out, satisfies deny-by-default
 assertPermission(actor, code)         // service-layer guard, throws AppError(403)
+hasWildcard(actor)                    // super administrator only, for the escalation guard
 ```
 
 - `authMiddleware` continues to decode the JWT. A new `permissionsMiddleware` resolves the
@@ -543,9 +560,17 @@ assertPermission(actor, code)         // service-layer guard, throws AppError(40
   short-lived per-process cache keyed by user id, invalidated on any role or assignment write.
   This is why permissions are *not* baked into the access token: a role edit must take effect
   immediately, which is what the "N members" impact warning in the UI promises.
-- A router-level guard asserts at boot that **every registered route** declares either a
-  permission or `public()`. A route that declares nothing fails closed at request time *and*
-  fails the test suite at build time. This is the fix for gap G8.
+- `shared/access/routeAudit.js` walks the mounted router tree at boot. A route that declares
+  nothing has a denying handler **spliced into the front of its stack**, so it fails closed at
+  request time as well as being named loudly in the log. `routeCoverage.spec.js` asserts the
+  list is empty, so it also fails the build. This is the fix for gap G8.
+- Some permissions are enforced below the route, because the action shares an endpoint with a
+  less-privileged one — a status transition on an update endpoint. `testcase.approve`,
+  `testcase.deprecate`, `run.close`, `bug.triage`, `bug.verify`, `bug.close`,
+  `featurerequest.decide`, `ticket.assign`, `ticket.resolve`, `ticket.close` and
+  `result.amend` are checked with `assertPermission` in the owning service.
+  `roleMatrix.spec.js` keeps that list honest: a catalog permission that is neither on a route
+  nor named there fails the build.
 
 ### Audit
 
@@ -560,21 +585,32 @@ all — write the same before/after shape. Reading the log requires `audit.read`
 
 ### Client
 
-`can(code)` from an `AccessContext` populated by `GET /api/v1/auth/me`, which now returns the
-caller's roles and flattened effective permissions. `nav.ts` items carry `permission?: string`
-instead of `roles?: Role[]`; `ProtectedRoute` takes `permission` instead of `roles`. This is
-**for usability only** — the footer notice in the Roles & access page says so explicitly.
+`can(code)` comes from `AuthContext`, populated by `GET /api/v1/auth/me` (and by the login
+response, so a fresh sign-in routes correctly without waiting for `/me`). `nav.ts` items carry
+`permission?: string`; `ProtectedRoute` takes `anyOf?: string[]`. `lib/can.ts` mirrors the
+server helper, wildcard included.
+
+Role preview changed with it: previewing a lower role borrows **that role's real permission
+set** from the roles list, because swapping only the role name would show a lower role's
+navigation while leaving every admin control visible.
+
+One deliberate divergence from the permission a route checks: the Team page's navigation item
+and route are gated on `user.create`, not `user.read`. Engineers hold `user.read` so the
+assignee picker works, but the page exists to manage people — this is the UI being *stricter*
+than the API, which is the safe direction and matches what the app did before.
+
+All of this is **for usability only** — the footer notice on the Roles & access page says so.
 
 ### API surface
 
 | Method | Path | Permission |
 |---|---|---|
-| GET | `/api/v1/permissions` | `role.read` |
-| GET | `/api/v1/roles` | `role.read` |
-| GET | `/api/v1/roles/:id` | `role.read` |
-| POST | `/api/v1/roles` | `role.manage` |
-| PATCH | `/api/v1/roles/:id` | `role.manage` |
-| DELETE | `/api/v1/roles/:id` | `role.manage` |
+| GET | `/api/v1/access/permissions` | `role.read` |
+| GET | `/api/v1/access/roles` | `role.read` |
+| GET | `/api/v1/access/roles/:id` | `role.read` |
+| POST | `/api/v1/access/roles` | `role.manage` |
+| PATCH | `/api/v1/access/roles/:id` | `role.manage` |
+| DELETE | `/api/v1/access/roles/:id` | `role.manage` |
 | PUT | `/api/v1/users/:id/roles` | `role.assign` |
 
 `GET /api/v1/roles` returns each role's `permissionCount` and `memberCount`, so the UI can
@@ -602,18 +638,26 @@ show impact before an edit.
 
 ---
 
-## 10. Open questions for a human
+## 10. Decisions taken, and what is still open
 
-1. **G1 — `POST /api/v1/integrations/companies` is unauthenticated.** A permission model
-   cannot secure a route with no principal. The options are a per-project API key, an HMAC
-   signature over the body, or an allowlist of partner IPs. Recommendation: a per-project
-   API key stored hashed, sent as `X-TestMate-Key`. **This is a behaviour change for existing
-   partners and needs a decision before implementation.**
-2. **Viewer scope.** Section 5 assumes a Viewer sees every project in the organisation. If
-   Viewers should be limited to projects they are members of, say so — it is a one-line change
-   to the scoping rule.
-3. **Role granularity.** This model replaces 4 roles with 10. The migration is lossless, but
-   an organisation's existing `user`-role members all become QA engineer; promoting the right
-   people to Test lead or Tester is a manual follow-up. An alternative is to seed only the 5
-   roles that map 1:1 and leave the other 5 as templates. Recommendation: seed all 10 — the
-   extra roles are the point of the exercise, and unassigned roles cost nothing.
+### Still open
+
+1. **G1 — `POST /api/v1/integrations/companies` is unauthenticated.** *Decided: left as-is
+   for now.* A permission model cannot secure a route with no principal, and closing it is a
+   breaking change for any partner already calling it. The route is declared
+   `publicRoute("...UNAUTHENTICATED, see audit gap G1")` so it is visible rather than
+   forgotten, and no `integration.manage` permission exists, because a permission nothing
+   checks would be a lie in the role editor. The options when it is picked up: a per-project
+   API key stored hashed and sent as `X-TestMate-Key` (recommended), an HMAC signature over
+   the body, or an allowlist of partner IPs. **Whichever is chosen, existing partners must be
+   issued credentials before it ships.**
+
+### Decided
+
+2. **Viewer scope — organisation-wide.** A Viewer is an internal stakeholder who should see
+   quality status across every project without being added to each one, so the role holds
+   `project.readall`. A narrower Viewer is a custom role away.
+3. **Role granularity — all 10 seeded.** The migration is lossless: a legacy `user` who leads
+   a project becomes a Test lead and everyone else a QA engineer, so nobody loses a capability
+   they have today. Promoting people into Tester, QA manager, Support manager or Viewer is a
+   manual follow-up an admin can do from the Team screen whenever they like.

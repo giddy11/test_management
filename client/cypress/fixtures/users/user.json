@@ -16,5 +16,45 @@
   "state": null,
   "country": null,
   "createdAt": "2026-01-15T09:00:00.000Z",
-  "lastSeenAt": null
+  "lastSeenAt": null,
+  "roles": [
+    {
+      "id": "role-qa_engineer",
+      "name": "QA engineer",
+      "isBuiltin": true,
+      "isLocked": false
+    }
+  ],
+  "permissions": [
+    "user.read",
+    "project.read",
+    "project.export",
+    "suite.read",
+    "suite.manage",
+    "testcase.read",
+    "testcase.create",
+    "testcase.update",
+    "testcase.assign",
+    "import.run",
+    "note.read",
+    "note.manage",
+    "run.read",
+    "run.create",
+    "run.update",
+    "result.read",
+    "result.enter",
+    "bug.read",
+    "bug.create",
+    "bug.update",
+    "featurerequest.read",
+    "featurerequest.create",
+    "featurerequest.update",
+    "featurerequest.vote",
+    "featurerequest.comment",
+    "ticket.read",
+    "ticket.comment",
+    "livechat.read",
+    "livechat.send",
+    "dashboard.read"
+  ]
 }
