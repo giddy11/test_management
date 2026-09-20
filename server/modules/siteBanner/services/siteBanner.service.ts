@@ -3,6 +3,10 @@ import { SiteBannerRepository } from "../repositories/siteBanner.repository";
 import type { SiteBanner, SiteBannerAudience } from "../entities/siteBanner.entity";
 
 const { getIO, emitToRoom, emitToUsers } = require("../../../infrastructure/realtime/socketServer");
+const { hasWildcard } = require("../../../shared/access/can");
+const {
+  isAdministrativeAudience,
+} = require("../../../shared/access/scope");
 
 export interface PublicSiteBanner {
   message: string | null;
@@ -24,7 +28,7 @@ interface Actor {
 // whether the banner is currently active.
 function isVisibleToActor(banner: SiteBanner, actor: Actor): boolean {
   if (banner.audience === "all") return true;
-  if (banner.audience === "admins") return actor.role === "admin" || actor.role === "superadmin";
+  if (banner.audience === "admins") return isAdministrativeAudience(actor);
   return (banner.recipientIds ?? []).includes(actor.id);
 }
 
@@ -57,8 +61,9 @@ export class SiteBannerService {
       banner = await this.repo.deactivate(banner.updatedBy ?? "system");
     }
 
-    const isSuperadmin = actor.role === "superadmin";
-    const effectiveIsActive = isSuperadmin
+    // The platform owner previews their own broadcast regardless of audience.
+    const isPlatformOwner = hasWildcard(actor);
+    const effectiveIsActive = isPlatformOwner
       ? banner.isActive
       : banner.isActive && isVisibleToActor(banner, actor);
 
@@ -68,7 +73,7 @@ export class SiteBannerService {
       expiresAt: effectiveIsActive ? banner.expiresAt?.toISOString() ?? null : null,
     };
 
-    if (isSuperadmin) {
+    if (isPlatformOwner) {
       shape.audience = banner.audience;
       shape.recipientIds = banner.recipientIds;
       shape.durationMinutes = banner.durationMinutes;

@@ -1,5 +1,6 @@
 // modules/testRunResult/tests/testRunResult.service.spec.js
 const { TestRunResultService } = require("../services/testRunResult.service");
+const { permissionsFor } = require("../../../test/actors");
 
 function makeResultRepo() {
   return {
@@ -50,7 +51,7 @@ const result = {
   status: null,
 };
 
-const actor = { id: "owner-1", role: "admin", organizationId: "org-1" };
+const actor = { id: "owner-1", role: "admin", permissions: permissionsFor("admin"), organizationId: "org-1" };
 describe("TestRunResultService", () => {
   let resultRepo;
   let runService;

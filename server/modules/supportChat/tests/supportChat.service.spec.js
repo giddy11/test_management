@@ -1,5 +1,6 @@
 // modules/supportChat/tests/supportChat.service.spec.js
 const { SupportChatService } = require("../services/supportChat.service");
+const { actorFor } = require("../../../test/actors");
 
 function makeConvRepo() {
   return {
@@ -50,8 +51,8 @@ function makeStorage() {
   };
 }
 
-const user = { id: "user-1", role: "user" };
-const superadmin = { id: "sa-1", role: "superadmin" };
+const user = actorFor("user", { id: "user-1" });
+const superadmin = actorFor("superadmin", { id: "sa-1" });
 const conversation = {
   id: "conv-1",
   userId: "user-1",
@@ -211,7 +212,7 @@ describe("SupportChatService", () => {
       expect(messageRepo.create).not.toHaveBeenCalled();
     });
 
-    it("only lets super admins flip the toggle", async () => {
+    it("keeps the toggle behind settings.manage, not the inbox permissions", async () => {
       await expect(service.setEnabled(user, false)).rejects.toMatchObject({ statusCode: 403 });
       const result = await service.setEnabled(superadmin, false);
       expect(settingsRepo.setEnabled).toHaveBeenCalledWith(false, "sa-1");

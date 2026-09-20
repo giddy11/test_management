@@ -16,6 +16,9 @@ const { AuthRepository } = require("../../auth/repositories/auth.repository");
 const { NotificationService } = require("../../notification/services/notification.service");
 const { StorageService } = require("../../../shared/services/storage.service");
 const { AppError } = require("../../../shared/errors/AppError");
+const {
+  assertPermission,
+} = require("../../../shared/access/can");
 const { UserRole, SupportChatStatus } = require("../../../config/constants");
 
 const CLOUDINARY_FOLDER = "testmate/support-chat";
@@ -83,7 +86,9 @@ class SupportChatService {
   }
 
   async setEnabled(actor, enabled) {
-    this.assertAdmin(actor);
+    // Turning support chat off platform-wide is a workspace setting, not an
+    // inbox action.
+    assertPermission(actor, "settings.manage");
     const settings = await this.settingsRepo.setEnabled(enabled, actor.id);
     return { enabled: settings.enabled };
   }
@@ -171,19 +176,19 @@ class SupportChatService {
 
   // ── Super-admin side (the inbox) ───────────────────────────────────────────
 
-  assertAdmin(actor) {
-    if (actor.role !== UserRole.SUPERADMIN) {
-      throw new AppError("Only super admins can manage support chats", 403);
-    }
+  // The inbox floor. Routes check the finer permission (send/manage); this is
+  // the second layer that makes a missed route declaration harmless.
+  assertInboxAccess(actor) {
+    assertPermission(actor, "supportchat.read");
   }
 
   async listConversations(actor, params) {
-    this.assertAdmin(actor);
+    this.assertInboxAccess(actor);
     return this.convRepo.fetchPaginated(params);
   }
 
   async getConversation(actor, id) {
-    this.assertAdmin(actor);
+    this.assertInboxAccess(actor);
     const conversation = await this.convRepo.findById(id);
     if (!conversation) throw new AppError("Conversation not found", 404);
     return conversation;

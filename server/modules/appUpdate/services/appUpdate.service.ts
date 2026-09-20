@@ -58,10 +58,10 @@ export class AppUpdateService {
   // Announcements this actor hasn't dismissed yet and is targeted by.
   async fetchUnseen(actor: Actor) {
     const user = await this.authRepo.findUserById(actor.id);
-    return this.updateRepo.findUnseen(
-      { id: actor.id, role: actor.role },
-      user?.updatesSeenAt ?? null
-    );
+    // Pass the actor through whole: the repository's audience filter reads
+    // actor.permissions, and rebuilding a bare { id, role } here would silently
+    // drop them, hiding every "admins" announcement from everyone.
+    return this.updateRepo.findUnseen(actor, user?.updatesSeenAt ?? null);
   }
 
   // Dismissing the modal marks everything published so far as seen.

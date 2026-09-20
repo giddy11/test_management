@@ -2,6 +2,7 @@
 const {
   TestCaseAttachmentService,
 } = require("../services/testCaseAttachment.service");
+const { permissionsFor } = require("../../../test/actors");
 
 function makeAttachmentRepo() {
   return {
@@ -36,7 +37,7 @@ function file(name = "shot.png") {
   };
 }
 
-const actor = { id: "owner-1", role: "admin", organizationId: "org-1" };
+const actor = { id: "owner-1", role: "admin", permissions: permissionsFor("admin"), organizationId: "org-1" };
 describe("TestCaseAttachmentService", () => {
   let repo;
   let tcService;

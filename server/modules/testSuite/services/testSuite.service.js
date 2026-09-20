@@ -4,7 +4,7 @@ const { ProjectService } = require("../../project/services/project.service");
 const { TestCaseRepository } = require("../../testCase/repositories/testCase.repository");
 const { ActivityService } = require("../../activity/services/activity.service");
 const { AppError } = require("../../../shared/errors/AppError");
-const { UserRole } = require("../../../config/constants");
+const { seesAllProjects } = require("../../../shared/access/scope");
 
 class TestSuiteService {
   static Instance = new TestSuiteService();
@@ -25,7 +25,7 @@ class TestSuiteService {
     // Team leads see every suite in their project; plain members only see
     // suites containing a case assigned to them.
     const restricted =
-      actor.role === UserRole.USER &&
+      !seesAllProjects(actor) &&
       !(await this.projectService.isTeamLead(actor, params.projectId));
     return this.suiteRepo.fetchPaginated({
       ...params,
@@ -40,7 +40,7 @@ class TestSuiteService {
     }
     await this.projectService.getProject(actor, suite.projectId); // access check
     if (
-      actor.role === UserRole.USER &&
+      !seesAllProjects(actor) &&
       !(await this.projectService.isTeamLead(actor, suite.projectId))
     ) {
       const hasAssignment = await this.testCaseRepo.hasAssignmentInSuite(suite.id, actor.id);

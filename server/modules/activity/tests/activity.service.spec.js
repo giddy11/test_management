@@ -1,5 +1,6 @@
 // modules/activity/tests/activity.service.spec.js
 const { ActivityService } = require("../services/activity.service");
+const { actorFor } = require("../../../test/actors");
 const { UserRole } = require("../../../config/constants");
 
 function makeRepo() {
@@ -38,14 +39,14 @@ describe("ActivityService", () => {
 
   describe("fetch", () => {
     it("scopes admins by organizationId", async () => {
-      await service.fetch({ role: UserRole.ADMIN, organizationId: "org-1" }, { page: 1 });
+      await service.fetch(actorFor("admin"), { page: 1 });
       expect(repo.fetchPaginated).toHaveBeenCalledWith(
         expect.objectContaining({ organizationId: "org-1" })
       );
     });
 
     it("scopes a superadmin to their own organisation too", async () => {
-      await service.fetch({ role: UserRole.SUPERADMIN, organizationId: "org-1" }, { page: 1 });
+      await service.fetch(actorFor("superadmin"), { page: 1 });
       expect(repo.fetchPaginated).toHaveBeenCalledWith(
         expect.objectContaining({ organizationId: "org-1" })
       );
@@ -53,7 +54,7 @@ describe("ActivityService", () => {
 
     it("scopes IT support by their own client company, not organizationId", async () => {
       await service.fetch(
-        { role: UserRole.IT_SUPPORT, organizationId: "org-1", clientCompanyId: "cc-1" },
+        actorFor("it_support", { clientCompanyId: "cc-1" }),
         { page: 1 }
       );
       expect(repo.fetchPaginated).toHaveBeenCalledWith(
@@ -62,8 +63,11 @@ describe("ActivityService", () => {
     });
 
     it("never falls through to an unscoped query for an IT support actor with no company", async () => {
+      // A supporter account whose clientCompanyId is missing must get nothing,
+      // not the whole organisation log. Their role grants audit.read but not
+      // organisation-wide visibility, so the scoping layer denies.
       const result = await service.fetch(
-        { role: UserRole.IT_SUPPORT, organizationId: "org-1", clientCompanyId: null },
+        actorFor("it_support", { clientCompanyId: null }),
         { page: 1 }
       );
       expect(repo.fetchPaginated).not.toHaveBeenCalled();

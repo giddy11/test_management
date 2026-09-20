@@ -1,5 +1,6 @@
 // modules/featureRequest/tests/featureRequest.service.spec.js
 const { FeatureRequestService } = require("../services/featureRequest.service");
+const { permissionsFor } = require("../../../test/actors");
 
 function makeFrRepo() {
   return {
@@ -69,8 +70,8 @@ function makeHistoryRepo() {
   return { create: jest.fn().mockResolvedValue(undefined) };
 }
 
-const admin = { id: "admin-1", role: "admin", organizationId: "org-1" };
-const user = { id: "user-1", role: "user", organizationId: "org-1" };
+const admin = { id: "admin-1", role: "admin", permissions: permissionsFor("admin"), organizationId: "org-1" };
+const user = { id: "user-1", role: "user", permissions: permissionsFor("user"), organizationId: "org-1" };
 
 const fr = {
   id: "fr-1",
@@ -355,7 +356,7 @@ describe("FeatureRequestService", () => {
     it("forbids a non-author, non-admin from deleting it", async () => {
       frRepo.findById.mockResolvedValue(fr);
       commentRepo.findById.mockResolvedValue(comment);
-      const other = { id: "other-1", role: "user", organizationId: "org-1" };
+      const other = { id: "other-1", role: "user", permissions: permissionsFor("user"), organizationId: "org-1" };
       await expect(service.deleteComment(other, "fr-1", "c-1")).rejects.toMatchObject({ statusCode: 403 });
       expect(frRepo.decrementCommentCount).not.toHaveBeenCalled();
     });

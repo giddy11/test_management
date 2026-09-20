@@ -6,7 +6,8 @@ const { TestRunResultRepository } = require("../../testRunResult/repositories/te
 const { NotificationService } = require("../../notification/services/notification.service");
 const { ActivityService } = require("../../activity/services/activity.service");
 const { AppError } = require("../../../shared/errors/AppError");
-const { TestCaseStatus, UserRole } = require("../../../config/constants");
+const { seesAllProjects } = require("../../../shared/access/scope");
+const { TestCaseStatus } = require("../../../config/constants");
 
 // Human-readable label for an activity summary: names up to 3 users, else a count.
 function userLabel(users) {
@@ -52,9 +53,10 @@ class TestCaseService {
     );
   }
 
-  // A plain "user" only sees cases assigned to them; admins/superadmin see all.
+  // Without org-wide project visibility an actor only sees cases assigned to
+  // them; project.readall lifts that.
   isRestricted(actor) {
-    return actor.role === UserRole.USER;
+    return !seesAllProjects(actor);
   }
 
   // Team leads of the suite's project see every case, like admins do.

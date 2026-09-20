@@ -3,6 +3,9 @@ import type { Repository } from "typeorm";
 import { AppUpdate } from "../entities/appUpdate.entity";
 import type { AppUpdateAudience } from "../entities/appUpdate.entity";
 import { AppDataSource } from "../../../infrastructure/database/dataSource";
+const {
+  isAdministrativeAudience,
+} = require("../../../shared/access/scope");
 
 export interface CreateAppUpdateData {
   title: string;
@@ -44,7 +47,9 @@ export class AppUpdateRepository {
     seenAt: Date | null,
     limit = 10
   ): Promise<AppUpdate[]> {
-    const isAdmin = actor.role === "admin" || actor.role === "superadmin";
+    // Audience filter, not an authorisation check — it decides which
+    // announcements are relevant to this reader.
+    const isAdmin = isAdministrativeAudience(actor);
 
     const qb = this.repo
       .createQueryBuilder("u")

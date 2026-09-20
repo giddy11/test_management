@@ -36,6 +36,10 @@ const {
 } = require("../../../shared/utils/mailer");
 const { generateOtp, hashToken } = require("../../../shared/utils/password");
 const { AppError } = require("../../../shared/errors/AppError");
+const {
+  isExternalSupporter,
+  seesAllProjects,
+} = require("../../../shared/access/scope");
 const { UserRole, FeedbackStatus, SupportStatus } = require("../../../config/constants");
 const { env } = require("../../../config/env");
 
@@ -308,7 +312,7 @@ export class FeedbackService {
   async fetchFeedback(actor: Actor, params: { projectId?: string } & Record<string, unknown>) {
     // Supporters have their own queue endpoints — the triage list is the
     // product org's view.
-    if (actor.role === UserRole.IT_SUPPORT) {
+    if (isExternalSupporter(actor)) {
       throw new AppError("IT supporters use the support queue", 403);
     }
 
@@ -320,7 +324,7 @@ export class FeedbackService {
     // Cross-project view, scoped to the actor's own org: admins (including
     // superadmin, whose own org is never a real client company) see their
     // org's tickets; plain users only projects they're members of.
-    if (actor.role === UserRole.ADMIN || actor.role === UserRole.SUPERADMIN) {
+    if (seesAllProjects(actor)) {
       return this.feedbackRepo.fetchPaginated({
         ...params,
         organizationId: actor.organizationId ?? undefined,

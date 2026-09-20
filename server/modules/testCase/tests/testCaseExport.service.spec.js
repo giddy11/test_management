@@ -3,6 +3,7 @@
 // the actual .xlsx a user downloads — headers, ordering and cell values.
 const ExcelJS = require("exceljs");
 const { TestCaseExportService } = require("../services/testCaseExport.service");
+const { permissionsFor } = require("../../../test/actors");
 
 const SUITE = { id: "suite-1", name: "Authentication", projectId: "proj-1" };
 
@@ -84,7 +85,7 @@ async function readSheet(buffer) {
   return { headers, rows, sheetName: ws.name };
 }
 
-const actor = { id: "user-1", role: "admin", organizationId: "org-1" };
+const actor = { id: "user-1", role: "admin", permissions: permissionsFor("admin"), organizationId: "org-1" };
 
 describe("TestCaseExportService — run results in the export", () => {
   it("includes the latest run result's detail columns", async () => {

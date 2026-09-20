@@ -88,6 +88,11 @@ const PERMISSIONS = [
 
   // ── Projects ───────────────────────────────────────────────────────────────
   { code: "project.read", category: "projects", label: "View projects", description: "See projects and their details." },
+  // The scoping switch. project.read says you may look at projects at all;
+  // this says you see every project in the organisation rather than only the
+  // ones you belong to or have a test case assigned in. It is what the
+  // services' old `actor.role === UserRole.USER` checks became.
+  { code: "project.readall", category: "projects", label: "View all projects", description: "See every project in the organisation, not only your own." },
   { code: "project.create", category: "projects", label: "Create projects", description: "Start a new project." },
   { code: "project.update", category: "projects", label: "Edit projects", description: "Change a project's name, description and metadata." },
   { code: "project.delete", category: "projects", label: "Delete projects", description: "Remove a project and everything in it." },
@@ -267,7 +272,7 @@ const BUILTIN_ROLES = [
     permissions: [
       "organisation.read", "audit.read",
       "role.read", "user.read",
-      "project.read", "project.create", "project.update", "project.configure", "project.export",
+      "project.read", "project.readall", "project.create", "project.update", "project.configure", "project.export",
       "suite.read", "suite.manage",
       "testcase.read", "testcase.approve", "testcase.deprecate", "testcase.assign",
       "note.read",
@@ -324,7 +329,7 @@ const BUILTIN_ROLES = [
     description: "Product-side owner of customer tickets and client company relationships.",
     permissions: [
       "organisation.read", "audit.read",
-      "user.read", "project.read",
+      "user.read", "project.read", "project.readall",
       "bug.read", "bug.create", "featurerequest.read", "featurerequest.create",
       "ticket.read", "ticket.assign", "ticket.update", "ticket.resolve", "ticket.close",
       "ticket.delete", "ticket.comment", "form.configure",
@@ -356,7 +361,7 @@ const BUILTIN_ROLES = [
     name: "Viewer",
     description: "A stakeholder who needs to see quality status across the organisation without touching anything.",
     permissions: [
-      "project.read", "suite.read", "testcase.read", "note.read",
+      "project.read", "project.readall", "suite.read", "testcase.read", "note.read",
       "run.read", "result.read",
       "bug.read", "featurerequest.read", "ticket.read",
       "dashboard.read", "analytics.read", "sla.read",

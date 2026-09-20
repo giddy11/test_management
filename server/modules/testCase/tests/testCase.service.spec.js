@@ -2,6 +2,7 @@
 const { TestCaseService } = require("../services/testCase.service");
 const { ActivityService } = require("../../activity/services/activity.service");
 const { TestCaseStatus } = require("../../../config/constants");
+const { permissionsFor } = require("../../../test/actors");
 
 function makeTcRepo() {
   return {
@@ -45,8 +46,8 @@ function makeRunResultRepo() {
   return { findBusyUserIds: jest.fn().mockResolvedValue(new Set()) };
 }
 
-const admin = { id: "owner-1", role: "admin", organizationId: "org-1" };
-const member = { id: "u-9", role: "user", organizationId: "org-1" };
+const admin = { id: "owner-1", role: "admin", permissions: permissionsFor("admin"), organizationId: "org-1" };
+const member = { id: "u-9", role: "user", permissions: permissionsFor("user"), organizationId: "org-1" };
 
 const testCase = {
   id: "tc-1",

@@ -9,7 +9,9 @@ const { TestSuiteRepository } = require("../../testSuite/repositories/testSuite.
 const { TestSuiteService } = require("../../testSuite/services/testSuite.service");
 const { ProjectService } = require("../../project/services/project.service");
 const { AppError } = require("../../../shared/errors/AppError");
-const { UserRole } = require("../../../config/constants");
+const {
+  restrictToOwnWorkOrNull,
+} = require("../../../shared/access/scope");
 
 // Guards ExcelJS's in-memory workbook build against runaway project exports.
 const MAX_EXPORT_ROWS = 20000;
@@ -146,7 +148,7 @@ class TestCaseExportService {
 
   async exportSuite(actor, suiteId) {
     const suite = await this.suiteService.getTestSuite(actor, suiteId);
-    const assigneeId = actor.role === UserRole.USER ? actor.id : null;
+    const assigneeId = restrictToOwnWorkOrNull(actor);
     const cases = await this.tcRepo.findAllForExport(suiteId, assigneeId);
     const [attachmentsByCase, latestResults] = await Promise.all([
       this.attachmentsForCases(cases),
@@ -171,7 +173,7 @@ class TestCaseExportService {
       throw new AppError("This project has no test suites to export", 422);
     }
 
-    const assigneeId = actor.role === UserRole.USER ? actor.id : null;
+    const assigneeId = restrictToOwnWorkOrNull(actor);
 
     // For restricted users, only include suites they have at least one assignment in.
     const suites = assigneeId

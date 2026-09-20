@@ -36,6 +36,9 @@ const { ALLOWED_IMAGE_TYPES } = require("../../../shared/middleware/upload.middl
 const { sendFeedbackCommentEmail } = require("../../../shared/utils/mailer");
 const { hashToken } = require("../../../shared/utils/password");
 const { AppError } = require("../../../shared/errors/AppError");
+const {
+  isExternalSupporter,
+} = require("../../../shared/access/scope");
 const { UserRole, SupportStatus } = require("../../../config/constants");
 const { env } = require("../../../config/env");
 
@@ -104,7 +107,7 @@ export class FeedbackCommentService {
     const fb = await this.feedbackRepo.findById(feedbackId);
     if (!fb || fb.deletedAt) throw new AppError("Feedback not found", 404);
 
-    if (actor.role === UserRole.IT_SUPPORT) {
+    if (isExternalSupporter(actor)) {
       if (!fb.clientCompanyId || actor.clientCompanyId !== fb.clientCompanyId) {
         throw new AppError("Feedback not found", 404);
       }
@@ -253,7 +256,7 @@ export class FeedbackCommentService {
       // Both staff sides of an escalated ticket now share this thread —
       // notify whichever side didn't post, in-app + email, same as any
       // other staff notification (they both have real accounts/inboxes).
-      const posterIsSupport = actor.role === UserRole.IT_SUPPORT;
+      const posterIsSupport = isExternalSupporter(actor);
       const recipients = posterIsSupport
         ? await this.resolveProductTeamHandlers(fb, project?.organizationId)
         : await this.resolveSupportHandlers(fb);

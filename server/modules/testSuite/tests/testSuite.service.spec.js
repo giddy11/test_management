@@ -1,5 +1,6 @@
 // modules/testSuite/tests/testSuite.service.spec.js
 const { TestSuiteService } = require("../services/testSuite.service");
+const { permissionsFor } = require("../../../test/actors");
 
 function makeSuiteRepo() {
   return {
@@ -30,8 +31,8 @@ function makeTestCaseRepo() {
   return { hasAssignmentInSuite: jest.fn().mockResolvedValue(true) };
 }
 
-const admin = { id: "owner-1", role: "admin", organizationId: "org-1" };
-const plainUser = { id: "u-1", role: "user", organizationId: "org-1" };
+const admin = { id: "owner-1", role: "admin", permissions: permissionsFor("admin"), organizationId: "org-1" };
+const plainUser = { id: "u-1", role: "user", permissions: permissionsFor("user"), organizationId: "org-1" };
 const suite = { id: "suite-1", name: "Auth", projectId: "proj-1", deletedAt: null };
 
 describe("TestSuiteService", () => {

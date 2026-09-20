@@ -52,10 +52,6 @@ class BugService {
     this.historyRepo = historyRepo;
   }
 
-  canManage(actor) {
-    return actor.role === UserRole.ADMIN || actor.role === UserRole.SUPERADMIN;
-  }
-
   // Fetches the bug, 404s if missing/deleted, then checks project access —
   // same "check access via parent" pattern as FeatureRequestService.getAccessible.
   async getAccessible(actor, id) {

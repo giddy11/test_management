@@ -13,6 +13,9 @@ import { toClientCompanyResponse } from "../dto/clientCompany.dto";
 const { UserRepository } = require("../../user/repositories/user.repository");
 const { ActivityService } = require("../../activity/services/activity.service");
 const { AppError } = require("../../../shared/errors/AppError");
+const {
+  isExternalSupporter,
+} = require("../../../shared/access/scope");
 const { UserRole, AuthProvider } = require("../../../config/constants");
 const { hashPassword, generateTempPassword } = require("../../../shared/utils/password");
 const { sendSupporterInviteEmail } = require("../../../shared/utils/mail/support.mail");
@@ -53,7 +56,7 @@ export class ClientCompanyService {
   // about a client company (the record itself, its ticket-form link) stays
   // product-team-only.
   private async getAccessibleForSupporterManagement(actor: Actor, id: string): Promise<ClientCompany> {
-    if (actor.role === UserRole.IT_SUPPORT) {
+    if (isExternalSupporter(actor)) {
       if (!actor.isSupportLead || actor.clientCompanyId !== id) {
         throw new AppError("Only this company's IT support lead can manage its supporters", 403);
       }
@@ -67,10 +70,13 @@ export class ClientCompanyService {
   // Self-service lookup for the support portal — an IT supporter's own
   // company record, without the admin-only GET / list surface.
   async fetchMyCompany(actor: Actor) {
-    if (actor.role !== UserRole.IT_SUPPORT || !actor.clientCompanyId) {
+    // Same check as isExternalSupporter(actor), written inline so the compiler
+    // narrows clientCompanyId for the lookup below.
+    const companyId = actor.clientCompanyId;
+    if (!companyId) {
       throw new AppError("Only IT supporters have a company to manage", 403);
     }
-    const company = await this.companyRepo.findById(actor.clientCompanyId);
+    const company = await this.companyRepo.findById(companyId);
     if (!company || company.deletedAt) throw new AppError("Client company not found", 404);
     const supporterCount = await this.userRepo.countByClientCompany(company.id);
     return { company, supporterCount };
@@ -207,7 +213,7 @@ export class ClientCompanyService {
   // fallback; unlike a supporter account, there's no bootstrap problem here,
   // it just defaults to off).
   async setAutoAssign(actor: Actor, id: string, enabled: boolean) {
-    if (actor.role !== UserRole.IT_SUPPORT || !actor.isSupportLead || actor.clientCompanyId !== id) {
+    if (!isExternalSupporter(actor) || !actor.isSupportLead || actor.clientCompanyId !== id) {
       throw new AppError("Only this company's IT support lead can change this setting", 403);
     }
     const company = await this.companyRepo.findById(id);
@@ -399,7 +405,7 @@ export class ClientCompanyService {
     // a TestMate admin can only step in to bootstrap a company that
     // currently has none (its automatic first supporter — see createCompany
     // — never got created, or its last one was since removed).
-    if (actor.role !== UserRole.IT_SUPPORT && existingSupporters.length > 0) {
+    if (!isExternalSupporter(actor) && existingSupporters.length > 0) {
       throw new AppError("Only this company's IT support lead can add supporters", 403);
     }
 
@@ -452,7 +458,7 @@ export class ClientCompanyService {
     }
     // Peer leads can manage each other freely, but the primary lead is
     // protected from anyone but a TestMate admin.
-    if (user.isPrimarySupportLead && actor.role === UserRole.IT_SUPPORT) {
+    if (user.isPrimarySupportLead && isExternalSupporter(actor)) {
       throw new AppError("Only a TestMate admin can remove the primary lead", 403);
     }
     if (user.isSupportLead) {
@@ -492,7 +498,7 @@ export class ClientCompanyService {
     }
     // Peer leads can promote/demote each other freely, but the primary lead
     // is protected from anyone but a TestMate admin.
-    if (user.isPrimarySupportLead && actor.role === UserRole.IT_SUPPORT) {
+    if (user.isPrimarySupportLead && isExternalSupporter(actor)) {
       throw new AppError("Only a TestMate admin can change the primary lead's status", 403);
     }
     if (user.isSupportLead && !isSupportLead) {

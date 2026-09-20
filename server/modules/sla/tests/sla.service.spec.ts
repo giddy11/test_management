@@ -1,11 +1,11 @@
 // modules/sla/tests/sla.service.spec.ts
-// SlaService: role → scope narrowing, default rules merging, compliance-rate
+// SlaService: permission → scope narrowing, default rules merging, compliance-rate
 // maths, settings access, and the drill-down's "can the product org open
 // this ticket" flag. The SQL itself lives in the repository (mocked here).
 
 import { DEFAULT_SLA_TARGETS, SlaService, pickInterval } from "../services/sla.service";
 
-const { UserRole } = require("../../../config/constants");
+const { actorFor } = require("../../../test/actors");
 
 const emptyKpis = {
   total: 0, tickets: 0, bugs: 0, featureRequests: 0, resolved: 0, closed: 0, open: 0,
@@ -34,16 +34,16 @@ function makeRepo() {
   };
 }
 
-const admin = { id: "admin-1", role: UserRole.ADMIN, organizationId: "org-1" };
-const superadmin = { id: "sa-1", role: UserRole.SUPERADMIN, organizationId: "org-sa" };
-const user = { id: "user-1", role: UserRole.USER, organizationId: "org-1" };
-const supporter = {
+// Actors carry the permission set their role resolves to; the service scopes
+// on those rather than on the role name.
+const admin = actorFor("admin", { id: "admin-1" });
+const superadmin = actorFor("superadmin", { id: "sa-1", organizationId: "org-sa" });
+const user = actorFor("user", { id: "user-1" });
+const supporter = actorFor("it_support", {
   id: "sup-1",
-  role: UserRole.IT_SUPPORT,
-  organizationId: "org-1",
   clientCompanyId: "cc-1",
   isSupportLead: false,
-};
+});
 
 describe("SlaService.overview — scope per role", () => {
   it("admins see their whole organisation", async () => {

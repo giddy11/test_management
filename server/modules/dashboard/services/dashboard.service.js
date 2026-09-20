@@ -1,6 +1,9 @@
 // modules/dashboard/services/dashboard.service.js
 const { DashboardRepository } = require("../repositories/dashboard.repository");
-const { UserRole } = require("../../../config/constants");
+const { can } = require("../../../shared/access/can");
+const {
+  seesOrganisationAnalytics,
+} = require("../../../shared/access/scope");
 
 // Rows are (projectId, projectName, key, count) from a per-project+status query.
 // Rolls them up into an overall status total plus a per-project breakdown, so the
@@ -42,11 +45,12 @@ class DashboardService {
 
   async overview(actor, projectId) {
     const organizationId = actor.organizationId;
-    // Team performance + FR/bug oversight are for company admins only.
-    const isAdmin = actor.role === UserRole.ADMIN || actor.role === UserRole.SUPERADMIN;
-    // A plain user's metrics cover only what relates to them: projects they're
-    // in, cases assigned to them (or every case of projects they lead).
-    const userId = isAdmin ? undefined : actor.id;
+    // Organisation-wide breakdowns need analytics.read; per-person performance
+    // is a separate, more sensitive permission again.
+    const seesOrgWide = seesOrganisationAnalytics(actor);
+    // Without it, the metrics cover only what relates to the actor: projects
+    // they're in, cases assigned to them (or every case of projects they lead).
+    const userId = seesOrgWide ? undefined : actor.id;
 
     const [
       totals,
@@ -65,9 +69,11 @@ class DashboardService {
       this.repo.resultBreakdown(organizationId, projectId, userId),
       this.repo.projectsBreakdown(organizationId, projectId, userId),
       this.repo.suitesBreakdown(organizationId, projectId, userId),
-      isAdmin ? this.repo.topPerformers(organizationId, projectId) : Promise.resolve(null),
-      isAdmin ? this.repo.featureRequestBreakdown(organizationId, projectId) : Promise.resolve(null),
-      isAdmin ? this.repo.bugBreakdown(organizationId, projectId) : Promise.resolve(null),
+      can(actor, "analytics.team")
+        ? this.repo.topPerformers(organizationId, projectId)
+        : Promise.resolve(null),
+      seesOrgWide ? this.repo.featureRequestBreakdown(organizationId, projectId) : Promise.resolve(null),
+      seesOrgWide ? this.repo.bugBreakdown(organizationId, projectId) : Promise.resolve(null),
     ]);
 
     const passRate =
@@ -100,9 +106,9 @@ class DashboardService {
   }
 
   async recentRuns(actor, { projectId, suiteId, status, page, limit } = {}) {
-    // Regular users' progress bars count only cases assigned to them; admins see
-    // the run-wide totals for oversight.
-    const assigneeId = actor.role === UserRole.USER ? actor.id : undefined;
+    // Without organisation-wide analytics, progress bars count only cases
+    // assigned to the actor; with it, the run-wide totals for oversight.
+    const assigneeId = seesOrganisationAnalytics(actor) ? undefined : actor.id;
     const { data, meta } = await this.repo.recentRuns(actor.organizationId, {
       projectId,
       suiteId,

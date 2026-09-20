@@ -1,5 +1,6 @@
 // modules/project/tests/project.service.spec.js
 const { ProjectService } = require("../services/project.service");
+const { permissionsFor } = require("../../../test/actors");
 
 function makeProjectRepo() {
   return {
@@ -33,7 +34,7 @@ function makeNotificationService() {
 }
 
 // actor = authenticated user; project belongs to the same organisation.
-const actor = { id: "owner-1", role: "admin", organizationId: "org-1" };
+const actor = { id: "owner-1", role: "admin", permissions: permissionsFor("admin"), organizationId: "org-1" };
 const project = {
   id: "proj-1",
   name: "Checkout",
@@ -77,7 +78,7 @@ describe("ProjectService", () => {
 
     it("does not scope a superadmin", async () => {
       projectRepo.fetchPaginated.mockResolvedValue({ data: [], meta: {} });
-      await service.fetchProjects({ id: "s", role: "superadmin" }, { page: 1, limit: 20 });
+      await service.fetchProjects({ id: "s", role: "superadmin", permissions: permissionsFor("superadmin") }, { page: 1, limit: 20 });
       expect(projectRepo.fetchPaginated).toHaveBeenCalledWith(
         expect.objectContaining({ organizationId: undefined })
       );
@@ -85,7 +86,7 @@ describe("ProjectService", () => {
 
     it("additionally scopes a plain 'user' by membership/assignment", async () => {
       projectRepo.fetchPaginated.mockResolvedValue({ data: [], meta: {} });
-      const plainUser = { id: "u-1", role: "user", organizationId: "org-1" };
+      const plainUser = { id: "u-1", role: "user", permissions: permissionsFor("user"), organizationId: "org-1" };
       await service.fetchProjects(plainUser, { page: 1, limit: 20 });
       expect(projectRepo.fetchPaginated).toHaveBeenCalledWith(
         expect.objectContaining({ organizationId: "org-1", restrictedUserId: "u-1" })
@@ -117,7 +118,7 @@ describe("ProjectService", () => {
     it("throws 403 for a caller in a different organisation", async () => {
       projectRepo.findById.mockResolvedValue(project);
       await expect(
-        service.getProject({ id: "x", role: "admin", organizationId: "org-2" }, "proj-1")
+        service.getProject({ id: "x", role: "admin", permissions: permissionsFor("admin"), organizationId: "org-2" }, "proj-1")
       ).rejects.toMatchObject({ statusCode: 403 });
     });
 
@@ -125,7 +126,7 @@ describe("ProjectService", () => {
       projectRepo.findById.mockResolvedValue(project);
       memberRepo.getRole.mockResolvedValue(null);
       testCaseRepo.hasAssignmentInProject.mockResolvedValue(false);
-      const plainUser = { id: "u-1", role: "user", organizationId: "org-1" };
+      const plainUser = { id: "u-1", role: "user", permissions: permissionsFor("user"), organizationId: "org-1" };
       await expect(service.getProject(plainUser, "proj-1")).rejects.toMatchObject({ statusCode: 403 });
       expect(testCaseRepo.hasAssignmentInProject).toHaveBeenCalledWith("proj-1", "u-1");
     });
@@ -134,14 +135,14 @@ describe("ProjectService", () => {
       projectRepo.findById.mockResolvedValue(project);
       memberRepo.getRole.mockResolvedValue(null);
       testCaseRepo.hasAssignmentInProject.mockResolvedValue(true);
-      const plainUser = { id: "u-1", role: "user", organizationId: "org-1" };
+      const plainUser = { id: "u-1", role: "user", permissions: permissionsFor("user"), organizationId: "org-1" };
       await expect(service.getProject(plainUser, "proj-1")).resolves.toBe(project);
     });
 
     it("allows a 'user' who is a project member, without any assignment", async () => {
       projectRepo.findById.mockResolvedValue(project);
       memberRepo.getRole.mockResolvedValue("member");
-      const plainUser = { id: "u-1", role: "user", organizationId: "org-1" };
+      const plainUser = { id: "u-1", role: "user", permissions: permissionsFor("user"), organizationId: "org-1" };
       await expect(service.getProject(plainUser, "proj-1")).resolves.toBe(project);
       expect(testCaseRepo.hasAssignmentInProject).not.toHaveBeenCalled();
     });
@@ -216,7 +217,7 @@ describe("ProjectService", () => {
 
   describe("isTeamLead", () => {
     it("is true only when the membership row says team_lead", async () => {
-      const plainUser = { id: "u-1", role: "user", organizationId: "org-1" };
+      const plainUser = { id: "u-1", role: "user", permissions: permissionsFor("user"), organizationId: "org-1" };
       memberRepo.getRole.mockResolvedValue("team_lead");
       await expect(service.isTeamLead(plainUser, "proj-1")).resolves.toBe(true);
       memberRepo.getRole.mockResolvedValue("member");

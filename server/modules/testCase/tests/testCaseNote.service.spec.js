@@ -1,5 +1,6 @@
 // modules/testCase/tests/testCaseNote.service.spec.js
 const { TestCaseNoteService } = require("../services/testCaseNote.service");
+const { permissionsFor } = require("../../../test/actors");
 
 function makeNoteRepo() {
   return {
@@ -22,7 +23,7 @@ function makeTestCaseService(assertCanManageProject = jest.fn().mockResolvedValu
   };
 }
 
-const actor = { id: "user-1", role: "user", organizationId: "org-1" };
+const actor = { id: "user-1", role: "user", permissions: permissionsFor("user"), organizationId: "org-1" };
 
 describe("TestCaseNoteService", () => {
   let repo;

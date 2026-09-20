@@ -8,7 +8,10 @@ const { TestSuiteRepository } = require("../../testSuite/repositories/testSuite.
 const { ProjectRepository } = require("../../project/repositories/project.repository");
 const { ActivityService } = require("../../activity/services/activity.service");
 const { AppError } = require("../../../shared/errors/AppError");
-const { UserRole } = require("../../../config/constants");
+const {
+  seesAllProjects,
+  restrictToOwnWork,
+} = require("../../../shared/access/scope");
 
 class TestRunResultService {
   static Instance = new TestRunResultService();
@@ -31,8 +34,9 @@ class TestRunResultService {
     await this.runService.getTestRun(actor, params.runId); // access check
     return this.resultRepo.fetchPaginated({
       ...params,
-      // A plain user only sees results for test cases assigned to them.
-      assigneeId: actor.role === UserRole.USER ? actor.id : undefined,
+      // Without org-wide project visibility, only results for test cases
+      // assigned to the actor.
+      assigneeId: restrictToOwnWork(actor),
     });
   }
 
@@ -40,8 +44,9 @@ class TestRunResultService {
     const result = await this.resultRepo.findById(id);
     if (!result) throw new AppError("Run result not found", 404);
     await this.runService.getTestRun(actor, result.runId); // org access check
-    // A plain user may only touch results for cases assigned to them.
-    if (actor.role === UserRole.USER) {
+    // Without org-wide project visibility, only results for cases assigned
+    // to the actor may be touched.
+    if (!seesAllProjects(actor)) {
       const tc = await this.tcRepo.findById(result.testCaseId);
       if (!tc || !(tc.assignees ?? []).some((u) => u.id === actor.id)) {
         throw new AppError("Run result not found", 404);

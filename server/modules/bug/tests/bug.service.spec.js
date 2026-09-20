@@ -1,5 +1,6 @@
 // modules/bug/tests/bug.service.spec.js
 const { BugService } = require("../services/bug.service");
+const { permissionsFor } = require("../../../test/actors");
 
 function makeBugRepo() {
   return {
@@ -63,8 +64,8 @@ function makeHistoryRepo() {
   return { create: jest.fn().mockResolvedValue(undefined) };
 }
 
-const admin = { id: "admin-1", role: "admin", organizationId: "org-1" };
-const user = { id: "user-1", role: "user", organizationId: "org-1" };
+const admin = { id: "admin-1", role: "admin", permissions: permissionsFor("admin"), organizationId: "org-1" };
+const user = { id: "user-1", role: "user", permissions: permissionsFor("user"), organizationId: "org-1" };
 
 const bug = {
   id: "bug-1",

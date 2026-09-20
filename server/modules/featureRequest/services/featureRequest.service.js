@@ -47,10 +47,6 @@ class FeatureRequestService {
     this.historyRepo = historyRepo;
   }
 
-  canManage(actor) {
-    return actor.role === UserRole.ADMIN || actor.role === UserRole.SUPERADMIN;
-  }
-
   // Fetches the request, 404s if missing/deleted, then checks project access —
   // same "check access via parent" pattern as TestSuiteService.getTestSuite.
   async getAccessible(actor, id) {

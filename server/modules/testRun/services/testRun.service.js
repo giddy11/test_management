@@ -11,7 +11,8 @@ const {
 } = require("../../project/repositories/projectMember.repository");
 const { ActivityService } = require("../../activity/services/activity.service");
 const { AppError } = require("../../../shared/errors/AppError");
-const { RunStatus, UserRole } = require("../../../config/constants");
+const { seesAllProjects } = require("../../../shared/access/scope");
+const { RunStatus } = require("../../../config/constants");
 
 class TestRunService {
   static Instance = new TestRunService();
@@ -29,10 +30,10 @@ class TestRunService {
   }
 
   // Returns actor.id when the actor's run/result visibility must be restricted
-  // to their own work, or undefined for full visibility. Admins/superadmins and
-  // the project's team leads see everything.
+  // to their own work, or undefined for full visibility. Org-wide project
+  // visibility and the project's team leads both see everything.
   async restrictToUser(actor, projectId) {
-    if (actor.role !== UserRole.USER) return undefined;
+    if (seesAllProjects(actor)) return undefined;
     const isLead = await this.suiteService.projectService.isTeamLead(actor, projectId);
     return isLead ? undefined : actor.id;
   }

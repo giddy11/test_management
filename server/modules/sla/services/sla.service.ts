@@ -18,6 +18,12 @@ import type { SlaFilters, SlaTicketsQuery, UpdateSlaSettingsBody } from "../vali
 import type { Actor } from "../../../shared/types/actor";
 
 const { AppError } = require("../../../shared/errors/AppError");
+const { can } = require("../../../shared/access/can");
+const {
+  isExternalSupporter,
+  isOrphanedSupporter,
+  seesAllProjects,
+} = require("../../../shared/access/scope");
 const { UserRole } = require("../../../config/constants");
 const { ActivityService } = require("../../activity/services/activity.service");
 
@@ -39,12 +45,16 @@ export class SlaService {
   // Only these roles reach the routes (see sla.routes.ts); this narrows each
   // one to the tickets it's entitled to see.
   private scopeFor(actor: Actor): SlaScope {
-    if (actor.role === UserRole.IT_SUPPORT) {
-      if (!actor.clientCompanyId) throw new AppError("No client company on this account", 403);
-      return { clientCompanyId: actor.clientCompanyId };
+    if (isExternalSupporter(actor)) {
+      return { clientCompanyId: actor.clientCompanyId as string };
+    }
+    // A supporter account with no company attached is denied outright rather
+    // than falling through to the organisation scope below.
+    if (isOrphanedSupporter(actor)) {
+      throw new AppError("No client company on this account", 403);
     }
     if (!actor.organizationId) throw new AppError("No organisation on this account", 403);
-    if (actor.role === UserRole.USER) {
+    if (!seesAllProjects(actor)) {
       return { organizationId: actor.organizationId, memberUserId: actor.id };
     }
     return { organizationId: actor.organizationId };
@@ -54,7 +64,7 @@ export class SlaService {
   // rejected — a supporter passing clientCompanyId can only ever mean their own.
   private filtersFor(actor: Actor, filters: SlaFilters | SlaTicketsQuery) {
     const { interval: _iv, metric: _m, sort: _s, page: _p, limit: _l, ...rest } = filters as SlaTicketsQuery & { interval?: string };
-    if (actor.role === UserRole.IT_SUPPORT) delete rest.clientCompanyId;
+    if (isExternalSupporter(actor)) delete rest.clientCompanyId;
     return rest;
   }
 
@@ -79,7 +89,7 @@ export class SlaService {
       pausedStatuses: rules.pausedStatuses,
       isDefault: rules.isDefault,
       updatedAt: rules.updatedAt,
-      canEdit: actor.role === UserRole.ADMIN || actor.role === UserRole.SUPERADMIN,
+      canEdit: can(actor, "sla.configure"),
     };
   }
 
@@ -165,7 +175,8 @@ export class SlaService {
       page: query.page,
       limit: query.limit,
     });
-    const canOpen = actor.role !== UserRole.IT_SUPPORT;
+    // Only someone who can read the product-org triage list can deep-link into it.
+    const canOpen = can(actor, "ticket.read");
     return {
       data: data.map((row: Record<string, unknown>) => ({
         ...numeric(row),

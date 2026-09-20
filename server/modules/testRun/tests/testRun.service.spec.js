@@ -1,5 +1,6 @@
 // modules/testRun/tests/testRun.service.spec.js
 const { TestRunService } = require("../services/testRun.service");
+const { permissionsFor } = require("../../../test/actors");
 
 function makeRunRepo() {
   return {
@@ -43,7 +44,7 @@ function makeSuiteService() {
   };
 }
 
-const actor = { id: "owner-1", role: "admin", organizationId: "org-1" };
+const actor = { id: "owner-1", role: "admin", permissions: permissionsFor("admin"), organizationId: "org-1" };
 const run = { id: "run-1", name: "Sprint 3", projectId: "proj-1", suiteId: "suite-1" };
 
 describe("TestRunService", () => {
@@ -112,7 +113,7 @@ describe("TestRunService", () => {
   describe("fetchTestRuns", () => {
     it("scopes to the actor's own runs for the 'user' role", async () => {
       runRepo.fetchPaginated.mockResolvedValue({ data: [], meta: {} });
-      const regularUser = { id: "user-1", role: "user", organizationId: "org-1" };
+      const regularUser = { id: "user-1", role: "user", permissions: permissionsFor("user"), organizationId: "org-1" };
       await service.fetchTestRuns(regularUser, { projectId: "proj-1" });
       expect(runRepo.fetchPaginated).toHaveBeenCalledWith(
         expect.objectContaining({ projectId: "proj-1", restrictToUserId: "user-1" })
@@ -158,7 +159,7 @@ describe("TestRunService", () => {
     it("scopes the status summary to the actor's assigned cases for the 'user' role", async () => {
       runRepo.findById.mockResolvedValue(run);
       resultRepo.statusSummary.mockResolvedValue({ total: 1, pass: 0 });
-      const regularUser = { id: "user-1", role: "user", organizationId: "org-1" };
+      const regularUser = { id: "user-1", role: "user", permissions: permissionsFor("user"), organizationId: "org-1" };
       const result = await service.getTestRun(regularUser, "run-1");
       expect(result.summary).toEqual({ total: 1, pass: 0 });
       expect(resultRepo.statusSummary).toHaveBeenCalledWith("run-1", "user-1");

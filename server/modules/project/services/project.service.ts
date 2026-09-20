@@ -12,7 +12,9 @@ const { TestCaseRepository } = require("../../testCase/repositories/testCase.rep
 const { ActivityService } = require("../../activity/services/activity.service");
 const { NotificationService } = require("../../notification/services/notification.service");
 const { AppError } = require("../../../shared/errors/AppError");
-const { UserRole, ProjectMemberRole } = require("../../../config/constants");
+const { ProjectMemberRole } = require("../../../config/constants");
+const { can } = require("../../../shared/access/can");
+const { seesAllProjects } = require("../../../shared/access/scope");
 
 interface ProjectInput {
   name?: string;
@@ -50,26 +52,28 @@ export class ProjectService {
   }
 
   // Team leads get unrestricted visibility inside their project (all suites and
-  // cases). Admins/superadmins are already unrestricted, so this only matters
-  // for the 'user' role — used by TestSuiteService and TestCaseService.
+  // cases). Actors with org-wide project visibility are already unrestricted,
+  // so this only matters for the rest — used by TestSuiteService and
+  // TestCaseService.
   async isTeamLead(actor: Actor, projectId: string): Promise<boolean> {
-    if (actor.role !== UserRole.USER) return false;
+    if (seesAllProjects(actor)) return false;
     const role = await this.memberRepo.getRole(projectId, actor.id);
     return role === ProjectMemberRole.TEAM_LEAD;
   }
 
   // Management inside a project (create/edit suites & cases, assign testers,
-  // manage runs/bugs/feature requests) is allowed for admins/superadmins and
-  // for that project's team leads. Routes let the 'user' role through and the
-  // services enforce this per-project check.
+  // manage runs/bugs/feature requests). The route has already checked that the
+  // actor may perform the action at all; this decides whether they may perform
+  // it HERE. Holding project.configure means org-wide project authority;
+  // everyone else must be that project's team lead.
   async canManageProject(actor: Actor, projectId: string): Promise<boolean> {
-    if (actor.role !== UserRole.USER) return true;
+    if (can(actor, "project.configure")) return true;
     return this.isTeamLead(actor, projectId);
   }
 
   async assertCanManageProject(actor: Actor, projectId: string): Promise<void> {
     if (!(await this.canManageProject(actor, projectId))) {
-      throw new AppError("Only admins or this project's team lead can do this", 403);
+      throw new AppError("Only this project's team lead or an administrator can do this", 403);
     }
   }
 
@@ -82,7 +86,7 @@ export class ProjectService {
     if (!actor.organizationId || project.organizationId !== actor.organizationId) {
       throw new AppError("You do not have access to this project", 403);
     }
-    if (actor.role === UserRole.USER) {
+    if (!seesAllProjects(actor)) {
       const memberRole = await this.memberRepo.getRole(project.id, actor.id);
       if (memberRole) return;
       const hasAssignment = await this.testCaseRepo.hasAssignmentInProject(project.id, actor.id);
@@ -96,7 +100,7 @@ export class ProjectService {
     return this.projectRepo.fetchPaginated({
       ...params,
       organizationId: actor.organizationId,
-      restrictedUserId: actor.role === UserRole.USER ? actor.id : undefined,
+      restrictedUserId: seesAllProjects(actor) ? undefined : actor.id,
     });
   }
 
