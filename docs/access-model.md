@@ -27,18 +27,22 @@
    enforced on the server. Section 7 defines the scoping rule for every role.
 6. **Every permission in the catalog is checked somewhere.** A permission the server
    never consults promises a capability that does not exist, which is exactly the
-   confusion this model is meant to remove. Four candidates were cut for this reason:
+   confusion this model is meant to remove. Five candidates were cut for this reason:
    `organisation.read`, `organisation.manage` (no organisation-profile endpoint exists),
-   `integration.manage` (its route has no principal — see G1) and `notification.send`
-   (notifications are side effects, never a request). `roleMatrix.spec.js` fails the
-   build if a new one appears.
-7. **Organisation isolation is not a permission.** Every query is scoped to
+   `integration.manage` (its route has no principal — see G1), `notification.send`
+   (notifications are side effects, never a request) and `settings.manage` (its only
+   subject, the support-chat toggle, is a single global row and so belongs to
+   `supportchat.manage`). `roleMatrix.spec.js` fails the build if a new one appears.
+7. **The vendor and its customers are different principals.** The platform owner runs
+   the platform; an organisation administrator runs one workspace. Neither inherits the
+   other's controls, and no assignable role carries a platform-only permission.
+8. **Organisation isolation is not a permission.** Every query is scoped to
    `actor.organizationId` (or `clientCompanyId`) *before* permissions are considered. No
    permission can grant cross-organisation access; only the wildcard super role bypasses it.
 
 ---
 
-## 2. Permission catalog — 86 permissions in 10 categories
+## 2. Permission catalog — 85 permissions in 10 categories
 
 > Generated from `server/modules/access/catalog/permissions.catalog.js`, which is the
 > single source the seed, the resolver and the tests all read. If this table and the
@@ -46,12 +50,11 @@
 
 Legend: ⚠ = carries a warning note shown in the role editor.
 
-### 2.1 Organisation & platform — 3
+### 2.1 Organisation & platform — 2
 *Workspace-wide configuration and the platform controls behind it.*
 
 | Code | Label | Description |
 |---|---|---|
-| `settings.manage` | Manage workspace settings | Change workspace-wide defaults, including the support-chat toggle. |
 | `audit.read` | View activity log | Read the organisation's activity log. |
 | `platform.read` ⚠ | View all organisations | Cross-organisation overview. **Warning: reads data across every organisation.** |
 
@@ -177,7 +180,7 @@ Legend: ⚠ = carries a warning note shown in the role editor.
 | `widget.configure` ⚠ | Configure the widget link | Enable, rotate or disable a project's widget link. **Warning: rotating a link breaks every embedded widget.** |
 | `supportchat.read` | View support chat inbox | Read in-app conversations with the platform team. |
 | `supportchat.send` | Reply in support chat | Respond in an in-app support conversation. |
-| `supportchat.manage` | Manage support chat | Close conversations and toggle support chat. |
+| `supportchat.manage` | Manage support chat | Close conversations, and turn the platform-wide support chat on or off. |
 | `announcement.manage` | Manage announcements | Write, publish and delete product announcements. |
 | `banner.publish` ⚠ | Broadcast site banner | Show a banner to everyone on the platform. **Warning: shown to every user on the platform.** |
 
@@ -211,12 +214,12 @@ a **Built-in** badge and the note:
 | Role | Kind | Permissions | Replaces |
 |---|---|---:|---|
 | Super administrator | built-in, **locked** | `*` | `superadmin` |
-| Organisation administrator | built-in | 86 | `admin` |
-| QA manager | built-in | 45 | — (new) |
+| Organisation administrator | built-in | 72 | `admin` |
+| QA manager | built-in | 44 | — (new) |
 | Test lead | built-in | 41 | `user` who leads a project (`project_members.role = team_lead`) |
 | QA engineer | built-in | 30 | `user` |
 | Tester | built-in | 21 | — (new) |
-| Support manager | built-in | 31 | — (new, product-side) |
+| Support manager | built-in | 29 | — (new, product-side) |
 | Support lead | built-in | 11 | `it_support` + `is_support_lead` |
 | Support agent | built-in | 8 | `it_support` |
 | Viewer | built-in | 13 | — (new) |
@@ -226,35 +229,44 @@ One wildcard permission, `*`. Shown with a lock icon. Cannot be edited, renamed,
 deleted, or have its permissions changed through the UI or the API. This is the platform
 owner.
 
-### 3.2 Organisation administrator — 86
-Every permission in the catalog. The everyday owner role for a customer organisation,
-deliberately distinct from the locked super role: it can be edited, and its holders are
-still confined to their own organisation by scoping.
+### 3.2 Organisation administrator — 72
+Everything inside one customer's workspace, and nothing outside it.
+
+This is **not** "every permission in the catalog". TestMate is multi-tenant, so
+"administrator" means two different principals, and the catalog keeps them apart:
+
+- **Platform-only** — `platform.read`, `announcement.manage`, `banner.publish`,
+  `supportchat.read` / `.send` / `.manage`: cross-organisation reporting, product
+  announcements, the site banner, and the in-app inbox customers write *to*. These
+  belong to the vendor. They are reachable only through the locked super
+  administrator's wildcard and are held by no assignable role.
+- **Support-desk-only** — `supportqueue.*` and `company.autoassign`: an external client
+  company's own queue. The product team sees one of their tickets only once it is
+  escalated, and then through `ticket.read` like any other ticket.
+
+Defining this role as "all permissions" put the vendor's controls into every customer
+admin's sidebar. `roleMatrix.spec.js` now fails the build if either boundary is crossed.
 
 ```
-settings.manage, audit.read, platform.read, role.read, role.manage,
-role.assign, user.read, user.create, user.update, user.delete, project.read,
-project.readall, project.create, project.update, project.delete,
-project.configure, project.export, suite.read, suite.manage, testcase.read,
-testcase.create, testcase.update, testcase.delete, testcase.approve,
-testcase.deprecate, testcase.assign, import.run, note.read, note.manage,
-run.read, run.create, run.update, run.delete, run.close, result.read,
-result.enter, result.amend, result.delete, bug.read, bug.create, bug.update,
-bug.delete, bug.triage, bug.verify, bug.close, featurerequest.read,
-featurerequest.create, featurerequest.update, featurerequest.delete,
-featurerequest.decide, featurerequest.vote, featurerequest.comment,
-ticket.read, ticket.assign, ticket.update, ticket.resolve, ticket.close,
-ticket.delete, ticket.comment, form.configure, supportqueue.read,
-supportqueue.update, supportqueue.assign, supportqueue.resolve,
-supportqueue.escalate, supportqueue.send, company.read, company.manage,
-company.autoassign, supporter.manage, livechat.read, livechat.send,
-livechat.assign, livechat.manage, livechat.configure, widget.configure,
-supportchat.read, supportchat.send, supportchat.manage, announcement.manage,
-banner.publish, dashboard.read, analytics.read, analytics.team, sla.read,
-sla.configure
+audit.read, role.read, role.manage, role.assign, user.read, user.create,
+user.update, user.delete, project.read, project.readall, project.create,
+project.update, project.delete, project.configure, project.export,
+suite.read, suite.manage, testcase.read, testcase.create, testcase.update,
+testcase.delete, testcase.approve, testcase.deprecate, testcase.assign,
+import.run, note.read, note.manage, run.read, run.create, run.update,
+run.delete, run.close, result.read, result.enter, result.amend,
+result.delete, bug.read, bug.create, bug.update, bug.delete, bug.triage,
+bug.verify, bug.close, featurerequest.read, featurerequest.create,
+featurerequest.update, featurerequest.delete, featurerequest.decide,
+featurerequest.vote, featurerequest.comment, ticket.read, ticket.assign,
+ticket.update, ticket.resolve, ticket.close, ticket.delete, ticket.comment,
+form.configure, company.read, company.manage, supporter.manage,
+livechat.read, livechat.send, livechat.assign, livechat.manage,
+livechat.configure, widget.configure, dashboard.read, analytics.read,
+analytics.team, sla.read, sla.configure
 ```
 
-### 3.3 QA manager — 45
+### 3.3 QA manager — 44
 Approval and closure authority with full visibility, and **no operational data entry**.
 Sets quality policy; does not run tests.
 
@@ -267,8 +279,8 @@ run.update, run.close, result.read, result.amend, bug.read, bug.triage,
 bug.verify, bug.close, featurerequest.read, featurerequest.decide,
 featurerequest.vote, featurerequest.comment, ticket.read, ticket.assign,
 ticket.update, ticket.resolve, ticket.close, ticket.comment, company.read,
-livechat.read, livechat.assign, livechat.manage, supportchat.read,
-dashboard.read, analytics.read, analytics.team, sla.read
+livechat.read, livechat.assign, livechat.manage, dashboard.read,
+analytics.read, analytics.team, sla.read
 ```
 
 **Notably lacks:** `role.manage`, `role.assign`, `settings.manage`, `user.create`, `user.update`, `user.delete`, `project.delete`, `result.enter`, `testcase.create`, `testcase.update`, `import.run`, `sla.configure`, `form.configure`, `widget.configure`.
@@ -316,7 +328,7 @@ featurerequest.comment, ticket.read, ticket.comment, livechat.read,
 dashboard.read
 ```
 
-### 3.7 Support manager — 31
+### 3.7 Support manager — 29
 Product-side owner of customer tickets and client company relationships. No test
 authoring or execution at all — the customer-facing half of the business, fully split
 from the engineering half.
@@ -327,8 +339,8 @@ featurerequest.read, featurerequest.create, ticket.read, ticket.assign,
 ticket.update, ticket.resolve, ticket.close, ticket.delete, ticket.comment,
 form.configure, company.read, company.manage, supporter.manage,
 livechat.read, livechat.send, livechat.assign, livechat.manage,
-livechat.configure, widget.configure, supportchat.read, supportchat.send,
-dashboard.read, analytics.read, sla.read, sla.configure
+livechat.configure, widget.configure, dashboard.read, analytics.read,
+sla.read, sla.configure
 ```
 
 ### 3.8 Support lead — 11

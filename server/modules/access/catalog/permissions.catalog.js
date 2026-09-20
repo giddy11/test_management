@@ -70,7 +70,6 @@ const CATEGORIES = [
 // Reserve it for permissions whose blast radius isn't obvious from the label.
 const PERMISSIONS = [
   // ── Organisation & platform ────────────────────────────────────────────────
-  { code: "settings.manage", category: "organisation", label: "Manage workspace settings", description: "Change workspace-wide defaults, including the support-chat toggle." },
   { code: "audit.read", category: "organisation", label: "View activity log", description: "Read the organisation's activity log." },
   { code: "platform.read", category: "organisation", label: "View all organisations", description: "Cross-organisation overview.", warning: "Reads data across every organisation" },
 
@@ -172,7 +171,7 @@ const PERMISSIONS = [
   { code: "widget.configure", category: "conversations", label: "Configure the widget link", description: "Enable, rotate or disable a project's widget link.", warning: "Rotating a link breaks every embedded widget" },
   { code: "supportchat.read", category: "conversations", label: "View support chat inbox", description: "Read in-app conversations with the platform team." },
   { code: "supportchat.send", category: "conversations", label: "Reply in support chat", description: "Respond in an in-app support conversation." },
-  { code: "supportchat.manage", category: "conversations", label: "Manage support chat", description: "Close conversations and toggle support chat." },
+  { code: "supportchat.manage", category: "conversations", label: "Manage support chat", description: "Close conversations, and turn the platform-wide support chat on or off." },
   { code: "announcement.manage", category: "conversations", label: "Manage announcements", description: "Write, publish and delete product announcements." },
   { code: "banner.publish", category: "conversations", label: "Broadcast site banner", description: "Show a banner to everyone on the platform.", warning: "Shown to every user on the platform" },
 
@@ -185,6 +184,48 @@ const PERMISSIONS = [
 ];
 
 const ALL_CODES = PERMISSIONS.map((p) => p.code);
+
+// ── The two boundaries the catalog has to respect ────────────────────────────
+//
+// TestMate is multi-tenant, so "administrator" means two different principals
+// and they must not be conflated:
+//
+//   - the PLATFORM OWNER (the vendor) runs the platform: cross-organisation
+//     reporting, product announcements, the site banner, and the in-app support
+//     inbox customers write to. That inbox and those broadcasts are the
+//     vendor's, not any customer's.
+//   - an ORGANISATION ADMINISTRATOR owns one customer's workspace and
+//     everything in it, and nothing outside it.
+//
+// Giving the organisation administrator "every permission" would hand every
+// customer admin the vendor's controls, which is how the platform-only items
+// ended up in their sidebar. They are reachable only through the locked super
+// administrator's wildcard.
+const PLATFORM_ONLY = [
+  "platform.read",
+  "announcement.manage",
+  "banner.publish",
+  "supportchat.read",
+  "supportchat.send",
+  "supportchat.manage",
+];
+
+// The support queue belongs to an external client company's own IT supporters.
+// The product team sees one of their tickets only once it is escalated, and
+// then through ticket.read like any other ticket.
+const SUPPORT_DESK_ONLY = [
+  "supportqueue.read",
+  "supportqueue.update",
+  "supportqueue.assign",
+  "supportqueue.resolve",
+  "supportqueue.escalate",
+  "supportqueue.send",
+  "company.autoassign",
+];
+
+const ORG_ADMIN_PERMISSIONS = ALL_CODES.filter(
+  (code) => !PLATFORM_ONLY.includes(code) && !SUPPORT_DESK_ONLY.includes(code)
+);
 
 // ── Built-in roles ───────────────────────────────────────────────────────────
 // `key` is the stable seed identity — never rename it. `name` is what an admin
@@ -258,8 +299,9 @@ const BUILTIN_ROLES = [
   {
     key: ROLE_KEYS.ORG_ADMIN,
     name: "Organisation administrator",
-    description: "The everyday owner of this organisation. Every permission in the catalog.",
-    permissions: ALL_CODES,
+    description:
+      "The everyday owner of this organisation — everything inside it, and nothing outside it.",
+    permissions: ORG_ADMIN_PERMISSIONS,
   },
   {
     key: ROLE_KEYS.QA_MANAGER,
@@ -282,7 +324,6 @@ const BUILTIN_ROLES = [
       // escalated, and then through ticket.read like any other ticket.
       "company.read",
       "livechat.read", "livechat.assign", "livechat.manage",
-      "supportchat.read",
       "dashboard.read", "analytics.read", "analytics.team", "sla.read",
     ],
   },
@@ -335,7 +376,6 @@ const BUILTIN_ROLES = [
       "company.read", "company.manage", "supporter.manage",
       "livechat.read", "livechat.send", "livechat.assign", "livechat.manage",
       "livechat.configure", "widget.configure",
-      "supportchat.read", "supportchat.send",
       "dashboard.read", "analytics.read", "sla.read", "sla.configure",
     ],
   },
@@ -419,6 +459,8 @@ module.exports = {
   CATEGORIES,
   PERMISSIONS,
   ALL_CODES,
+  PLATFORM_ONLY,
+  SUPPORT_DESK_ONLY,
   BUILTIN_ROLES,
   ROLE_KEYS,
   LEGACY_ROLE_MAP,

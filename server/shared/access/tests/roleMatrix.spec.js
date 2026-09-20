@@ -15,6 +15,8 @@ const {
   BUILTIN_ROLES,
   PERMISSIONS,
   WILDCARD,
+  PLATFORM_ONLY,
+  SUPPORT_DESK_ONLY,
 } = require("../../../modules/access/catalog/permissions.catalog");
 
 let routes;
@@ -182,7 +184,6 @@ describe("separation of duties — the splits the model promises", () => {
 
   it("confines configuration to administrators", () => {
     const config = [
-      "settings.manage",
       "sla.configure",
       "form.configure",
       "widget.configure",
@@ -204,6 +205,50 @@ describe("separation of duties — the splits the model promises", () => {
     const manager = role("qa_manager");
     for (const code of ["form.configure", "company.manage", "sla.configure"]) {
       expect(manager.has(code)).toBe(false);
+    }
+  });
+
+  it("keeps the vendor's controls out of every customer role", () => {
+    // The regression that started this: Organisation administrator was defined
+    // as "every permission", which put the platform owner's cross-org
+    // reporting, product announcements, site banner and support inbox into a
+    // customer admin's sidebar. Only the locked super role reaches them.
+    const holders = (code) =>
+      BUILTIN_ROLES.filter((r) => r.permissions.includes(code)).map((r) => r.key);
+    for (const code of PLATFORM_ONLY) {
+      expect({ code, holders: holders(code) }).toEqual({ code, holders: [] });
+    }
+    // ...and they are still real permissions the wildcard reaches.
+    for (const code of PLATFORM_ONLY) {
+      expect(can({ permissions: new Set([WILDCARD]) }, code)).toBe(true);
+    }
+  });
+
+  it("keeps the client company's queue out of every product-org role", () => {
+    const internal = [
+      "org_admin", "qa_manager", "test_lead", "qa_engineer", "tester",
+      "support_manager", "viewer",
+    ];
+    for (const key of internal) {
+      const held = new Set(BUILTIN_ROLES.find((r) => r.key === key).permissions);
+      for (const code of SUPPORT_DESK_ONLY) {
+        expect({ key, code, held: held.has(code) }).toEqual({ key, code, held: false });
+      }
+    }
+  });
+
+  it("still gives the organisation administrator everything inside its own workspace", () => {
+    const held = new Set(BUILTIN_ROLES.find((r) => r.key === "org_admin").permissions);
+    for (const code of [
+      "role.manage", "role.assign", "user.create", "user.delete",
+      "project.create", "project.delete", "project.readall",
+      "testcase.approve", "run.close", "result.amend",
+      "bug.close", "featurerequest.decide",
+      "ticket.delete", "form.configure", "widget.configure",
+      "company.manage", "supporter.manage",
+      "sla.configure", "analytics.team", "audit.read",
+    ]) {
+      expect({ code, held: held.has(code) }).toEqual({ code, held: true });
     }
   });
 

@@ -27,7 +27,7 @@ router.get(
 router.patch(
   "/settings",
   authMiddleware,
-  requirePermission("settings.manage"),
+  requirePermission("supportchat.manage"),
   validate(setSettingsSchema),
   SupportChatController.setSettings
 );

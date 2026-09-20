@@ -39,7 +39,9 @@ export const NAV_ITEMS: NavItem[] = [
   { title: "Projects", to: "/projects", icon: FolderKanban, permission: "project.read", tourId: "nav-projects" },
   { title: "All tickets", to: "/all-feedback", icon: MessageSquareHeart, permission: "ticket.read" },
   { title: "Ticket queue", to: "/support", icon: Headset, permission: "supportqueue.read" },
-  { title: "SLA reports", to: "/support/sla", icon: Gauge, permission: "sla.read" },
+  // Not sla.read: administrators hold that for the SLA tab on the dashboard.
+  // This item is the supporter portal's own SLA page.
+  { title: "SLA reports", to: "/support/sla", icon: Gauge, permission: "supportqueue.read" },
   // user.read is deliberately NOT the bar here: engineers hold it so the
   // assignee picker works, but the Team page exists to manage people.
   { title: "Team", to: "/team", icon: Users, permission: "user.create", tourId: "nav-team" },

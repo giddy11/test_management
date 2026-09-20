@@ -531,8 +531,9 @@ function AdminTab() {
 
 export default function SettingsPage() {
   const { can } = useAuth()
-  // The Admin tab holds the platform-wide support-chat toggle.
-  const isSuperadmin = can("settings.manage")
+  // The Admin tab holds the platform-wide support-chat toggle, which is the
+  // vendor's control rather than any one organisation's.
+  const canManagePlatform = can("supportchat.manage")
   // Reading roles is its own permission; managing them is another. The tab
   // shows for anyone who may look, and the editor stays read-only without
   // role.manage. The API enforces both regardless.
@@ -571,7 +572,7 @@ export default function SettingsPage() {
               Roles & access
             </TabsTrigger>
           )}
-          {isSuperadmin && (
+          {canManagePlatform && (
             <TabsTrigger value="admin" className="gap-1.5" data-cy="settings-tab-admin">
               <MessagesSquare className="size-3.5" />
               Admin
@@ -601,7 +602,7 @@ export default function SettingsPage() {
           </TabsContent>
         )}
 
-        {isSuperadmin && (
+        {canManagePlatform && (
           <TabsContent value="admin" className="mt-4">
             <AdminTab />
           </TabsContent>

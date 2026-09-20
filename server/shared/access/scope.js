@@ -68,7 +68,10 @@ function seesOrganisationAnalytics(actor) {
 // audiences (site banners, app updates). Not an authorisation check — it picks
 // which announcements are relevant to show, not what the actor may do.
 function isAdministrativeAudience(actor) {
-  return can(actor, "settings.manage");
+  // role.manage is effectively administrator-level (it can grant anything), and
+  // is held by the organisation administrator and the platform owner -- exactly
+  // the set the old `role === "admin" || role === "superadmin"` check meant.
+  return can(actor, "role.manage");
 }
 
 module.exports = {

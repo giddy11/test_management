@@ -72,11 +72,12 @@ function invoke(handler: any, permissions: Set<string> | null) {
 }
 
 const EXTERNAL = [ROLE_KEYS.SUPPORT_LEAD, ROLE_KEYS.SUPPORT_AGENT];
-// Deliberately excludes ORG_ADMIN: it holds every permission in the catalog by
-// definition, so the permission gate cannot be what stops it. What stops it is
-// record-level scoping — FeedbackSupportService.requireCompany needs a
-// clientCompanyId, and an internal admin has none. See the test below.
+// Every product-org role, ORG_ADMIN included. The support queue belongs to an
+// external client company, so no customer role reaches it — not even the
+// organisation administrator, which owns everything inside its own workspace
+// and nothing outside it.
 const INTERNAL = [
+  ROLE_KEYS.ORG_ADMIN,
   ROLE_KEYS.QA_MANAGER,
   ROLE_KEYS.TEST_LEAD,
   ROLE_KEYS.QA_ENGINEER,
@@ -131,15 +132,14 @@ describe("feedbackSupport.routes — permission wiring", () => {
     }
   });
 
-  it("lets the org administrator past the gate, leaving scoping to stop them", () => {
-    // The organisation administrator holds all 89 permissions, so supportqueue.*
-    // is not what excludes them from a client company queue — having no client
-    // company is. This pins that the split is deliberate rather than an
-    // oversight in the catalog.
+  it("stops even the platform owner by scoping rather than by permission", () => {
+    // The locked super role holds the wildcard, so the gate cannot be what
+    // excludes it — having no client company is, via
+    // FeedbackSupportService.requireCompany. Everyone else is stopped earlier,
+    // at the permission gate, which is the stricter of the two.
     const handler = guardFor(supportRouter, "/", "get");
-    expect(invoke(handler, permissionsOf(ROLE_KEYS.ORG_ADMIN)).next).toHaveBeenCalled();
-    expect(permissionsOf(ROLE_KEYS.QA_MANAGER).has("supportqueue.read")).toBe(false);
-    expect(permissionsOf(ROLE_KEYS.SUPPORT_MANAGER).has("supportqueue.read")).toBe(false);
+    expect(invoke(handler, new Set(["*"])).next).toHaveBeenCalled();
+    expect(permissionsOf(ROLE_KEYS.ORG_ADMIN).has("supportqueue.read")).toBe(false);
   });
 
   it("blocks an unauthenticated caller from the portal", () => {

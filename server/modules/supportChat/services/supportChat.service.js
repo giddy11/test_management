@@ -86,9 +86,9 @@ class SupportChatService {
   }
 
   async setEnabled(actor, enabled) {
-    // Turning support chat off platform-wide is a workspace setting, not an
-    // inbox action.
-    assertPermission(actor, "settings.manage");
+    // The support-chat settings row is a single global record: this toggles the
+    // floater for every user on the platform, so it is the vendor's call.
+    assertPermission(actor, "supportchat.manage");
     const settings = await this.settingsRepo.setEnabled(enabled, actor.id);
     return { enabled: settings.enabled };
   }
