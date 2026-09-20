@@ -4,6 +4,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { AuthEndpoints } from "@/endpoints/auth.endpoints"
 import { tokenStorage } from "@/lib/storage"
 import { UserRole, type AuthResult, type User } from "@/types/auth.types"
+import { useRoles } from "@/hooks/useAccess"
+import { can as canCheck } from "@/lib/can"
 
 interface AuthContextValue {
   // Effective user — reflects the preview role when previewing, so every
@@ -17,6 +19,12 @@ interface AuthContextValue {
   isAuthenticated: boolean
   setSession: (result: AuthResult) => void
   clearSession: () => void
+  /**
+   * The effective user permissions, resolved by the server on every request.
+   * FOR USABILITY ONLY — the API re-checks each one; see docs/access-model.md.
+   */
+  permissions: string[]
+  can: (code: string) => boolean
   previewRole: UserRole | null
   isPreviewing: boolean
   startPreview: (role: UserRole) => void
@@ -36,6 +44,14 @@ export const PREVIEWABLE_ROLES: Record<UserRole, UserRole[]> = {
   // Supporters can't preview, and nobody previews as one — the portal is
   // scoped to a real clientCompanyId a previewer wouldn't have.
   [UserRole.IT_SUPPORT]: [],
+}
+
+// Which built-in role a previewed legacy role resolves to, so the preview
+// borrows that role's real permission set instead of the previewer's own.
+// Keys match roles.key on the server (see permissions.catalog.js).
+const PREVIEW_ROLE_KEYS: Partial<Record<UserRole, string>> = {
+  [UserRole.ADMIN]: "org_admin",
+  [UserRole.USER]: "qa_engineer",
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -80,16 +96,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const exitPreview = useCallback(() => setPreviewRole(null), [])
 
+  // Previewing has to swap the PERMISSIONS too, or the preview would show a
+  // lower role's navigation while still revealing every admin control. Roles
+  // are data now, so the previewed set comes from the real roles list rather
+  // than a second copy of the catalog on the client. Fetched only while
+  // previewing — a normal session never pays for this.
+  const { data: roles } = useRoles(Boolean(previewRole))
+  const previewedRoleKey = previewRole ? PREVIEW_ROLE_KEYS[previewRole] : null
+  const previewedPermissions = previewedRoleKey
+    ? (roles?.find((r) => r.key === previewedRoleKey)?.permissions ?? null)
+    : null
+
   // An org owner can never actually hold the previewed (lower) role, so drop
   // the flag to keep the preview faithful to what that role really sees.
   const effectiveUser: User | null =
-    realUser && previewRole ? { ...realUser, role: previewRole, isOrgOwner: false } : (realUser ?? null)
+    realUser && previewRole
+      ? {
+          ...realUser,
+          role: previewRole,
+          isOrgOwner: false,
+          // Until the roles list arrives, show nothing rather than the
+          // previewer's own admin permissions — erring towards hiding is the
+          // honest direction for a preview.
+          permissions: previewedPermissions ?? [],
+        }
+      : (realUser ?? null)
+
+  const permissions = effectiveUser?.permissions ?? []
+  const can = useCallback((code: string) => canCheck(permissions, code), [permissions])
 
   const value: AuthContextValue = {
     user: effectiveUser,
     realUser: realUser ?? null,
     isLoading: Boolean(tokenStorage.getAccess()) && isLoading,
     isAuthenticated: Boolean(realUser),
+    permissions,
+    can,
     setSession,
     clearSession,
     previewRole,

@@ -1,4 +1,5 @@
 // types/auth.types.ts
+import type { AssignedRole } from "@/types/access.types"
 
 export const UserRole = {
   SUPERADMIN: "superadmin",
@@ -21,6 +22,11 @@ export interface User {
   onboardingCompleted: boolean
   notificationSoundEnabled: boolean
   role: UserRole
+  // Roles & access. `permissions` is the flattened union of every role the
+  // user holds, resolved server-side on every request. FOR USABILITY ONLY —
+  // the API re-checks each one.
+  roles?: AssignedRole[]
+  permissions?: string[]
   // Set only on it_support accounts — the client company they belong to.
   clientCompanyId?: string | null
   // Set only on it_support accounts — can assign queue items to teammates.

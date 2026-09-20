@@ -16,7 +16,7 @@ import { BenefitsSection } from "@/components/landing/BenefitsSection"
 import { FaqSection } from "@/components/landing/FaqSection"
 import { CtaSection } from "@/components/landing/CtaSection"
 import { LandingFooter } from "@/components/landing/LandingFooter"
-import { homePathForRole } from "@/components/layout/nav"
+import { homePathFor } from "@/components/layout/nav"
 import { useAuth } from "@/contexts/AuthContext"
 
 export default function LandingPage() {
@@ -40,7 +40,7 @@ export default function LandingPage() {
   }
 
   if (user) {
-    return <Navigate to={homePathForRole(user.role)} replace />
+    return <Navigate to={homePathFor(user.permissions ?? [])} replace />
   }
 
   return (

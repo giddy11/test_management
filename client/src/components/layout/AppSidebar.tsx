@@ -24,18 +24,18 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { useAuth, PREVIEWABLE_ROLES } from "@/contexts/AuthContext"
 import { useLogout } from "@/hooks/useAuth"
-import { navForRole, navBottomForRole, ROLE_LABEL } from "@/components/layout/nav"
+import { navFor, navBottomFor, ROLE_LABEL } from "@/components/layout/nav"
 
 export function AppSidebar() {
-  const { user, realUser, isPreviewing, startPreview, exitPreview } = useAuth()
+  const { user, realUser, permissions, isPreviewing, startPreview, exitPreview } = useAuth()
   const logout = useLogout()
   const { isMobile, setOpenMobile } = useSidebar()
   if (!user || !realUser) return null
 
   const previewOptions = isPreviewing ? [] : (PREVIEWABLE_ROLES[realUser.role] ?? [])
 
-  const items = navForRole(user.role)
-  const bottomItems = navBottomForRole(user.role)
+  const items = navFor(permissions)
+  const bottomItems = navBottomFor(permissions)
   const initials = `${user.firstName?.[0] ?? ""}${user.lastName?.[0] ?? ""}`.toUpperCase()
   const closeOnMobile = () => {
     if (isMobile) setOpenMobile(false)

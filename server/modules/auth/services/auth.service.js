@@ -3,6 +3,9 @@
 const crypto = require("crypto");
 const { OAuth2Client } = require("google-auth-library");
 const { AuthRepository } = require("../repositories/auth.repository");
+const {
+  AccessRepository,
+} = require("../../access/repositories/access.repository");
 const { AppError } = require("../../../shared/errors/AppError");
 const {
   provisionOrganizationAccess,
@@ -29,8 +32,9 @@ const {
 class AuthService {
   static Instance = new AuthService();
 
-  constructor(authRepo = AuthRepository.Instance) {
+  constructor(authRepo = AuthRepository.Instance, accessRepo = AccessRepository.Instance) {
     this.authRepo = authRepo;
+    this.accessRepo = accessRepo;
     this.googleClient = env.google.clientId
       ? new OAuth2Client(env.google.clientId)
       : null;
@@ -58,6 +62,20 @@ class AuthService {
     });
 
     return { accessToken, refreshToken, expiresIn: accessTokenTtlSeconds() };
+  }
+
+  // Attaches the caller's roles and effective permissions to a user about to
+  // be returned in an auth response. The client builds its can() from these,
+  // and routes its post-login redirect on them — without this a fresh login
+  // would look permissionless until /me resolved.
+  async withAccess(user) {
+    const [roles, permissions] = await Promise.all([
+      this.accessRepo.rolesForUser(user.id),
+      this.accessRepo.effectivePermissions(user.id),
+    ]);
+    user.roles = roles;
+    user.permissions = permissions;
+    return user;
   }
 
   // Generates a fresh OTP, invalidates older ones of the same type, emails it.
@@ -110,7 +128,7 @@ class AuthService {
 
     await this.issueOtp(user, OtpType.VERIFY_EMAIL);
     const tokens = await this.issueTokens(user);
-    return { user, tokens };
+    return { user: await this.withAccess(user), tokens };
   }
 
   // ── Email verification ─────────────────────────────────────────────────────────
@@ -148,7 +166,7 @@ class AuthService {
     if (!valid) throw new AppError("Invalid email or password", 401);
 
     const tokens = await this.issueTokens(user);
-    return { user, tokens };
+    return { user: await this.withAccess(user), tokens };
   }
 
   // ── Refresh ──────────────────────────────────────────────────────────────────
@@ -171,7 +189,7 @@ class AuthService {
 
     await this.authRepo.revokeRefreshToken(record.id);
     const tokens = await this.issueTokens(user);
-    return { user, tokens };
+    return { user: await this.withAccess(user), tokens };
   }
 
   // ── Logout ───────────────────────────────────────────────────────────────────
@@ -311,7 +329,7 @@ class AuthService {
     }
 
     const tokens = await this.issueTokens(user);
-    return { user, tokens };
+    return { user: await this.withAccess(user), tokens };
   }
 }
 

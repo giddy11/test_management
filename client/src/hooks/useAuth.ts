@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom"
 import { AuthEndpoints } from "@/endpoints/auth.endpoints"
 import { useAuth } from "@/contexts/AuthContext"
 import { ApiError } from "@/transport/http"
-import { homePathForRole } from "@/components/layout/nav"
+import { homePathFor } from "@/components/layout/nav"
 import type { LoginPayload, RegisterPayload } from "@/types/auth.types"
 
 export function useLogin() {
@@ -19,7 +19,7 @@ export function useLogin() {
     },
     onSuccess: (data) => {
       setSession(data)
-      navigate(homePathForRole(data.user.role), { replace: true })
+      navigate(homePathFor(data.user.permissions ?? []), { replace: true })
     },
   })
 }
@@ -54,7 +54,7 @@ export function useGoogleLogin() {
     },
     onSuccess: (data) => {
       setSession(data)
-      navigate(homePathForRole(data.user.role), { replace: true })
+      navigate(homePathFor(data.user.permissions ?? []), { replace: true })
     },
   })
 }

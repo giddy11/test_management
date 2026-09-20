@@ -16,7 +16,7 @@ import { ThemeToggle } from "@/components/shared/ThemeToggle"
 import { Wordmark } from "@/components/landing/Wordmark"
 import { SectionLink } from "@/components/landing/SectionLink"
 import { LANDING_NAV } from "@/components/landing/content"
-import { homePathForRole } from "@/components/layout/nav"
+import { homePathFor } from "@/components/layout/nav"
 import { useAuth } from "@/contexts/AuthContext"
 
 export function LandingHeader() {
@@ -48,7 +48,7 @@ export function LandingHeader() {
           {!isLoading &&
             (user ? (
               <Button asChild size="sm" variant="brand" data-cy="landing-app-cta">
-                <Link to={homePathForRole(user.role)}>Go to app</Link>
+                <Link to={homePathFor(user.permissions ?? [])}>Go to app</Link>
               </Button>
             ) : (
               <>

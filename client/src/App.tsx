@@ -34,9 +34,10 @@ import SupportQueuePage from "@/pages/support/SupportQueuePage"
 import SupportActivityPage from "@/pages/support/SupportActivityPage"
 import SupportInboxPage from "@/pages/support/SupportInboxPage"
 import SupportSlaPage from "@/pages/support/SupportSlaPage"
-import { UserRole } from "@/types/auth.types"
-
-const INTERNAL_ROLES = [UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.USER]
+// Route groups are gated on permissions, not role names. Each list is "any one
+// of these admits you" — the pages themselves hide the parts a viewer can not
+// use, and the API re-checks everything regardless.
+const INTERNAL_APP = ["dashboard.read", "project.read", "ticket.read"]
 
 export default function App() {
   return (
@@ -78,7 +79,7 @@ export default function App() {
               </Route>
 
               {/* Internal (product-org) roles only */}
-              <Route element={<ProtectedRoute roles={INTERNAL_ROLES} />}>
+              <Route element={<ProtectedRoute anyOf={INTERNAL_APP} />}>
                 <Route element={<DashboardLayout />}>
                   <Route path="/dashboard" element={<DashboardPage />} />
                   <Route path="/projects" element={<ProjectsPage />} />
@@ -96,7 +97,7 @@ export default function App() {
               </Route>
 
               {/* IT support portal — external client-company supporters */}
-              <Route element={<ProtectedRoute roles={[UserRole.IT_SUPPORT]} />}>
+              <Route element={<ProtectedRoute anyOf={["supportqueue.read"]} />}>
                 <Route element={<DashboardLayout />}>
                   <Route path="/support" element={<SupportQueuePage />} />
                   <Route path="/support/activity" element={<SupportActivityPage />} />
@@ -104,14 +105,14 @@ export default function App() {
                 </Route>
               </Route>
 
-              <Route element={<ProtectedRoute roles={[UserRole.SUPERADMIN, UserRole.ADMIN]} />}>
+              <Route element={<ProtectedRoute anyOf={["user.read", "audit.read"]} />}>
                 <Route element={<DashboardLayout />}>
                   <Route path="/team" element={<TeamPage />} />
                   <Route path="/activity" element={<ActivityPage />} />
                 </Route>
               </Route>
 
-              <Route element={<ProtectedRoute roles={[UserRole.SUPERADMIN]} />}>
+              <Route element={<ProtectedRoute anyOf={["platform.read", "announcement.manage", "supportchat.read"]} />}>
                 <Route element={<DashboardLayout />}>
                   <Route path="/platform" element={<OrganizationsPage />} />
                 <Route path="/announcements" element={<AnnouncementsPage />} />

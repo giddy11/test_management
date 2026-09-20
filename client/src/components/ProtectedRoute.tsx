@@ -1,16 +1,21 @@
-// components/ProtectedRoute.tsx — gates routes by auth state and optional role.
+// components/ProtectedRoute.tsx — gates routes by auth state and permission.
+//
+// FOR USABILITY ONLY. A route that renders is not a route the user can get
+// data from: every endpoint behind it re-checks on the server. This exists so
+// people don't land on a page that would only show them errors.
 import { Navigate, Outlet } from "react-router-dom"
 import { useAuth } from "@/contexts/AuthContext"
 import { PageLoader } from "@/components/shared/PageLoader"
-import { homePathForRole } from "@/components/layout/nav"
-import type { UserRole } from "@/types/auth.types"
+import { homePathFor } from "@/components/layout/nav"
+import { canAny } from "@/lib/can"
 
 interface ProtectedRouteProps {
-  roles?: UserRole[]
+  /** Any one of these permissions admits the user. Omitted = any signed-in user. */
+  anyOf?: string[]
 }
 
-export function ProtectedRoute({ roles }: ProtectedRouteProps) {
-  const { user, isLoading, isAuthenticated } = useAuth()
+export function ProtectedRoute({ anyOf }: ProtectedRouteProps) {
+  const { isLoading, isAuthenticated, permissions } = useAuth()
 
   if (isLoading) {
     return (
@@ -24,10 +29,10 @@ export function ProtectedRoute({ roles }: ProtectedRouteProps) {
     return <Navigate to="/login" replace />
   }
 
-  // Bounce to the role's own home — supporters must never loop back into
-  // /dashboard, which they can't access.
-  if (roles && user && !roles.includes(user.role)) {
-    return <Navigate to={homePathForRole(user.role)} replace />
+  // Bounce to whatever home this user does have — a supporter must never loop
+  // back into /dashboard, which they can't open.
+  if (anyOf && !canAny(permissions, anyOf)) {
+    return <Navigate to={homePathFor(permissions)} replace />
   }
 
   return <Outlet />

@@ -53,11 +53,17 @@ const registerInput = {
 
 describe("AuthService", () => {
   let repo;
+  let accessRepo;
   let service;
 
   beforeEach(() => {
     repo = makeRepo();
-    service = new AuthService(repo);
+    // Auth responses now carry the caller's roles and effective permissions.
+    accessRepo = {
+      rolesForUser: jest.fn().mockResolvedValue([]),
+      effectivePermissions: jest.fn().mockResolvedValue([]),
+    };
+    service = new AuthService(repo, accessRepo);
   });
 
   // ── register ────────────────────────────────────────────────────────────────

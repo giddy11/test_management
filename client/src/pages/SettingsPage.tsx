@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form"
 import { toast } from "sonner"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "react-router-dom"
-import { User, Lock, LifeBuoy, MessagesSquare, Power, PowerOff, Bell, BellOff } from "lucide-react"
+import { User, Lock, LifeBuoy, MessagesSquare, Power, PowerOff, Bell, BellOff, ShieldCheck } from "lucide-react"
 import { Country, State, City } from "country-state-city"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -29,6 +29,7 @@ import { ALL_GUIDES, DASHBOARD_GUIDE, type TourGuide } from "@/lib/tourGuides"
 import { Badge } from "@/components/ui/badge"
 import { UserRole, type ChangePasswordPayload, type UpdateProfilePayload } from "@/types/auth.types"
 import { useSupportChatSettings, useSetSupportChatEnabled } from "@/hooks/useSupportChat"
+import { RolesAccessTab } from "@/components/access/RolesAccessTab"
 
 // ── Profile tab ───────────────────────────────────────────────────────────────
 
@@ -529,8 +530,12 @@ function AdminTab() {
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function SettingsPage() {
-  const { user } = useAuth()
+  const { user, can } = useAuth()
   const isSuperadmin = user?.role === UserRole.SUPERADMIN
+  // Reading roles is its own permission; managing them is another. The tab
+  // shows for anyone who may look, and the editor stays read-only without
+  // role.manage. The API enforces both regardless.
+  const canReadRoles = can("role.read")
 
   return (
     <div className="space-y-6">
@@ -559,6 +564,12 @@ export default function SettingsPage() {
             <Bell className="size-3.5" />
             Notifications
           </TabsTrigger>
+          {canReadRoles && (
+            <TabsTrigger value="access" className="gap-1.5" data-cy="settings-tab-access">
+              <ShieldCheck className="size-3.5" />
+              Roles & access
+            </TabsTrigger>
+          )}
           {isSuperadmin && (
             <TabsTrigger value="admin" className="gap-1.5" data-cy="settings-tab-admin">
               <MessagesSquare className="size-3.5" />
@@ -582,6 +593,12 @@ export default function SettingsPage() {
         <TabsContent value="notifications" className="mt-4">
           <NotificationsTab />
         </TabsContent>
+
+        {canReadRoles && (
+          <TabsContent value="access" className="mt-4">
+            <RolesAccessTab />
+          </TabsContent>
+        )}
 
         {isSuperadmin && (
           <TabsContent value="admin" className="mt-4">
