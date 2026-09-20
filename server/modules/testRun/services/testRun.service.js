@@ -12,6 +12,7 @@ const {
 const { ActivityService } = require("../../activity/services/activity.service");
 const { AppError } = require("../../../shared/errors/AppError");
 const { seesAllProjects } = require("../../../shared/access/scope");
+const { assertPermission } = require("../../../shared/access/can");
 const { RunStatus } = require("../../../config/constants");
 
 class TestRunService {
@@ -118,6 +119,12 @@ class TestRunService {
       !(await this.suiteService.projectService.canManageProject(actor, run.projectId))
     ) {
       throw new AppError("Only admins or the project's team lead can reopen a completed run.", 403);
+    }
+
+    // Closing a run freezes its results, so it is a separate privilege from
+    // editing the run's details.
+    if (!wasCompleted && data.status === RunStatus.COMPLETED) {
+      assertPermission(actor, "run.close");
     }
 
     const patch = {};

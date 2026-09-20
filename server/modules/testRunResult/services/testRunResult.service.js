@@ -8,6 +8,7 @@ const { TestSuiteRepository } = require("../../testSuite/repositories/testSuite.
 const { ProjectRepository } = require("../../project/repositories/project.repository");
 const { ActivityService } = require("../../activity/services/activity.service");
 const { AppError } = require("../../../shared/errors/AppError");
+const { can } = require("../../../shared/access/can");
 const {
   seesAllProjects,
   restrictToOwnWork,
@@ -70,8 +71,40 @@ class TestRunResultService {
   async recordResult(actor, id, data) {
     const result = await this.getResult(actor, id);
     const { run } = await this.runService.getTestRun(actor, result.runId);
-    if (run.status === "completed") {
-      throw new AppError("This run is completed. Reopen it before recording results.", 403);
+
+    // Recording a result and amending one after the run was closed are
+    // different privileges. result.enter got the caller through the route;
+    // changing a frozen result needs result.amend, and every such change is
+    // written to the audit log with its before and after values.
+    const isAmendment = run.status === "completed";
+    if (isAmendment) {
+      if (!can(actor, "result.amend")) {
+        throw new AppError(
+          "This run is completed. Reopen it before recording results.",
+          403
+        );
+      }
+      ActivityService.Instance.log(actor, {
+        action: "result.amended",
+        summary: `Amended a result on the completed run "${run.name}"`,
+        entityType: "test_run_result",
+        entityId: result.id,
+        metadata: {
+          runId: run.id,
+          projectId: run.projectId,
+          before: {
+            status: result.status,
+            actualResult: result.actualResult,
+            notes: result.notes,
+          },
+          after: {
+            status: data.status !== undefined ? data.status : result.status,
+            actualResult:
+              data.actualResult !== undefined ? data.actualResult : result.actualResult,
+            notes: data.notes !== undefined ? data.notes : result.notes,
+          },
+        },
+      });
     }
 
     const patch = {};

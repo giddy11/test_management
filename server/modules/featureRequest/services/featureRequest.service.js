@@ -15,6 +15,7 @@ const {
   ProjectMemberRepository,
 } = require("../../project/repositories/projectMember.repository");
 const { AppError } = require("../../../shared/errors/AppError");
+const { assertPermission } = require("../../../shared/access/can");
 const { parseReferenceCode } = require("../../../shared/utils/referenceCode");
 const { UserRole, FeatureRequestStatus } = require("../../../config/constants");
 
@@ -164,8 +165,12 @@ class FeatureRequestService {
 
   async updateStatus(actor, id, data) {
     const fr = await this.getAccessible(actor, id);
-    // Admins/superadmins and the project's team leads can change statuses.
     await this.projectService.assertCanManageProject(actor, fr.projectId);
+    // Deciding a request's fate (planned, done, rejected) is separate from
+    // editing its content.
+    if (data.status !== undefined && data.status !== fr.status) {
+      assertPermission(actor, "featurerequest.decide");
+    }
 
     const patch = {};
     if (data.status !== undefined) {

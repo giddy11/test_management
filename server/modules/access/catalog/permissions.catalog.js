@@ -70,12 +70,9 @@ const CATEGORIES = [
 // Reserve it for permissions whose blast radius isn't obvious from the label.
 const PERMISSIONS = [
   // ── Organisation & platform ────────────────────────────────────────────────
-  { code: "organisation.read", category: "organisation", label: "View organisation", description: "See the organisation profile and its settings." },
-  { code: "organisation.manage", category: "organisation", label: "Manage organisation", description: "Edit the organisation profile." },
   { code: "settings.manage", category: "organisation", label: "Manage workspace settings", description: "Change workspace-wide defaults, including the support-chat toggle." },
   { code: "audit.read", category: "organisation", label: "View activity log", description: "Read the organisation's activity log." },
   { code: "platform.read", category: "organisation", label: "View all organisations", description: "Cross-organisation overview.", warning: "Reads data across every organisation" },
-  { code: "integration.manage", category: "organisation", label: "Manage integrations", description: "Server-to-server provisioning access.", warning: "Controls unauthenticated machine access" },
 
   // ── Roles & people ─────────────────────────────────────────────────────────
   { code: "role.read", category: "access", label: "View roles", description: "See roles and their permission sets." },
@@ -178,7 +175,6 @@ const PERMISSIONS = [
   { code: "supportchat.manage", category: "conversations", label: "Manage support chat", description: "Close conversations and toggle support chat." },
   { code: "announcement.manage", category: "conversations", label: "Manage announcements", description: "Write, publish and delete product announcements." },
   { code: "banner.publish", category: "conversations", label: "Broadcast site banner", description: "Show a banner to everyone on the platform.", warning: "Shown to every user on the platform" },
-  { code: "notification.send", category: "conversations", label: "Send notifications", description: "Trigger notifications to other users." },
 
   // ── Reporting & analytics ──────────────────────────────────────────────────
   { code: "dashboard.read", category: "analytics", label: "View dashboard", description: "See the dashboard overview and recent runs." },
@@ -270,7 +266,7 @@ const BUILTIN_ROLES = [
     name: "QA manager",
     description: "Approval and closure authority with full visibility, and no operational data entry.",
     permissions: [
-      "organisation.read", "audit.read",
+      "audit.read",
       "role.read", "user.read",
       "project.read", "project.readall", "project.create", "project.update", "project.configure", "project.export",
       "suite.read", "suite.manage",
@@ -286,7 +282,7 @@ const BUILTIN_ROLES = [
       // escalated, and then through ticket.read like any other ticket.
       "company.read",
       "livechat.read", "livechat.assign", "livechat.manage",
-      "supportchat.read", "notification.send",
+      "supportchat.read",
       "dashboard.read", "analytics.read", "analytics.team", "sla.read",
     ],
   },
@@ -295,7 +291,6 @@ const BUILTIN_ROLES = [
     name: "Test lead",
     description: "Supervisor and approver inside their own projects. Enters data and approves it.",
     permissions: [
-      "organisation.read",
       "user.read",
       "project.read", "project.export",
       "suite.read", "suite.manage",
@@ -328,7 +323,7 @@ const BUILTIN_ROLES = [
     name: "Support manager",
     description: "Product-side owner of customer tickets and client company relationships.",
     permissions: [
-      "organisation.read", "audit.read",
+      "audit.read",
       "user.read", "project.read", "project.readall",
       "bug.read", "bug.create", "featurerequest.read", "featurerequest.create",
       "ticket.read", "ticket.assign", "ticket.update", "ticket.resolve", "ticket.close",
@@ -340,7 +335,7 @@ const BUILTIN_ROLES = [
       "company.read", "company.manage", "supporter.manage",
       "livechat.read", "livechat.send", "livechat.assign", "livechat.manage",
       "livechat.configure", "widget.configure",
-      "supportchat.read", "supportchat.send", "notification.send",
+      "supportchat.read", "supportchat.send",
       "dashboard.read", "analytics.read", "sla.read", "sla.configure",
     ],
   },
@@ -379,9 +374,17 @@ const LEGACY_ROLE_MAP = Object.freeze({
   it_support: ROLE_KEYS.SUPPORT_AGENT,
 });
 
-function roleKeyForLegacyUser(role, isSupportLead) {
+// `isTeamLead` is true when the user leads at least one project
+// (project_members.role = 'team_lead'). Under the old model that gave them
+// management of those projects — approving work, triaging their bugs — which
+// is the Test lead role, not QA engineer. Mapping them to QA engineer would
+// quietly take away capabilities they have today.
+function roleKeyForLegacyUser(role, isSupportLead, isTeamLead = false) {
   if (role === "it_support") {
     return isSupportLead ? ROLE_KEYS.SUPPORT_LEAD : ROLE_KEYS.SUPPORT_AGENT;
+  }
+  if (role === "user" && isTeamLead) {
+    return ROLE_KEYS.TEST_LEAD;
   }
   return LEGACY_ROLE_MAP[role] ?? ROLE_KEYS.QA_ENGINEER;
 }

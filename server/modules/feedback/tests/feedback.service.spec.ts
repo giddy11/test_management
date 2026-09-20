@@ -12,6 +12,7 @@ jest.mock("../../../shared/utils/mailer", () => ({
 import { FeedbackService } from "../services/feedback.service";
 
 const { UserRole, FeedbackStatus, SupportStatus } = require("../../../config/constants");
+const { actorFor } = require("../../../test/actors");
 const { sendFeedbackStatusEmail } = require("../../../shared/utils/mailer");
 
 function makeFeedbackRepo() {
@@ -57,7 +58,7 @@ function makeNotificationService() {
   return { notifyFeedbackClosedForSupporter: jest.fn().mockResolvedValue(undefined) };
 }
 
-const admin = { id: "admin-1", role: UserRole.ADMIN, organizationId: "org-1" };
+const admin = actorFor("admin", { id: "admin-1" });
 
 const baseItem = {
   id: "fb-1",

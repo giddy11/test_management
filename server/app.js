@@ -14,6 +14,7 @@ const {
 const {
   enforceDeclaredPermissions,
 } = require("./shared/access/routeAudit");
+const { publicRoute } = require("./shared/access/can");
 
 // Module routers
 const authRoutes = require("./modules/auth/routes/auth.routes");
@@ -79,8 +80,9 @@ function createApp() {
   app.use(express.json({ limit: "1mb" }));
   app.use(express.urlencoded({ extended: true }));
 
-  // Health check
-  app.get("/health", (req, res) => {
+  // Health check — declared public like any other open route, so the
+  // deny-by-default audit below covers the whole app and not just /api/v1.
+  app.get("/health", publicRoute("Liveness probe"), (req, res) => {
     res.status(200).json(ApiResponse.ok("OK", { status: "up", env: env.nodeEnv }));
   });
 
@@ -121,7 +123,7 @@ function createApp() {
 
   // Deny by default: any route that forgot to declare a permission is spliced
   // with a denying handler here, and named loudly at boot. See routeAudit.js.
-  const undeclared = enforceDeclaredPermissions(api, "/api/v1");
+  const undeclared = enforceDeclaredPermissions(app._router, "");
   if (undeclared.length) {
     console.error(
       `[access] ${undeclared.length} route(s) declare no permission and are now blocked:`

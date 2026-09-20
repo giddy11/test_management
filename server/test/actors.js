@@ -15,8 +15,8 @@ const {
 } = require("../modules/access/catalog/permissions.catalog");
 
 // legacyRole: "superadmin" | "admin" | "user" | "it_support"
-function permissionsFor(legacyRole, isSupportLead = false) {
-  const key = roleKeyForLegacyUser(legacyRole, isSupportLead);
+function permissionsFor(legacyRole, isSupportLead = false, isTeamLead = false) {
+  const key = roleKeyForLegacyUser(legacyRole, isSupportLead, isTeamLead);
   const role = BUILTIN_ROLES.find((r) => r.key === key);
   if (!role) throw new Error(`No built-in role for legacy role "${legacyRole}"`);
   return new Set(role.permissions);
@@ -36,7 +36,11 @@ function actorFor(legacyRole, overrides = {}) {
     id: overrides.id ?? "actor-1",
     role: legacyRole,
     organizationId: overrides.organizationId ?? "org-1",
-    permissions: permissionsFor(legacyRole, overrides.isSupportLead),
+    permissions: permissionsFor(
+      legacyRole,
+      overrides.isSupportLead,
+      overrides.isTeamLead
+    ),
     ...overrides,
   };
 }

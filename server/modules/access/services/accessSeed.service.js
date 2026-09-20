@@ -163,8 +163,16 @@ async function seedAllOrganizations(query, options = {}) {
 // Grants every user the role their legacy users.role maps to, unless they
 // already hold a role. Never revokes anything.
 async function backfillUserRoles(query) {
+  // `is_team_lead` matters: under the old model a plain "user" who led any
+  // project could manage it, triage its bugs and approve its work. That is the
+  // Test lead role, not QA engineer — mapping them to QA engineer would
+  // silently take capabilities away from people who have them today.
   const users = await query(
-    `SELECT u."id", u."role", u."organization_id", u."is_support_lead"
+    `SELECT u."id", u."role", u."organization_id", u."is_support_lead",
+            EXISTS (
+              SELECT 1 FROM "project_members" pm
+               WHERE pm."user_id" = u."id" AND pm."role" = 'team_lead'
+            ) AS "is_team_lead"
        FROM "users" u
       WHERE u."deleted_at" IS NULL
         AND NOT EXISTS (SELECT 1 FROM "user_roles" ur WHERE ur."user_id" = u."id")`
@@ -172,7 +180,7 @@ async function backfillUserRoles(query) {
 
   let granted = 0;
   for (const u of users) {
-    const key = roleKeyForLegacyUser(u.role, u.is_support_lead);
+    const key = roleKeyForLegacyUser(u.role, u.is_support_lead, u.is_team_lead);
     // Prefer the user's own organisation's copy; fall back to the platform-level
     // role, which is how super_admin (organization_id IS NULL) resolves.
     const rows = await query(

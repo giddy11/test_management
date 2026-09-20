@@ -65,7 +65,21 @@ function makeHistoryRepo() {
 }
 
 const admin = { id: "admin-1", role: "admin", permissions: permissionsFor("admin"), organizationId: "org-1" };
-const user = { id: "user-1", role: "user", permissions: permissionsFor("user"), organizationId: "org-1" };
+// A plain member who leads the project: under the old model that is who
+// could triage its bugs, so they migrate to Test lead, not QA engineer.
+const user = {
+  id: "user-1",
+  role: "user",
+  permissions: permissionsFor("user", false, true),
+  organizationId: "org-1",
+};
+// A plain member who leads nothing — can report and edit, never triage.
+const reporter = {
+  id: "user-2",
+  role: "user",
+  permissions: permissionsFor("user"),
+  organizationId: "org-1",
+};
 
 const bug = {
   id: "bug-1",
@@ -230,6 +244,27 @@ describe("BugService", () => {
   });
 
   describe("manageBug", () => {
+    // Separation of duties: reporting a bug and signing off its fix are
+    // different privileges, so the person who raised it can never verify it.
+    it("lets the reporter correct their own report but not triage it", async () => {
+      const ownBug = { ...bug, reportedById: reporter.id };
+      projectService.assertCanManageProject.mockResolvedValue(undefined);
+      bugRepo.findById.mockResolvedValue(ownBug);
+      bugRepo.update.mockResolvedValue(ownBug);
+
+      await service.manageBug(reporter, "bug-1", { title: "Clearer title" });
+      expect(bugRepo.update).toHaveBeenCalled();
+
+      bugRepo.update.mockClear();
+      await expect(
+        service.manageBug(reporter, "bug-1", { severity: "Critical" })
+      ).rejects.toMatchObject({ statusCode: 403 });
+      await expect(
+        service.manageBug(reporter, "bug-1", { status: "Verified" })
+      ).rejects.toMatchObject({ statusCode: 403 });
+      expect(bugRepo.update).not.toHaveBeenCalled();
+    });
+
     it("forbids a plain user (non team-lead) from managing", async () => {
       bugRepo.findById.mockResolvedValue(bug);
       await expect(service.manageBug(user, "bug-1", { status: "Fixed" })).rejects.toMatchObject({

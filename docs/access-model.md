@@ -25,27 +25,35 @@
    queue is not automatically whoever configures it.
 5. **Permissions say what kind of thing you may touch; scoping says which rows.** Both are
    enforced on the server. Section 7 defines the scoping rule for every role.
-6. **Organisation isolation is not a permission.** Every query is scoped to
+6. **Every permission in the catalog is checked somewhere.** A permission the server
+   never consults promises a capability that does not exist, which is exactly the
+   confusion this model is meant to remove. Four candidates were cut for this reason:
+   `organisation.read`, `organisation.manage` (no organisation-profile endpoint exists),
+   `integration.manage` (its route has no principal — see G1) and `notification.send`
+   (notifications are side effects, never a request). `roleMatrix.spec.js` fails the
+   build if a new one appears.
+7. **Organisation isolation is not a permission.** Every query is scoped to
    `actor.organizationId` (or `clientCompanyId`) *before* permissions are considered. No
    permission can grant cross-organisation access; only the wildcard super role bypasses it.
 
 ---
 
-## 2. Permission catalog — 89 permissions in 10 categories
+## 2. Permission catalog — 86 permissions in 10 categories
+
+> Generated from `server/modules/access/catalog/permissions.catalog.js`, which is the
+> single source the seed, the resolver and the tests all read. If this table and the
+> code disagree, the code is right.
 
 Legend: ⚠ = carries a warning note shown in the role editor.
 
-### 2.1 Organisation & platform — 6
+### 2.1 Organisation & platform — 3
 *Workspace-wide configuration and the platform controls behind it.*
 
 | Code | Label | Description |
 |---|---|---|
-| `organisation.read` | View organisation | See the organisation profile and its settings. |
-| `organisation.manage` | Manage organisation | Edit the organisation profile. |
 | `settings.manage` | Manage workspace settings | Change workspace-wide defaults, including the support-chat toggle. |
 | `audit.read` | View activity log | Read the organisation's activity log. |
 | `platform.read` ⚠ | View all organisations | Cross-organisation overview. **Warning: reads data across every organisation.** |
-| `integration.manage` ⚠ | Manage integrations | Server-to-server provisioning access. **Warning: controls unauthenticated machine access.** |
 
 ### 2.2 Roles & people — 7
 *Who is on the team, and what they are allowed to do.*
@@ -58,14 +66,15 @@ Legend: ⚠ = carries a warning note shown in the role editor.
 | `user.read` | View team members | List and view team members. |
 | `user.create` | Add team members | Create a team member account. |
 | `user.update` | Edit team members | Edit a team member's details. |
-| `user.delete` ⚠ | Remove team members | **Warning: removes the person's access immediately.** |
+| `user.delete` ⚠ | Remove team members | Remove a team member from the organisation. **Warning: removes the person's access immediately.** |
 
-### 2.3 Projects — 6
+### 2.3 Projects — 7
 *The containers everything else hangs off.*
 
 | Code | Label | Description |
 |---|---|---|
 | `project.read` | View projects | See projects and their details. |
+| `project.readall` | View all projects | See every project in the organisation, not only your own. |
 | `project.create` | Create projects | Start a new project. |
 | `project.update` | Edit projects | Change a project's name, description and metadata. |
 | `project.delete` | Delete projects | Remove a project and everything in it. |
@@ -100,7 +109,7 @@ Legend: ⚠ = carries a warning note shown in the role editor.
 | `run.update` | Edit test runs | Change a run's details while it is in progress. |
 | `run.delete` | Delete test runs | Remove a run and its results. |
 | `run.close` | Close test runs | Mark a run complete, freezing its results. |
-| `result.read` | View results | See recorded pass/fail/blocked/skipped outcomes. |
+| `result.read` | View results | See recorded pass, fail, blocked and skipped outcomes. |
 | `result.enter` | Record results | Record the outcome of executing a test case. |
 | `result.amend` ⚠ | Amend closed results | Change a result after its run has been closed. **Warning: every change is audited.** |
 | `result.delete` | Delete results | Remove a recorded result. |
@@ -152,10 +161,10 @@ Legend: ⚠ = carries a warning note shown in the role editor.
 | `supportqueue.send` | Notify submitters | Email the end user about their item. |
 | `company.read` | View client companies | See client company records. |
 | `company.manage` | Manage client companies | Create, edit and delete client companies. |
-| `company.configure` | Configure a client company | Auto-assign rules and the primary lead. |
+| `company.autoassign` | Configure auto-assign | Set how incoming queue items are routed within a client company. |
 | `supporter.manage` | Manage supporters | Add, remove and promote a company's IT supporters. |
 
-### 2.9 Conversations & broadcasts — 12
+### 2.9 Conversations & broadcasts — 11
 *Live chat, in-app support chat, and messages sent to everyone.*
 
 | Code | Label | Description |
@@ -170,8 +179,7 @@ Legend: ⚠ = carries a warning note shown in the role editor.
 | `supportchat.send` | Reply in support chat | Respond in an in-app support conversation. |
 | `supportchat.manage` | Manage support chat | Close conversations and toggle support chat. |
 | `announcement.manage` | Manage announcements | Write, publish and delete product announcements. |
-| `banner.publish` ⚠ | Broadcast site banner | **Warning: shown to every user on the platform.** |
-| `notification.send` | Send notifications | Trigger notifications to other users. |
+| `banner.publish` ⚠ | Broadcast site banner | Show a banner to everyone on the platform. **Warning: shown to every user on the platform.** |
 
 ### 2.10 Reporting & analytics — 5
 *Management reporting.*
@@ -203,151 +211,157 @@ a **Built-in** badge and the note:
 | Role | Kind | Permissions | Replaces |
 |---|---|---:|---|
 | Super administrator | built-in, **locked** | `*` | `superadmin` |
-| Organisation administrator | built-in | 89 (all) | `admin` |
-| QA manager | built-in | 46 | — (new) |
-| Test lead | built-in | 42 | `user` + `project_members.role = team_lead` |
+| Organisation administrator | built-in | 86 | `admin` |
+| QA manager | built-in | 45 | — (new) |
+| Test lead | built-in | 41 | `user` who leads a project (`project_members.role = team_lead`) |
 | QA engineer | built-in | 30 | `user` |
 | Tester | built-in | 21 | — (new) |
-| Support manager | built-in | 33 | — (new, product-side) |
+| Support manager | built-in | 31 | — (new, product-side) |
 | Support lead | built-in | 11 | `it_support` + `is_support_lead` |
 | Support agent | built-in | 8 | `it_support` |
-| Viewer | built-in | 12 | — (new) |
+| Viewer | built-in | 13 | — (new) |
 
 ### 3.1 Super administrator — locked
-One wildcard permission, `*`. Shown with a lock icon. Cannot be edited, renamed, deleted, or
-have its permissions changed through the UI or the API. This is the platform owner.
+One wildcard permission, `*`. Shown with a lock icon. Cannot be edited, renamed,
+deleted, or have its permissions changed through the UI or the API. This is the platform
+owner.
 
-### 3.2 Organisation administrator — 89
+### 3.2 Organisation administrator — 86
 Every permission in the catalog. The everyday owner role for a customer organisation,
-deliberately distinct from the locked super role: it can be edited, and its holders are still
-confined to their own organisation by scoping.
-
-### 3.3 QA manager — 46
-Approval and closure authority with full visibility, and **no operational data entry**. Sets
-quality policy; does not run tests.
+deliberately distinct from the locked super role: it can be edited, and its holders are
+still confined to their own organisation by scoping.
 
 ```
-organisation.read, audit.read,
-role.read, user.read,
-project.read, project.create, project.update, project.configure, project.export,
-suite.read, suite.manage, testcase.read, testcase.approve, testcase.deprecate,
-testcase.assign, note.read,
-run.read, run.create, run.update, run.close, result.read, result.amend,
-bug.read, bug.triage, bug.verify, bug.close,
-featurerequest.read, featurerequest.decide, featurerequest.vote, featurerequest.comment,
-ticket.read, ticket.assign, ticket.update, ticket.resolve, ticket.close, ticket.comment,
-company.read,
-livechat.read, livechat.assign, livechat.manage, supportchat.read, notification.send,
+settings.manage, audit.read, platform.read, role.read, role.manage,
+role.assign, user.read, user.create, user.update, user.delete, project.read,
+project.readall, project.create, project.update, project.delete,
+project.configure, project.export, suite.read, suite.manage, testcase.read,
+testcase.create, testcase.update, testcase.delete, testcase.approve,
+testcase.deprecate, testcase.assign, import.run, note.read, note.manage,
+run.read, run.create, run.update, run.delete, run.close, result.read,
+result.enter, result.amend, result.delete, bug.read, bug.create, bug.update,
+bug.delete, bug.triage, bug.verify, bug.close, featurerequest.read,
+featurerequest.create, featurerequest.update, featurerequest.delete,
+featurerequest.decide, featurerequest.vote, featurerequest.comment,
+ticket.read, ticket.assign, ticket.update, ticket.resolve, ticket.close,
+ticket.delete, ticket.comment, form.configure, supportqueue.read,
+supportqueue.update, supportqueue.assign, supportqueue.resolve,
+supportqueue.escalate, supportqueue.send, company.read, company.manage,
+company.autoassign, supporter.manage, livechat.read, livechat.send,
+livechat.assign, livechat.manage, livechat.configure, widget.configure,
+supportchat.read, supportchat.send, supportchat.manage, announcement.manage,
+banner.publish, dashboard.read, analytics.read, analytics.team, sla.read,
+sla.configure
+```
+
+### 3.3 QA manager — 45
+Approval and closure authority with full visibility, and **no operational data entry**.
+Sets quality policy; does not run tests.
+
+```
+audit.read, role.read, user.read, project.read, project.readall,
+project.create, project.update, project.configure, project.export,
+suite.read, suite.manage, testcase.read, testcase.approve,
+testcase.deprecate, testcase.assign, note.read, run.read, run.create,
+run.update, run.close, result.read, result.amend, bug.read, bug.triage,
+bug.verify, bug.close, featurerequest.read, featurerequest.decide,
+featurerequest.vote, featurerequest.comment, ticket.read, ticket.assign,
+ticket.update, ticket.resolve, ticket.close, ticket.comment, company.read,
+livechat.read, livechat.assign, livechat.manage, supportchat.read,
 dashboard.read, analytics.read, analytics.team, sla.read
 ```
 
-**Notably lacks:** `role.manage`, `role.assign`, `settings.manage`, `user.create` /
-`user.update` / `user.delete`, `project.delete`, `result.enter`, `testcase.create` /
-`testcase.update`, `import.run`, `sla.configure`, `form.configure`, `widget.configure`.
+**Notably lacks:** `role.manage`, `role.assign`, `settings.manage`, `user.create`, `user.update`, `user.delete`, `project.delete`, `result.enter`, `testcase.create`, `testcase.update`, `import.run`, `sla.configure`, `form.configure`, `widget.configure`.
 
-### 3.4 Test lead — 42
-Supervisor and approver inside their projects. Enters data *and* approves it, but cannot
-close the loop on published outcomes or touch configuration.
+### 3.4 Test lead — 41
+Supervisor and approver inside their own projects. Enters data *and* approves it, but
+cannot close the loop on published outcomes or touch configuration.
 
 ```
-organisation.read,
-user.read,
-project.read, project.export,
-suite.read, suite.manage, testcase.read, testcase.create, testcase.update,
-testcase.approve, testcase.assign, import.run, note.read, note.manage,
-run.read, run.create, run.update, run.close, result.read, result.enter,
-bug.read, bug.create, bug.update, bug.triage, bug.verify,
-featurerequest.read, featurerequest.create, featurerequest.update,
-featurerequest.vote, featurerequest.comment,
-ticket.read, ticket.assign, ticket.update, ticket.resolve, ticket.comment,
-livechat.read, livechat.send, livechat.assign, livechat.manage,
-dashboard.read, analytics.read, sla.read
+user.read, project.read, project.export, suite.read, suite.manage,
+testcase.read, testcase.create, testcase.update, testcase.approve,
+testcase.assign, import.run, note.read, note.manage, run.read, run.create,
+run.update, run.close, result.read, result.enter, bug.read, bug.create,
+bug.update, bug.triage, bug.verify, featurerequest.read,
+featurerequest.create, featurerequest.update, featurerequest.vote,
+featurerequest.comment, ticket.read, ticket.assign, ticket.update,
+ticket.resolve, ticket.comment, livechat.read, livechat.send,
+livechat.assign, livechat.manage, dashboard.read, analytics.read, sla.read
 ```
 
-**Notably lacks:** `result.amend`, `testcase.deprecate`, `testcase.delete`, `bug.close`,
-`bug.delete`, `featurerequest.decide`, `featurerequest.delete`, `ticket.close`,
-`analytics.team`, and everything in Organisation & platform beyond `organisation.read`.
-
-> QA manager (46) and Test lead (42) are close in size but deliberately different in kind.
-> The manager approves and never enters; the lead enters and approves within their own
-> projects. Compare the two "notably lacks" lists rather than the counts.
+**Notably lacks:** `result.amend`, `testcase.deprecate`, `testcase.delete`, `bug.close`, `bug.delete`, `featurerequest.decide`, `featurerequest.delete`, `ticket.close`, `analytics.team`, `project.readall`.
 
 ### 3.5 QA engineer — 30
 Authors test cases and executes them. **Cannot approve anything.**
 
 ```
-user.read,
-project.read, project.export,
-suite.read, suite.manage, testcase.read, testcase.create, testcase.update,
-testcase.assign, import.run, note.read, note.manage,
-run.read, run.create, run.update, result.read, result.enter,
-bug.read, bug.create, bug.update,
-featurerequest.read, featurerequest.create, featurerequest.update,
-featurerequest.vote, featurerequest.comment,
-ticket.read, ticket.comment,
-livechat.read, livechat.send,
-dashboard.read
+user.read, project.read, project.export, suite.read, suite.manage,
+testcase.read, testcase.create, testcase.update, testcase.assign, import.run,
+note.read, note.manage, run.read, run.create, run.update, result.read,
+result.enter, bug.read, bug.create, bug.update, featurerequest.read,
+featurerequest.create, featurerequest.update, featurerequest.vote,
+featurerequest.comment, ticket.read, ticket.comment, livechat.read,
+livechat.send, dashboard.read
 ```
 
 ### 3.6 Tester — 21
-The QA engineer set minus `suite.manage`, `testcase.create`, `testcase.update`,
-`testcase.assign`, `import.run`, `project.export`, `featurerequest.update`, `run.update` and
-`livechat.send`. Executes the cases assigned to them and reports what they find.
+Executes the cases assigned to them and reports what they find. No authoring, no
+assignment, no bulk import.
 
 ```
-user.read, project.read,
-suite.read, testcase.read, note.read, note.manage,
-run.read, run.create, result.read, result.enter,
-bug.read, bug.create, bug.update,
-featurerequest.read, featurerequest.create, featurerequest.vote, featurerequest.comment,
-ticket.read, ticket.comment,
-livechat.read, dashboard.read
+user.read, project.read, suite.read, testcase.read, note.read, note.manage,
+run.read, run.create, result.read, result.enter, bug.read, bug.create,
+bug.update, featurerequest.read, featurerequest.create, featurerequest.vote,
+featurerequest.comment, ticket.read, ticket.comment, livechat.read,
+dashboard.read
 ```
 
-### 3.7 Support manager — 33
-Product-side owner of customer tickets and client company relationships. No test authoring
-or execution at all — the customer-facing half of the business, fully split from the
-engineering half.
+### 3.7 Support manager — 31
+Product-side owner of customer tickets and client company relationships. No test
+authoring or execution at all — the customer-facing half of the business, fully split
+from the engineering half.
 
 ```
-organisation.read, audit.read,
-user.read, project.read,
-bug.read, bug.create, featurerequest.read, featurerequest.create,
-ticket.read, ticket.assign, ticket.update, ticket.resolve, ticket.close,
-ticket.delete, ticket.comment, form.configure,
-company.read, company.manage, company.configure, supporter.manage,
-livechat.read, livechat.send, livechat.assign, livechat.manage, livechat.configure,
-widget.configure, supportchat.read, supportchat.send, notification.send,
+audit.read, user.read, project.read, project.readall, bug.read, bug.create,
+featurerequest.read, featurerequest.create, ticket.read, ticket.assign,
+ticket.update, ticket.resolve, ticket.close, ticket.delete, ticket.comment,
+form.configure, company.read, company.manage, supporter.manage,
+livechat.read, livechat.send, livechat.assign, livechat.manage,
+livechat.configure, widget.configure, supportchat.read, supportchat.send,
 dashboard.read, analytics.read, sla.read, sla.configure
 ```
 
-### 3.8 Support lead — 11 (external)
+### 3.8 Support lead — 11
 The IT support lead at a client company. Sees only their own company's queue.
 
 ```
-supportqueue.read, supportqueue.update, supportqueue.assign, supportqueue.resolve,
-supportqueue.escalate, supportqueue.send,
-company.read, company.configure, supporter.manage,
-audit.read, sla.read
+supportqueue.read, supportqueue.update, supportqueue.assign,
+supportqueue.resolve, supportqueue.escalate, supportqueue.send, company.read,
+company.autoassign, supporter.manage, audit.read, sla.read
 ```
 
-### 3.9 Support agent — 8 (external)
-The Support lead set minus `supportqueue.assign`, `company.configure` and
-`supporter.manage`. Works their own assigned items; cannot route work or change the roster.
+### 3.9 Support agent — 8
+An IT supporter at a client company. Works their own assigned items; cannot route work
+or change the roster.
 
 ```
-supportqueue.read, supportqueue.update, supportqueue.resolve, supportqueue.escalate,
-supportqueue.send, company.read, audit.read, sla.read
+supportqueue.read, supportqueue.update, supportqueue.resolve,
+supportqueue.escalate, supportqueue.send, company.read, audit.read, sla.read
 ```
 
-### 3.10 Viewer — 12 (internal, read-only)
-A stakeholder who needs to see quality status without touching anything.
+### 3.10 Viewer — 13
+A stakeholder who needs to see quality status across the organisation without touching
+anything.
 
 ```
-project.read, suite.read, testcase.read, note.read, run.read, result.read,
-bug.read, featurerequest.read, ticket.read,
+project.read, project.readall, suite.read, testcase.read, note.read,
+run.read, result.read, bug.read, featurerequest.read, ticket.read,
 dashboard.read, analytics.read, sla.read
 ```
+
+> QA manager and Test lead are close in size but deliberately different in kind.
+> The manager approves and never enters; the lead enters and approves within their own
+> projects. Compare the two "notably lacks" lists rather than the counts.
 
 ---
 
@@ -365,7 +379,7 @@ dashboard.read, analytics.read, sla.read
 Two hard splits, both mirroring the reference model's finance/academic split:
 
 - **Configuration is confined to administrators.** `settings.manage`, `sla.configure`,
-  `form.configure`, `widget.configure`, `integration.manage`, `role.manage` are held by no
+  `form.configure`, `widget.configure`, `role.manage` are held by no
   engineering role.
 - **The customer-facing surface is split from the engineering surface.** Support manager has
   no `testcase.*`, `run.*` or `result.*`. QA manager has no `form.configure`,
@@ -395,7 +409,7 @@ is kept intact and sits *below* the permission check.
 | **QA engineer** | Organisation, narrowed to projects the user is a member of. Read access also extends to any project containing a test case assigned to them (existing legacy behaviour in `ProjectService.assertAccess`, preserved). |
 | **Tester** | Organisation, narrowed to **test cases assigned to the user** and the suites/projects containing them. `result.enter` is additionally restricted to results for cases assigned to them — the existing check in `TestRunResultService`, preserved. |
 | **Viewer** | Organisation-wide read. **Assumption:** a Viewer is an internal stakeholder (engineering manager, product owner) who should see every project in the organisation, not just ones they belong to. If a narrower Viewer is wanted, it becomes a custom role with project membership applied. |
-| **Support lead** | Every query filtered to `client_company_id = actor.clientCompanyId`. `supportqueue.assign`, `company.configure` and `supporter.manage` additionally require `users.is_support_lead = true`, and `supporter.manage` cannot touch the **primary** lead — that stays `company.manage` (product team). |
+| **Support lead** | Every query filtered to `client_company_id = actor.clientCompanyId`. `supportqueue.assign`, `company.autoassign` and `supporter.manage` additionally require `users.is_support_lead = true`, and `supporter.manage` cannot touch the **primary** lead — that stays `company.manage` (product team). |
 | **Support agent** | Same `client_company_id` filter. Queue items are further narrowed to unassigned items plus those assigned to the actor. |
 
 ### Public principals
@@ -497,7 +511,8 @@ Idempotent, and safe to re-run:
 |---|---|
 | `role = 'superadmin'` | Super administrator |
 | `role = 'admin'` | Organisation administrator |
-| `role = 'user'` | QA engineer |
+| `role = 'user'`, leads no project | QA engineer |
+| `role = 'user'`, leads at least one project (`project_members.role = team_lead`) | Test lead |
 | `role = 'it_support'`, `is_support_lead = true` | Support lead |
 | `role = 'it_support'`, `is_support_lead = false` | Support agent |
 
@@ -571,7 +586,7 @@ show impact before an edit.
 
 | Gap | Resolution |
 |---|---|
-| G1 unauthenticated `integrations/companies` | Out of scope for a permission model — it has no principal. Flagged for a human decision (section 10). |
+| G1 unauthenticated `integrations/companies` | **Not fixed.** A permission model cannot secure a route with no principal, and the route is left as-is by decision. It is declared `publicRoute(...)` so it is visible rather than forgotten, and there is deliberately no `integration.manage` permission — a permission nothing checks would be a lie in the role editor. |
 | G2 long-lived public tokens | Unchanged. `form.configure` / `widget.configure` now gate rotation with a warning note. |
 | G3 site banner read is superadmin-only | Fixed: reading the current banner needs no permission (any authenticated user); `banner.publish` gates broadcasting. |
 | G4 widget settings open to `user` | Fixed: `livechat.configure`, held by Support manager and administrators only. |

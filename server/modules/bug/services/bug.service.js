@@ -12,6 +12,7 @@ const {
   ProjectMemberRepository,
 } = require("../../project/repositories/projectMember.repository");
 const { AppError } = require("../../../shared/errors/AppError");
+const { assertPermission } = require("../../../shared/access/can");
 const { parseReferenceCode } = require("../../../shared/utils/referenceCode");
 const { UserRole, BugStatus } = require("../../../config/constants");
 
@@ -184,6 +185,23 @@ class BugService {
     const isReporter = bug.reportedById === actor.id;
     if (touchesTriage || !isReporter) {
       await this.projectService.assertCanManageProject(actor, bug.projectId);
+    }
+
+    // Separation of duties across the defect lifecycle. Whoever reports a bug
+    // holds bug.create and bug.update; setting its severity/priority/assignee
+    // is triage, confirming a fix is verification, and closing it is a third
+    // privilege again — so a reporter can never sign off their own report.
+    if (["severity", "priority", "assignedToId"].some((f) => data[f] !== undefined)) {
+      assertPermission(actor, "bug.triage");
+    }
+    if (data.status !== undefined && data.status !== bug.status) {
+      if (data.status === BugStatus.VERIFIED) {
+        assertPermission(actor, "bug.verify");
+      } else if (data.status === BugStatus.CLOSED || data.status === BugStatus.REOPENED) {
+        assertPermission(actor, "bug.close");
+      } else {
+        assertPermission(actor, "bug.triage");
+      }
     }
     if (data.testCaseId) {
       await this._assertLinksBelongToProject(bug.projectId, { testCaseId: data.testCaseId });

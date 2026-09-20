@@ -7,6 +7,7 @@ const { NotificationService } = require("../../notification/services/notificatio
 const { ActivityService } = require("../../activity/services/activity.service");
 const { AppError } = require("../../../shared/errors/AppError");
 const { seesAllProjects } = require("../../../shared/access/scope");
+const { assertPermission } = require("../../../shared/access/can");
 const { TestCaseStatus } = require("../../../config/constants");
 
 // Human-readable label for an activity summary: names up to 3 users, else a count.
@@ -120,6 +121,18 @@ class TestCaseService {
     const tc = await this.getTestCase(actor, id);
     const suiteForCheck = await this.suiteService.getTestSuite(actor, tc.suiteId);
     await this.suiteService.projectService.assertCanManageProject(actor, suiteForCheck.projectId);
+
+    // Separation of duties: writing a test case and blessing it are different
+    // privileges. testcase.update covers the content; moving a Draft to Active
+    // needs testcase.approve, and retiring an Active one testcase.deprecate.
+    if (data.status !== undefined && data.status !== tc.status) {
+      if (data.status === TestCaseStatus.ACTIVE) {
+        assertPermission(actor, "testcase.approve");
+      }
+      if (data.status === TestCaseStatus.DEPRECATED) {
+        assertPermission(actor, "testcase.deprecate");
+      }
+    }
 
     const patch = {};
     if (data.title !== undefined) patch.title = data.title;
