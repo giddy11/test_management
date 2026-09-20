@@ -518,6 +518,17 @@ Idempotent, and safe to re-run:
 - New permissions added to the catalog later are **not** silently added to existing roles.
   They appear unchecked in the role editor, which is the deny-by-default behaviour.
 
+### Deployment order
+
+**The migration must run before the new server code starts.** `permissionsMiddleware` resolves
+permissions from `user_roles` on every authenticated request; if those tables do not exist
+yet it answers 503 rather than failing open, so booting the new code against an unmigrated
+database locks everyone out until `migration:run` completes. Standard migrate-then-deploy
+ordering, but worth stating because the failure mode is total rather than partial.
+
+After deploying, `npm run seed:access` is safe to run at any time and repairs an organisation
+whose roles were never provisioned.
+
 ### Migration of existing users
 
 `users.role` is retained (not dropped) for one release. A data migration grants:

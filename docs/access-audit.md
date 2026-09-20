@@ -2,6 +2,8 @@
 
 **Status:** Phase 1 deliverable (read-only audit). No code was changed to produce this.
 **Date:** 2026-09-20
+**Resolution:** each gap below is answered in `docs/access-model.md` section 9. This file is
+deliberately left as the "before" picture rather than updated in place.
 **Scope:** `server/` (Express + TypeORM + PostgreSQL API) and `client/` (React 19 + Vite + React Router 7 SPA).
 
 This document inventories who can currently do what in TestMate, how that is enforced,

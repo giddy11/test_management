@@ -1,4 +1,5 @@
-// Scratch spec — browser verification of the Roles & access tab.
+// cypress/e2e/settings/roles-access.cy.ts
+// The Roles & access settings tab, and permission-filtered navigation.
 import { apiPath, ok } from "../support/api"
 
 const CATEGORIES = [
@@ -62,7 +63,6 @@ describe("Roles & access", () => {
     cy.dataCy("role-item-org_admin").should("contain.text", "6 permissions · 3 members")
     cy.dataCy("role-item-role-custom").should("contain.text", "1 permission · 0 members")
 
-    cy.screenshot("01-role-list", { capture: "viewport" })
   })
 
   it("shows the locked role read-only with no editor", () => {
@@ -70,7 +70,6 @@ describe("Roles & access", () => {
     cy.dataCy("role-editor").should("contain.text", "locked and cannot be edited")
     cy.dataCy("save-role").should("not.exist")
     cy.dataCy("permission-role.manage").should("not.exist")
-    cy.screenshot("02-locked-role", { capture: "viewport" })
   })
 
   it("renders category cards with counters, codes and warnings", () => {
@@ -90,7 +89,6 @@ describe("Roles & access", () => {
       cy.contains("Can grant any permission").should("be.visible")
       cy.contains("Can give any user any role").should("be.visible")
     })
-    cy.screenshot("03-permission-editor", { capture: "viewport" })
   })
 
   it("keeps Save disabled until something changes, then enables it", () => {
@@ -103,7 +101,6 @@ describe("Roles & access", () => {
     // Putting it back makes the form clean again.
     cy.dataCy("permission-project.delete").click()
     cy.dataCy("save-role").should("be.disabled")
-    cy.screenshot("04-save-dirty-state", { capture: "viewport" })
   })
 
   it("Select all / Clear all drives the whole category", () => {
@@ -136,7 +133,6 @@ describe("Roles & access", () => {
     cy.dataCy("new-role-submit").should("be.disabled")
     cy.dataCy("new-role-name").type("Release manager 2")
     cy.dataCy("new-role-submit").should("not.be.disabled")
-    cy.screenshot("05-new-role-dialog", { capture: "viewport" })
   })
 })
 
@@ -149,7 +145,6 @@ describe("navigation is permission-filtered", () => {
     cy.dataCy("nav-projects").should("exist")
     cy.dataCy("nav-team").should("exist")
     cy.dataCy("nav-activity").should("exist")
-    cy.screenshot("06-nav-admin", { capture: "viewport" })
   })
 
   it("hides Team, Activity and platform items from a QA engineer", () => {
@@ -164,7 +159,6 @@ describe("navigation is permission-filtered", () => {
     cy.dataCy("nav-activity").should("not.exist")
     cy.dataCy("nav-platform").should("not.exist")
     cy.dataCy("nav-announcements").should("not.exist")
-    cy.screenshot("07-nav-engineer", { capture: "viewport" })
   })
 
   it("hides the Roles & access tab from someone without role.read", () => {
