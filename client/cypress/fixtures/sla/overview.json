@@ -12,7 +12,7 @@
     "isDefault": true
   },
   "kpis": {
-    "total": 12, "bugs": 7, "featureRequests": 4, "complaints": 1,
+    "total": 12, "tickets": 1, "bugs": 7, "featureRequests": 4,
     "resolved": 8, "closed": 5, "open": 4, "awaitingResponse": 2, "responded": 10,
     "avgFirstResponseMs": 5400000, "medianFirstResponseMs": 3600000,
     "avgResolutionMs": 172800000, "medianResolutionMs": 129600000,
@@ -24,9 +24,9 @@
     "firstResponseRate": 72.7, "resolutionRate": 75, "complianceRate": 66.7
   },
   "overTime": [
-    { "period": "2026-08-03", "bugs": 2, "featureRequests": 1, "complaints": 0, "total": 3, "resolved": 1, "breached": 0 },
-    { "period": "2026-08-10", "bugs": 3, "featureRequests": 2, "complaints": 1, "total": 6, "resolved": 4, "breached": 2 },
-    { "period": "2026-08-17", "bugs": 2, "featureRequests": 1, "complaints": 0, "total": 3, "resolved": 3, "breached": 1 }
+    { "period": "2026-08-03", "tickets": 0, "bugs": 2, "featureRequests": 1, "total": 3, "resolved": 1, "breached": 0 },
+    { "period": "2026-08-10", "tickets": 1, "bugs": 3, "featureRequests": 2, "total": 6, "resolved": 4, "breached": 2 },
+    { "period": "2026-08-17", "tickets": 0, "bugs": 2, "featureRequests": 1, "total": 3, "resolved": 3, "breached": 1 }
   ],
   "bySeverity": [
     { "severity": "critical", "total": 2, "open": 1, "resolved": 1, "met": 1, "breached": 1, "pending": 0, "avgFirstResponseMs": 1800000, "avgResolutionMs": 43200000, "firstResponseTargetMs": 3600000, "resolutionTargetMs": 86400000 },
@@ -40,9 +40,12 @@
     { "status": "logged", "count": 2, "breached": 0 }
   ],
   "byType": [
-    { "type": "bug", "total": 7, "resolved": 5, "breached": 2, "avgResolutionMs": 150000000 },
-    { "type": "feature_request", "total": 4, "resolved": 2, "breached": 1, "avgResolutionMs": 250000000 },
     { "type": "complaint", "total": 1, "resolved": 1, "breached": 0, "avgResolutionMs": 40000000 }
+  ],
+  "bySource": [
+    { "source": "bug", "total": 7, "resolved": 5, "breached": 2, "avgResolutionMs": 150000000 },
+    { "source": "feature_request", "total": 4, "resolved": 2, "breached": 1, "avgResolutionMs": 250000000 },
+    { "source": "ticket", "total": 1, "resolved": 1, "breached": 0, "avgResolutionMs": 40000000 }
   ],
   "byProject": [
     { "projectId": "e2e-proj-1", "projectName": "Apollo", "total": 8, "open": 3, "resolved": 5, "met": 4, "breached": 2, "avgFirstResponseMs": 5400000, "avgResolutionMs": 172800000 },
@@ -55,6 +58,6 @@
     { "userId": "e2e-sup-1", "name": "Sam Support", "clientCompanyName": "Client Co", "total": 3, "open": 1, "resolved": 2, "met": 2, "breached": 0, "avgFirstResponseMs": 1800000, "avgResolutionMs": 60000000 }
   ],
   "recurring": [
-    { "title": "Export button does nothing", "type": "bug", "projectId": "e2e-proj-1", "projectName": "Apollo", "count": 3, "open": 1, "breached": 1, "firstSeenAt": "2026-08-04T10:00:00.000Z", "lastSeenAt": "2026-08-20T10:00:00.000Z" }
+    { "title": "Export button does nothing", "source": "bug", "projectId": "e2e-proj-1", "projectName": "Apollo", "count": 3, "open": 1, "breached": 1, "firstSeenAt": "2026-08-04T10:00:00.000Z", "lastSeenAt": "2026-08-20T10:00:00.000Z" }
   ]
 }

@@ -574,7 +574,8 @@ export class SlaRepository {
   // supporter concept). Lists every supporter the caller can see, including
   // ones with nothing assigned yet (a company's tickets often sit unassigned
   // in its queue), plus anyone a ticket in range is assigned to. Removed
-  // (soft-deleted) accounts are left out even if they still hold tickets.
+  // accounts, and accounts whose client company no longer exists, are left
+  // out even if they still hold tickets.
   async bySupporter(scope: SlaScope, filters: SlaQueryFilters, rules: SlaRules, limit = 15) {
     if (filters.source && filters.source !== "ticket") return [];
 
@@ -627,7 +628,7 @@ export class SlaRepository {
          avg(t.resolution_ms)::bigint AS "avgResolutionMs"
        FROM listed l
        JOIN users u ON u.id = l.user_id AND u.deleted_at IS NULL
-       LEFT JOIN client_companies ucc ON ucc.id = u.client_company_id
+       JOIN client_companies ucc ON ucc.id = u.client_company_id AND ucc.deleted_at IS NULL
        LEFT JOIN t ON t.assigned_supporter_id = u.id
        GROUP BY u.id, u.first_name, u.last_name, ucc.name
        ORDER BY total DESC, breached ASC, name ASC

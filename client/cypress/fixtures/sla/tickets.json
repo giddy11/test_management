@@ -1,6 +1,7 @@
 [
   {
-    "id": "e2e-fb-1", "ticketNumber": 42, "title": "Export button does nothing", "type": "bug",
+    "id": "e2e-fb-1", "source": "ticket", "referenceNumber": 42, "referenceCode": "TKT-20260820-042",
+    "title": "Export button does nothing", "type": "bug",
     "status": "investigating", "supportStatus": null, "stage": "investigating", "severity": null,
     "projectId": "e2e-proj-1", "projectName": "Apollo", "clientCompanyId": null, "clientCompanyName": null,
     "submitterName": "End User", "suiteName": null, "rating": null,
@@ -13,7 +14,8 @@
     "assignees": ["Uche Tester"], "supporterName": null, "visibleInTriage": true
   },
   {
-    "id": "e2e-fb-2", "ticketNumber": 43, "title": "Login page slow", "type": "complaint",
+    "id": "e2e-fb-2", "source": "ticket", "referenceNumber": 43, "referenceCode": "TKT-20260822-043",
+    "title": "Login page slow", "type": "complaint",
     "status": "logged", "supportStatus": "investigating", "stage": "investigating", "severity": null,
     "projectId": "e2e-proj-1", "projectName": "Apollo", "clientCompanyId": "e2e-cc-1", "clientCompanyName": "Client Co",
     "submitterName": "Another User", "suiteName": null, "rating": null,

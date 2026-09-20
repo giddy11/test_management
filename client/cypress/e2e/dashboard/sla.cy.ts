@@ -20,9 +20,10 @@ describe("Dashboard — SLA & support tab", () => {
   })
 
   it("renders the breakdown sections", () => {
-    cy.contains("Bugs & feature requests over time").should("be.visible")
+    cy.contains("Tickets, bugs & feature requests over time").should("be.visible")
+    cy.contains("Issues by source").should("be.visible")
     cy.contains("Issues by severity").should("be.visible")
-    cy.contains("Tickets by status").should("be.visible")
+    cy.contains("Issues by status").should("be.visible")
     cy.contains("Recurring issues").should("be.visible")
     cy.contains("Export button does nothing").should("be.visible")
     cy.contains("By team member").should("be.visible")
