@@ -5,13 +5,13 @@ import { fetchOrganizationsSchema } from "../validators/organization.schema";
 const router = require("express").Router();
 const { validate } = require("../../../shared/middleware/validate.middleware");
 const { authMiddleware } = require("../../../shared/middleware/auth.middleware");
-const { authorise } = require("../../../shared/middleware/authorise.middleware");
+const { requirePermission } = require("../../../shared/access/can");
 
 // Cross-org overview — the platform owner's eyes-only.
 router.get(
   "/",
   authMiddleware,
-  authorise("superadmin"),
+  requirePermission("platform.read"),
   validate(fetchOrganizationsSchema),
   OrganizationController.fetchAll
 );

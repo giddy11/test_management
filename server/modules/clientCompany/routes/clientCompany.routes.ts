@@ -21,45 +21,41 @@ import {
 const router = require("express").Router();
 const { validate } = require("../../../shared/middleware/validate.middleware");
 const { authMiddleware } = require("../../../shared/middleware/auth.middleware");
-const { authorise } = require("../../../shared/middleware/authorise.middleware");
+const { requirePermission } = require("../../../shared/access/can");
 
-const adminOnly = [authMiddleware, authorise("superadmin", "admin")];
-// Supporter-roster management: the product team, or the company's own IT
-// support lead (scoped to their own company — enforced in the service).
-const supporterManagers = [authMiddleware, authorise("superadmin", "admin", "it_support")];
 
 // Self-service — an IT supporter's own company. Registered before the
 // dynamic "/:id" routes below purely for readability; there's no actual
 // collision since none of them are a bare GET "/:id".
-router.get("/me", authMiddleware, authorise("it_support"), ClientCompanyController.fetchMine);
+router.get("/me", authMiddleware, requirePermission("company.read"), ClientCompanyController.fetchMine);
 
-router.get("/", ...adminOnly, validate(fetchClientCompaniesSchema), ClientCompanyController.fetchAll);
-router.post("/", ...adminOnly, validate(createClientCompanySchema), ClientCompanyController.create);
-router.patch("/:id", ...adminOnly, validate(updateClientCompanySchema), ClientCompanyController.update);
-router.delete("/:id", ...adminOnly, validate(clientCompanyIdParamSchema), ClientCompanyController.remove);
-router.post("/:id/link", ...adminOnly, validate(clientCompanyLinkSchema), ClientCompanyController.setLink);
+router.get("/", authMiddleware, requirePermission("company.read"), validate(fetchClientCompaniesSchema), ClientCompanyController.fetchAll);
+router.post("/", authMiddleware, requirePermission("company.manage"), validate(createClientCompanySchema), ClientCompanyController.create);
+router.patch("/:id", authMiddleware, requirePermission("company.manage"), validate(updateClientCompanySchema), ClientCompanyController.update);
+router.delete("/:id", authMiddleware, requirePermission("company.manage"), validate(clientCompanyIdParamSchema), ClientCompanyController.remove);
+router.post("/:id/link", authMiddleware, requirePermission("form.configure"), validate(clientCompanyLinkSchema), ClientCompanyController.setLink);
 
 router.get(
   "/:id/supporters",
-  ...supporterManagers,
+  authMiddleware, requirePermission("company.read"),
   validate(clientCompanyIdParamSchema),
   ClientCompanyController.listSupporters
 );
 router.post(
   "/:id/supporters",
-  ...supporterManagers,
+  authMiddleware, requirePermission("supporter.manage"),
   validate(createSupporterSchema),
   ClientCompanyController.createSupporter
 );
 router.delete(
   "/:id/supporters/:userId",
-  ...supporterManagers,
+  authMiddleware, requirePermission("supporter.manage"),
   validate(supporterParamSchema),
   ClientCompanyController.removeSupporter
 );
 router.patch(
   "/:id/supporters/:userId/lead",
-  ...supporterManagers,
+  authMiddleware, requirePermission("supporter.manage"),
   validate(setSupporterLeadSchema),
   ClientCompanyController.setSupporterLead
 );
@@ -69,7 +65,7 @@ router.patch(
 router.patch(
   "/:id/auto-assign",
   authMiddleware,
-  authorise("it_support"),
+  requirePermission("company.autoassign"),
   validate(setAutoAssignSchema),
   ClientCompanyController.setAutoAssign
 );
@@ -78,7 +74,7 @@ router.patch(
 // leads can't do this to each other or themselves.
 router.patch(
   "/:id/supporters/:userId/primary",
-  ...adminOnly,
+  authMiddleware, requirePermission("company.manage"),
   validate(setPrimarySupportLeadSchema),
   ClientCompanyController.setPrimarySupportLead
 );

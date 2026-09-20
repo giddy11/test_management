@@ -2,7 +2,7 @@
 const router = require("express").Router();
 const { validate } = require("../../../shared/middleware/validate.middleware");
 const { authMiddleware } = require("../../../shared/middleware/auth.middleware");
-const { authorise } = require("../../../shared/middleware/authorise.middleware");
+const { requirePermission } = require("../../../shared/access/can");
 const { fetchActivitySchema } = require("../validators/activity.schema");
 const { ActivityController } = require("../controllers/activity.controller");
 
@@ -11,7 +11,7 @@ const { ActivityController } = require("../controllers/activity.controller");
 router.get(
   "/",
   authMiddleware,
-  authorise("superadmin", "admin", "it_support"),
+  requirePermission("audit.read"),
   validate(fetchActivitySchema),
   ActivityController.fetchAll
 );

@@ -8,6 +8,7 @@ import { ClientCompanyController } from "../controllers/clientCompany.controller
 import { integrationProvisionCompanySchema } from "../validators/clientCompany.schema";
 
 const router = require("express").Router();
+const { publicRoute } = require("../../../shared/access/can");
 const { validate } = require("../../../shared/middleware/validate.middleware");
 const { buildLimiter } = require("../../../shared/middleware/rateLimiter.middleware");
 
@@ -20,7 +21,7 @@ const provisionLimiter = buildLimiter({
 });
 
 router.post(
-  "/",
+  "/", publicRoute("Server-to-server company provisioning — UNAUTHENTICATED, see audit gap G1"),
   provisionLimiter,
   validate(integrationProvisionCompanySchema),
   ClientCompanyController.integrationProvision

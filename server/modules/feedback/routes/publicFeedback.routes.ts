@@ -15,6 +15,7 @@ import {
 } from "../validators/feedback.schema";
 
 const router = require("express").Router();
+const { publicRoute } = require("../../../shared/access/can");
 const rateLimit = require("express-rate-limit");
 const { validate } = require("../../../shared/middleware/validate.middleware");
 const { uploadMany, uploadCommentAttachments } = require("../../../shared/middleware/upload.middleware");
@@ -57,23 +58,23 @@ const listTicketsLimiter = rateLimit({
 // need a new one. Registered before the "/:token" routes below — otherwise
 // "/my-tickets" would match that single-segment param route first.
 router.post(
-  "/my-tickets/code",
+  "/my-tickets/code", publicRoute("Submitter ticket history — email + one-time code"),
   authRateLimiter,
   validate(requestMyTicketsCodeSchema),
   FeedbackController.requestMyTicketsCode
 );
 router.post(
-  "/my-tickets",
+  "/my-tickets", publicRoute("Submitter ticket history — email + one-time code"),
   authRateLimiter,
   validate(listMyTicketsSchema),
   FeedbackController.listMyTickets
 );
 
-router.get("/:token", validate(publicFormParamSchema), FeedbackController.publicForm);
+router.get("/:token", publicRoute("Token-gated public form"), validate(publicFormParamSchema), FeedbackController.publicForm);
 // Multipart: up to 5 optional screenshots. File middleware must run before
 // validate() so the non-file fields exist on req.body.
 router.post(
-  "/:token",
+  "/:token", publicRoute("Token-gated public form"),
   submitLimiter,
   uploadMany("images", 5),
   validate(submitFeedbackSchema),
@@ -83,7 +84,7 @@ router.post(
 // Everything raised against this token's form — a partner's own dashboard,
 // not a single submitter's history (that's /my-tickets above).
 router.get(
-  "/:token/tickets",
+  "/:token/tickets", publicRoute("Token-gated public form"),
   listTicketsLimiter,
   validate(publicCompanyTicketsSchema),
   FeedbackController.publicListTickets
@@ -93,13 +94,13 @@ router.get(
 // "My Tickets" does (email + the emailed OTP code, sent in the body so it
 // never lands in a URL/query string or a server log).
 router.post(
-  "/:id/comments/view",
+  "/:id/comments/view", publicRoute("Token-gated ticket thread"),
   commentLimiter,
   validate(publicFetchCommentsSchema),
   FeedbackCommentController.publicList
 );
 router.post(
-  "/:id/comments",
+  "/:id/comments", publicRoute("Token-gated ticket thread"),
   commentLimiter,
   uploadCommentAttachments("attachments"),
   validate(publicAddCommentSchema),
@@ -109,7 +110,7 @@ router.post(
 // A resolved ticket's one-time satisfaction rating, from the "My Tickets"
 // page — same email/code proof of ownership as /my-tickets above.
 router.post(
-  "/:id/rating",
+  "/:id/rating", publicRoute("Token-gated satisfaction rating"),
   commentLimiter,
   validate(submitRatingSchema),
   FeedbackController.submitRating

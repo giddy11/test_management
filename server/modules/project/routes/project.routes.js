@@ -2,7 +2,7 @@
 const router = require("express").Router();
 const { validate } = require("../../../shared/middleware/validate.middleware");
 const { authMiddleware } = require("../../../shared/middleware/auth.middleware");
-const { authorise } = require("../../../shared/middleware/authorise.middleware");
+const { requirePermission } = require("../../../shared/access/can");
 const {
   createProjectSchema,
   updateProjectSchema,
@@ -11,27 +11,27 @@ const {
 } = require("../validators/project.schema");
 const { ProjectController } = require("../controllers/project.controller");
 
-router.get("/", authMiddleware, authorise("superadmin", "admin", "user"), validate(fetchProjectsSchema), ProjectController.fetchAll);
-router.get("/:id", authMiddleware, authorise("superadmin", "admin", "user"), validate(idParamSchema), ProjectController.fetchById);
-router.get("/:id/export", authMiddleware, authorise("superadmin", "admin", "user"), validate(idParamSchema), ProjectController.exportProject);
+router.get("/", authMiddleware, requirePermission("project.read"), validate(fetchProjectsSchema), ProjectController.fetchAll);
+router.get("/:id", authMiddleware, requirePermission("project.read"), validate(idParamSchema), ProjectController.fetchById);
+router.get("/:id/export", authMiddleware, requirePermission("project.export"), validate(idParamSchema), ProjectController.exportProject);
 router.post(
   "/",
   authMiddleware,
-  authorise("superadmin", "admin"),
+  requirePermission("project.create"),
   validate(createProjectSchema),
   ProjectController.create
 );
 router.patch(
   "/:id",
   authMiddleware,
-  authorise("superadmin", "admin"),
+  requirePermission("project.update"),
   validate(updateProjectSchema),
   ProjectController.update
 );
 router.delete(
   "/:id",
   authMiddleware,
-  authorise("superadmin", "admin"),
+  requirePermission("project.delete"),
   validate(idParamSchema),
   ProjectController.remove
 );

@@ -2,9 +2,18 @@
 //
 // Regression coverage for the bug where GET /api/v1/users was gated to
 // admin/superadmin only. A project "lead" is a per-project role (team_lead)
-// layered on top of the plain app-wide "user" role, so leads were 403'd out
-// of the assignee picker. authMiddleware/validate/controller are stubbed so
-// only the real authorise() middleware for each route runs.
+// layered on top of the plain app-wide role, so leads were 403'd out of the
+// assignee picker.
+//
+// The route is now gated on the `user.read` permission rather than a role-name
+// allowlist, so the regression is expressed as: every role that needs to pick
+// an assignee holds user.read, and the write routes need their own permissions.
+// authMiddleware/validate/controller are stubbed so only the real
+// requirePermission(...) middleware for each route runs.
+const {
+  BUILTIN_ROLES,
+  ROLE_KEYS,
+} = require("../../access/catalog/permissions.catalog");
 
 function tag(fn, name) {
   fn.__tag = name;
@@ -24,68 +33,105 @@ jest.mock("../controllers/user.controller", () => ({
     create: jest.fn((req, res) => res.status(200).json({ handler: "create" })),
     update: jest.fn((req, res) => res.status(200).json({ handler: "update" })),
     remove: jest.fn((req, res) => res.status(200).json({ handler: "remove" })),
+    setRoles: jest.fn((req, res) => res.status(200).json({ handler: "setRoles" })),
   },
 }));
 
 const router = require("../routes/user.routes");
 
 // authMiddleware/validate/controller are tagged above; the one untagged
-// handler left in each route's stack is the real authorise(...) middleware.
-function authoriseHandlerFor(path, method) {
+// handler left in each route's stack is the real requirePermission(...).
+function guardFor(path, method) {
   const layer = router.stack.find(
     (l) => l.route && l.route.path === path && l.route.methods[method]
   );
   if (!layer) throw new Error(`No route registered for ${method.toUpperCase()} ${path}`);
-  const authoriseLayer = layer.route.stack.find((s) => !s.handle.__tag);
-  if (!authoriseLayer) throw new Error(`No authorise() middleware found for ${method.toUpperCase()} ${path}`);
-  return authoriseLayer.handle;
+  const guardLayer = layer.route.stack.find((s) => !s.handle.__tag);
+  if (!guardLayer) {
+    throw new Error(`No permission guard found for ${method.toUpperCase()} ${path}`);
+  }
+  return guardLayer.handle;
 }
 
-function invoke(handler, role) {
-  const req = { user: role ? { role } : undefined };
+function permissionsOf(roleKey) {
+  const role = BUILTIN_ROLES.find((r) => r.key === roleKey);
+  if (!role) throw new Error(`Unknown role ${roleKey}`);
+  return new Set(role.permissions);
+}
+
+function invoke(handler, permissions) {
+  const req = permissions ? { user: { id: "u1", permissions } } : {};
   const json = jest.fn();
   const status = jest.fn(() => ({ json }));
-  const res = { status };
   const next = jest.fn();
-  handler(req, res, next);
+  handler(req, { status }, next);
   return { next, status, json };
 }
 
-describe("user.routes — role wiring", () => {
+describe("user.routes — permission wiring", () => {
   it("lets a plain org member (e.g. a project lead) list users", () => {
-    const handler = authoriseHandlerFor("/", "get");
-    const { next, status } = invoke(handler, "user");
+    const handler = guardFor("/", "get");
+    // The regression: QA engineer is what a legacy 'user' migrates to.
+    const { next, status } = invoke(handler, permissionsOf(ROLE_KEYS.QA_ENGINEER));
     expect(next).toHaveBeenCalled();
     expect(status).not.toHaveBeenCalled();
   });
 
-  it("still lets admins and superadmins list users", () => {
-    const handler = authoriseHandlerFor("/", "get");
-    expect(invoke(handler, "admin").next).toHaveBeenCalled();
-    expect(invoke(handler, "superadmin").next).toHaveBeenCalled();
+  it("lets every role that picks assignees list users", () => {
+    const handler = guardFor("/", "get");
+    for (const key of [
+      ROLE_KEYS.ORG_ADMIN,
+      ROLE_KEYS.QA_MANAGER,
+      ROLE_KEYS.TEST_LEAD,
+      ROLE_KEYS.QA_ENGINEER,
+      ROLE_KEYS.TESTER,
+    ]) {
+      expect(invoke(handler, permissionsOf(key)).next).toHaveBeenCalled();
+    }
   });
 
-  it("still blocks an unrecognised or missing role from listing users", () => {
-    const handler = authoriseHandlerFor("/", "get");
-    const { next, status, json } = invoke(handler, "guest");
+  it("lets a super administrator through on the strength of the wildcard", () => {
+    const handler = guardFor("/", "get");
+    const { next } = invoke(handler, new Set(["*"]));
+    expect(next).toHaveBeenCalled();
+  });
+
+  it("blocks an unauthenticated caller with 401", () => {
+    const handler = guardFor("/", "get");
+    const { next, status } = invoke(handler, null);
+    expect(next).not.toHaveBeenCalled();
+    expect(status).toHaveBeenCalledWith(401);
+  });
+
+  it("blocks a caller whose roles do not include user.read", () => {
+    const handler = guardFor("/", "get");
+    // An external supporter has no business reading the product org's roster.
+    const { next, status } = invoke(handler, permissionsOf(ROLE_KEYS.SUPPORT_AGENT));
     expect(next).not.toHaveBeenCalled();
     expect(status).toHaveBeenCalledWith(403);
-    expect(json).toHaveBeenCalledWith(expect.objectContaining({ success: false, message: "Forbidden" }));
-
-    expect(invoke(handler, undefined).next).not.toHaveBeenCalled();
   });
 
-  it("keeps user create/update/delete/fetch-by-id admin-only", () => {
-    const adminOnlyRoutes = [
-      ["/:id", "get"],
-      ["/", "post"],
-      ["/:id", "patch"],
-      ["/:id", "delete"],
-    ];
-    for (const [path, method] of adminOnlyRoutes) {
-      const handler = authoriseHandlerFor(path, method);
-      expect(invoke(handler, "user").next).not.toHaveBeenCalled();
-      expect(invoke(handler, "admin").next).toHaveBeenCalled();
+  it("keeps the write routes behind their own permissions", () => {
+    const engineer = permissionsOf(ROLE_KEYS.QA_ENGINEER);
+    for (const [path, method] of [["/", "post"], ["/:id", "patch"], ["/:id", "delete"]]) {
+      const { next, status } = invoke(guardFor(path, method), engineer);
+      expect(next).not.toHaveBeenCalled();
+      expect(status).toHaveBeenCalledWith(403);
     }
+  });
+
+  it("lets an organisation administrator through the write routes", () => {
+    const admin = permissionsOf(ROLE_KEYS.ORG_ADMIN);
+    for (const [path, method] of [["/", "post"], ["/:id", "patch"], ["/:id", "delete"]]) {
+      expect(invoke(guardFor(path, method), admin).next).toHaveBeenCalled();
+    }
+  });
+
+  it("gates role assignment on role.assign, not on user.update", () => {
+    const handler = guardFor("/:id/roles", "put");
+    // QA manager can edit nothing about access, by design.
+    const manager = permissionsOf(ROLE_KEYS.QA_MANAGER);
+    expect(invoke(handler, manager).status).toHaveBeenCalledWith(403);
+    expect(invoke(handler, permissionsOf(ROLE_KEYS.ORG_ADMIN)).next).toHaveBeenCalled();
   });
 });

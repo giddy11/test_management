@@ -13,14 +13,14 @@ import {
 const router = require("express").Router();
 const { validate } = require("../../../shared/middleware/validate.middleware");
 const { authMiddleware } = require("../../../shared/middleware/auth.middleware");
-const { authorise } = require("../../../shared/middleware/authorise.middleware");
+const { requirePermission } = require("../../../shared/access/can");
 const { uploadCommentAttachments } = require("../../../shared/middleware/upload.middleware");
 
 // projectId omitted => cross-project view (role-scoped in the service).
 router.get(
   "/",
   authMiddleware,
-  authorise("superadmin", "admin", "user"),
+  requirePermission("ticket.read"),
   validate(fetchFeedbackSchema),
   FeedbackController.fetchAll
 );
@@ -29,7 +29,7 @@ router.get(
 router.patch(
   "/:id",
   authMiddleware,
-  authorise("superadmin", "admin", "user"),
+  requirePermission("ticket.update"),
   validate(manageFeedbackSchema),
   FeedbackController.manage
 );
@@ -37,7 +37,7 @@ router.patch(
 router.get(
   "/:id/history",
   authMiddleware,
-  authorise("superadmin", "admin", "user"),
+  requirePermission("ticket.read"),
   validate(feedbackIdParamSchema),
   FeedbackController.history
 );
@@ -47,7 +47,7 @@ router.get(
 router.delete(
   "/:id",
   authMiddleware,
-  authorise("superadmin", "admin", "user"),
+  requirePermission("ticket.delete"),
   validate(feedbackIdParamSchema),
   FeedbackController.remove
 );
@@ -58,14 +58,14 @@ router.delete(
 router.get(
   "/:id/comments",
   authMiddleware,
-  authorise("superadmin", "admin", "user"),
+  requirePermission("ticket.read"),
   validate(fetchFeedbackCommentsSchema),
   FeedbackCommentController.list
 );
 router.post(
   "/:id/comments",
   authMiddleware,
-  authorise("superadmin", "admin", "user"),
+  requirePermission("ticket.comment"),
   uploadCommentAttachments("attachments"),
   validate(addFeedbackCommentSchema),
   FeedbackCommentController.create
@@ -75,7 +75,7 @@ router.post(
 router.post(
   "/projects/:id/link",
   authMiddleware,
-  authorise("superadmin", "admin"),
+  requirePermission("form.configure"),
   validate(feedbackLinkSchema),
   FeedbackController.setLink
 );

@@ -4,6 +4,9 @@ const crypto = require("crypto");
 const { OAuth2Client } = require("google-auth-library");
 const { AuthRepository } = require("../repositories/auth.repository");
 const { AppError } = require("../../../shared/errors/AppError");
+const {
+  provisionOrganizationAccess,
+} = require("../../access/services/provisionOrganization");
 const { env } = require("../../../config/env");
 const { AuthProvider, UserRole, OtpType } = require("../../../config/constants");
 const {
@@ -99,6 +102,11 @@ class AuthService {
       isEmailVerified: false,
       organizationId: crypto.randomUUID(), // this admin starts a new organisation
     });
+
+    // A brand-new organisation needs its own copy of the built-in roles before
+    // anyone can be given one. The registering admin becomes its Organisation
+    // administrator — without this they would hold no permissions at all.
+    await provisionOrganizationAccess(user);
 
     await this.issueOtp(user, OtpType.VERIFY_EMAIL);
     const tokens = await this.issueTokens(user);

@@ -16,7 +16,7 @@ import {
 const router = require("express").Router();
 const { validate } = require("../../../shared/middleware/validate.middleware");
 const { authMiddleware } = require("../../../shared/middleware/auth.middleware");
-const { authorise } = require("../../../shared/middleware/authorise.middleware");
+const { requirePermission } = require("../../../shared/access/can");
 const { uploadMany } = require("../../../shared/middleware/upload.middleware");
 
 // projectId is required (unlike feedback's cross-project mode) — the inbox is
@@ -24,21 +24,21 @@ const { uploadMany } = require("../../../shared/middleware/upload.middleware");
 router.get(
   "/conversations",
   authMiddleware,
-  authorise("superadmin", "admin", "user"),
+  requirePermission("livechat.read"),
   validate(fetchConversationsSchema),
   LiveChatController.listConversations
 );
 router.get(
   "/conversations/:id/messages",
   authMiddleware,
-  authorise("superadmin", "admin", "user"),
+  requirePermission("livechat.read"),
   validate(fetchMessagesSchema),
   LiveChatController.fetchMessages
 );
 router.post(
   "/conversations/:id/messages",
   authMiddleware,
-  authorise("superadmin", "admin", "user"),
+  requirePermission("livechat.send"),
   uploadMany("images", 5), // multipart image attachments (no-op for JSON requests)
   validate(sendAgentMessageSchema),
   LiveChatController.sendAgentMessage
@@ -46,21 +46,21 @@ router.post(
 router.post(
   "/conversations/:id/read",
   authMiddleware,
-  authorise("superadmin", "admin", "user"),
+  requirePermission("livechat.read"),
   validate(conversationIdParamSchema),
   LiveChatController.markReadByAgent
 );
 router.patch(
   "/conversations/:id/assign",
   authMiddleware,
-  authorise("superadmin", "admin", "user"),
+  requirePermission("livechat.assign"),
   validate(assignAgentSchema),
   LiveChatController.assignAgent
 );
 router.patch(
   "/conversations/:id",
   authMiddleware,
-  authorise("superadmin", "admin", "user"),
+  requirePermission("livechat.manage"),
   validate(setStatusSchema),
   LiveChatController.setStatus
 );
@@ -69,7 +69,7 @@ router.patch(
 router.get(
   "/visitors",
   authMiddleware,
-  authorise("superadmin", "admin", "user"),
+  requirePermission("livechat.read"),
   validate(listVisitorsSchema),
   LiveChatController.listVisitors
 );
@@ -78,14 +78,14 @@ router.get(
 router.get(
   "/projects/:id/settings",
   authMiddleware,
-  authorise("superadmin", "admin", "user"),
+  requirePermission("livechat.read"),
   validate(projectIdParamSchema),
   LiveChatController.getSettings
 );
 router.patch(
   "/projects/:id/settings",
   authMiddleware,
-  authorise("superadmin", "admin", "user"),
+  requirePermission("livechat.configure"),
   validate(updateSettingsSchema),
   LiveChatController.updateSettings
 );
@@ -95,7 +95,7 @@ router.patch(
 router.post(
   "/projects/:id/link",
   authMiddleware,
-  authorise("superadmin", "admin"),
+  requirePermission("widget.configure"),
   validate(liveChatLinkSchema),
   LiveChatController.setLink
 );

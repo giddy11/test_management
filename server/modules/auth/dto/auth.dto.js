@@ -14,6 +14,15 @@ function toUserResponse(user) {
     onboardingCompleted: user.onboardingCompleted ?? false,
     notificationSoundEnabled: user.notificationSoundEnabled ?? true,
     role: user.role,
+    // Roles & access. `permissions` is the flattened union the client uses for
+    // can() — for usability only; the API re-checks every one of them.
+    roles: (user.roles ?? []).map((r) => ({
+      id: r.id,
+      name: r.name,
+      isBuiltin: !!r.isBuiltin,
+      isLocked: !!r.isLocked,
+    })),
+    permissions: user.permissions ? [...user.permissions] : [],
     isOrgOwner: user.isOrgOwner ?? false,
     provider: user.provider,
     organizationId: user.organizationId ?? null,

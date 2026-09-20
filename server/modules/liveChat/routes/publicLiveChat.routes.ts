@@ -16,6 +16,7 @@ import {
 } from "../validators/liveChat.schema";
 
 const router = require("express").Router();
+const { publicRoute } = require("../../../shared/access/can");
 const rateLimit = require("express-rate-limit");
 const { validate } = require("../../../shared/middleware/validate.middleware");
 const { uploadMany } = require("../../../shared/middleware/upload.middleware");
@@ -51,10 +52,10 @@ const accountAuthLimiter = rateLimit({
   message: { success: false, message: "Too many attempts — please try again later", statusCode: 429 },
 });
 
-router.get("/:token", sessionLimiter, validate(widgetTokenParamSchema), LiveChatController.widgetConfig);
+router.get("/:token", publicRoute("Token-gated embeddable widget"), sessionLimiter, validate(widgetTokenParamSchema), LiveChatController.widgetConfig);
 
 router.post(
-  "/:token/visitors",
+  "/:token/visitors", publicRoute("Token-gated embeddable widget"),
   sessionLimiter,
   validate(startVisitorSchema),
   LiveChatController.startVisitor
@@ -65,20 +66,20 @@ router.post(
 // startVisitor does, so the widget's post-bootstrap code doesn't need to care
 // which front door was used.
 router.post(
-  "/:token/auth/register",
+  "/:token/auth/register", publicRoute("Token-gated embeddable widget"),
   accountAuthLimiter,
   validate(registerAccountSchema),
   LiveChatController.registerAccount
 );
 router.post(
-  "/:token/auth/login",
+  "/:token/auth/login", publicRoute("Token-gated embeddable widget"),
   accountAuthLimiter,
   validate(loginAccountSchema),
   LiveChatController.loginAccount
 );
 
 router.post(
-  "/:token/messages",
+  "/:token/messages", publicRoute("Token-gated embeddable widget"),
   messageLimiter,
   uploadMany("images", 5),
   validate(sendVisitorMessageSchema),
@@ -86,7 +87,7 @@ router.post(
 );
 // POST, not GET — visitorId is the credential, kept out of a query string/log.
 router.post(
-  "/:token/messages/view",
+  "/:token/messages/view", publicRoute("Token-gated embeddable widget"),
   sessionLimiter,
   validate(fetchVisitorMessagesSchema),
   LiveChatController.fetchVisitorMessages
@@ -94,19 +95,19 @@ router.post(
 // The widget's bootstrap/refresh call — resolves the conversation id it needs
 // to open a Firestore realtime listener.
 router.post(
-  "/:token/conversation",
+  "/:token/conversation", publicRoute("Token-gated embeddable widget"),
   sessionLimiter,
   validate(getVisitorConversationSchema),
   LiveChatController.getVisitorConversation
 );
 router.post(
-  "/:token/read",
+  "/:token/read", publicRoute("Token-gated embeddable widget"),
   sessionLimiter,
   validate(markReadByVisitorSchema),
   LiveChatController.markReadByVisitor
 );
 router.post(
-  "/:token/contact",
+  "/:token/contact", publicRoute("Token-gated embeddable widget"),
   messageLimiter,
   validate(updateContactSchema),
   LiveChatController.updateContact

@@ -1,7 +1,14 @@
 // modules/feedback/tests/feedbackSupport.routes.spec.ts
-// The support portal must be it_support-only, and the triage list must
-// exclude it_support (internal roles only). authMiddleware/validate/controllers
-// are stubbed so only the real authorise() middleware runs.
+// The support portal must be reachable only by the external client-company
+// roles, and the product team's triage must be unreachable by them. That
+// boundary used to be a role-name allowlist; it is now the fact that
+// supportqueue.* and ticket.* are held by disjoint sets of roles.
+// authMiddleware/validate/controllers are stubbed so only the real
+// requirePermission(...) middleware runs.
+const {
+  BUILTIN_ROLES,
+  ROLE_KEYS,
+} = require("../../access/catalog/permissions.catalog");
 
 function tag(fn: any, name: string) {
   fn.__tag = name;
@@ -39,56 +46,112 @@ jest.mock("../controllers/feedback.controller", () => ({
 const supportRouter = require("../routes/feedbackSupport.routes");
 const feedbackRouter = require("../routes/feedback.routes");
 
-function authoriseHandlerFor(router: any, path: string, method: string) {
+function guardFor(router: any, path: string, method: string) {
   const layer = router.stack.find(
     (l: any) => l.route && l.route.path === path && l.route.methods[method]
   );
   if (!layer) throw new Error(`No route for ${method.toUpperCase()} ${path}`);
-  const authoriseLayer = layer.route.stack.find((s: any) => !s.handle.__tag);
-  if (!authoriseLayer) throw new Error(`No authorise() for ${method.toUpperCase()} ${path}`);
-  return authoriseLayer.handle;
+  const guardLayer = layer.route.stack.find((s: any) => !s.handle.__tag);
+  if (!guardLayer) throw new Error(`No permission guard for ${method.toUpperCase()} ${path}`);
+  return guardLayer.handle;
 }
 
-function invoke(handler: any, role?: string) {
-  const req = { user: role ? { role } : undefined };
+function permissionsOf(roleKey: string): Set<string> {
+  const role = BUILTIN_ROLES.find((r: any) => r.key === roleKey);
+  if (!role) throw new Error(`Unknown role ${roleKey}`);
+  return new Set<string>(role.permissions as string[]);
+}
+
+function invoke(handler: any, permissions: Set<string> | null) {
+  const req = permissions ? { user: { id: "u1", permissions } } : {};
   const json = jest.fn();
   const status = jest.fn(() => ({ json }));
-  const res = { status };
   const next = jest.fn();
-  handler(req, res, next);
+  handler(req, { status }, next);
   return { next, status, json };
 }
 
-describe("feedbackSupport.routes — role wiring", () => {
-  const routes: [string, string][] = [
+const EXTERNAL = [ROLE_KEYS.SUPPORT_LEAD, ROLE_KEYS.SUPPORT_AGENT];
+// Deliberately excludes ORG_ADMIN: it holds every permission in the catalog by
+// definition, so the permission gate cannot be what stops it. What stops it is
+// record-level scoping — FeedbackSupportService.requireCompany needs a
+// clientCompanyId, and an internal admin has none. See the test below.
+const INTERNAL = [
+  ROLE_KEYS.QA_MANAGER,
+  ROLE_KEYS.TEST_LEAD,
+  ROLE_KEYS.QA_ENGINEER,
+  ROLE_KEYS.TESTER,
+  ROLE_KEYS.SUPPORT_MANAGER,
+  ROLE_KEYS.VIEWER,
+];
+
+describe("feedbackSupport.routes — permission wiring", () => {
+  // Routes every supporter works, lead or not.
+  const shared: [string, string][] = [
     ["/", "get"],
-    ["/teammates", "get"],
     ["/:id", "patch"],
-    ["/:id/assign", "patch"],
     ["/:id/history", "get"],
     ["/:id/resolve", "post"],
     ["/:id/escalate", "post"],
     ["/:id/notify-submitter", "post"],
   ];
+  // Routing work to a teammate stays a lead-only capability.
+  const leadOnly: [string, string][] = [
+    ["/teammates", "get"],
+    ["/:id/assign", "patch"],
+  ];
 
-  it("admits it_support on every portal route", () => {
-    for (const [path, method] of routes) {
-      const handler = authoriseHandlerFor(supportRouter, path, method);
-      expect(invoke(handler, "it_support").next).toHaveBeenCalled();
+  it("admits both external support roles on every shared portal route", () => {
+    for (const [path, method] of shared) {
+      const handler = guardFor(supportRouter, path, method);
+      for (const key of EXTERNAL) {
+        expect(invoke(handler, permissionsOf(key)).next).toHaveBeenCalled();
+      }
+    }
+  });
+
+  it("admits only a support lead on the routing routes", () => {
+    for (const [path, method] of leadOnly) {
+      const handler = guardFor(supportRouter, path, method);
+      expect(invoke(handler, permissionsOf(ROLE_KEYS.SUPPORT_LEAD)).next).toHaveBeenCalled();
+      const agent = invoke(handler, permissionsOf(ROLE_KEYS.SUPPORT_AGENT));
+      expect(agent.next).not.toHaveBeenCalled();
+      expect(agent.status).toHaveBeenCalledWith(403);
     }
   });
 
   it("blocks every internal role from the portal", () => {
-    for (const [path, method] of routes) {
-      const handler = authoriseHandlerFor(supportRouter, path, method);
-      for (const role of ["superadmin", "admin", "user"]) {
-        expect(invoke(handler, role).next).not.toHaveBeenCalled();
+    for (const [path, method] of [...shared, ...leadOnly]) {
+      const handler = guardFor(supportRouter, path, method);
+      for (const key of INTERNAL) {
+        const { next, status } = invoke(handler, permissionsOf(key));
+        expect(next).not.toHaveBeenCalled();
+        expect(status).toHaveBeenCalledWith(403);
       }
+    }
+  });
+
+  it("lets the org administrator past the gate, leaving scoping to stop them", () => {
+    // The organisation administrator holds all 89 permissions, so supportqueue.*
+    // is not what excludes them from a client company queue — having no client
+    // company is. This pins that the split is deliberate rather than an
+    // oversight in the catalog.
+    const handler = guardFor(supportRouter, "/", "get");
+    expect(invoke(handler, permissionsOf(ROLE_KEYS.ORG_ADMIN)).next).toHaveBeenCalled();
+    expect(permissionsOf(ROLE_KEYS.QA_MANAGER).has("supportqueue.read")).toBe(false);
+    expect(permissionsOf(ROLE_KEYS.SUPPORT_MANAGER).has("supportqueue.read")).toBe(false);
+  });
+
+  it("blocks an unauthenticated caller from the portal", () => {
+    for (const [path, method] of shared) {
+      const { next, status } = invoke(guardFor(supportRouter, path, method), null);
+      expect(next).not.toHaveBeenCalled();
+      expect(status).toHaveBeenCalledWith(401);
     }
   });
 });
 
-describe("feedback.routes — it_support locked out of triage", () => {
+describe("feedback.routes — external supporters locked out of triage", () => {
   const routes: [string, string][] = [
     ["/", "get"],
     ["/:id", "patch"],
@@ -96,12 +159,31 @@ describe("feedback.routes — it_support locked out of triage", () => {
     ["/:id", "delete"],
   ];
 
-  it("blocks it_support and admits internal roles", () => {
+  it("blocks the external support roles and admits the internal ones", () => {
     for (const [path, method] of routes) {
-      const handler = authoriseHandlerFor(feedbackRouter, path, method);
-      expect(invoke(handler, "it_support").next).not.toHaveBeenCalled();
-      expect(invoke(handler, "user").next).toHaveBeenCalled();
-      expect(invoke(handler, "admin").next).toHaveBeenCalled();
+      const handler = guardFor(feedbackRouter, path, method);
+      for (const key of EXTERNAL) {
+        const { next, status } = invoke(handler, permissionsOf(key));
+        expect(next).not.toHaveBeenCalled();
+        expect(status).toHaveBeenCalledWith(403);
+      }
+      // Reading triage is broad; deleting a ticket is not — check each route
+      // against a role the catalog says should reach it.
+      expect(invoke(handler, permissionsOf(ROLE_KEYS.ORG_ADMIN)).next).toHaveBeenCalled();
     }
+  });
+
+  it("keeps deleting a ticket away from engineers who may read it", () => {
+    const read = guardFor(feedbackRouter, "/", "get");
+    const destroy = guardFor(feedbackRouter, "/:id", "delete");
+    const engineer = permissionsOf(ROLE_KEYS.QA_ENGINEER);
+    expect(invoke(read, engineer).next).toHaveBeenCalled();
+    expect(invoke(destroy, engineer).status).toHaveBeenCalledWith(403);
+  });
+
+  it("keeps the public form link behind form.configure, not ticket.read", () => {
+    const handler = guardFor(feedbackRouter, "/projects/:id/link", "post");
+    expect(invoke(handler, permissionsOf(ROLE_KEYS.QA_MANAGER)).status).toHaveBeenCalledWith(403);
+    expect(invoke(handler, permissionsOf(ROLE_KEYS.SUPPORT_MANAGER)).next).toHaveBeenCalled();
   });
 });

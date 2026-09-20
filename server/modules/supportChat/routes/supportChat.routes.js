@@ -2,7 +2,7 @@
 const router = require("express").Router();
 const { validate } = require("../../../shared/middleware/validate.middleware");
 const { authMiddleware } = require("../../../shared/middleware/auth.middleware");
-const { authorise } = require("../../../shared/middleware/authorise.middleware");
+const { requireAuthenticatedOnly, requirePermission } = require("../../../shared/access/can");
 const { uploadMany } = require("../../../shared/middleware/upload.middleware");
 const {
   setSettingsSchema,
@@ -21,13 +21,13 @@ const { SupportChatController } = require("../controllers/supportChat.controller
 router.get(
   "/settings",
   authMiddleware,
-  authorise("superadmin", "admin", "user"),
+  requireAuthenticatedOnly("Reads the global on/off toggle before rendering the floater"),
   SupportChatController.getSettings
 );
 router.patch(
   "/settings",
   authMiddleware,
-  authorise("superadmin"),
+  requirePermission("settings.manage"),
   validate(setSettingsSchema),
   SupportChatController.setSettings
 );
@@ -36,13 +36,13 @@ router.patch(
 router.get(
   "/me/conversation",
   authMiddleware,
-  authorise("superadmin", "admin", "user"),
+  requireAuthenticatedOnly("Own conversation"),
   SupportChatController.myConversation
 );
 router.post(
   "/me/messages",
   authMiddleware,
-  authorise("superadmin", "admin", "user"),
+  requireAuthenticatedOnly("Own conversation"),
   uploadMany("images", 5), // multipart image attachments (no-op for JSON requests)
   validate(sendMessageSchema),
   SupportChatController.sendMyMessage
@@ -50,7 +50,7 @@ router.post(
 router.post(
   "/me/read",
   authMiddleware,
-  authorise("superadmin", "admin", "user"),
+  requireAuthenticatedOnly("Own conversation"),
   SupportChatController.markMyRead
 );
 
@@ -58,21 +58,21 @@ router.post(
 router.get(
   "/conversations",
   authMiddleware,
-  authorise("superadmin"),
+  requirePermission("supportchat.read"),
   validate(listConversationsSchema),
   SupportChatController.listConversations
 );
 router.get(
   "/conversations/:id/messages",
   authMiddleware,
-  authorise("superadmin"),
+  requirePermission("supportchat.read"),
   validate(fetchMessagesSchema),
   SupportChatController.fetchMessages
 );
 router.post(
   "/conversations/:id/messages",
   authMiddleware,
-  authorise("superadmin"),
+  requirePermission("supportchat.send"),
   uploadMany("images", 5), // multipart image attachments (no-op for JSON requests)
   validate(conversationMessageSchema),
   SupportChatController.sendAdminMessage
@@ -80,14 +80,14 @@ router.post(
 router.post(
   "/conversations/:id/read",
   authMiddleware,
-  authorise("superadmin"),
+  requirePermission("supportchat.read"),
   validate(idParamSchema),
   SupportChatController.markAdminRead
 );
 router.patch(
   "/conversations/:id",
   authMiddleware,
-  authorise("superadmin"),
+  requirePermission("supportchat.manage"),
   validate(setStatusSchema),
   SupportChatController.setStatus
 );

@@ -2,7 +2,7 @@
 const router = require("express").Router();
 const { validate } = require("../../../shared/middleware/validate.middleware");
 const { authMiddleware } = require("../../../shared/middleware/auth.middleware");
-const { authorise } = require("../../../shared/middleware/authorise.middleware");
+const { requirePermission } = require("../../../shared/access/can");
 const {
   createBugSchema,
   manageBugSchema,
@@ -12,27 +12,27 @@ const {
 } = require("../validators/bug.schema");
 const { BugController } = require("../controllers/bug.controller");
 
-router.get("/", authMiddleware, authorise("superadmin", "admin", "user"), validate(fetchBugsSchema), BugController.fetchAll);
+router.get("/", authMiddleware, requirePermission("bug.read"), validate(fetchBugsSchema), BugController.fetchAll);
 router.get(
   "/by-code/:code",
   authMiddleware,
-  authorise("superadmin", "admin", "user"),
+  requirePermission("bug.read"),
   validate(codeParamSchema),
   BugController.fetchByCode
 );
-router.get("/:id", authMiddleware, authorise("superadmin", "admin", "user"), validate(idParamSchema), BugController.fetchById);
-router.post("/", authMiddleware, authorise("superadmin", "admin", "user"), validate(createBugSchema), BugController.create);
+router.get("/:id", authMiddleware, requirePermission("bug.read"), validate(idParamSchema), BugController.fetchById);
+router.post("/", authMiddleware, requirePermission("bug.create"), validate(createBugSchema), BugController.create);
 router.patch(
   "/:id",
   authMiddleware,
-  authorise("superadmin", "admin", "user"),
+  requirePermission("bug.update"),
   validate(manageBugSchema),
   BugController.manage
 );
 router.delete(
   "/:id",
   authMiddleware,
-  authorise("superadmin", "admin", "user"),
+  requirePermission("bug.delete"),
   validate(idParamSchema),
   BugController.remove
 );

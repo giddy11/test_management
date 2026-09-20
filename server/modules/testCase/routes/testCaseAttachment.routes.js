@@ -2,7 +2,7 @@
 const router = require("express").Router();
 const { validate } = require("../../../shared/middleware/validate.middleware");
 const { authMiddleware } = require("../../../shared/middleware/auth.middleware");
-const { authorise } = require("../../../shared/middleware/authorise.middleware");
+const { requirePermission } = require("../../../shared/access/can");
 const { uploadMany } = require("../../../shared/middleware/upload.middleware");
 const {
   testCaseIdParamSchema,
@@ -16,7 +16,7 @@ const {
 router.get(
   "/:id/attachments",
   authMiddleware,
-  authorise("superadmin", "admin", "user"),
+  requirePermission("testcase.read"),
   validate(testCaseIdParamSchema),
   TestCaseAttachmentController.list
 );
@@ -25,7 +25,7 @@ router.get(
 router.post(
   "/:id/attachments",
   authMiddleware,
-  authorise("superadmin", "admin", "user"),
+  requirePermission("testcase.update"),
   uploadMany("images", 10), // ① parse + validate files
   validate(testCaseIdParamSchema), // ② validate params
   TestCaseAttachmentController.upload
@@ -35,7 +35,7 @@ router.post(
 router.delete(
   "/:id/attachments/:attachmentId",
   authMiddleware,
-  authorise("superadmin", "admin", "user"),
+  requirePermission("testcase.update"),
   validate(attachmentParamsSchema),
   TestCaseAttachmentController.remove
 );

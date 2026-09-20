@@ -2,7 +2,7 @@
 const router = require("express").Router();
 const { validate } = require("../../../shared/middleware/validate.middleware");
 const { authMiddleware } = require("../../../shared/middleware/auth.middleware");
-const { authorise } = require("../../../shared/middleware/authorise.middleware");
+const { requirePermission } = require("../../../shared/access/can");
 const {
   createTestRunSchema,
   updateTestRunSchema,
@@ -12,33 +12,33 @@ const {
 } = require("../validators/testRun.schema");
 const { TestRunController } = require("../controllers/testRun.controller");
 
-router.get("/", authMiddleware, authorise("superadmin", "admin", "user"), validate(fetchTestRunsSchema), TestRunController.fetchAll);
+router.get("/", authMiddleware, requirePermission("run.read"), validate(fetchTestRunsSchema), TestRunController.fetchAll);
 router.get(
   "/active-status",
   authMiddleware,
-  authorise("superadmin", "admin", "user"),
+  requirePermission("run.read"),
   validate(fetchActiveStatusSchema),
   TestRunController.fetchActiveStatus
 );
-router.get("/:id", authMiddleware, authorise("superadmin", "admin", "user"), validate(idParamSchema), TestRunController.fetchById);
+router.get("/:id", authMiddleware, requirePermission("run.read"), validate(idParamSchema), TestRunController.fetchById);
 router.post(
   "/",
   authMiddleware,
-  authorise("superadmin", "admin", "user"),
+  requirePermission("run.create"),
   validate(createTestRunSchema),
   TestRunController.create
 );
 router.patch(
   "/:id",
   authMiddleware,
-  authorise("superadmin", "admin", "user"),
+  requirePermission("run.update"),
   validate(updateTestRunSchema),
   TestRunController.update
 );
 router.delete(
   "/:id",
   authMiddleware,
-  authorise("superadmin", "admin", "user"),
+  requirePermission("run.delete"),
   validate(idParamSchema),
   TestRunController.remove
 );

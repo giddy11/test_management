@@ -16,6 +16,9 @@ const createUserSchema = z.object({
       .regex(/[A-Z]/, "Must contain an uppercase letter")
       .regex(/[0-9]/, "Must contain a number"),
     role: z.enum(assignableRoles).default("user"),
+    // Roles & access: the roles to grant the new account. Omitted means the
+    // built-in role their legacy role maps to (see UserService.createUser).
+    roleIds: z.array(z.string().uuid()).max(20).optional(),
   }),
 });
 

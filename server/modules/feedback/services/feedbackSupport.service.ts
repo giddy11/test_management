@@ -112,8 +112,13 @@ export class FeedbackSupportService {
   }
 
   // Every portal call must come from a supporter with a company. Returns the id.
+  //
+  // This is record-level SCOPING, not a permission check — the route already
+  // required supportqueue.*. It is what stops an organisation administrator,
+  // who holds every permission in the catalog, from reaching a client
+  // company queue: they have no client company of their own to be scoped to.
   private requireCompany(actor: Actor): string {
-    if (actor.role !== UserRole.IT_SUPPORT || !actor.clientCompanyId) {
+    if (!actor.clientCompanyId) {
       throw new AppError("Only IT supporters can access the support queue", 403);
     }
     return actor.clientCompanyId;

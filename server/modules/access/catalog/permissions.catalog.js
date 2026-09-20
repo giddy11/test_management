@@ -154,7 +154,11 @@ const PERMISSIONS = [
   { code: "supportqueue.send", category: "support", label: "Notify submitters", description: "Email the end user about their item." },
   { code: "company.read", category: "support", label: "View client companies", description: "See client company records." },
   { code: "company.manage", category: "support", label: "Manage client companies", description: "Create, edit and delete client companies." },
-  { code: "company.configure", category: "support", label: "Configure a client company", description: "Auto-assign rules and the primary lead." },
+  // Deliberately NOT bundled with designating the primary lead, which is the
+  // product team's call and never self-service. Auto-assign is the opposite:
+  // the company's own routing rule. Both were one "configure" permission at
+  // first, which quietly handed each audience the other's power.
+  { code: "company.autoassign", category: "support", label: "Configure auto-assign", description: "Set how incoming queue items are routed within a client company." },
   { code: "supporter.manage", category: "support", label: "Manage supporters", description: "Add, remove and promote a company's IT supporters." },
 
   // ── Conversations & broadcasts ─────────────────────────────────────────────
@@ -231,13 +235,13 @@ const TESTER_REMOVES = [
 const SUPPORT_LEAD_PERMISSIONS = [
   "supportqueue.read", "supportqueue.update", "supportqueue.assign",
   "supportqueue.resolve", "supportqueue.escalate", "supportqueue.send",
-  "company.read", "company.configure", "supporter.manage",
+  "company.read", "company.autoassign", "supporter.manage",
   "audit.read", "sla.read",
 ];
 
 // An agent works their own items; routing work and changing the roster are the
 // lead's job.
-const SUPPORT_AGENT_REMOVES = ["supportqueue.assign", "company.configure", "supporter.manage"];
+const SUPPORT_AGENT_REMOVES = ["supportqueue.assign", "company.autoassign", "supporter.manage"];
 
 const without = (list, removed) => list.filter((code) => !removed.includes(code));
 
@@ -272,7 +276,10 @@ const BUILTIN_ROLES = [
       "bug.read", "bug.triage", "bug.verify", "bug.close",
       "featurerequest.read", "featurerequest.decide", "featurerequest.vote", "featurerequest.comment",
       "ticket.read", "ticket.assign", "ticket.update", "ticket.resolve", "ticket.close", "ticket.comment",
-      "supportqueue.read", "company.read",
+      // No supportqueue.* — the support portal is the client company's own
+      // queue. The product team sees a company ticket only once it is
+      // escalated, and then through ticket.read like any other ticket.
+      "company.read",
       "livechat.read", "livechat.assign", "livechat.manage",
       "supportchat.read", "notification.send",
       "dashboard.read", "analytics.read", "analytics.team", "sla.read",
@@ -321,8 +328,11 @@ const BUILTIN_ROLES = [
       "bug.read", "bug.create", "featurerequest.read", "featurerequest.create",
       "ticket.read", "ticket.assign", "ticket.update", "ticket.resolve", "ticket.close",
       "ticket.delete", "ticket.comment", "form.configure",
-      "supportqueue.read",
-      "company.read", "company.manage", "company.configure", "supporter.manage",
+      // No supportqueue.* here either — managing the companies is the product
+      // team's job; working their queue is not.
+      // No company.autoassign: routing inside a client company is that
+      // company's own lead's call, with no product-team fallback.
+      "company.read", "company.manage", "supporter.manage",
       "livechat.read", "livechat.send", "livechat.assign", "livechat.manage",
       "livechat.configure", "widget.configure",
       "supportchat.read", "supportchat.send", "notification.send",

@@ -18,49 +18,48 @@ import {
 const router = require("express").Router();
 const { validate } = require("../../../shared/middleware/validate.middleware");
 const { authMiddleware } = require("../../../shared/middleware/auth.middleware");
-const { authorise } = require("../../../shared/middleware/authorise.middleware");
+const { requirePermission } = require("../../../shared/access/can");
 const { uploadCommentAttachments } = require("../../../shared/middleware/upload.middleware");
 
-const supportOnly = [authMiddleware, authorise("it_support")];
 
-router.get("/", ...supportOnly, validate(supportQueueSchema), FeedbackSupportController.fetchQueue);
+router.get("/", authMiddleware, requirePermission("supportqueue.read"), validate(supportQueueSchema), FeedbackSupportController.fetchQueue);
 // Leads only (service-enforced) — the teammate list for the assign dropdown.
-router.get("/teammates", ...supportOnly, FeedbackSupportController.teammates);
+router.get("/teammates", authMiddleware, requirePermission("supportqueue.assign"), FeedbackSupportController.teammates);
 // Working-stage progression (logged → acknowledged → investigating), strictly sequential.
 router.patch(
   "/:id",
-  ...supportOnly,
+  authMiddleware, requirePermission("supportqueue.update"),
   validate(updateSupportStatusSchema),
   FeedbackSupportController.updateStatus
 );
 // Leads only (service-enforced) — route an item to a teammate, or unassign.
 router.patch(
   "/:id/assign",
-  ...supportOnly,
+  authMiddleware, requirePermission("supportqueue.assign"),
   validate(assignSupportItemSchema),
   FeedbackSupportController.assign
 );
 router.get(
   "/:id/history",
-  ...supportOnly,
+  authMiddleware, requirePermission("supportqueue.read"),
   validate(supportItemParamSchema),
   FeedbackSupportController.history
 );
 router.post(
   "/:id/resolve",
-  ...supportOnly,
+  authMiddleware, requirePermission("supportqueue.resolve"),
   validate(resolveSupportSchema),
   FeedbackSupportController.resolve
 );
 router.post(
   "/:id/escalate",
-  ...supportOnly,
+  authMiddleware, requirePermission("supportqueue.escalate"),
   validate(escalateSupportSchema),
   FeedbackSupportController.escalate
 );
 router.post(
   "/:id/notify-submitter",
-  ...supportOnly,
+  authMiddleware, requirePermission("supportqueue.send"),
   validate(notifySubmitterSchema),
   FeedbackSupportController.notifySubmitter
 );
@@ -70,13 +69,13 @@ router.post(
 // company's supporters can read.
 router.get(
   "/:id/comments",
-  ...supportOnly,
+  authMiddleware, requirePermission("supportqueue.read"),
   validate(fetchFeedbackCommentsSchema),
   FeedbackCommentController.list
 );
 router.post(
   "/:id/comments",
-  ...supportOnly,
+  authMiddleware, requirePermission("supportqueue.update"),
   uploadCommentAttachments("attachments"),
   validate(addFeedbackCommentSchema),
   FeedbackCommentController.create

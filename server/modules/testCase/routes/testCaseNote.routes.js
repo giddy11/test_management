@@ -2,7 +2,7 @@
 const router = require("express").Router();
 const { validate } = require("../../../shared/middleware/validate.middleware");
 const { authMiddleware } = require("../../../shared/middleware/auth.middleware");
-const { authorise } = require("../../../shared/middleware/authorise.middleware");
+const { requirePermission } = require("../../../shared/access/can");
 const {
   testCaseIdParamSchema,
   createNoteSchema,
@@ -14,7 +14,7 @@ const { TestCaseNoteController } = require("../controllers/testCaseNote.controll
 router.get(
   "/:id/notes",
   authMiddleware,
-  authorise("superadmin", "admin", "user"),
+  requirePermission("note.read"),
   validate(testCaseIdParamSchema),
   TestCaseNoteController.list
 );
@@ -23,7 +23,7 @@ router.get(
 router.get(
   "/:id/run-notes",
   authMiddleware,
-  authorise("superadmin", "admin", "user"),
+  requirePermission("note.read"),
   validate(testCaseIdParamSchema),
   TestCaseNoteController.listRunNotes
 );
@@ -32,7 +32,7 @@ router.get(
 router.post(
   "/:id/notes",
   authMiddleware,
-  authorise("superadmin", "admin", "user"),
+  requirePermission("note.manage"),
   validate(createNoteSchema),
   TestCaseNoteController.create
 );
@@ -41,7 +41,7 @@ router.post(
 router.delete(
   "/:id/notes/:noteId",
   authMiddleware,
-  authorise("superadmin", "admin", "user"),
+  requirePermission("note.manage"),
   validate(noteParamsSchema),
   TestCaseNoteController.remove
 );

@@ -1,6 +1,9 @@
 // modules/auth/controllers/auth.controller.js
 // Thin coordinators. Read req.validated, call the service, return ApiResponse.
 const { AuthService } = require("../services/auth.service");
+const {
+  AccessRepository,
+} = require("../../access/repositories/access.repository");
 const { ApiResponse } = require("../../../shared/response/apiResponse");
 const { toAuthResponse, toUserResponse } = require("../dto/auth.dto");
 
@@ -150,6 +153,11 @@ class AuthController {
       if (!user) {
         return res.status(404).json(ApiResponse.error("User not found", 404));
       }
+      // The client builds its can() from these. They are resolved server-side on
+      // every request, so this is always the caller's current access, not a
+      // snapshot from whenever their token was issued.
+      user.roles = await AccessRepository.Instance.rolesForUser(user.id);
+      user.permissions = req.user.permissions;
       res.status(200).json(ApiResponse.ok("Current user", toUserResponse(user)));
     } catch (err) {
       next(err);

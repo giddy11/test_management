@@ -9,15 +9,13 @@ import { slaFiltersSchema, slaTicketsSchema, updateSlaSettingsSchema } from "../
 const router = require("express").Router();
 const { validate } = require("../../../shared/middleware/validate.middleware");
 const { authMiddleware } = require("../../../shared/middleware/auth.middleware");
-const { authorise } = require("../../../shared/middleware/authorise.middleware");
+const { requirePermission } = require("../../../shared/access/can");
 
-const viewers = [authMiddleware, authorise("superadmin", "admin", "user", "it_support")];
-const editors = [authMiddleware, authorise("superadmin", "admin")];
 
-router.get("/overview", ...viewers, validate(slaFiltersSchema), SlaController.overview);
-router.get("/tickets", ...viewers, validate(slaTicketsSchema), SlaController.tickets);
-router.get("/filters", ...viewers, SlaController.filterOptions);
-router.get("/settings", ...viewers, SlaController.getSettings);
-router.put("/settings", ...editors, validate(updateSlaSettingsSchema), SlaController.updateSettings);
+router.get("/overview", authMiddleware, requirePermission("sla.read"), validate(slaFiltersSchema), SlaController.overview);
+router.get("/tickets", authMiddleware, requirePermission("sla.read"), validate(slaTicketsSchema), SlaController.tickets);
+router.get("/filters", authMiddleware, requirePermission("sla.read"), SlaController.filterOptions);
+router.get("/settings", authMiddleware, requirePermission("sla.read"), SlaController.getSettings);
+router.put("/settings", authMiddleware, requirePermission("sla.configure"), validate(updateSlaSettingsSchema), SlaController.updateSettings);
 
 module.exports = router;

@@ -9,14 +9,14 @@ import {
 const router = require("express").Router();
 const { validate } = require("../../../shared/middleware/validate.middleware");
 const { authMiddleware } = require("../../../shared/middleware/auth.middleware");
-const { authorise } = require("../../../shared/middleware/authorise.middleware");
+const { requireAuthenticatedOnly, requirePermission } = require("../../../shared/access/can");
 
 // Publishing announcements is the platform owner's job.
-router.get("/", authMiddleware, authorise("superadmin"), AppUpdateController.fetchAll);
+router.get("/", authMiddleware, requirePermission("announcement.manage"), AppUpdateController.fetchAll);
 router.post(
   "/",
   authMiddleware,
-  authorise("superadmin"),
+  requirePermission("announcement.manage"),
   validate(createAppUpdateSchema),
   AppUpdateController.create
 );
@@ -24,7 +24,7 @@ router.post(
 router.post(
   "/bulk",
   authMiddleware,
-  authorise("superadmin"),
+  requirePermission("announcement.manage"),
   validate(createBulkAppUpdateSchema),
   AppUpdateController.createBulk
 );
@@ -32,14 +32,14 @@ router.post(
 router.delete(
   "/bulk",
   authMiddleware,
-  authorise("superadmin"),
+  requirePermission("announcement.manage"),
   validate(deleteBulkAppUpdateSchema),
   AppUpdateController.deleteBulk
 );
 
 // Any authenticated user can see the what's-new modal — visibility of the
 // underlying announcements is filtered by audience in the service/repository.
-router.get("/unseen", authMiddleware, AppUpdateController.fetchUnseen);
-router.post("/seen", authMiddleware, AppUpdateController.markSeen);
+router.get("/unseen", authMiddleware, requireAuthenticatedOnly("Own what's-new state"), AppUpdateController.fetchUnseen);
+router.post("/seen", authMiddleware, requireAuthenticatedOnly("Own what's-new state"), AppUpdateController.markSeen);
 
 module.exports = router;

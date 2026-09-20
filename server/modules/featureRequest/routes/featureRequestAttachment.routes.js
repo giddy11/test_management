@@ -2,7 +2,7 @@
 const router = require("express").Router();
 const { validate } = require("../../../shared/middleware/validate.middleware");
 const { authMiddleware } = require("../../../shared/middleware/auth.middleware");
-const { authorise } = require("../../../shared/middleware/authorise.middleware");
+const { requirePermission } = require("../../../shared/access/can");
 const { uploadMany } = require("../../../shared/middleware/upload.middleware");
 const {
   featureRequestIdParamSchema,
@@ -16,7 +16,7 @@ const {
 router.get(
   "/:id/attachments",
   authMiddleware,
-  authorise("superadmin", "admin", "user"),
+  requirePermission("featurerequest.read"),
   validate(featureRequestIdParamSchema),
   FeatureRequestAttachmentController.list
 );
@@ -25,7 +25,7 @@ router.get(
 router.post(
   "/:id/attachments",
   authMiddleware,
-  authorise("superadmin", "admin", "user"),
+  requirePermission("featurerequest.update"),
   uploadMany("images", 10), // ① parse + validate files
   validate(featureRequestIdParamSchema), // ② validate params
   FeatureRequestAttachmentController.upload
@@ -35,7 +35,7 @@ router.post(
 router.delete(
   "/:id/attachments/:attachmentId",
   authMiddleware,
-  authorise("superadmin", "admin", "user"),
+  requirePermission("featurerequest.update"),
   validate(attachmentParamsSchema),
   FeatureRequestAttachmentController.remove
 );

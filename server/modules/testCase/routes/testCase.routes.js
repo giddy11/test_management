@@ -2,7 +2,7 @@
 const router = require("express").Router();
 const { validate } = require("../../../shared/middleware/validate.middleware");
 const { authMiddleware } = require("../../../shared/middleware/auth.middleware");
-const { authorise } = require("../../../shared/middleware/authorise.middleware");
+const { requirePermission } = require("../../../shared/access/can");
 const {
   createTestCaseSchema,
   updateTestCaseSchema,
@@ -13,26 +13,26 @@ const {
 } = require("../validators/testCase.schema");
 const { TestCaseController } = require("../controllers/testCase.controller");
 
-router.get("/", authMiddleware, authorise("superadmin", "admin", "user"), validate(fetchTestCasesSchema), TestCaseController.fetchAll);
-router.get("/:id", authMiddleware, authorise("superadmin", "admin", "user"), validate(idParamSchema), TestCaseController.fetchById);
+router.get("/", authMiddleware, requirePermission("testcase.read"), validate(fetchTestCasesSchema), TestCaseController.fetchAll);
+router.get("/:id", authMiddleware, requirePermission("testcase.read"), validate(idParamSchema), TestCaseController.fetchById);
 router.post(
   "/",
   authMiddleware,
-  authorise("superadmin", "admin", "user"),
+  requirePermission("testcase.create"),
   validate(createTestCaseSchema),
   TestCaseController.create
 );
 router.patch(
   "/:id",
   authMiddleware,
-  authorise("superadmin", "admin", "user"),
+  requirePermission("testcase.update"),
   validate(updateTestCaseSchema),
   TestCaseController.update
 );
 router.delete(
   "/:id",
   authMiddleware,
-  authorise("superadmin", "admin", "user"),
+  requirePermission("testcase.delete"),
   validate(idParamSchema),
   TestCaseController.remove
 );
@@ -41,7 +41,7 @@ router.delete(
 router.patch(
   "/assignees/bulk",
   authMiddleware,
-  authorise("superadmin", "admin", "user"),
+  requirePermission("testcase.assign"),
   validate(bulkAssignTestCaseSchema),
   TestCaseController.bulkAssign
 );
@@ -50,7 +50,7 @@ router.patch(
 router.patch(
   "/:id/assignees",
   authMiddleware,
-  authorise("superadmin", "admin", "user"),
+  requirePermission("testcase.assign"),
   validate(assignTestCaseSchema),
   TestCaseController.assign
 );

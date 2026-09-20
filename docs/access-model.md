@@ -204,11 +204,11 @@ a **Built-in** badge and the note:
 |---|---|---:|---|
 | Super administrator | built-in, **locked** | `*` | `superadmin` |
 | Organisation administrator | built-in | 89 (all) | `admin` |
-| QA manager | built-in | 47 | — (new) |
+| QA manager | built-in | 46 | — (new) |
 | Test lead | built-in | 42 | `user` + `project_members.role = team_lead` |
 | QA engineer | built-in | 30 | `user` |
 | Tester | built-in | 21 | — (new) |
-| Support manager | built-in | 34 | — (new, product-side) |
+| Support manager | built-in | 33 | — (new, product-side) |
 | Support lead | built-in | 11 | `it_support` + `is_support_lead` |
 | Support agent | built-in | 8 | `it_support` |
 | Viewer | built-in | 12 | — (new) |
@@ -222,7 +222,7 @@ Every permission in the catalog. The everyday owner role for a customer organisa
 deliberately distinct from the locked super role: it can be edited, and its holders are still
 confined to their own organisation by scoping.
 
-### 3.3 QA manager — 47
+### 3.3 QA manager — 46
 Approval and closure authority with full visibility, and **no operational data entry**. Sets
 quality policy; does not run tests.
 
@@ -236,7 +236,7 @@ run.read, run.create, run.update, run.close, result.read, result.amend,
 bug.read, bug.triage, bug.verify, bug.close,
 featurerequest.read, featurerequest.decide, featurerequest.vote, featurerequest.comment,
 ticket.read, ticket.assign, ticket.update, ticket.resolve, ticket.close, ticket.comment,
-supportqueue.read, company.read,
+company.read,
 livechat.read, livechat.assign, livechat.manage, supportchat.read, notification.send,
 dashboard.read, analytics.read, analytics.team, sla.read
 ```
@@ -268,7 +268,7 @@ dashboard.read, analytics.read, sla.read
 `bug.delete`, `featurerequest.decide`, `featurerequest.delete`, `ticket.close`,
 `analytics.team`, and everything in Organisation & platform beyond `organisation.read`.
 
-> QA manager (47) and Test lead (42) are close in size but deliberately different in kind.
+> QA manager (46) and Test lead (42) are close in size but deliberately different in kind.
 > The manager approves and never enters; the lead enters and approves within their own
 > projects. Compare the two "notably lacks" lists rather than the counts.
 
@@ -304,7 +304,7 @@ ticket.read, ticket.comment,
 livechat.read, dashboard.read
 ```
 
-### 3.7 Support manager — 34
+### 3.7 Support manager — 33
 Product-side owner of customer tickets and client company relationships. No test authoring
 or execution at all — the customer-facing half of the business, fully split from the
 engineering half.
@@ -315,7 +315,7 @@ user.read, project.read,
 bug.read, bug.create, featurerequest.read, featurerequest.create,
 ticket.read, ticket.assign, ticket.update, ticket.resolve, ticket.close,
 ticket.delete, ticket.comment, form.configure,
-supportqueue.read, company.read, company.manage, company.configure, supporter.manage,
+company.read, company.manage, company.configure, supporter.manage,
 livechat.read, livechat.send, livechat.assign, livechat.manage, livechat.configure,
 widget.configure, supportchat.read, supportchat.send, notification.send,
 dashboard.read, analytics.read, sla.read, sla.configure

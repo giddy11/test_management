@@ -2,7 +2,7 @@
 const router = require("express").Router();
 const { validate } = require("../../../shared/middleware/validate.middleware");
 const { authMiddleware } = require("../../../shared/middleware/auth.middleware");
-const { authorise } = require("../../../shared/middleware/authorise.middleware");
+const { requirePermission } = require("../../../shared/access/can");
 const {
   createFeatureRequestSchema,
   updateStatusSchema,
@@ -18,59 +18,59 @@ const { FeatureRequestController } = require("../controllers/featureRequest.cont
 router.get(
   "/",
   authMiddleware,
-  authorise("superadmin", "admin", "user"),
+  requirePermission("featurerequest.read"),
   validate(fetchFeatureRequestsSchema),
   FeatureRequestController.fetchAll
 );
 router.get(
   "/by-code/:code",
   authMiddleware,
-  authorise("superadmin", "admin", "user"),
+  requirePermission("featurerequest.read"),
   validate(codeParamSchema),
   FeatureRequestController.fetchByCode
 );
-router.get("/:id", authMiddleware, authorise("superadmin", "admin", "user"), validate(idParamSchema), FeatureRequestController.fetchById);
+router.get("/:id", authMiddleware, requirePermission("featurerequest.read"), validate(idParamSchema), FeatureRequestController.fetchById);
 router.post(
   "/",
   authMiddleware,
-  authorise("superadmin", "admin", "user"),
+  requirePermission("featurerequest.create"),
   validate(createFeatureRequestSchema),
   FeatureRequestController.create
 );
 router.patch(
   "/:id",
   authMiddleware,
-  authorise("superadmin", "admin", "user"),
+  requirePermission("featurerequest.update"),
   validate(updateStatusSchema),
   FeatureRequestController.updateStatus
 );
 router.delete(
   "/:id",
   authMiddleware,
-  authorise("superadmin", "admin", "user"),
+  requirePermission("featurerequest.delete"),
   validate(idParamSchema),
   FeatureRequestController.remove
 );
-router.post("/:id/vote", authMiddleware, authorise("superadmin", "admin", "user"), validate(idParamSchema), FeatureRequestController.vote);
+router.post("/:id/vote", authMiddleware, requirePermission("featurerequest.vote"), validate(idParamSchema), FeatureRequestController.vote);
 
 router.get(
   "/:id/comments",
   authMiddleware,
-  authorise("superadmin", "admin", "user"),
+  requirePermission("featurerequest.read"),
   validate(fetchCommentsSchema),
   FeatureRequestController.fetchComments
 );
 router.post(
   "/:id/comments",
   authMiddleware,
-  authorise("superadmin", "admin", "user"),
+  requirePermission("featurerequest.comment"),
   validate(commentSchema),
   FeatureRequestController.addComment
 );
 router.delete(
   "/:id/comments/:commentId",
   authMiddleware,
-  authorise("superadmin", "admin", "user"),
+  requirePermission("featurerequest.comment"),
   validate(commentIdParamSchema),
   FeatureRequestController.removeComment
 );
