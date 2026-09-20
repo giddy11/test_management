@@ -205,7 +205,7 @@ a **Built-in** badge and the note:
 | Super administrator | built-in, **locked** | `*` | `superadmin` |
 | Organisation administrator | built-in | 89 (all) | `admin` |
 | QA manager | built-in | 47 | — (new) |
-| Test lead | built-in | 43 | `user` + `project_members.role = team_lead` |
+| Test lead | built-in | 42 | `user` + `project_members.role = team_lead` |
 | QA engineer | built-in | 30 | `user` |
 | Tester | built-in | 21 | — (new) |
 | Support manager | built-in | 34 | — (new, product-side) |
@@ -245,7 +245,7 @@ dashboard.read, analytics.read, analytics.team, sla.read
 `user.update` / `user.delete`, `project.delete`, `result.enter`, `testcase.create` /
 `testcase.update`, `import.run`, `sla.configure`, `form.configure`, `widget.configure`.
 
-### 3.4 Test lead — 43
+### 3.4 Test lead — 42
 Supervisor and approver inside their projects. Enters data *and* approves it, but cannot
 close the loop on published outcomes or touch configuration.
 
@@ -268,7 +268,7 @@ dashboard.read, analytics.read, sla.read
 `bug.delete`, `featurerequest.decide`, `featurerequest.delete`, `ticket.close`,
 `analytics.team`, and everything in Organisation & platform beyond `organisation.read`.
 
-> QA manager (47) and Test lead (43) are close in size but deliberately different in kind.
+> QA manager (47) and Test lead (42) are close in size but deliberately different in kind.
 > The manager approves and never enters; the lead enters and approves within their own
 > projects. Compare the two "notably lacks" lists rather than the counts.
 

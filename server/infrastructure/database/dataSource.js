@@ -81,6 +81,17 @@ const {
   LiveChatAccount,
 } = require("../../modules/liveChat/entities/liveChatAccount.entity");
 const { SlaSettings } = require("../../modules/sla/entities/slaSettings.entity");
+const { Permission } = require("../../modules/access/entities/permission.entity");
+const {
+  PermissionCategory,
+} = require("../../modules/access/entities/permissionCategory.entity");
+const { Role } = require("../../modules/access/entities/role.entity");
+const {
+  RolePermission,
+} = require("../../modules/access/entities/rolePermission.entity");
+const {
+  UserRoleAssignment,
+} = require("../../modules/access/entities/userRole.entity");
 
 const AppDataSource = new DataSource({
   type: "postgres",
@@ -130,6 +141,11 @@ const AppDataSource = new DataSource({
     LiveChatSettings,
     LiveChatAccount,
     SlaSettings,
+    Permission,
+    PermissionCategory,
+    Role,
+    RolePermission,
+    UserRoleAssignment,
   ],
   migrations: ["infrastructure/database/migrations/*.{js,ts}"],
 });

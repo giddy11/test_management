@@ -11,6 +11,9 @@ const {
   notFoundHandler,
   globalErrorHandler,
 } = require("./shared/middleware/errorHandler.middleware");
+const {
+  enforceDeclaredPermissions,
+} = require("./shared/access/routeAudit");
 
 // Module routers
 const authRoutes = require("./modules/auth/routes/auth.routes");
@@ -42,6 +45,7 @@ const supportChatRoutes = require("./modules/supportChat/routes/supportChat.rout
 const liveChatRoutes = require("./modules/liveChat/routes/liveChat.routes");
 const publicLiveChatRoutes = require("./modules/liveChat/routes/publicLiveChat.routes");
 const slaRoutes = require("./modules/sla/routes/sla.routes");
+const accessRoutes = require("./modules/access/routes/access.routes");
 
 function createApp() {
   const app = express();
@@ -84,6 +88,7 @@ function createApp() {
   const api = express.Router();
   api.use(apiRateLimiter);
   api.use("/auth", authRoutes);
+  api.use("/access", accessRoutes); // Roles & access (settings)
   api.use("/users", userRoutes);
   api.use("/projects", projectRoutes);
   api.use("/test-suites", testSuiteRoutes);
@@ -113,6 +118,16 @@ function createApp() {
   api.use("/public/live-chat", publicLiveChatRoutes); // unauthenticated, token-gated (widget)
   api.use("/integrations/companies", integrationClientCompanyRoutes); // server-to-server, unauthenticated
   app.use("/api/v1", api);
+
+  // Deny by default: any route that forgot to declare a permission is spliced
+  // with a denying handler here, and named loudly at boot. See routeAudit.js.
+  const undeclared = enforceDeclaredPermissions(api, "/api/v1");
+  if (undeclared.length) {
+    console.error(
+      `[access] ${undeclared.length} route(s) declare no permission and are now blocked:`
+    );
+    for (const r of undeclared) console.error(`[access]   ${r.method} ${r.path}`);
+  }
 
   // 404 + centralised error handling
   app.use(notFoundHandler);

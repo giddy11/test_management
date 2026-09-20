@@ -15,7 +15,8 @@
     "test": "jest --runInBand",
     "test:watch": "jest --watch",
     "env:apply": "gcloud run services update testmate-api --project testmate-f973c --region us-central1 --env-vars-file env.yaml",
-    "seed:superadmin": "tsx scripts/seedSuperadmin.js"
+    "seed:superadmin": "tsx scripts/seedSuperadmin.js",
+    "seed:access": "tsx scripts/seedAccess.js"
   },
   "engines": {
     "node": ">=20"
