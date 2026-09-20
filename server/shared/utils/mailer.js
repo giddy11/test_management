@@ -1,11 +1,16 @@
 // shared/utils/mailer.js
-// Transport + the single emailLayout() wrapper + all send functions.
+// Transports (Nodemailer SMTP or Google Apps Script, picked by EMAIL_PROVIDER) +
+// the single emailLayout() wrapper + all send functions.
 // Email failures are fire-and-forget for callers — they must never throw upstream.
 const nodemailer = require("nodemailer");
 const { env } = require("../../config/env");
 const { UserRepository } = require("../../modules/user/repositories/user.repository");
 
 let transporter = null;
+
+// Apps Script cold starts can take several seconds; don't let a hung request
+// pin a fire-and-forget send forever.
+const SCRIPT_TIMEOUT_MS = 15000;
 
 function getTransporter() {
   if (transporter) return transporter;
@@ -18,7 +23,8 @@ function getTransporter() {
   return transporter;
 }
 
-// Verifies SMTP credentials/connection without sending anything.
+// Verifies SMTP credentials/connection without sending anything. Nodemailer
+// only — an Apps Script web app has no send-free way to be checked.
 async function verifyTransport() {
   return getTransporter().verify();
 }
@@ -78,12 +84,58 @@ function otpBox(code) {
   </div>`;
 }
 
-async function send({ to, subject, html, text }) {
+async function sendViaNodemailer({ to, subject, html, text }) {
   if (!env.email.user || !env.email.password) {
     console.warn("[mailer] EMAIL credentials not set — skipping send to", to);
     return;
   }
   return getTransporter().sendMail({ from: env.email.from, to, subject, html, text });
+}
+
+// Google Apps Script web app. The sender is whichever Google account owns the
+// script, so env.email.from is not used on this path.
+async function sendViaScript({ to, subject, html, text }) {
+  if (!env.email.scriptUrl) {
+    console.warn("[mailer] EMAIL_SCRIPT_URL not set — skipping send to", to);
+    return;
+  }
+  // fetch follows the web app's redirect to script.googleusercontent.com (the
+  // `curl -L`), which is where the script's response actually lives.
+  const res = await fetch(env.email.scriptUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      to: Array.isArray(to) ? to.join(",") : to,
+      subject,
+      htmlBody: html,
+      body: text,
+    }),
+    signal: AbortSignal.timeout(SCRIPT_TIMEOUT_MS),
+  });
+  const raw = await res.text();
+  if (!res.ok) throw new Error(`Apps Script responded ${res.status}: ${raw.slice(0, 200)}`);
+  // Apps Script answers 200 with an HTML page both when the script crashes and
+  // when the deployment demands a Google login, so a 2xx alone proves nothing.
+  if ((res.headers.get("content-type") || "").includes("text/html")) {
+    throw new Error(
+      'Apps Script returned an HTML page — check the script\'s execution log and that the web app is deployed with access "Anyone"'
+    );
+  }
+  let data;
+  try {
+    data = JSON.parse(raw);
+  } catch {
+    return; // plain-text success
+  }
+  if (data && (data.success === false || data.status === "error" || data.error)) {
+    throw new Error(`Apps Script rejected the email: ${data.error || data.message || raw.slice(0, 200)}`);
+  }
+}
+
+// Chosen per call from env.email.provider (EMAIL_PROVIDER), so flipping the
+// setting needs no code change. Every send*Email below funnels through here.
+async function send(message) {
+  return env.email.provider === "script" ? sendViaScript(message) : sendViaNodemailer(message);
 }
 
 // ── Email verification (on registration) ───────────────────────────────────────

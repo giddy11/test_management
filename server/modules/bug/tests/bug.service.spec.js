@@ -339,6 +339,107 @@ describe("BugService", () => {
       await Promise.resolve();
       expect(notificationService.notifyBugAssigned).toHaveBeenCalled();
     });
+
+    describe("editing the report's content", () => {
+      it("lets the reporter (a plain user) correct their own bug", async () => {
+        bugRepo.findById.mockResolvedValue(bug); // reportedById: "user-1"
+        bugRepo.update.mockResolvedValue({ ...bug, title: "Login button broken on Safari" });
+        await service.manageBug(user, "bug-1", {
+          title: "Login button broken on Safari",
+          stepsToReproduce: ["Open Safari", "Click sign in"],
+        });
+        expect(projectService.assertCanManageProject).not.toHaveBeenCalled();
+        expect(bugRepo.update).toHaveBeenCalledWith("bug-1", {
+          title: "Login button broken on Safari",
+          stepsToReproduce: ["Open Safari", "Click sign in"],
+        });
+      });
+
+      it("forbids a plain user who isn't the reporter", async () => {
+        bugRepo.findById.mockResolvedValue({ ...bug, reportedById: "someone-else" });
+        await expect(service.manageBug(user, "bug-1", { title: "Hijacked" })).rejects.toMatchObject({
+          statusCode: 403,
+        });
+        expect(bugRepo.update).not.toHaveBeenCalled();
+      });
+
+      it("lets an admin edit a bug someone else reported", async () => {
+        bugRepo.findById.mockResolvedValue(bug);
+        bugRepo.update.mockResolvedValue({ ...bug, description: "Fixed typo" });
+        await service.manageBug(admin, "bug-1", { description: "Fixed typo" });
+        expect(bugRepo.update).toHaveBeenCalledWith("bug-1", { description: "Fixed typo" });
+      });
+
+      it("forbids the reporter from also changing priority (drives SLA targets)", async () => {
+        bugRepo.findById.mockResolvedValue(bug);
+        await expect(
+          service.manageBug(user, "bug-1", { title: "New title", priority: "Low" })
+        ).rejects.toMatchObject({ statusCode: 403 });
+        expect(bugRepo.update).not.toHaveBeenCalled();
+      });
+
+      it("forbids the reporter from changing status or assignee", async () => {
+        bugRepo.findById.mockResolvedValue(bug);
+        await expect(service.manageBug(user, "bug-1", { status: "Closed" })).rejects.toMatchObject({
+          statusCode: 403,
+        });
+        await expect(service.manageBug(user, "bug-1", { assignedToId: "dev-1" })).rejects.toMatchObject({
+          statusCode: 403,
+        });
+      });
+
+      it("clears optional fields when null is sent", async () => {
+        bugRepo.findById.mockResolvedValue(bug);
+        bugRepo.update.mockResolvedValue(bug);
+        await service.manageBug(user, "bug-1", {
+          expectedBehavior: null,
+          actualBehavior: null,
+          environment: null,
+          testCaseId: null,
+          stepsToReproduce: [],
+        });
+        expect(bugRepo.update).toHaveBeenCalledWith("bug-1", {
+          expectedBehavior: null,
+          actualBehavior: null,
+          environment: null,
+          testCaseId: null,
+          stepsToReproduce: [],
+        });
+      });
+
+      it("rejects re-linking to a test case from another project (422)", async () => {
+        bugRepo.findById.mockResolvedValue(bug);
+        testCaseRepo.findById.mockResolvedValue({ id: "case-1", suiteId: "suite-1" });
+        testSuiteRepo.findById.mockResolvedValue({ id: "suite-1", projectId: "proj-other" });
+        await expect(service.manageBug(user, "bug-1", { testCaseId: "case-1" })).rejects.toMatchObject({
+          statusCode: 422,
+        });
+        expect(bugRepo.update).not.toHaveBeenCalled();
+      });
+
+      it("accepts a test case from the same project", async () => {
+        bugRepo.findById.mockResolvedValue(bug);
+        bugRepo.update.mockResolvedValue({ ...bug, testCaseId: "case-1" });
+        testCaseRepo.findById.mockResolvedValue({ id: "case-1", suiteId: "suite-1" });
+        testSuiteRepo.findById.mockResolvedValue({ id: "suite-1", projectId: "proj-1" });
+        await service.manageBug(user, "bug-1", { testCaseId: "case-1" });
+        expect(bugRepo.update).toHaveBeenCalledWith("bug-1", { testCaseId: "case-1" });
+      });
+
+      it("doesn't touch status timestamps, history or notifications", async () => {
+        bugRepo.findById.mockResolvedValue(bug);
+        bugRepo.update.mockResolvedValue({ ...bug, title: "Renamed" });
+        await service.manageBug(user, "bug-1", { title: "Renamed" });
+        await Promise.resolve();
+        expect(bugRepo.update).toHaveBeenCalledWith(
+          "bug-1",
+          expect.not.objectContaining({ statusUpdatedAt: expect.anything(), firstResponseAt: expect.anything() })
+        );
+        expect(historyRepo.create).not.toHaveBeenCalled();
+        expect(notificationService.notifyBugStatusChanged).not.toHaveBeenCalled();
+        expect(notificationService.notifyBugAssigned).not.toHaveBeenCalled();
+      });
+    });
   });
 
   describe("deleteBug", () => {

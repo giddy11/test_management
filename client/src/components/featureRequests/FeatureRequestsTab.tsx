@@ -15,13 +15,18 @@ import { FeatureRequestCard } from "@/components/featureRequests/FeatureRequestC
 import { FeatureRequestFormDialog } from "@/components/featureRequests/FeatureRequestFormDialog"
 import { useFeatureRequests } from "@/hooks/useFeatureRequests"
 import { useDebounce } from "@/hooks/useDebounce"
+import { usePersistedState } from "@/hooks/usePersistedState"
 import { FEATURE_REQUEST_STATUSES, FEATURE_REQUEST_STATUS_META, type FeatureRequestStatus } from "@/lib/enums"
 
 export function FeatureRequestsTab({ projectId }: { projectId: string }) {
-  const [searchInput, setSearchInput] = useState("")
+  // Filters persist per project so they survive opening a request and coming back.
+  const [searchInput, setSearchInput] = usePersistedState(`feature-requests:search:${projectId}`, "")
   const search = useDebounce(searchInput, 300)
-  const [status, setStatus] = useState<FeatureRequestStatus | undefined>()
-  const [sort, setSort] = useState<"top" | "newest">("top")
+  const [status, setStatus] = usePersistedState<FeatureRequestStatus | null>(
+    `feature-requests:status:${projectId}`,
+    null
+  )
+  const [sort, setSort] = usePersistedState<"top" | "newest">(`feature-requests:sort:${projectId}`, "top")
   const [page, setPage] = useState(1)
   const [formOpen, setFormOpen] = useState(false)
 
@@ -30,13 +35,13 @@ export function FeatureRequestsTab({ projectId }: { projectId: string }) {
   const { data, isLoading, isError, error } = useFeatureRequests(projectId, {
     page,
     limit: 20,
-    status,
+    status: status ?? undefined,
     sort,
     search: search || undefined,
   })
   const requests = data?.data ?? []
 
-  const filterValue = (v: string) => (v === "all" ? undefined : v)
+  const filterValue = (v: string) => (v === "all" ? null : v)
 
   return (
     <div className="space-y-4">
@@ -49,7 +54,7 @@ export function FeatureRequestsTab({ projectId }: { projectId: string }) {
         />
         <Select
           value={status ?? "all"}
-          onValueChange={(v) => { setStatus(filterValue(v) as FeatureRequestStatus | undefined); setPage(1) }}
+          onValueChange={(v) => { setStatus(filterValue(v) as FeatureRequestStatus | null); setPage(1) }}
         >
           <SelectTrigger className="sm:w-[160px]"><SelectValue placeholder="Status" /></SelectTrigger>
           <SelectContent>

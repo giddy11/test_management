@@ -18,6 +18,10 @@ const createBugSchema = z.object({
   }),
 });
 
+// One PATCH covers both triage (status/severity/priority/assignee — managers
+// only) and correcting the report itself (title … testCaseId — the reporter or
+// a manager). The permission split lives in BugService.manageBug. Optional text
+// fields are nullable so a mistaken value can be cleared, not just replaced.
 const manageBugSchema = z.object({
   params: z.object({ id: z.string().uuid() }),
   body: z
@@ -26,6 +30,13 @@ const manageBugSchema = z.object({
       severity: z.enum(enums.bugSeverity).optional(),
       priority: z.enum(enums.bugPriority).optional(),
       assignedToId: z.string().uuid().nullable().optional(),
+      title: z.string().min(1).max(200).optional(),
+      description: z.string().min(1).max(3000).optional(),
+      stepsToReproduce: z.array(z.string().min(1).max(500)).max(30).optional(),
+      expectedBehavior: z.string().max(2000).nullable().optional(),
+      actualBehavior: z.string().max(2000).nullable().optional(),
+      environment: z.string().max(255).nullable().optional(),
+      testCaseId: z.string().uuid().nullable().optional(),
     })
     .refine((b) => Object.keys(b).length > 0, {
       message: "At least one field must be provided",

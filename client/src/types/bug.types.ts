@@ -48,9 +48,18 @@ export interface CreateBugPayload {
   testRunId?: string
 }
 
+// PATCH /bugs/:id takes triage fields (managers only) and/or corrections to the
+// report itself (reporter or manager). Optional text is nullable so it can be cleared.
 export interface ManageBugPayload {
   status?: BugStatus
   severity?: BugSeverity
   priority?: BugPriority
   assignedToId?: string | null
+  title?: string
+  description?: string
+  stepsToReproduce?: string[]
+  expectedBehavior?: string | null
+  actualBehavior?: string | null
+  environment?: string | null
+  testCaseId?: string | null
 }

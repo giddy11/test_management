@@ -19,6 +19,17 @@ function bool(key, fallback = false) {
 
 const isProduction = process.env.NODE_ENV === "production";
 
+// How outgoing email is delivered: Gmail SMTP via Nodemailer, or a Google Apps
+// Script web app. Fail fast on a typo — silently falling back would send mail
+// through a different channel than the one the operator asked for.
+const EMAIL_PROVIDERS = ["nodemailer", "script"];
+const emailProvider = (process.env.EMAIL_PROVIDER || "nodemailer").trim().toLowerCase();
+if (!EMAIL_PROVIDERS.includes(emailProvider)) {
+  throw new Error(
+    `Invalid EMAIL_PROVIDER "${process.env.EMAIL_PROVIDER}" — expected one of: ${EMAIL_PROVIDERS.join(", ")}`
+  );
+}
+
 const env = {
   nodeEnv: process.env.NODE_ENV || "development",
   isProduction,
@@ -57,9 +68,14 @@ const env = {
   },
 
   email: {
+    // "nodemailer" (uses user/password) or "script" (uses scriptUrl).
+    provider: emailProvider,
     user: process.env.EMAIL_USER || "",
     password: process.env.EMAIL_PASSWORD || "",
     from: process.env.EMAIL_FROM || "TestMate <no-reply@testmate.app>",
+    // Google Apps Script web-app /exec URL. Treat as a secret: anyone who has
+    // it can send mail as the script owner. Ignored unless provider is "script".
+    scriptUrl: process.env.EMAIL_SCRIPT_URL || "",
   },
 
   cloudinary: {

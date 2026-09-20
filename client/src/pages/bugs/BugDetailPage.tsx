@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { Link, useNavigate, useParams } from "react-router-dom"
-import { ChevronLeft, Pencil, Trash2, ExternalLink, Share2 } from "lucide-react"
+import { ChevronLeft, Pencil, SlidersHorizontal, Trash2, ExternalLink, Share2 } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
@@ -8,10 +8,12 @@ import { PageLoader } from "@/components/shared/PageLoader"
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog"
 import { BugSeverityBadge, BugPriorityBadge, BugStatusBadge } from "@/components/shared/StatusBadge"
 import { BugManageDialog } from "@/components/bugs/BugManageDialog"
+import { BugFormDialog } from "@/components/bugs/BugFormDialog"
 import { BugAttachmentsSection } from "@/components/bugs/BugAttachmentsSection"
 import { useBug, useBugByCode, useDeleteBug } from "@/hooks/useBugs"
 import { useCase } from "@/hooks/useCases"
 import { useCanManageProject } from "@/hooks/useProjects"
+import { useAuth } from "@/contexts/AuthContext"
 import { ApiError } from "@/transport/http"
 
 function LinkedTestCase({ projectId, testCaseId }: { projectId: string; testCaseId: string }) {
@@ -30,17 +32,23 @@ function LinkedTestCase({ projectId, testCaseId }: { projectId: string; testCase
 export default function BugDetailPage() {
   const { projectId = "", id, code } = useParams()
   const navigate = useNavigate()
+  const { user } = useAuth()
   const canManage = useCanManageProject(projectId)
 
   const byId = useBug(id ?? "")
   const byCode = useBugByCode(code ?? "")
   const { data: bug, isLoading } = code ? byCode : byId
   const del = useDeleteBug()
+  const [editOpen, setEditOpen] = useState(false)
   const [manageOpen, setManageOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
 
   if (isLoading) return <PageLoader />
   if (!bug) return null
+
+  // Reporters can fix mistakes in their own report; triage (Manage/Delete) stays
+  // with admins and team leads — mirrors BugService.manageBug.
+  const canEdit = canManage || (Boolean(user) && bug.reportedBy?.id === user?.id)
 
   const handleShare = () => {
     const url = `${window.location.origin}/projects/${projectId}/bugs/ref/${bug.referenceCode}`
@@ -74,10 +82,15 @@ export default function BugDetailPage() {
           <Button variant="outline" onClick={handleShare} data-cy="bug-share">
             <Share2 className="mr-1 size-4" /> Share
           </Button>
+          {canEdit && (
+            <Button variant="outline" onClick={() => setEditOpen(true)} data-cy="bug-edit">
+              <Pencil className="mr-1 size-4" /> Edit
+            </Button>
+          )}
           {canManage && (
             <>
               <Button variant="outline" onClick={() => setManageOpen(true)} data-cy="bug-manage">
-                <Pencil className="mr-1 size-4" /> Manage
+                <SlidersHorizontal className="mr-1 size-4" /> Manage
               </Button>
               <Button variant="outline" onClick={() => setDeleteOpen(true)} data-cy="bug-delete">
                 <Trash2 className="mr-1 size-4 text-destructive" />
@@ -143,6 +156,7 @@ export default function BugDetailPage() {
 
       <Separator />
 
+      <BugFormDialog open={editOpen} onOpenChange={setEditOpen} projectId={projectId} bug={bug} />
       <BugManageDialog open={manageOpen} onOpenChange={setManageOpen} bug={bug} />
 
       <ConfirmDialog

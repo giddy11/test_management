@@ -23,7 +23,8 @@
   "jest": {
     "testEnvironment": "node",
     "testMatch": [
-      "**/modules/**/tests/**/*.spec.@(js|ts)"
+      "**/modules/**/tests/**/*.spec.@(js|ts)",
+      "**/shared/**/tests/**/*.spec.@(js|ts)"
     ],
     "clearMocks": true,
     "transform": {

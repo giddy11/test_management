@@ -15,6 +15,18 @@ const { AppError } = require("../../../shared/errors/AppError");
 const { parseReferenceCode } = require("../../../shared/utils/referenceCode");
 const { UserRole, BugStatus } = require("../../../config/constants");
 
+// PATCH /bugs/:id fields that need manage rights vs. ones the reporter may fix.
+const TRIAGE_FIELDS = ["status", "severity", "priority", "assignedToId"];
+const CONTENT_FIELDS = [
+  "title",
+  "description",
+  "stepsToReproduce",
+  "expectedBehavior",
+  "actualBehavior",
+  "environment",
+  "testCaseId",
+];
+
 class BugService {
   static Instance = new BugService();
 
@@ -166,13 +178,28 @@ class BugService {
 
   async manageBug(actor, id, data) {
     const bug = await this.getAccessible(actor, id);
-    // Admins/superadmins and the project's team leads can manage bugs.
-    await this.projectService.assertCanManageProject(actor, bug.projectId);
+
+    // Triage fields (status/severity/priority/assignee) are for admins/superadmins
+    // and the project's team leads only — severity/priority also drive the SLA
+    // targets, so a reporter must not be able to relax their own. Fixing a
+    // mistake in the report itself is also open to whoever reported it; a
+    // request that mixes both is treated as triage (all-or-nothing).
+    const touchesTriage = TRIAGE_FIELDS.some((f) => data[f] !== undefined);
+    const isReporter = bug.reportedById === actor.id;
+    if (touchesTriage || !isReporter) {
+      await this.projectService.assertCanManageProject(actor, bug.projectId);
+    }
+    if (data.testCaseId) {
+      await this._assertLinksBelongToProject(bug.projectId, { testCaseId: data.testCaseId });
+    }
 
     const patch = {};
     if (data.severity !== undefined) patch.severity = data.severity;
     if (data.priority !== undefined) patch.priority = data.priority;
     if (data.assignedToId !== undefined) patch.assignedToId = data.assignedToId;
+    for (const field of CONTENT_FIELDS) {
+      if (data[field] !== undefined) patch[field] = data[field];
+    }
 
     const previousStatus = bug.status;
     if (data.status !== undefined) {

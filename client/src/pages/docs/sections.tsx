@@ -571,6 +571,13 @@ const ALL_SECTIONS: DocSection[] = [
           the test case and test run that uncovered them.
         </P>
         <Screenshot caption="A bug report — severity, priority, status, and reproduction steps" src={shotBugs} />
+        <P>
+          Made a mistake? Open the bug and click <Strong>Edit</Strong> to correct the title,
+          description, steps, expected/actual behaviour, environment, or linked test case. The
+          person who reported a bug can edit it, as can admins and the project’s team lead.
+          Severity, priority, status and assignee are changed by admins and team leads through{" "}
+          <Strong>Manage</Strong>.
+        </P>
         <H3>Severity & priority</H3>
         <UL>
           <li>

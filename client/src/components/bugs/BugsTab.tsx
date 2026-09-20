@@ -15,12 +15,14 @@ import { BugCard } from "@/components/bugs/BugCard"
 import { BugFormDialog } from "@/components/bugs/BugFormDialog"
 import { useBugs } from "@/hooks/useBugs"
 import { useDebounce } from "@/hooks/useDebounce"
+import { usePersistedState } from "@/hooks/usePersistedState"
 import { BUG_STATUSES, BUG_STATUS_META, type BugStatus } from "@/lib/enums"
 
 export function BugsTab({ projectId }: { projectId: string }) {
-  const [searchInput, setSearchInput] = useState("")
+  // Filters persist per project so they survive opening a bug and coming back.
+  const [searchInput, setSearchInput] = usePersistedState(`bugs:search:${projectId}`, "")
   const search = useDebounce(searchInput, 300)
-  const [status, setStatus] = useState<BugStatus | undefined>()
+  const [status, setStatus] = usePersistedState<BugStatus | null>(`bugs:status:${projectId}`, null)
   const [page, setPage] = useState(1)
   const [formOpen, setFormOpen] = useState(false)
 
@@ -29,12 +31,12 @@ export function BugsTab({ projectId }: { projectId: string }) {
   const { data, isLoading, isError, error } = useBugs(projectId, {
     page,
     limit: 20,
-    status,
+    status: status ?? undefined,
     search: search || undefined,
   })
   const bugs = data?.data ?? []
 
-  const filterValue = (v: string) => (v === "all" ? undefined : v)
+  const filterValue = (v: string) => (v === "all" ? null : v)
 
   return (
     <div className="space-y-4">
@@ -47,7 +49,7 @@ export function BugsTab({ projectId }: { projectId: string }) {
         />
         <Select
           value={status ?? "all"}
-          onValueChange={(v) => { setStatus(filterValue(v) as BugStatus | undefined); setPage(1) }}
+          onValueChange={(v) => { setStatus(filterValue(v) as BugStatus | null); setPage(1) }}
         >
           <SelectTrigger className="sm:w-[160px]"><SelectValue placeholder="Status" /></SelectTrigger>
           <SelectContent>

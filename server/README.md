@@ -68,8 +68,11 @@ tables); set `DB_SYNCHRONIZE=false` and use migrations in production
 ## Integrations
 - **Cloudinary** (`infrastructure/storage/cloudinaryClient.js` + `shared/services/storage.service.js`)
   — image uploads. Configured via `CLOUDINARY_*`. Used by test-case attachments.
-- **Email** (`shared/utils/mailer.js`) — Gmail SMTP via Nodemailer, one `emailLayout()` brand
-  wrapper. Sends are fire-and-forget so a mail failure never breaks a request.
+- **Email** (`shared/utils/mailer.js`) — one `emailLayout()` brand wrapper. Sends are
+  fire-and-forget so a mail failure never breaks a request. Delivery is chosen by
+  `EMAIL_PROVIDER`: `nodemailer` (default — Gmail SMTP, uses `EMAIL_USER`/`EMAIL_PASSWORD`/`EMAIL_FROM`)
+  or `script` (a Google Apps Script web app, uses `EMAIL_SCRIPT_URL`; mail goes out from the
+  script owner's account, so `EMAIL_FROM` is ignored). Restart after changing it.
 
 ## Test-case attachments (images)
 | Method | Route | Notes |
