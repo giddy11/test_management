@@ -53,7 +53,7 @@ const customRole = {
   isBuiltin: false,
   isLocked: false,
 };
-const builtinRole = { ...customRole, id: "role-builtin", key: "qa_manager", name: "QA manager", isBuiltin: true };
+const builtinRole = { ...customRole, id: "role-builtin", key: "qa_engineer", name: "QA engineer", isBuiltin: true };
 const lockedRole = {
   id: "role-locked",
   organizationId: null,
@@ -80,10 +80,25 @@ describe("AccessService", () => {
       });
     });
 
-    it("lets everyone see the platform-level role", async () => {
+    it("shows the platform-level role to a super administrator", async () => {
       repo.findRoleById.mockResolvedValue(lockedRole);
-      const role = await service.getRole(admin, "role-locked");
+      const role = await service.getRole(superAdmin, "role-locked");
       expect(role.id).toBe("role-locked");
+    });
+
+    it("404s the platform-level role for an organisation administrator", async () => {
+      repo.findRoleById.mockResolvedValue(lockedRole);
+      await expect(service.getRole(admin, "role-locked")).rejects.toMatchObject({
+        statusCode: 404,
+      });
+    });
+
+    it("only asks for the platform-level role when listing for a super administrator", async () => {
+      await service.fetchRoles(admin);
+      expect(repo.fetchRolesForOrg).toHaveBeenLastCalledWith("org-1", { includePlatform: false });
+
+      await service.fetchRoles(superAdmin);
+      expect(repo.fetchRolesForOrg).toHaveBeenLastCalledWith("org-1", { includePlatform: true });
     });
   });
 
@@ -91,9 +106,21 @@ describe("AccessService", () => {
     it("cannot be edited", async () => {
       repo.findRoleById.mockResolvedValue(lockedRole);
       await expect(
-        service.updateRole(admin, "role-locked", { permissions: [] })
+        service.updateRole(superAdmin, "role-locked", { permissions: [] })
       ).rejects.toMatchObject({ statusCode: 403 });
       expect(repo.setRolePermissions).not.toHaveBeenCalled();
+    });
+
+    it("cannot be edited or deleted by an organisation administrator, who cannot see it", async () => {
+      repo.findRoleById.mockResolvedValue(lockedRole);
+      await expect(
+        service.updateRole(admin, "role-locked", { permissions: [] })
+      ).rejects.toMatchObject({ statusCode: 404 });
+      await expect(service.deleteRole(admin, "role-locked")).rejects.toMatchObject({
+        statusCode: 404,
+      });
+      expect(repo.setRolePermissions).not.toHaveBeenCalled();
+      expect(repo.deleteRole).not.toHaveBeenCalled();
     });
 
     it("cannot be deleted, even by a super administrator", async () => {
@@ -107,8 +134,16 @@ describe("AccessService", () => {
     it("cannot be cloned into a second wildcard holder", async () => {
       repo.findRoleById.mockResolvedValue(lockedRole);
       repo.permissionsForRole.mockResolvedValue(["*"]);
-      await service.createRole(admin, { name: "Sneaky", cloneFromId: "role-locked" });
+      await service.createRole(superAdmin, { name: "Sneaky", cloneFromId: "role-locked" });
       expect(repo.setRolePermissions).toHaveBeenCalledWith("new-role", []);
+    });
+
+    it("cannot be cloned by an organisation administrator, who cannot see it", async () => {
+      repo.findRoleById.mockResolvedValue(lockedRole);
+      await expect(
+        service.createRole(admin, { name: "Sneaky", cloneFromId: "role-locked" })
+      ).rejects.toMatchObject({ statusCode: 404 });
+      expect(repo.createRole).not.toHaveBeenCalled();
     });
   });
 
@@ -293,13 +328,151 @@ describe("AccessService", () => {
     it("lets only a super administrator hand out the locked role", async () => {
       repo.findRoleById.mockResolvedValue(lockedRole);
       repo.permissionsForRole.mockResolvedValue(["*"]);
+      // An organisation administrator cannot even see it, so it 404s.
       await expect(
         service.setUserRoles(admin, "someone", ["role-locked"])
-      ).rejects.toMatchObject({ statusCode: 403 });
+      ).rejects.toMatchObject({ statusCode: 404 });
+      expect(repo.setUserRoles).not.toHaveBeenCalled();
 
       repo.superAdminUserIds.mockResolvedValue(["super-1", "other-super"]);
       await service.setUserRoles(superAdmin, "someone", ["role-locked"]);
       expect(repo.setUserRoles).toHaveBeenCalledWith("someone", ["role-locked"], "super-1");
+    });
+  });
+
+  // The admin holds project.* but not the client company's support queue, so a
+  // role like Support lead carries permissions the admin cannot see or grant.
+  describe("permissions the actor does not hold", () => {
+    const supportLead = {
+      ...builtinRole,
+      id: "role-support",
+      key: "support_lead",
+      name: "Support lead",
+    };
+    const supportLeadCodes = ["project.read", "supportqueue.read", "supportqueue.send"];
+
+    it("leaves them out of the catalog, and drops a category left empty", async () => {
+      repo.fetchCatalog.mockResolvedValue({
+        categories: [{ key: "projects" }, { key: "support" }],
+        permissions: [
+          { code: "project.read", category: "projects" },
+          { code: "supportqueue.read", category: "support" },
+          { code: "supportqueue.send", category: "support" },
+        ],
+      });
+
+      const seen = await service.fetchCatalog(admin);
+      expect(seen.permissions.map((p) => p.code)).toEqual(["project.read"]);
+      expect(seen.categories.map((c) => c.key)).toEqual(["projects"]);
+    });
+
+    it("shows a super administrator the whole catalog", async () => {
+      repo.fetchCatalog.mockResolvedValue({
+        categories: [{ key: "projects" }, { key: "support" }],
+        permissions: [
+          { code: "project.read", category: "projects" },
+          { code: "supportqueue.send", category: "support" },
+        ],
+      });
+
+      const seen = await service.fetchCatalog(superAdmin);
+      expect(seen.permissions).toHaveLength(2);
+      expect(seen.categories).toHaveLength(2);
+    });
+
+    it("counts only the visible ones in a role's permissions and total", async () => {
+      repo.fetchRolesForOrg.mockResolvedValue([
+        { ...supportLead, permissions: supportLeadCodes, permissionCount: 3, memberCount: 2 },
+      ]);
+
+      const [asAdmin] = await service.fetchRoles(admin);
+      expect(asAdmin.permissions).toEqual(["project.read"]);
+      expect(asAdmin.permissionCount).toBe(1);
+      expect(asAdmin.memberCount).toBe(2);
+
+      const [asSuper] = await service.fetchRoles(superAdmin);
+      expect(asSuper.permissions).toEqual(supportLeadCodes);
+      expect(asSuper.permissionCount).toBe(3);
+    });
+
+    it("applies the same view to a single role", async () => {
+      repo.findRoleById.mockResolvedValue(supportLead);
+      repo.permissionsForRole.mockResolvedValue(supportLeadCodes);
+
+      const role = await service.getRole(admin, "role-support");
+      expect(role.permissions).toEqual(["project.read"]);
+      expect(role.permissionCount).toBe(1);
+    });
+
+    it("are kept on the role when the visible part is edited", async () => {
+      repo.findRoleById.mockResolvedValue(supportLead);
+      repo.permissionsForRole.mockResolvedValue(supportLeadCodes);
+      repo.roleIdsGranting.mockResolvedValue(["role-other"]);
+
+      await service.updateRole(admin, "role-support", {
+        permissions: ["project.read", "project.update"],
+      });
+      expect(repo.setRolePermissions).toHaveBeenCalledWith("role-support", [
+        "project.read",
+        "project.update",
+        "supportqueue.read",
+        "supportqueue.send",
+      ]);
+    });
+
+    it("cannot be cleared away by clearing everything the admin can see", async () => {
+      repo.findRoleById.mockResolvedValue(supportLead);
+      repo.permissionsForRole.mockResolvedValue(supportLeadCodes);
+      repo.roleIdsGranting.mockResolvedValue(["role-other"]);
+
+      await service.updateRole(admin, "role-support", { permissions: [] });
+      expect(repo.setRolePermissions).toHaveBeenCalledWith("role-support", [
+        "supportqueue.read",
+        "supportqueue.send",
+      ]);
+    });
+
+    it("do not trip the escalation check when the role already has them", async () => {
+      repo.findRoleById.mockResolvedValue(supportLead);
+      repo.permissionsForRole.mockResolvedValue(supportLeadCodes);
+      repo.roleIdsGranting.mockResolvedValue(["role-other"]);
+
+      await service.updateRole(admin, "role-support", {
+        permissions: ["project.read", "supportqueue.send"],
+      });
+      expect(repo.setRolePermissions).toHaveBeenCalled();
+    });
+
+    it("still cannot be newly granted", async () => {
+      repo.findRoleById.mockResolvedValue({ ...supportLead, key: null, isBuiltin: false });
+      repo.permissionsForRole.mockResolvedValue(["project.read"]);
+
+      await expect(
+        service.updateRole(admin, "role-support", {
+          permissions: ["project.read", "supportqueue.send"],
+        })
+      ).rejects.toMatchObject({
+        statusCode: 403,
+        message: expect.stringContaining("supportqueue.send"),
+      });
+      expect(repo.setRolePermissions).not.toHaveBeenCalled();
+    });
+
+    it("are edited freely by a super administrator", async () => {
+      repo.findRoleById.mockResolvedValue(supportLead);
+      repo.permissionsForRole.mockResolvedValue(supportLeadCodes);
+      repo.roleIdsGranting.mockResolvedValue(["role-other"]);
+
+      await service.updateRole(superAdmin, "role-support", { permissions: ["project.read"] });
+      expect(repo.setRolePermissions).toHaveBeenCalledWith("role-support", ["project.read"]);
+    });
+
+    it("are left out of a copy rather than failing the clone", async () => {
+      repo.findRoleById.mockResolvedValue(supportLead);
+      repo.permissionsForRole.mockResolvedValue(supportLeadCodes);
+
+      await service.createRole(admin, { name: "My support", cloneFromId: "role-support" });
+      expect(repo.setRolePermissions).toHaveBeenCalledWith("new-role", ["project.read"]);
     });
   });
 

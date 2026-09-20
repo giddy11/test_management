@@ -56,6 +56,8 @@ function guardFor(router: any, path: string, method: string) {
   return guardLayer.handle;
 }
 
+const { plainSupporterPermissions } = require("../../../test/actors");
+
 function permissionsOf(roleKey: string): Set<string> {
   const role = BUILTIN_ROLES.find((r: any) => r.key === roleKey);
   if (!role) throw new Error(`Unknown role ${roleKey}`);
@@ -71,18 +73,18 @@ function invoke(handler: any, permissions: Set<string> | null) {
   return { next, status, json };
 }
 
-const EXTERNAL = [ROLE_KEYS.SUPPORT_LEAD, ROLE_KEYS.SUPPORT_AGENT];
+// The external personas: a lead, and a supporter who is not a lead (no built-in
+// role — an admin gives them one, see plainSupporterPermissions).
+const EXTERNAL = [permissionsOf(ROLE_KEYS.SUPPORT_LEAD), plainSupporterPermissions()];
 // Every product-org role, ORG_ADMIN included. The support queue belongs to an
 // external client company, so no customer role reaches it — not even the
 // organisation administrator, which owns everything inside its own workspace
 // and nothing outside it.
 const INTERNAL = [
   ROLE_KEYS.ORG_ADMIN,
-  ROLE_KEYS.QA_MANAGER,
   ROLE_KEYS.TEST_LEAD,
   ROLE_KEYS.QA_ENGINEER,
   ROLE_KEYS.TESTER,
-  ROLE_KEYS.SUPPORT_MANAGER,
   ROLE_KEYS.VIEWER,
 ];
 
@@ -105,8 +107,8 @@ describe("feedbackSupport.routes — permission wiring", () => {
   it("admits both external support roles on every shared portal route", () => {
     for (const [path, method] of shared) {
       const handler = guardFor(supportRouter, path, method);
-      for (const key of EXTERNAL) {
-        expect(invoke(handler, permissionsOf(key)).next).toHaveBeenCalled();
+      for (const permissions of EXTERNAL) {
+        expect(invoke(handler, permissions).next).toHaveBeenCalled();
       }
     }
   });
@@ -115,7 +117,7 @@ describe("feedbackSupport.routes — permission wiring", () => {
     for (const [path, method] of leadOnly) {
       const handler = guardFor(supportRouter, path, method);
       expect(invoke(handler, permissionsOf(ROLE_KEYS.SUPPORT_LEAD)).next).toHaveBeenCalled();
-      const agent = invoke(handler, permissionsOf(ROLE_KEYS.SUPPORT_AGENT));
+      const agent = invoke(handler, plainSupporterPermissions());
       expect(agent.next).not.toHaveBeenCalled();
       expect(agent.status).toHaveBeenCalledWith(403);
     }
@@ -162,8 +164,8 @@ describe("feedback.routes — external supporters locked out of triage", () => {
   it("blocks the external support roles and admits the internal ones", () => {
     for (const [path, method] of routes) {
       const handler = guardFor(feedbackRouter, path, method);
-      for (const key of EXTERNAL) {
-        const { next, status } = invoke(handler, permissionsOf(key));
+      for (const permissions of EXTERNAL) {
+        const { next, status } = invoke(handler, permissions);
         expect(next).not.toHaveBeenCalled();
         expect(status).toHaveBeenCalledWith(403);
       }
@@ -183,7 +185,7 @@ describe("feedback.routes — external supporters locked out of triage", () => {
 
   it("keeps the public form link behind form.configure, not ticket.read", () => {
     const handler = guardFor(feedbackRouter, "/projects/:id/link", "post");
-    expect(invoke(handler, permissionsOf(ROLE_KEYS.QA_MANAGER)).status).toHaveBeenCalledWith(403);
-    expect(invoke(handler, permissionsOf(ROLE_KEYS.SUPPORT_MANAGER)).next).toHaveBeenCalled();
+    expect(invoke(handler, permissionsOf(ROLE_KEYS.TEST_LEAD)).status).toHaveBeenCalledWith(403);
+    expect(invoke(handler, permissionsOf(ROLE_KEYS.ORG_ADMIN)).next).toHaveBeenCalled();
   });
 });

@@ -53,6 +53,8 @@ function guardFor(path, method) {
   return guardLayer.handle;
 }
 
+const { plainSupporterPermissions } = require("../../../test/actors");
+
 function permissionsOf(roleKey) {
   const role = BUILTIN_ROLES.find((r) => r.key === roleKey);
   if (!role) throw new Error(`Unknown role ${roleKey}`);
@@ -81,7 +83,6 @@ describe("user.routes — permission wiring", () => {
     const handler = guardFor("/", "get");
     for (const key of [
       ROLE_KEYS.ORG_ADMIN,
-      ROLE_KEYS.QA_MANAGER,
       ROLE_KEYS.TEST_LEAD,
       ROLE_KEYS.QA_ENGINEER,
       ROLE_KEYS.TESTER,
@@ -106,7 +107,7 @@ describe("user.routes — permission wiring", () => {
   it("blocks a caller whose roles do not include user.read", () => {
     const handler = guardFor("/", "get");
     // An external supporter has no business reading the product org's roster.
-    const { next, status } = invoke(handler, permissionsOf(ROLE_KEYS.SUPPORT_AGENT));
+    const { next, status } = invoke(handler, plainSupporterPermissions());
     expect(next).not.toHaveBeenCalled();
     expect(status).toHaveBeenCalledWith(403);
   });
@@ -129,9 +130,9 @@ describe("user.routes — permission wiring", () => {
 
   it("gates role assignment on role.assign, not on user.update", () => {
     const handler = guardFor("/:id/roles", "put");
-    // QA manager can edit nothing about access, by design.
-    const manager = permissionsOf(ROLE_KEYS.QA_MANAGER);
-    expect(invoke(handler, manager).status).toHaveBeenCalledWith(403);
+    // A Test lead can read the roster but edit nothing about access, by design.
+    const lead = permissionsOf(ROLE_KEYS.TEST_LEAD);
+    expect(invoke(handler, lead).status).toHaveBeenCalledWith(403);
     expect(invoke(handler, permissionsOf(ROLE_KEYS.ORG_ADMIN)).next).toHaveBeenCalled();
   });
 });

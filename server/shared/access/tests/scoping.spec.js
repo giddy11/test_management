@@ -3,7 +3,7 @@
 // Record-level scoping for the self-service roles.
 //
 // Permissions say what KIND of thing you may touch; scoping says WHICH ROWS.
-// A Tester holds result.read exactly as a QA manager does — what stops them
+// A Tester holds result.read exactly as an administrator does — what stops them
 // reading someone else's results is the scoping layer, not the permission. The
 // reference model's "a parent cannot read another family's data" is this test
 // in TestMate's own terms:
@@ -21,7 +21,7 @@ const {
 const {
   FeedbackSupportService,
 } = require("../../../modules/feedback/services/feedbackSupport.service");
-const { actorFor, permissionsForRole } = require("../../../test/actors");
+const { actorFor, plainSupporterPermissions } = require("../../../test/actors");
 
 // ── Actors ────────────────────────────────────────────────────────────────────
 
@@ -35,7 +35,7 @@ const supporterA = {
   organizationId: "org-1",
   clientCompanyId: "company-a",
   isSupportLead: false,
-  permissions: permissionsForRole("support_agent"),
+  permissions: plainSupporterPermissions(),
 };
 
 const project = { id: "proj-1", organizationId: "org-1", deletedAt: null, name: "Apollo" };

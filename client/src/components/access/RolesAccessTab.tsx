@@ -38,6 +38,7 @@ import {
 } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Textarea } from "@/components/ui/textarea"
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog"
 import { useAuth } from "@/contexts/AuthContext"
 import {
   useCreateRole,
@@ -320,6 +321,7 @@ export function RolesAccessTab() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [draft, setDraft] = useState<Set<string>>(new Set())
   const [newRoleOpen, setNewRoleOpen] = useState(false)
+  const [deleting, setDeleting] = useState<Role | null>(null)
 
   const selected = useMemo(
     () => roles?.find((r) => r.id === selectedId) ?? roles?.[0] ?? null,
@@ -373,11 +375,13 @@ export function RolesAccessTab() {
     )
   }
 
+  // Runs only from the confirmation dialog — the Delete button just opens it.
   const destroy = () => {
-    if (!selected) return
-    remove.mutate(selected.id, {
+    if (!deleting) return
+    remove.mutate(deleting.id, {
       onSuccess: () => {
-        toast.success(`Deleted "${selected.name}"`)
+        toast.success(`Deleted "${deleting.name}"`)
+        setDeleting(null)
         setSelectedId(null)
       },
       onError: (e) =>
@@ -449,7 +453,7 @@ export function RolesAccessTab() {
                 {canManage && !selected.isBuiltin && selected.memberCount === 0 && (
                   <Button
                     variant="outline"
-                    onClick={destroy}
+                    onClick={() => setDeleting(selected)}
                     disabled={remove.isPending}
                     data-cy="delete-role"
                   >
@@ -517,6 +521,16 @@ export function RolesAccessTab() {
       </p>
 
       <NewRoleDialog open={newRoleOpen} onOpenChange={setNewRoleOpen} roles={roles ?? []} />
+
+      <ConfirmDialog
+        open={Boolean(deleting)}
+        onOpenChange={(o) => !o && setDeleting(null)}
+        title="Delete role"
+        description={`"${deleting?.name ?? "This role"}" will be permanently deleted. This can't be undone.`}
+        confirmLabel="Delete"
+        loading={remove.isPending}
+        onConfirm={destroy}
+      />
     </div>
   )
 }

@@ -11,12 +11,26 @@
 // user" keeps meaning exactly what it meant before the migration.
 const {
   BUILTIN_ROLES,
+  ROLE_KEYS,
   roleKeyForLegacyUser,
 } = require("../modules/access/catalog/permissions.catalog");
+
+// What only a support lead may do: route work to a teammate, turn on
+// auto-assign, change the company's roster.
+const LEAD_ONLY = ["supportqueue.assign", "company.autoassign", "supporter.manage"];
+
+// A supporter who is not a lead has no built-in role — an admin gives them one,
+// typically a custom role. Specs that need that persona get the Support lead set
+// minus the lead-only permissions: they work their own items and nothing more.
+function plainSupporterPermissions() {
+  const lead = BUILTIN_ROLES.find((r) => r.key === ROLE_KEYS.SUPPORT_LEAD);
+  return new Set(lead.permissions.filter((code) => !LEAD_ONLY.includes(code)));
+}
 
 // legacyRole: "superadmin" | "admin" | "user" | "it_support"
 function permissionsFor(legacyRole, isSupportLead = false, isTeamLead = false) {
   const key = roleKeyForLegacyUser(legacyRole, isSupportLead, isTeamLead);
+  if (key === null) return plainSupporterPermissions();
   const role = BUILTIN_ROLES.find((r) => r.key === key);
   if (!role) throw new Error(`No built-in role for legacy role "${legacyRole}"`);
   return new Set(role.permissions);
@@ -45,4 +59,4 @@ function actorFor(legacyRole, overrides = {}) {
   };
 }
 
-module.exports = { permissionsFor, permissionsForRole, actorFor };
+module.exports = { permissionsFor, permissionsForRole, plainSupporterPermissions, actorFor };

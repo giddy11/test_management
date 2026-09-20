@@ -215,19 +215,32 @@ a **Built-in** badge and the note:
 |---|---|---:|---|
 | Super administrator | built-in, **locked** | `*` | `superadmin` |
 | Organisation administrator | built-in | 72 | `admin` |
-| QA manager | built-in | 44 | — (new) |
 | Test lead | built-in | 41 | `user` who leads a project (`project_members.role = team_lead`) |
 | QA engineer | built-in | 30 | `user` |
 | Tester | built-in | 21 | — (new) |
-| Support manager | built-in | 29 | — (new, product-side) |
 | Support lead | built-in | 11 | `it_support` + `is_support_lead` |
-| Support agent | built-in | 8 | `it_support` |
 | Viewer | built-in | 13 | — (new) |
+
+**QA manager, Support manager and Support agent are not built-in.** They were in the first
+release and were dropped as unnecessary. An organisation that had them keeps them as ordinary
+**custom roles** — same members, same permissions — which an admin can edit or delete once
+empty (see *Retired built-in roles* under Seeding). A manager-style split for a new
+organisation is a custom role away.
+
+**A supporter who is not a lead has no built-in role.** Support lead is the only built-in role
+carrying `supportqueue.*`, so an `it_support` account that is not a lead has no permissions
+until an admin assigns a role. Organisation administrators do not hold `supportqueue.*`
+themselves, so — under the no-escalation rule — they cannot grant it: assigning Support lead,
+or building a role that carries the queue permissions, is a super administrator's job.
 
 ### 3.1 Super administrator — locked
 One wildcard permission, `*`. Shown with a lock icon. Cannot be edited, renamed,
 deleted, or have its permissions changed through the UI or the API. This is the platform
 owner.
+
+It is the vendor's role, not the customer's, so it is **hidden from everyone but a super
+administrator**: it is absent from an organisation administrator's role list, and fetching,
+cloning or assigning it by id returns 404, as for another organisation's role.
 
 ### 3.2 Organisation administrator — 72
 Everything inside one customer's workspace, and nothing outside it.
@@ -266,26 +279,7 @@ livechat.configure, widget.configure, dashboard.read, analytics.read,
 analytics.team, sla.read, sla.configure
 ```
 
-### 3.3 QA manager — 44
-Approval and closure authority with full visibility, and **no operational data entry**.
-Sets quality policy; does not run tests.
-
-```
-audit.read, role.read, user.read, project.read, project.readall,
-project.create, project.update, project.configure, project.export,
-suite.read, suite.manage, testcase.read, testcase.approve,
-testcase.deprecate, testcase.assign, note.read, run.read, run.create,
-run.update, run.close, result.read, result.amend, bug.read, bug.triage,
-bug.verify, bug.close, featurerequest.read, featurerequest.decide,
-featurerequest.vote, featurerequest.comment, ticket.read, ticket.assign,
-ticket.update, ticket.resolve, ticket.close, ticket.comment, company.read,
-livechat.read, livechat.assign, livechat.manage, dashboard.read,
-analytics.read, analytics.team, sla.read
-```
-
-**Notably lacks:** `role.manage`, `role.assign`, `settings.manage`, `user.create`, `user.update`, `user.delete`, `project.delete`, `result.enter`, `testcase.create`, `testcase.update`, `import.run`, `sla.configure`, `form.configure`, `widget.configure`.
-
-### 3.4 Test lead — 41
+### 3.3 Test lead — 41
 Supervisor and approver inside their own projects. Enters data *and* approves it, but
 cannot close the loop on published outcomes or touch configuration.
 
@@ -303,7 +297,7 @@ livechat.assign, livechat.manage, dashboard.read, analytics.read, sla.read
 
 **Notably lacks:** `result.amend`, `testcase.deprecate`, `testcase.delete`, `bug.close`, `bug.delete`, `featurerequest.decide`, `featurerequest.delete`, `ticket.close`, `analytics.team`, `project.readall`.
 
-### 3.5 QA engineer — 30
+### 3.4 QA engineer — 30
 Authors test cases and executes them. **Cannot approve anything.**
 
 ```
@@ -316,7 +310,7 @@ featurerequest.comment, ticket.read, ticket.comment, livechat.read,
 livechat.send, dashboard.read
 ```
 
-### 3.6 Tester — 21
+### 3.5 Tester — 21
 Executes the cases assigned to them and reports what they find. No authoring, no
 assignment, no bulk import.
 
@@ -328,22 +322,7 @@ featurerequest.comment, ticket.read, ticket.comment, livechat.read,
 dashboard.read
 ```
 
-### 3.7 Support manager — 29
-Product-side owner of customer tickets and client company relationships. No test
-authoring or execution at all — the customer-facing half of the business, fully split
-from the engineering half.
-
-```
-audit.read, user.read, project.read, project.readall, bug.read, bug.create,
-featurerequest.read, featurerequest.create, ticket.read, ticket.assign,
-ticket.update, ticket.resolve, ticket.close, ticket.delete, ticket.comment,
-form.configure, company.read, company.manage, supporter.manage,
-livechat.read, livechat.send, livechat.assign, livechat.manage,
-livechat.configure, widget.configure, dashboard.read, analytics.read,
-sla.read, sla.configure
-```
-
-### 3.8 Support lead — 11
+### 3.6 Support lead — 11
 The IT support lead at a client company. Sees only their own company's queue.
 
 ```
@@ -352,16 +331,7 @@ supportqueue.resolve, supportqueue.escalate, supportqueue.send, company.read,
 company.autoassign, supporter.manage, audit.read, sla.read
 ```
 
-### 3.9 Support agent — 8
-An IT supporter at a client company. Works their own assigned items; cannot route work
-or change the roster.
-
-```
-supportqueue.read, supportqueue.update, supportqueue.resolve,
-supportqueue.escalate, supportqueue.send, company.read, audit.read, sla.read
-```
-
-### 3.10 Viewer — 13
+### 3.7 Viewer — 13
 A stakeholder who needs to see quality status across the organisation without touching
 anything.
 
@@ -371,36 +341,33 @@ run.read, result.read, bug.read, featurerequest.read, ticket.read,
 dashboard.read, analytics.read, sla.read
 ```
 
-> QA manager and Test lead are close in size but deliberately different in kind.
-> The manager approves and never enters; the lead enters and approves within their own
-> projects. Compare the two "notably lacks" lists rather than the counts.
-
 ---
 
 ## 4. Separation of duties, spelled out
 
 | Workflow | Writes | Approves | Finalises |
 |---|---|---|---|
-| Test case lifecycle | `testcase.create` / `testcase.update` — QA engineer, Test lead | `testcase.approve` (Draft → Active) — Test lead, QA manager | `testcase.deprecate` — QA manager |
-| Test run | `result.enter` — Tester, QA engineer, Test lead | `run.close` — Test lead, QA manager | `result.amend` (post-closure) — QA manager only ⚠ |
-| Defect lifecycle | `bug.create` / `bug.update` — anyone testing | `bug.triage`, `bug.verify` — Test lead, QA manager | `bug.close` — QA manager |
-| Feature request | `featurerequest.create` / `.update` — QA engineer, Test lead | `featurerequest.decide` — QA manager | — |
-| Customer ticket | `ticket.update`, `ticket.comment` — Test lead, Support manager | `ticket.resolve` — Test lead, Support manager | `ticket.close`, `ticket.delete` — Support manager, QA manager |
-| Support queue (external) | `supportqueue.update` — Support agent | `supportqueue.assign` — Support lead only | `supportqueue.escalate` — either, hands over to the product team |
+| Test case lifecycle | `testcase.create` / `testcase.update` — QA engineer, Test lead | `testcase.approve` (Draft → Active) — Test lead | `testcase.deprecate` — Organisation administrator |
+| Test run | `result.enter` — Tester, QA engineer, Test lead | `run.close` — Test lead | `result.amend` (post-closure) — Organisation administrator only ⚠ |
+| Defect lifecycle | `bug.create` / `bug.update` — anyone testing | `bug.triage`, `bug.verify` — Test lead | `bug.close` — Organisation administrator |
+| Feature request | `featurerequest.create` / `.update` — QA engineer, Test lead | `featurerequest.decide` — Organisation administrator | — |
+| Customer ticket | `ticket.update`, `ticket.comment` — Test lead | `ticket.resolve` — Test lead | `ticket.close`, `ticket.delete` — Organisation administrator |
+| Support queue (external) | `supportqueue.update` — Support lead, or a custom supporter role | `supportqueue.assign` — Support lead only | `supportqueue.escalate` — either, hands over to the product team |
 
 Two hard splits, both mirroring the reference model's finance/academic split:
 
 - **Configuration is confined to administrators.** `settings.manage`, `sla.configure`,
   `form.configure`, `widget.configure`, `role.manage` are held by no
   engineering role.
-- **The customer-facing surface is split from the engineering surface.** Support manager has
-  no `testcase.*`, `run.*` or `result.*`. QA manager has no `form.configure`,
-  `company.manage` or `sla.configure`.
+- **The customer-facing surface is split from the engineering surface.** The engineering
+  roles (Test lead, QA engineer, Tester) have no `form.configure`, `company.manage` or
+  `sla.configure`, and the external support roles have no `testcase.*`, `run.*` or
+  `result.*`.
 
 **A reporter cannot verify their own fix.** `bug.create` and `bug.verify` are never both
 needed by the same person for the same bug — Tester and QA engineer hold `bug.create` without
-`bug.verify`; Test lead and QA manager hold `bug.verify`. This is the model's answer to
-gap G12.
+`bug.verify`; Test lead and Organisation administrator hold `bug.verify`. This is the model's
+answer to gap G12.
 
 ---
 
@@ -430,14 +397,12 @@ already run by the time any of them is called.
 |---|---|
 | **Super administrator** | None. The only principal that crosses organisation boundaries. |
 | **Organisation administrator** | Every row where `organization_id = actor.organizationId`. |
-| **QA manager** | Same as Organisation administrator: whole organisation, read and approve. |
-| **Support manager** | Whole organisation for tickets, companies, chat and SLA. Client companies are further limited to those linked to a project in the actor's organisation. |
 | **Test lead** | Organisation, further narrowed to **projects the user is a member of**. Management actions (`suite.manage`, `testcase.*`, `run.close`, `bug.triage`, `ticket.assign`) additionally require `project_members.role = 'team_lead'` **for that project** — the existing `ProjectService.assertCanManageProject` bar, now layered under the permission rather than replacing it. |
 | **QA engineer** | Organisation, narrowed to projects the user is a member of. Read access also extends to any project containing a test case assigned to them (existing legacy behaviour in `ProjectService.assertAccess`, preserved). |
 | **Tester** | Organisation, narrowed to **test cases assigned to the user** and the suites/projects containing them. `result.enter` is additionally restricted to results for cases assigned to them — the existing check in `TestRunResultService`, preserved. |
 | **Viewer** | Organisation-wide read. **Assumption:** a Viewer is an internal stakeholder (engineering manager, product owner) who should see every project in the organisation, not just ones they belong to. If a narrower Viewer is wanted, it becomes a custom role with project membership applied. |
 | **Support lead** | Every query filtered to `client_company_id = actor.clientCompanyId`. `supportqueue.assign`, `company.autoassign` and `supporter.manage` additionally require `users.is_support_lead = true`, and `supporter.manage` cannot touch the **primary** lead — that stays `company.manage` (product team). |
-| **Support agent** | Same `client_company_id` filter. Queue items are further narrowed to unassigned items plus those assigned to the actor. |
+| **A supporter who is not a lead** (custom role) | Same `client_company_id` filter. Queue items are further narrowed to unassigned items plus those assigned to the actor. |
 
 ### Public principals
 
@@ -461,6 +426,7 @@ token-based access, which is a separate authentication mechanism, and their rout
 | **Last super administrator** | The last user holding the Super administrator role cannot have it removed or be deleted. |
 | **Self-demotion** | A user may not remove their own last `role.manage`-bearing role. |
 | **No privilege escalation** | A holder of `role.manage` who is **not** a super administrator may not grant a permission they do not themselves hold, nor assign a role containing one. Super administrators bypass this (they hold `*`). |
+| **Only what you hold is shown** | A non-super administrator sees only the permissions they hold themselves: in the editor's catalog (a category with none left is dropped), and in each role's permission list and count. A role can carry more — Support lead has the client company's `supportqueue.*` — and that remainder is kept when the role is edited, and left out of a copy. Nothing they cannot grant is ever offered. |
 | **Built-in role deletion** | Built-in roles cannot be deleted at any time. |
 | **Custom role deletion** | Only when the role has zero members. |
 
@@ -490,7 +456,7 @@ permission_categories
 roles
   id             uuid PK
   organization_id uuid NULL            -- NULL = platform-level (super admin role)
-  key            varchar(60)           -- stable seed key, e.g. 'qa_manager'
+  key            varchar(60)           -- stable seed key, e.g. 'qa_engineer'
   name           varchar(80)
   description    text
   is_builtin     boolean
@@ -514,7 +480,8 @@ user_roles
 
 Roles are **per organisation** so that one customer's custom roles are invisible to another.
 Built-in roles are seeded once per organisation (on registration and by backfill). The Super
-administrator role is the single exception: `organization_id IS NULL`, platform-wide.
+administrator role is the single exception: `organization_id IS NULL`, platform-wide, and
+visible only to a super administrator.
 
 ### Seeding
 
@@ -529,6 +496,22 @@ Idempotent, and safe to re-run:
   their designed sets. Nothing else resets them.
 - New permissions added to the catalog later are **not** silently added to existing roles.
   They appear unchecked in the role editor, which is the deny-by-default behaviour.
+
+#### Retired built-in roles
+
+A built-in role dropped from the catalog is **converted, never deleted**. For every
+organisation that has a copy, the role loses its seed key and its built-in flag and becomes
+an ordinary custom role: its members and permissions are untouched, so nobody loses access,
+and an admin can rename it, edit it, or delete it once it has no members. (Deleting it would
+strip its members' access, and a built-in role cannot be deleted through the API.)
+
+This is what `RETIRED_ROLE_KEYS` in the catalog lists — currently `qa_manager`,
+`support_manager` and `support_agent`. It runs in migrations
+`1783300000000-RetireQaAndSupportManagerRoles` and `1783310000000-RetireSupportAgentRole`
+(the second exists so a database that already ran the first is still converted) and again in
+every seed, and is idempotent: once converted, a role no longer matches. Rolling either
+migration back does nothing, on purpose: re-flagging a role an admin may since have edited as
+built-in would let the seed overwrite it.
 
 ### Deployment order
 
@@ -552,7 +535,11 @@ whose roles were never provisioned.
 | `role = 'user'`, leads no project | QA engineer |
 | `role = 'user'`, leads at least one project (`project_members.role = team_lead`) | Test lead |
 | `role = 'it_support'`, `is_support_lead = true` | Support lead |
-| `role = 'it_support'`, `is_support_lead = false` | Support agent |
+| `role = 'it_support'`, `is_support_lead = false` | *(none — see below)* |
+
+A supporter who is not a lead was granted Support agent when this migration first ran. That role
+has since been retired, so a non-lead supporter whose account is created or backfilled *now* gets
+no role; those who already held it keep it, as a custom role.
 
 No existing user loses access: each new role is a superset of what its old role could reach
 at the route level, and every service-level scoping check is preserved unchanged.
@@ -648,7 +635,7 @@ show impact before an edit.
 | G1 unauthenticated `integrations/companies` | **Not fixed.** A permission model cannot secure a route with no principal, and the route is left as-is by decision. It is declared `publicRoute(...)` so it is visible rather than forgotten, and there is deliberately no `integration.manage` permission — a permission nothing checks would be a lie in the role editor. |
 | G2 long-lived public tokens | Unchanged. `form.configure` / `widget.configure` now gate rotation with a warning note. |
 | G3 site banner read is superadmin-only | Fixed: reading the current banner needs no permission (any authenticated user); `banner.publish` gates broadcasting. |
-| G4 widget settings open to `user` | Fixed: `livechat.configure`, held by Support manager and administrators only. |
+| G4 widget settings open to `user` | Fixed: `livechat.configure`, held by administrators only. |
 | G5 import confirm open to any internal role | Fixed: `import.run`. |
 | G6 bulk assignee change | Fixed: `testcase.assign`. |
 | G7 undeclared notification routes | Fixed: declared explicitly; still self-scoped. |
@@ -680,7 +667,8 @@ show impact before an edit.
 2. **Viewer scope — organisation-wide.** A Viewer is an internal stakeholder who should see
    quality status across every project without being added to each one, so the role holds
    `project.readall`. A narrower Viewer is a custom role away.
-3. **Role granularity — all 10 seeded.** The migration is lossless: a legacy `user` who leads
+3. **Role granularity — 7 seeded.** The migration is lossless: a legacy `user` who leads
    a project becomes a Test lead and everyone else a QA engineer, so nobody loses a capability
-   they have today. Promoting people into Tester, QA manager, Support manager or Viewer is a
-   manual follow-up an admin can do from the Team screen whenever they like.
+   they have today. Promoting people into Tester or Viewer is a manual follow-up an admin can
+   do from the Team screen whenever they like. QA manager, Support manager and Support agent
+   were seeded at first and dropped as unnecessary; see *Retired built-in roles*.

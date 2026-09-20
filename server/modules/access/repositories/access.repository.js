@@ -59,13 +59,15 @@ class AccessRepository {
 
   // ── Roles ──────────────────────────────────────────────────────────────────
 
-  // Every role an organisation can see: its own, plus the platform-level
-  // super-administrator role.
-  async fetchRolesForOrg(organizationId) {
-    const roles = await this.roles
+  // An organisation's own roles. The platform-level super-administrator role
+  // (organization_id IS NULL) belongs to the vendor, so it is included only
+  // when the caller asks for it — see AccessService.fetchRoles.
+  async fetchRolesForOrg(organizationId, { includePlatform = false } = {}) {
+    const query = this.roles
       .createQueryBuilder("r")
-      .where("r.organization_id = :organizationId", { organizationId })
-      .orWhere("r.organization_id IS NULL")
+      .where("r.organization_id = :organizationId", { organizationId });
+    if (includePlatform) query.orWhere("r.organization_id IS NULL");
+    const roles = await query
       .orderBy("r.is_locked", "DESC")
       .addOrderBy("r.is_builtin", "DESC")
       .addOrderBy("r.name", "ASC")

@@ -126,6 +126,7 @@ class UserService {
 
   async defaultRoleIdsFor(organizationId, legacyRole, isSupportLead = false) {
     const key = roleKeyForLegacyUser(legacyRole, isSupportLead);
+    if (!key) return [];
     const role = await this.accessRepo.findRoleByKey(organizationId, key);
     return role ? [role.id] : [];
   }

@@ -9,7 +9,7 @@ const {
 class AccessController {
   static async catalog(req, res, next) {
     try {
-      const data = await AccessService.Instance.fetchCatalog();
+      const data = await AccessService.Instance.fetchCatalog(req.user);
       res.status(200).json(ApiResponse.ok("Permissions fetched", toCatalogResponse(data)));
     } catch (err) {
       next(err);

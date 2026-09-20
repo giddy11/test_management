@@ -161,9 +161,8 @@ describe("separation of duties — the splits the model promises", () => {
       expect(role(key).has("result.enter")).toBe(true);
       expect(role(key).has("result.amend")).toBe(false);
     }
-    // The manager is the opposite: amends, never enters.
-    expect(role("qa_manager").has("result.amend")).toBe(true);
-    expect(role("qa_manager").has("result.enter")).toBe(false);
+    // Amending is the organisation administrator's alone.
+    expect(role("org_admin").has("result.amend")).toBe(true);
   });
 
   it("keeps whoever reports a bug from verifying its fix", () => {
@@ -171,7 +170,7 @@ describe("separation of duties — the splits the model promises", () => {
       expect(role(key).has("bug.create")).toBe(true);
       expect(role(key).has("bug.verify")).toBe(false);
     }
-    for (const key of ["test_lead", "qa_manager"]) {
+    for (const key of ["test_lead", "org_admin"]) {
       expect(role(key).has("bug.verify")).toBe(true);
     }
   });
@@ -197,17 +196,6 @@ describe("separation of duties — the splits the model promises", () => {
     }
   });
 
-  it("splits the customer-facing surface from the engineering one", () => {
-    const support = role("support_manager");
-    for (const code of ["testcase.read", "run.read", "result.enter", "suite.manage"]) {
-      expect(support.has(code)).toBe(false);
-    }
-    const manager = role("qa_manager");
-    for (const code of ["form.configure", "company.manage", "sla.configure"]) {
-      expect(manager.has(code)).toBe(false);
-    }
-  });
-
   it("keeps the vendor's controls out of every customer role", () => {
     // The regression that started this: Organisation administrator was defined
     // as "every permission", which put the platform owner's cross-org
@@ -225,10 +213,7 @@ describe("separation of duties — the splits the model promises", () => {
   });
 
   it("keeps the client company's queue out of every product-org role", () => {
-    const internal = [
-      "org_admin", "qa_manager", "test_lead", "qa_engineer", "tester",
-      "support_manager", "viewer",
-    ];
+    const internal = ["org_admin", "test_lead", "qa_engineer", "tester", "viewer"];
     for (const key of internal) {
       const held = new Set(BUILTIN_ROLES.find((r) => r.key === key).permissions);
       for (const code of SUPPORT_DESK_ONLY) {

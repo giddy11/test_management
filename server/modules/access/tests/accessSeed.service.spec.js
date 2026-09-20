@@ -12,12 +12,14 @@ const {
   seedCatalog,
   seedPlatformRole,
   seedOrganizationRoles,
+  retireBuiltinRoles,
   backfillUserRoles,
 } = require("../services/accessSeed.service");
 const {
   PERMISSIONS,
   BUILTIN_ROLES,
   ROLE_KEYS,
+  RETIRED_ROLE_KEYS,
 } = require("../catalog/permissions.catalog");
 
 // A tiny fake of just the SQL this module issues. Deliberately pattern-matched
@@ -75,6 +77,16 @@ function makeDb({ users = [] } = {}) {
           : r.key === key && r.organizationId === orgId
       );
       return match.map((r) => ({ id: r.id }));
+    }
+    // Must precede the generic UPDATE below, which reads its params positionally.
+    if (s.startsWith('UPDATE "roles" SET "key" = NULL')) {
+      const retired = new Set(params[0]);
+      for (const role of db.roles) {
+        if (role.organizationId !== null && retired.has(role.key)) {
+          Object.assign(role, { key: null, isBuiltin: false });
+        }
+      }
+      return [];
     }
     if (s.startsWith('UPDATE "roles"')) {
       const [id, name, description, isLocked] = params;
@@ -185,14 +197,14 @@ describe("accessSeed — built-in roles", () => {
     await seedCatalog(query);
     await seedOrganizationRoles(query, "org-1");
 
-    // An admin removes a permission from QA manager through the UI.
-    const role = db.roles.find((r) => r.key === ROLE_KEYS.QA_MANAGER);
+    // An admin removes a permission from Test lead through the UI.
+    const role = db.roles.find((r) => r.key === ROLE_KEYS.TEST_LEAD);
     db.rolePermissions = db.rolePermissions.filter(
-      (rp) => !(rp.roleId === role.id && rp.code === "result.amend")
+      (rp) => !(rp.roleId === role.id && rp.code === "testcase.approve")
     );
 
     await seedOrganizationRoles(query, "org-1");
-    expect(permsOf(ROLE_KEYS.QA_MANAGER)).not.toContain("result.amend");
+    expect(permsOf(ROLE_KEYS.TEST_LEAD)).not.toContain("testcase.approve");
   });
 
   it("restores the designed set only when asked explicitly", async () => {
@@ -200,11 +212,11 @@ describe("accessSeed — built-in roles", () => {
     await seedCatalog(query);
     await seedOrganizationRoles(query, "org-1");
 
-    const role = db.roles.find((r) => r.key === ROLE_KEYS.QA_MANAGER);
+    const role = db.roles.find((r) => r.key === ROLE_KEYS.TEST_LEAD);
     db.rolePermissions = db.rolePermissions.filter((rp) => rp.roleId !== role.id);
 
     await seedOrganizationRoles(query, "org-1", { resetBuiltinPermissions: true });
-    expect(permsOf(ROLE_KEYS.QA_MANAGER)).toContain("result.amend");
+    expect(permsOf(ROLE_KEYS.TEST_LEAD)).toContain("testcase.approve");
   });
 
   it("always restores the locked super role, which is never admin-editable", async () => {
@@ -219,6 +231,109 @@ describe("accessSeed — built-in roles", () => {
     // No reset flag — a locked role's set is authoritative regardless.
     await seedPlatformRole(query);
     expect(permsOf(ROLE_KEYS.SUPER_ADMIN, null)).toEqual(["*"]);
+  });
+});
+
+describe("accessSeed — retired built-in roles", () => {
+  // [key, name, a permission it held]
+  const RETIRED = [
+    ["qa_manager", "QA manager", "result.amend"],
+    ["support_manager", "Support manager", "ticket.close"],
+    ["support_agent", "Support agent", "supportqueue.update"],
+  ];
+
+  // An organisation seeded before these roles were dropped: it has them, with
+  // people in them and a permission set an admin has tuned.
+  async function seededBeforeRetirement() {
+    const ctx = makeDb();
+    await seedCatalog(ctx.query);
+    await seedPlatformRole(ctx.query);
+    await seedOrganizationRoles(ctx.query, "org-1");
+
+    const legacy = {};
+    for (const [key, name, perm] of RETIRED) {
+      const role = {
+        id: `role-legacy-${key}`,
+        organizationId: "org-1",
+        key,
+        name,
+        description: null,
+        isBuiltin: true,
+        isLocked: false,
+      };
+      ctx.db.roles.push(role);
+      ctx.db.rolePermissions.push({ roleId: role.id, code: perm });
+      ctx.db.userRoles.push({ userId: `member-of-${key}`, roleId: role.id });
+      legacy[key] = role;
+    }
+    return { ...ctx, legacy };
+  }
+
+  it("are exactly the roles this spec expects", () => {
+    expect([...RETIRED_ROLE_KEYS].sort()).toEqual(RETIRED.map(([key]) => key).sort());
+  });
+
+  it("are no longer seeded", () => {
+    for (const key of RETIRED_ROLE_KEYS) {
+      expect(BUILTIN_ROLES.some((r) => r.key === key)).toBe(false);
+      expect(Object.values(ROLE_KEYS)).not.toContain(key);
+    }
+  });
+
+  it("are not created for a new organisation", async () => {
+    const { db, query } = makeDb();
+    await seedCatalog(query);
+    await seedOrganizationRoles(query, "org-new");
+    const keys = db.roles.filter((r) => r.organizationId === "org-new").map((r) => r.key);
+    for (const key of RETIRED_ROLE_KEYS) expect(keys).not.toContain(key);
+  });
+
+  it("become custom roles where an organisation already has them", async () => {
+    const { query, legacy } = await seededBeforeRetirement();
+    await retireBuiltinRoles(query);
+    for (const [key, name] of RETIRED) {
+      const role = legacy[key];
+      expect(role.key).toBeNull();
+      expect(role.isBuiltin).toBe(false);
+      // Still there under the same name — an admin decides when it goes.
+      expect(role.name).toBe(name);
+    }
+  });
+
+  it("keep their members and their permissions", async () => {
+    const { db, query, legacy } = await seededBeforeRetirement();
+    await retireBuiltinRoles(query);
+
+    for (const [key, , perm] of RETIRED) {
+      const role = legacy[key];
+      expect(db.userRoles).toContainEqual({ userId: `member-of-${key}`, roleId: role.id });
+      expect(db.rolePermissions).toContainEqual({ roleId: role.id, code: perm });
+    }
+  });
+
+  it("leave every other built-in role, and the platform role, as they were", async () => {
+    const { db, query } = await seededBeforeRetirement();
+    const before = db.roles
+      .filter((r) => !RETIRED_ROLE_KEYS.includes(r.key))
+      .map((r) => ({ ...r }));
+
+    await retireBuiltinRoles(query);
+
+    const after = db.roles.filter((r) => before.some((b) => b.id === r.id));
+    expect(after).toEqual(before);
+    expect(after.some((r) => r.key === ROLE_KEYS.SUPER_ADMIN && r.isBuiltin)).toBe(true);
+  });
+
+  it("do not come back on a later re-seed", async () => {
+    const { db, query } = await seededBeforeRetirement();
+    await retireBuiltinRoles(query);
+    const count = db.roles.length;
+
+    await retireBuiltinRoles(query);
+    await seedOrganizationRoles(query, "org-1");
+
+    expect(db.roles).toHaveLength(count);
+    expect(db.roles.some((r) => RETIRED_ROLE_KEYS.includes(r.key))).toBe(false);
   });
 });
 
@@ -251,8 +366,13 @@ describe("accessSeed — backfill", () => {
     expect(roleKeyFor("u-super")).toBe(ROLE_KEYS.SUPER_ADMIN);
     expect(roleKeyFor("u-admin")).toBe(ROLE_KEYS.ORG_ADMIN);
     expect(roleKeyFor("u-user")).toBe(ROLE_KEYS.QA_ENGINEER);
-    expect(roleKeyFor("u-sup")).toBe(ROLE_KEYS.SUPPORT_AGENT);
     expect(roleKeyFor("u-suplead")).toBe(ROLE_KEYS.SUPPORT_LEAD);
+  });
+
+  it("gives a supporter who is not a lead no role, rather than guessing one", async () => {
+    // There is no built-in role for them: an admin assigns one.
+    const { db } = await seedAll();
+    expect(db.userRoles.some((ur) => ur.userId === "u-sup")).toBe(false);
   });
 
   it("makes a legacy team lead a Test lead, not a QA engineer", async () => {
@@ -269,11 +389,13 @@ describe("accessSeed — backfill", () => {
     expect(db.roles.find((r) => r.id === ur.roleId).organizationId).toBeNull();
   });
 
-  it("gives everyone exactly one role and never double-grants on a re-run", async () => {
+  it("gives everyone with a built-in role exactly one, and never double-grants on a re-run", async () => {
+    // Everyone but the supporter who is not a lead, who has no built-in role.
+    const roled = users.length - 1;
     const ctx = await seedAll();
-    expect(ctx.db.userRoles).toHaveLength(users.length);
+    expect(ctx.db.userRoles).toHaveLength(roled);
     await backfillUserRoles(ctx.query);
-    expect(ctx.db.userRoles).toHaveLength(users.length);
+    expect(ctx.db.userRoles).toHaveLength(roled);
   });
 
   it("leaves a user who already holds a role alone", async () => {

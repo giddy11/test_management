@@ -1,6 +1,6 @@
 // cypress/e2e/settings/roles-access.cy.ts
 // The Roles & access settings tab, and permission-filtered navigation.
-import { apiPath, ok } from "../support/api"
+import { apiPath, ok } from "../../support/api"
 
 const CATEGORIES = [
   { key: "access", label: "Roles & people", description: "Who is on the team, and what they are allowed to do." },
@@ -37,16 +37,33 @@ const ROLES = [
   },
 ]
 
-function stubAccess() {
+function stubAccess(roles = ROLES) {
   cy.intercept("GET", apiPath("/access/permissions"), {
     body: ok({ categories: CATEGORIES, permissions: PERMISSIONS }),
   }).as("catalog")
-  cy.intercept("GET", apiPath("/access/roles"), { body: ok(ROLES) }).as("roles")
+  cy.intercept("GET", apiPath("/access/roles"), { body: ok(roles) }).as("roles")
 }
+
+// The platform-level super-administrator role is the vendor's: the server sends
+// it to a super administrator only, so this is the view an organisation
+// administrator gets.
+describe("Roles & access as an organisation administrator", () => {
+  it("does not list the super administrator role", () => {
+    cy.login("admin")
+    stubAccess(ROLES.filter((r) => !r.isLocked))
+    cy.visit("/settings")
+    cy.dataCy("settings-tab-access").click()
+    cy.wait("@roles")
+
+    cy.dataCy("role-item-org_admin").should("exist")
+    cy.dataCy("role-item-super_admin").should("not.exist")
+    cy.contains("Super administrator").should("not.exist")
+  })
+})
 
 describe("Roles & access", () => {
   beforeEach(() => {
-    cy.login("admin")
+    cy.login("superadmin")
     stubAccess()
     cy.visit("/settings")
     cy.dataCy("settings-tab-access").click()
@@ -118,6 +135,28 @@ describe("Roles & access", () => {
     cy.dataCy("delete-role").should("be.visible")
     cy.dataCy("role-item-org_admin").click()
     cy.dataCy("delete-role").should("not.exist")
+  })
+
+  it("asks for confirmation before deleting a role, and deletes only once confirmed", () => {
+    cy.intercept("DELETE", apiPath("/access/roles/role-custom"), { body: ok(null) }).as("deleteRole")
+
+    cy.dataCy("role-item-role-custom").click()
+    cy.dataCy("delete-role").click()
+
+    // Clicking Delete only opens the dialog — nothing has been sent yet.
+    cy.contains("Delete role").should("be.visible")
+    cy.contains('"Release manager" will be permanently deleted').should("be.visible")
+
+    // Cancelling keeps the role and sends nothing.
+    cy.dataCy("confirm-cancel").click()
+    cy.dataCy("confirm-ok").should("not.exist")
+    cy.dataCy("role-item-role-custom").should("exist")
+    cy.get("@deleteRole.all").should("have.length", 0)
+
+    // Confirming sends the delete.
+    cy.dataCy("delete-role").click()
+    cy.dataCy("confirm-ok").click()
+    cy.wait("@deleteRole")
   })
 
   it("shows the footer notice", () => {

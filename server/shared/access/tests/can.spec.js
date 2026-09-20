@@ -34,7 +34,7 @@ describe("can — effective permissions", () => {
 
   it("resolves the union of every role the actor holds", () => {
     // permissionsMiddleware flattens the roles into one set; this is what a
-    // user with, say, Tester + Support agent ends up with.
+    // user with, say, Tester + Support lead ends up with.
     const union = new Set(["result.enter", "bug.create", "supportqueue.read"]);
     expect(can({ permissions: union }, "result.enter")).toBe(true);
     expect(can({ permissions: union }, "supportqueue.read")).toBe(true);

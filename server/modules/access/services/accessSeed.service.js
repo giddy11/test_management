@@ -13,11 +13,14 @@
 //   - a built-in role that already exists keeps its CURRENT permission set —
 //     an admin's customisation survives every deploy. Pass
 //     { resetBuiltinPermissions: true } to deliberately restore the designed sets.
+//   - a built-in role dropped from the catalog is converted to a custom role,
+//     never deleted — see retireBuiltinRoles
 const {
   WILDCARD,
   CATEGORIES,
   PERMISSIONS,
   BUILTIN_ROLES,
+  RETIRED_ROLE_KEYS,
   roleKeyForLegacyUser,
 } = require("../catalog/permissions.catalog");
 
@@ -148,6 +151,20 @@ async function seedOrganizationRoles(
   return created;
 }
 
+// A built-in role dropped from the catalog. Organisations that already have a
+// copy keep it: members and permissions are untouched, and it becomes an
+// ordinary custom role — no seed key, no built-in flag — which an admin can
+// rename, edit, or delete once it has no members. Deleting it here instead
+// would strip its members of access. Safe to re-run: once converted, a role no
+// longer matches.
+async function retireBuiltinRoles(query) {
+  await query(
+    `UPDATE "roles" SET "key" = NULL, "is_builtin" = false
+      WHERE "key" = ANY($1::varchar[]) AND "organization_id" IS NOT NULL`,
+    [RETIRED_ROLE_KEYS]
+  );
+}
+
 // Seeds built-in roles for every organisation that currently has users.
 async function seedAllOrganizations(query, options = {}) {
   const orgs = await query(
@@ -181,6 +198,9 @@ async function backfillUserRoles(query) {
   let granted = 0;
   for (const u of users) {
     const key = roleKeyForLegacyUser(u.role, u.is_support_lead, u.is_team_lead);
+    // No built-in role for this account (a supporter who is not a lead): leave
+    // them with none rather than guess — an admin assigns one.
+    if (!key) continue;
     // Prefer the user's own organisation's copy; fall back to the platform-level
     // role, which is how super_admin (organization_id IS NULL) resolves.
     const rows = await query(
@@ -204,6 +224,7 @@ async function backfillUserRoles(query) {
 // The whole seed, in order. `query` must be bound to a live connection.
 async function seedAccess(query, options = {}) {
   await seedCatalog(query);
+  await retireBuiltinRoles(query);
   await seedPlatformRole(query, options);
   const orgs = await seedAllOrganizations(query, options);
   const granted = await backfillUserRoles(query);
@@ -216,6 +237,7 @@ module.exports = {
   seedPlatformRole,
   seedOrganizationRoles,
   seedAllOrganizations,
+  retireBuiltinRoles,
   backfillUserRoles,
   WILDCARD_ROW,
 };

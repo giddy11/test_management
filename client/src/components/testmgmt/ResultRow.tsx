@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Textarea } from "@/components/ui/textarea"
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog"
 import { ResultBadge, PriorityBadge } from "@/components/shared/StatusBadge"
 import { cn } from "@/lib/utils"
 import { RESULT_STATUSES, RESULT_META, type ResultStatus } from "@/lib/enums"
@@ -37,6 +38,7 @@ export function ResultRow({ runId, result, caseTitle, projectId, suiteId, disabl
   const { data: attachments = [] } = useResultAttachments(showAttachments ? result.id : "")
   const upload = useUploadResultAttachments(result.id)
   const deleteAttachment = useDeleteResultAttachment(result.id)
+  const [deletingAttachment, setDeletingAttachment] = useState<{ id: string; fileName: string } | null>(null)
 
   const setStatus = (status: ResultStatus) => {
     const next = result.status === status ? null : status
@@ -238,11 +240,8 @@ export function ResultRow({ runId, result, caseTitle, projectId, suiteId, disabl
                     )}
                   </a>
                   <button
-                    onClick={() =>
-                      deleteAttachment.mutate(a.id, {
-                        onError: () => toast.error("Failed to delete"),
-                      })
-                    }
+                    onClick={() => setDeletingAttachment({ id: a.id, fileName: a.fileName })}
+                    aria-label={`Delete ${a.fileName}`}
                     className="absolute -right-1 -top-1 hidden size-4 items-center justify-center rounded-full bg-destructive text-white group-hover:flex"
                   >
                     <X className="size-2.5" />
@@ -253,6 +252,25 @@ export function ResultRow({ runId, result, caseTitle, projectId, suiteId, disabl
           )}
         </div>
       )}
+
+      <ConfirmDialog
+        open={Boolean(deletingAttachment)}
+        onOpenChange={(o) => !o && setDeletingAttachment(null)}
+        title="Delete attachment"
+        description={`"${deletingAttachment?.fileName ?? "This image"}" will be removed.`}
+        confirmLabel="Delete"
+        loading={deleteAttachment.isPending}
+        onConfirm={() =>
+          deletingAttachment &&
+          deleteAttachment.mutate(deletingAttachment.id, {
+            onError: (e) => toast.error(e instanceof ApiError ? e.message : "Failed to delete"),
+            onSuccess: () => {
+              toast.success("Attachment deleted")
+              setDeletingAttachment(null)
+            },
+          })
+        }
+      />
     </div>
   )
 }

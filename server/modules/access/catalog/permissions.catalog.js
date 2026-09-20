@@ -234,15 +234,18 @@ const ORG_ADMIN_PERMISSIONS = ALL_CODES.filter(
 const ROLE_KEYS = Object.freeze({
   SUPER_ADMIN: "super_admin",
   ORG_ADMIN: "org_admin",
-  QA_MANAGER: "qa_manager",
   TEST_LEAD: "test_lead",
   QA_ENGINEER: "qa_engineer",
   TESTER: "tester",
-  SUPPORT_MANAGER: "support_manager",
   SUPPORT_LEAD: "support_lead",
-  SUPPORT_AGENT: "support_agent",
   VIEWER: "viewer",
 });
+
+// Built-in roles that were once seeded and no longer are. Where an organisation
+// already has one, the seed keeps it — members and permissions untouched — as an
+// ordinary custom role, so an admin can delete it once it is empty. See
+// retireBuiltinRoles in accessSeed.service.
+const RETIRED_ROLE_KEYS = Object.freeze(["qa_manager", "support_manager", "support_agent"]);
 
 const QA_ENGINEER_PERMISSIONS = [
   "user.read",
@@ -281,10 +284,6 @@ const SUPPORT_LEAD_PERMISSIONS = [
   "audit.read", "sla.read",
 ];
 
-// An agent works their own items; routing work and changing the roster are the
-// lead's job.
-const SUPPORT_AGENT_REMOVES = ["supportqueue.assign", "company.autoassign", "supporter.manage"];
-
 const without = (list, removed) => list.filter((code) => !removed.includes(code));
 
 const BUILTIN_ROLES = [
@@ -302,30 +301,6 @@ const BUILTIN_ROLES = [
     description:
       "The everyday owner of this organisation — everything inside it, and nothing outside it.",
     permissions: ORG_ADMIN_PERMISSIONS,
-  },
-  {
-    key: ROLE_KEYS.QA_MANAGER,
-    name: "QA manager",
-    description: "Approval and closure authority with full visibility, and no operational data entry.",
-    permissions: [
-      "audit.read",
-      "role.read", "user.read",
-      "project.read", "project.readall", "project.create", "project.update", "project.configure", "project.export",
-      "suite.read", "suite.manage",
-      "testcase.read", "testcase.approve", "testcase.deprecate", "testcase.assign",
-      "note.read",
-      "run.read", "run.create", "run.update", "run.close",
-      "result.read", "result.amend",
-      "bug.read", "bug.triage", "bug.verify", "bug.close",
-      "featurerequest.read", "featurerequest.decide", "featurerequest.vote", "featurerequest.comment",
-      "ticket.read", "ticket.assign", "ticket.update", "ticket.resolve", "ticket.close", "ticket.comment",
-      // No supportqueue.* — the support portal is the client company's own
-      // queue. The product team sees a company ticket only once it is
-      // escalated, and then through ticket.read like any other ticket.
-      "company.read",
-      "livechat.read", "livechat.assign", "livechat.manage",
-      "dashboard.read", "analytics.read", "analytics.team", "sla.read",
-    ],
   },
   {
     key: ROLE_KEYS.TEST_LEAD,
@@ -360,36 +335,10 @@ const BUILTIN_ROLES = [
     permissions: without(QA_ENGINEER_PERMISSIONS, TESTER_REMOVES),
   },
   {
-    key: ROLE_KEYS.SUPPORT_MANAGER,
-    name: "Support manager",
-    description: "Product-side owner of customer tickets and client company relationships.",
-    permissions: [
-      "audit.read",
-      "user.read", "project.read", "project.readall",
-      "bug.read", "bug.create", "featurerequest.read", "featurerequest.create",
-      "ticket.read", "ticket.assign", "ticket.update", "ticket.resolve", "ticket.close",
-      "ticket.delete", "ticket.comment", "form.configure",
-      // No supportqueue.* here either — managing the companies is the product
-      // team's job; working their queue is not.
-      // No company.autoassign: routing inside a client company is that
-      // company's own lead's call, with no product-team fallback.
-      "company.read", "company.manage", "supporter.manage",
-      "livechat.read", "livechat.send", "livechat.assign", "livechat.manage",
-      "livechat.configure", "widget.configure",
-      "dashboard.read", "analytics.read", "sla.read", "sla.configure",
-    ],
-  },
-  {
     key: ROLE_KEYS.SUPPORT_LEAD,
     name: "Support lead",
     description: "The IT support lead at a client company. Sees only their own company's queue.",
     permissions: SUPPORT_LEAD_PERMISSIONS,
-  },
-  {
-    key: ROLE_KEYS.SUPPORT_AGENT,
-    name: "Support agent",
-    description: "An IT supporter at a client company. Works their own assigned items.",
-    permissions: without(SUPPORT_LEAD_PERMISSIONS, SUPPORT_AGENT_REMOVES),
   },
   {
     key: ROLE_KEYS.VIEWER,
@@ -410,8 +359,7 @@ const LEGACY_ROLE_MAP = Object.freeze({
   superadmin: ROLE_KEYS.SUPER_ADMIN,
   admin: ROLE_KEYS.ORG_ADMIN,
   user: ROLE_KEYS.QA_ENGINEER,
-  // it_support splits on users.is_support_lead — see roleForLegacyUser.
-  it_support: ROLE_KEYS.SUPPORT_AGENT,
+  // it_support splits on users.is_support_lead — see roleKeyForLegacyUser.
 });
 
 // `isTeamLead` is true when the user leads at least one project
@@ -419,9 +367,12 @@ const LEGACY_ROLE_MAP = Object.freeze({
 // management of those projects — approving work, triaging their bugs — which
 // is the Test lead role, not QA engineer. Mapping them to QA engineer would
 // quietly take away capabilities they have today.
+//
+// Returns null when there is no built-in role to give: a supporter who is not a
+// lead. An admin assigns them a role instead (a custom one, or Support lead).
 function roleKeyForLegacyUser(role, isSupportLead, isTeamLead = false) {
   if (role === "it_support") {
-    return isSupportLead ? ROLE_KEYS.SUPPORT_LEAD : ROLE_KEYS.SUPPORT_AGENT;
+    return isSupportLead ? ROLE_KEYS.SUPPORT_LEAD : null;
   }
   if (role === "user" && isTeamLead) {
     return ROLE_KEYS.TEST_LEAD;
@@ -446,6 +397,9 @@ function roleKeyForLegacyUser(role, isSupportLead, isTeamLead = false) {
     }
   }
   for (const role of BUILTIN_ROLES) {
+    if (RETIRED_ROLE_KEYS.includes(role.key)) {
+      throw new Error(`[access] Role ${role.key} is retired and must not be seeded`);
+    }
     for (const code of role.permissions) {
       if (code !== WILDCARD && !codes.has(code)) {
         throw new Error(`[access] Role ${role.key} references unknown permission ${code}`);
@@ -463,6 +417,7 @@ module.exports = {
   SUPPORT_DESK_ONLY,
   BUILTIN_ROLES,
   ROLE_KEYS,
+  RETIRED_ROLE_KEYS,
   LEGACY_ROLE_MAP,
   roleKeyForLegacyUser,
 };

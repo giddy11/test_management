@@ -19,7 +19,7 @@ const Role = new EntitySchema({
       type: "uuid",
       nullable: true,
     },
-    // Stable seed identity for built-in roles, e.g. 'qa_manager'. Null on
+    // Stable seed identity for built-in roles, e.g. 'qa_engineer'. Null on
     // custom roles — they are identified by id and matched by name.
     key: {
       type: "varchar",

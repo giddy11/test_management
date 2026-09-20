@@ -58,6 +58,38 @@ describe("Run execution", () => {
     cy.contains("Marked 2 as Pass").should("be.visible")
   })
 
+  it("asks for confirmation before deleting a result attachment", () => {
+    const attachment = {
+      id: "att-1",
+      fileName: "login-error.png",
+      fileUrl: "https://example.test/login-error.png",
+      mimeType: "image/png",
+      fileSizeBytes: 2048,
+    }
+    cy.interceptApi("GET", "/test-run-results/e2e-result-1/attachments", { body: ok([attachment]) }, "resultAttachments")
+    cy.interceptApi("DELETE", "/test-run-results/e2e-result-1/attachments/att-1", { body: ok(null) }, "deleteAttachment")
+
+    cy.contains('[data-cy="result-row"]', "Valid login").within(() => {
+      cy.contains("button", "Attach").click()
+    })
+    cy.wait("@resultAttachments")
+
+    // The remove button only shows on hover, so click it directly.
+    cy.get('[aria-label="Delete login-error.png"]').click({ force: true })
+    cy.contains("Delete attachment").should("be.visible")
+    cy.contains('"login-error.png" will be removed.').should("be.visible")
+
+    // Cancelling sends nothing.
+    cy.dataCy("confirm-cancel").click()
+    cy.dataCy("confirm-ok").should("not.exist")
+    cy.get("@deleteAttachment.all").should("have.length", 0)
+
+    // Confirming sends the delete.
+    cy.get('[aria-label="Delete login-error.png"]').click({ force: true })
+    cy.dataCy("confirm-ok").click()
+    cy.wait("@deleteAttachment")
+  })
+
   it("marks the run completed and locks result recording", () => {
     cy.fixture("testmgmt/run").then((run) => {
       cy.interceptApi(

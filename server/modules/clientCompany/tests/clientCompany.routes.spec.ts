@@ -56,6 +56,8 @@ function guardFor(router: any, path: string, method: string) {
   return guardLayer.handle;
 }
 
+const { plainSupporterPermissions } = require("../../../test/actors");
+
 function permissionsOf(roleKey: string): Set<string> {
   const role = BUILTIN_ROLES.find((r: any) => r.key === roleKey);
   if (!role) throw new Error(`Unknown role ${roleKey}`);
@@ -82,20 +84,19 @@ describe("client-company routes — supporter-roster management admits support l
     for (const [path, method] of routes) {
       const handler = guardFor(clientCompanyRouter, path, method);
       expect(invoke(handler, permissionsOf(ROLE_KEYS.ORG_ADMIN)).next).toHaveBeenCalled();
-      expect(invoke(handler, permissionsOf(ROLE_KEYS.SUPPORT_MANAGER)).next).toHaveBeenCalled();
       expect(invoke(handler, permissionsOf(ROLE_KEYS.SUPPORT_LEAD)).next).toHaveBeenCalled();
       // A plain supporter cannot change their own company's roster.
-      expect(invoke(handler, permissionsOf(ROLE_KEYS.SUPPORT_AGENT)).status).toHaveBeenCalledWith(403);
+      expect(invoke(handler, plainSupporterPermissions()).status).toHaveBeenCalledWith(403);
       // Nobody on the test side has any business here.
       expect(invoke(handler, permissionsOf(ROLE_KEYS.QA_ENGINEER)).status).toHaveBeenCalledWith(403);
-      expect(invoke(handler, permissionsOf(ROLE_KEYS.QA_MANAGER)).status).toHaveBeenCalledWith(403);
+      expect(invoke(handler, permissionsOf(ROLE_KEYS.TEST_LEAD)).status).toHaveBeenCalledWith(403);
     }
   });
 
   it("lets any supporter read the roster they belong to", () => {
     const handler = guardFor(clientCompanyRouter, "/:id/supporters", "get");
     expect(invoke(handler, permissionsOf(ROLE_KEYS.SUPPORT_LEAD)).next).toHaveBeenCalled();
-    expect(invoke(handler, permissionsOf(ROLE_KEYS.SUPPORT_AGENT)).next).toHaveBeenCalled();
+    expect(invoke(handler, plainSupporterPermissions()).next).toHaveBeenCalled();
     expect(invoke(handler, permissionsOf(ROLE_KEYS.TESTER)).status).toHaveBeenCalledWith(403);
   });
 });
@@ -108,21 +109,20 @@ describe("client-company routes — designating the primary lead is product-team
       "patch"
     );
     expect(invoke(handler, permissionsOf(ROLE_KEYS.ORG_ADMIN)).next).toHaveBeenCalled();
-    expect(invoke(handler, permissionsOf(ROLE_KEYS.SUPPORT_MANAGER)).next).toHaveBeenCalled();
     // The key assertion: peer leads cannot do this to each other or themselves.
     expect(invoke(handler, permissionsOf(ROLE_KEYS.SUPPORT_LEAD)).status).toHaveBeenCalledWith(403);
-    expect(invoke(handler, permissionsOf(ROLE_KEYS.SUPPORT_AGENT)).status).toHaveBeenCalledWith(403);
+    expect(invoke(handler, plainSupporterPermissions()).status).toHaveBeenCalledWith(403);
     expect(invoke(handler, permissionsOf(ROLE_KEYS.QA_ENGINEER)).status).toHaveBeenCalledWith(403);
   });
 });
 
 describe("client-company routes — auto-assign is the company's own call", () => {
-  it("admits a support lead and blocks the product-team support manager", () => {
+  it("admits a support lead and blocks the product team's administrator", () => {
     const handler = guardFor(clientCompanyRouter, "/:id/auto-assign", "patch");
     expect(invoke(handler, permissionsOf(ROLE_KEYS.SUPPORT_LEAD)).next).toHaveBeenCalled();
     // "No admin fallback at all" — the product-team role does not hold it.
-    expect(invoke(handler, permissionsOf(ROLE_KEYS.SUPPORT_MANAGER)).status).toHaveBeenCalledWith(403);
-    expect(invoke(handler, permissionsOf(ROLE_KEYS.SUPPORT_AGENT)).status).toHaveBeenCalledWith(403);
+    expect(invoke(handler, permissionsOf(ROLE_KEYS.ORG_ADMIN)).status).toHaveBeenCalledWith(403);
+    expect(invoke(handler, plainSupporterPermissions()).status).toHaveBeenCalledWith(403);
     expect(invoke(handler, permissionsOf(ROLE_KEYS.QA_ENGINEER)).status).toHaveBeenCalledWith(403);
   });
 
@@ -130,11 +130,11 @@ describe("client-company routes — auto-assign is the company's own call", () =
     // Regression guard: these were one "company.configure" permission at first,
     // which gave the product team auto-assign and gave leads the primary flag.
     const supportLead = permissionsOf(ROLE_KEYS.SUPPORT_LEAD);
-    const supportManager = permissionsOf(ROLE_KEYS.SUPPORT_MANAGER);
+    const orgAdmin = permissionsOf(ROLE_KEYS.ORG_ADMIN);
     expect(supportLead.has("company.autoassign")).toBe(true);
     expect(supportLead.has("company.manage")).toBe(false);
-    expect(supportManager.has("company.manage")).toBe(true);
-    expect(supportManager.has("company.autoassign")).toBe(false);
+    expect(orgAdmin.has("company.manage")).toBe(true);
+    expect(orgAdmin.has("company.autoassign")).toBe(false);
   });
 });
 
@@ -148,9 +148,9 @@ describe("client-company routes — company management is product-team-only", ()
   it("blocks supporters from creating, editing or deleting companies", () => {
     for (const [path, method] of routes) {
       const handler = guardFor(clientCompanyRouter, path, method);
-      expect(invoke(handler, permissionsOf(ROLE_KEYS.SUPPORT_MANAGER)).next).toHaveBeenCalled();
+      expect(invoke(handler, permissionsOf(ROLE_KEYS.ORG_ADMIN)).next).toHaveBeenCalled();
       expect(invoke(handler, permissionsOf(ROLE_KEYS.SUPPORT_LEAD)).status).toHaveBeenCalledWith(403);
-      expect(invoke(handler, permissionsOf(ROLE_KEYS.SUPPORT_AGENT)).status).toHaveBeenCalledWith(403);
+      expect(invoke(handler, plainSupporterPermissions()).status).toHaveBeenCalledWith(403);
     }
   });
 });

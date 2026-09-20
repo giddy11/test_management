@@ -26,13 +26,26 @@ class AccessService {
 
   // ── Reads ──────────────────────────────────────────────────────────────────
 
-  async fetchCatalog() {
-    return this.repo.fetchCatalog();
+  // Only the permissions the actor holds themselves. Offering one they cannot
+  // grant just sets them up for a 403 (see assertNoEscalation), so it isn't
+  // shown at all — and a category left with nothing to show goes with it.
+  async fetchCatalog(actor) {
+    const { categories, permissions } = await this.repo.fetchCatalog();
+    if (hasWildcard(actor)) return { categories, permissions };
+
+    const held = permissions.filter((p) => can(actor, p.code));
+    const inUse = new Set(held.map((p) => p.category));
+    return { categories: categories.filter((c) => inUse.has(c.key)), permissions: held };
   }
 
+  // The platform-level super-administrator role is the vendor's, not the
+  // customer's: only a super administrator is shown it.
   async fetchRoles(actor) {
     if (!actor.organizationId) return [];
-    return this.repo.fetchRolesForOrg(actor.organizationId);
+    const roles = await this.repo.fetchRolesForOrg(actor.organizationId, {
+      includePlatform: hasWildcard(actor),
+    });
+    return roles.map((role) => this.scopeToActor(actor, role));
   }
 
   async getRole(actor, id) {
@@ -41,20 +54,39 @@ class AccessService {
       this.repo.permissionsForRole(role.id),
       this.repo.countMembers(role.id),
     ]);
-    return { ...role, permissions, permissionCount: permissions.length, memberCount };
+    return this.scopeToActor(actor, {
+      ...role,
+      permissions,
+      permissionCount: permissions.length,
+      memberCount,
+    });
+  }
+
+  // A role as this actor sees it: its permissions, and the count shown beside
+  // them, limited to the ones the actor holds. A role can carry more than that
+  // (Support lead has the client company's support queue, which no organisation
+  // administrator holds); the rest is kept on the role but never shown, so the
+  // list, the counts and the editor always agree. See mergeHiddenPermissions.
+  scopeToActor(actor, role) {
+    if (hasWildcard(actor)) return role;
+    const permissions = (role.permissions ?? []).filter((code) => can(actor, code));
+    return { ...role, permissions, permissionCount: permissions.length };
   }
 
   // ── Guards ─────────────────────────────────────────────────────────────────
 
-  // A role is visible to an actor if it belongs to their organisation, or is
-  // the platform-level role (which everyone can see and nobody can edit).
+  // A role is visible to an actor if it belongs to their organisation. The
+  // platform-level role (organization_id NULL) is visible only to a super
+  // administrator, and nobody can edit it.
   async assertVisibleRole(actor, id) {
     const role = await this.repo.findRoleById(id);
     if (!role) throw new AppError("Role not found", 404);
-    if (role.organizationId !== null && role.organizationId !== actor.organizationId) {
-      // Don't disclose that a role exists in another organisation.
-      throw new AppError("Role not found", 404);
-    }
+    const visible =
+      role.organizationId === null
+        ? hasWildcard(actor)
+        : role.organizationId === actor.organizationId;
+    // Don't disclose that a role exists in another organisation, or at platform level.
+    if (!visible) throw new AppError("Role not found", 404);
     return role;
   }
 
@@ -123,8 +155,10 @@ class AccessService {
     if (cloneFromId) {
       const source = await this.assertVisibleRole(actor, cloneFromId);
       const sourceCodes = await this.repo.permissionsForRole(source.id);
-      // Cloning the locked super role would mint a second wildcard holder.
-      codes = sourceCodes.filter((c) => c !== WILDCARD);
+      // Cloning the locked super role would mint a second wildcard holder. And
+      // a copy carries only what the actor can see — and so may grant — of the
+      // source, exactly what the editor showed them.
+      codes = sourceCodes.filter((c) => c !== WILDCARD && can(actor, c));
     }
 
     const trimmed = name.trim();
@@ -186,27 +220,36 @@ class AccessService {
       patch.description = description?.trim() || null;
     }
 
+    // What the role ends up with. The actor edits only the part of it they can
+    // see; the rest stays as it is.
+    let nextPermissions;
     if (permissions !== undefined) {
       await this.assertKnownPermissions(permissions);
-      this.assertNoEscalation(actor, permissions);
-      await this.assertGrantingPermissionSurvives(actor, role.id, permissions);
+      // Only a permission being newly added is a grant — one the role already
+      // carries is not the actor's to answer for.
+      this.assertNoEscalation(
+        actor,
+        permissions.filter((code) => !before.permissions.includes(code))
+      );
+      nextPermissions = this.mergeHiddenPermissions(actor, permissions, before.permissions);
+      await this.assertGrantingPermissionSurvives(actor, role.id, nextPermissions);
       // Removing role.manage from a role can orphan its members' ability to
       // manage access even when another role still grants it, so check holders too.
-      await this.assertGrantingHoldersSurvive(actor, role.id, permissions, before.permissions);
+      await this.assertGrantingHoldersSurvive(actor, role.id, nextPermissions, before.permissions);
     }
 
     if (Object.keys(patch).length) {
       await this.repo.updateRole(role.id, patch);
     }
-    if (permissions !== undefined) {
-      await this.repo.setRolePermissions(role.id, permissions);
+    if (nextPermissions !== undefined) {
+      await this.repo.setRolePermissions(role.id, nextPermissions);
     }
     cache.invalidateAll();
 
     const after = {
       name: patch.name ?? role.name,
       description: patch.description ?? role.description,
-      permissions: permissions ?? before.permissions,
+      permissions: nextPermissions ?? before.permissions,
     };
 
     this.activity.log(actor, {
@@ -218,6 +261,16 @@ class AccessService {
     });
 
     return this.getRole(actor, role.id);
+  }
+
+  // The permissions the actor asked for, plus whatever the role already carries
+  // that they do not hold. The editor never showed those, so it never sent them
+  // back — without this, saving Support lead would quietly strip its queue
+  // permissions. A super administrator holds everything, so nothing is hidden
+  // from them and the request is taken as written.
+  mergeHiddenPermissions(actor, requested, current) {
+    const hidden = current.filter((code) => !can(actor, code));
+    return [...new Set([...requested, ...hidden])];
   }
 
   // If this role currently grants role.manage and is about to stop, every one
