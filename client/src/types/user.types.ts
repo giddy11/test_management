@@ -8,7 +8,14 @@ export interface CreateUserPayload {
   lastName: string
   email: string
   password: string
+  /**
+   * The legacy users.role column, derived from whether the assigned roles
+   * include the organisation administrator. Kept for one release while that
+   * column still exists; user_roles is the source of truth.
+   */
   role: ManageableRole
+  /** Roles to grant the new account — the real access decision. */
+  roleIds?: string[]
 }
 
 export interface UpdateUserPayload {

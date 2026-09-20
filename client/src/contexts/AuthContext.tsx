@@ -1,5 +1,5 @@
 // contexts/AuthContext.tsx — global auth state (the one piece of genuinely global server data).
-import { createContext, useContext, useCallback, useState, type ReactNode } from "react"
+import { createContext, useContext, useCallback, useMemo, useState, type ReactNode } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { AuthEndpoints } from "@/endpoints/auth.endpoints"
 import { tokenStorage } from "@/lib/storage"
@@ -122,7 +122,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       : (realUser ?? null)
 
-  const permissions = effectiveUser?.permissions ?? []
+  // Memoised so `can` keeps a stable identity — it ends up in the dependency
+  // list of effects all over the app.
+  const permissions = useMemo(
+    () => effectiveUser?.permissions ?? [],
+    [effectiveUser?.permissions]
+  )
   const can = useCallback((code: string) => canCheck(permissions, code), [permissions])
 
   const value: AuthContextValue = {

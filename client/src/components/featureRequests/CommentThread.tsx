@@ -14,7 +14,6 @@ import {
 } from "@/hooks/useFeatureRequestComments"
 import { useTypingIndicator } from "@/hooks/useTypingIndicator"
 import { useAuth } from "@/contexts/AuthContext"
-import { UserRole } from "@/types/auth.types"
 import { ApiError } from "@/transport/http"
 
 const initials = (name: string) =>
@@ -27,8 +26,10 @@ function typingLabel(names: string[]) {
 }
 
 export function CommentThread({ requestId }: { requestId: string }) {
-  const { user } = useAuth()
-  const canModerate = user?.role === UserRole.ADMIN || user?.role === UserRole.SUPERADMIN
+  const { user, can } = useAuth()
+  // Deleting anyone else's comment is the same permission the server checks
+  // on DELETE /feature-requests/:id/comments/:commentId.
+  const canModerate = can("featurerequest.comment")
   const { data: comments, isLoading, isError } = useFeatureRequestComments(requestId)
   const addComment = useAddFeatureRequestComment(requestId)
   const deleteComment = useDeleteFeatureRequestComment(requestId)

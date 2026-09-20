@@ -29,7 +29,6 @@ import { ClientCompaniesCard } from "@/components/feedback/ClientCompaniesCard"
 import { useDeleteFeedback, useFeedback, useSetFeedbackLink } from "@/hooks/useFeedback"
 import { useProject } from "@/hooks/useProjects"
 import { useAuth } from "@/contexts/AuthContext"
-import { UserRole } from "@/types/auth.types"
 import { ApiError } from "@/transport/http"
 import {
   FEEDBACK_SEVERITY_LABELS,
@@ -63,8 +62,9 @@ interface Props {
 }
 
 export function FeedbackTab({ projectId, canManage }: Props) {
-  const { user } = useAuth()
-  const isAdmin = user?.role === UserRole.ADMIN || user?.role === UserRole.SUPERADMIN
+  const { user, can } = useAuth()
+  const canConfigureForm = can("form.configure")
+  const canManageCompanies = can("company.manage")
   const [page, setPage] = useState(1)
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [managing, setManaging] = useState<Feedback | null>(null)
@@ -110,7 +110,7 @@ export function FeedbackTab({ projectId, canManage }: Props) {
 
   return (
     <div className="space-y-4">
-      {isAdmin && (
+      {canConfigureForm && (
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-base">
@@ -142,7 +142,7 @@ export function FeedbackTab({ projectId, canManage }: Props) {
         </Card>
       )}
 
-      {isAdmin && <ClientCompaniesCard projectId={projectId} />}
+      {canManageCompanies && <ClientCompaniesCard projectId={projectId} />}
 
       <div className="flex items-center justify-between gap-2">
         <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1) }}>

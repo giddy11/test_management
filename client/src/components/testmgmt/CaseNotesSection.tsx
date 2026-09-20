@@ -15,7 +15,6 @@ import {
   useDeleteCaseNote,
 } from "@/hooks/useCaseNotes"
 import { useAuth } from "@/contexts/AuthContext"
-import { UserRole } from "@/types/auth.types"
 import { timeAgo } from "@/lib/timeAgo"
 import { ApiError } from "@/transport/http"
 
@@ -24,8 +23,8 @@ const initials = (name: string) =>
 
 // The running notes thread on the case itself.
 export function CaseNotesSection({ caseId }: { caseId: string }) {
-  const { user } = useAuth()
-  const canModerate = user?.role === UserRole.ADMIN || user?.role === UserRole.SUPERADMIN
+  const { user, can } = useAuth()
+  const canModerate = can("note.manage")
   const { data: notes = [], isLoading } = useCaseNotes(caseId)
   const addNote = useAddCaseNote(caseId)
   const deleteNote = useDeleteCaseNote(caseId)

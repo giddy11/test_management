@@ -23,7 +23,6 @@ import { useDeleteFeedback, useFeedback } from "@/hooks/useFeedback"
 import { useProject, useProjects } from "@/hooks/useProjects"
 import { useDebounce } from "@/hooks/useDebounce"
 import { useAuth } from "@/contexts/AuthContext"
-import { UserRole } from "@/types/auth.types"
 import { ApiError } from "@/transport/http"
 import {
   FEEDBACK_SEVERITY_LABELS,
@@ -53,8 +52,8 @@ const SEVERITY_VARIANT: Record<FeedbackSeverity, "default" | "secondary" | "outl
 }
 
 export default function AllFeedbackPage() {
-  const { user } = useAuth()
-  const isAdmin = user?.role === UserRole.ADMIN || user?.role === UserRole.SUPERADMIN
+  const { user, can } = useAuth()
+  const isAdmin = can("ticket.assign")
   const [projectFilter, setProjectFilter] = useState<string>("all")
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [typeFilter, setTypeFilter] = useState<string>("all")

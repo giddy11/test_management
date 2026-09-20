@@ -15,7 +15,6 @@ import { useProject } from "@/hooks/useProjects"
 import { useDashboard } from "@/hooks/useDashboard"
 import { useAuth } from "@/contexts/AuthContext"
 import { PageLoader } from "@/components/shared/PageLoader"
-import { UserRole } from "@/types/auth.types"
 import type { SuiteBreakdown } from "@/types/testMgmt.types"
 
 const PROJECT_TABS = ["suites", "runs", "feature-requests", "bugs", "feedback", "live-chat"] as const
@@ -27,10 +26,10 @@ export default function ProjectDetailPage() {
   const activeTab = PROJECT_TABS.includes(tabParam as (typeof PROJECT_TABS)[number])
     ? (tabParam as (typeof PROJECT_TABS)[number])
     : "suites"
-  const { user } = useAuth()
+  const { user, can } = useAuth()
   const { data: project, isLoading } = useProject(projectId)
   // Admins always manage; a regular user manages when they lead this project.
-  const isAdmin = user?.role === UserRole.ADMIN || user?.role === UserRole.SUPERADMIN
+  const isAdmin = can("project.update")
   const canManage =
     isAdmin ||
     Boolean(project?.members?.some((m) => m.id === user?.id && m.role === "team_lead"))

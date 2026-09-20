@@ -27,7 +27,7 @@ import { useUpdateNotificationSoundSetting } from "@/hooks/useNotificationSoundS
 import { useProjects } from "@/hooks/useProjects"
 import { ALL_GUIDES, DASHBOARD_GUIDE, type TourGuide } from "@/lib/tourGuides"
 import { Badge } from "@/components/ui/badge"
-import { UserRole, type ChangePasswordPayload, type UpdateProfilePayload } from "@/types/auth.types"
+import { type ChangePasswordPayload, type UpdateProfilePayload } from "@/types/auth.types"
 import { useSupportChatSettings, useSetSupportChatEnabled } from "@/hooks/useSupportChat"
 import { RolesAccessTab } from "@/components/access/RolesAccessTab"
 
@@ -530,8 +530,9 @@ function AdminTab() {
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function SettingsPage() {
-  const { user, can } = useAuth()
-  const isSuperadmin = user?.role === UserRole.SUPERADMIN
+  const { can } = useAuth()
+  // The Admin tab holds the platform-wide support-chat toggle.
+  const isSuperadmin = can("settings.manage")
   // Reading roles is its own permission; managing them is another. The tab
   // shows for anyone who may look, and the editor stays read-only without
   // role.manage. The API enforces both regardless.

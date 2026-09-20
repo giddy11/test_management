@@ -8,7 +8,6 @@ import { Headset, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/contexts/AuthContext"
-import { UserRole } from "@/types/auth.types"
 import { ChatComposer } from "@/components/support-chat/ChatComposer"
 import { ChatMessageBody } from "@/components/support-chat/ChatMessageBody"
 import {
@@ -24,7 +23,7 @@ function formatTime(iso: string) {
 }
 
 export function SupportChatWidget() {
-  const { user } = useAuth()
+  const { can } = useAuth()
   const [open, setOpen] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
 
@@ -132,9 +131,10 @@ export function SupportChatWidget() {
     }
   }, [widgetDragging])
 
-  // Only admins and regular users get the floater; super admins use the inbox,
-  // and external IT supporters have their own support portal.
-  const roleAllowed = user?.role === UserRole.ADMIN || user?.role === UserRole.USER
+  // The floater is for internal users who need to reach the platform team.
+  // Whoever staffs the inbox uses that instead, and external supporters have
+  // their own portal (no project.read).
+  const roleAllowed = can("project.read") && !can("supportchat.read")
 
   // The super admin can disable the widget platform-wide.
   const { data: settings } = useSupportChatSettings(roleAllowed)

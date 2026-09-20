@@ -31,7 +31,6 @@ import {
 } from "@/components/ui/table"
 import { useSlaTickets } from "@/hooks/useSla"
 import { useAuth } from "@/contexts/AuthContext"
-import { UserRole } from "@/types/auth.types"
 import { FEEDBACK_SEVERITY_LABELS, FEEDBACK_TYPE_LABELS } from "@/types/feedback.types"
 import {
   SLA_METRIC_LABELS,
@@ -118,7 +117,7 @@ export function SlaTicketsDialog({
   onOpenChange: (open: boolean) => void
 }) {
   const { user } = useAuth()
-  const isSupporter = user?.role === UserRole.IT_SUPPORT
+  const isSupporter = Boolean(user?.clientCompanyId)
   const [page, setPage] = useState(1)
   const [sort, setSort] = useState<SlaTicketsParams["sort"]>("newest")
 

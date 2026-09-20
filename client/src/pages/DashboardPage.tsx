@@ -117,7 +117,7 @@ function PassRateBadge({ rate }: { rate: number }) {
 type DashboardTab = "overview" | "sla"
 
 export default function DashboardPage() {
-  const { user } = useAuth()
+  const { user, can } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
   const tab: DashboardTab = searchParams.get("tab") === "sla" ? "sla" : "overview"
   const setTab = (next: string) => {
@@ -134,7 +134,7 @@ export default function DashboardPage() {
         <p className="text-sm text-muted-foreground">
           {tab === "sla"
             ? "Support ticket performance: response and resolution times, SLA compliance, and recurring issues."
-            : user?.role === "user"
+            : !can("analytics.read")
               ? "Your projects, assigned tests and results at a glance."
               : "Track how your documented tests are being followed up and executed."}
         </p>

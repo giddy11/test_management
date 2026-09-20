@@ -46,7 +46,6 @@ import { PageLoader } from "@/components/shared/PageLoader"
 import { useSlaFilterOptions, useSlaOverview } from "@/hooks/useSla"
 import { useDebounce } from "@/hooks/useDebounce"
 import { useAuth } from "@/contexts/AuthContext"
-import { UserRole } from "@/types/auth.types"
 import { FEEDBACK_TYPE_LABELS, type FeedbackType } from "@/types/feedback.types"
 import {
   SLA_ALL_STAGES,
@@ -178,9 +177,11 @@ function PeopleTable({
 }
 
 export function SlaDashboard() {
-  const { user } = useAuth()
-  const isSupporter = user?.role === UserRole.IT_SUPPORT
-  const isAdmin = user?.role === UserRole.ADMIN || user?.role === UserRole.SUPERADMIN
+  const { user, can } = useAuth()
+  // An external supporter is scoped to their own client company; the server
+  // decides that from clientCompanyId, and so does this view.
+  const isSupporter = Boolean(user?.clientCompanyId)
+  const isAdmin = can("sla.configure")
 
   const [range, setRange] = useState<RangePreset>("90d")
   const [from, setFrom] = useState<string>(daysAgo(90))

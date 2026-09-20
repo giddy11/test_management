@@ -126,10 +126,21 @@ export default function TeamPage() {
                 </TableCell>
                 <TableCell className="text-muted-foreground">{u.email}</TableCell>
                 <TableCell>
-                  <span className="inline-flex items-center gap-1.5">
-                    <Badge variant={u.role === "user" ? "secondary" : "default"}>
-                      {ROLE_LABEL[u.role]}
-                    </Badge>
+                  <span className="inline-flex flex-wrap items-center gap-1.5">
+                    {/* The assigned roles are what the server actually checks.
+                        The legacy account type is shown only while that column
+                        still exists, and only when no role has been granted. */}
+                    {u.roles?.length ? (
+                      u.roles.map((r) => (
+                        <Badge key={r.id} variant={r.isLocked ? "default" : "secondary"}>
+                          {r.name}
+                        </Badge>
+                      ))
+                    ) : (
+                      <Badge variant={u.role === "user" ? "secondary" : "default"}>
+                        {ROLE_LABEL[u.role]}
+                      </Badge>
+                    )}
                     {u.isOrgOwner && (
                       <Badge variant="outline" className="gap-1">
                         <Crown className="size-3 text-amber-500" /> Owner

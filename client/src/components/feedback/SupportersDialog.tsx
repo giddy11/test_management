@@ -27,7 +27,6 @@ import {
 } from "@/hooks/useClientCompanies"
 import { createSupporterSchema, type CreateSupporterForm } from "@/lib/validation"
 import { useAuth } from "@/contexts/AuthContext"
-import { UserRole } from "@/types/auth.types"
 import { ApiError } from "@/transport/http"
 import type { ClientCompany, Supporter } from "@/types/clientCompany.types"
 
@@ -37,8 +36,10 @@ interface Props {
 }
 
 export function SupportersDialog({ company, onOpenChange }: Props) {
-  const { user } = useAuth()
-  const isAdmin = user?.role === UserRole.ADMIN || user?.role === UserRole.SUPERADMIN
+  const { user, can } = useAuth()
+  // The product team manages companies; a company's own support lead manages
+  // only its roster. company.manage is what separates the two.
+  const isAdmin = can("company.manage")
   const companyId = company?.id ?? ""
   const { data: supporters = [], isLoading } = useSupporters(companyId, Boolean(company))
   const createSupporter = useCreateSupporter(companyId)

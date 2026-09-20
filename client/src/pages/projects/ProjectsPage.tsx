@@ -11,13 +11,12 @@ import { ConfirmDialog } from "@/components/shared/ConfirmDialog"
 import { useProjects, useDeleteProject } from "@/hooks/useProjects"
 import { useDebounce } from "@/hooks/useDebounce"
 import { useAuth } from "@/contexts/AuthContext"
-import { UserRole } from "@/types/auth.types"
 import type { Project } from "@/types/project.types"
 
 export default function ProjectsPage() {
-  const { user } = useAuth()
+  const { can } = useAuth()
   const navigate = useNavigate()
-  const canManage = user?.role === UserRole.ADMIN || user?.role === UserRole.SUPERADMIN
+  const canManage = can("project.create")
   const [search, setSearch] = useState("")
   const debouncedSearch = useDebounce(search, 300)
   const [page, setPage] = useState(1)

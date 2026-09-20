@@ -22,7 +22,6 @@ import {
   useAssignLiveChatAgent,
 } from "@/hooks/useLiveChatInbox"
 import { useAuth } from "@/contexts/AuthContext"
-import { UserRole } from "@/types/auth.types"
 import {
   LIVE_CHAT_STATUS_LABELS,
   LIVE_CHAT_STATUS_VARIANT,
@@ -184,8 +183,8 @@ interface Props {
 }
 
 export function LiveChatTab({ projectId }: Props) {
-  const { user } = useAuth()
-  const isAdmin = user?.role === UserRole.ADMIN || user?.role === UserRole.SUPERADMIN
+  const { can } = useAuth()
+  const isAdmin = can("livechat.configure")
 
   const [tab, setTab] = useState<LiveChatStatus | "all">("new")
   const statusFilter = tab === "all" ? undefined : tab
