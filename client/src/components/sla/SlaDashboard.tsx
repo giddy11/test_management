@@ -670,13 +670,13 @@ export function SlaDashboard() {
             <Card>
               <CardHeader>
                 <CardTitle className="text-base">By support engineer</CardTitle>
-                <CardDescription>IT support engineers the tickets were routed to</CardDescription>
+                <CardDescription>IT support engineers and the tickets routed to them — unassigned tickets aren't counted against anyone</CardDescription>
               </CardHeader>
               <CardContent className="p-0">
                 <PeopleTable
                   rows={data.bySupporter}
                   personLabel="Support engineer"
-                  emptyLabel="No tickets routed to a support engineer in this range."
+                  emptyLabel="No support engineers to show."
                   onSelect={(r) => setDrill({ metric: "all", extra: { supporterId: r.userId }, title: `Tickets handled by ${r.name}` })}
                 />
               </CardContent>

@@ -52,6 +52,9 @@ const env = {
     synchronize: bool("DB_SYNCHRONIZE", !isProduction),
     logging: bool("DB_LOGGING", false),
     ssl: bool("DB_SSL", false),
+    // Max connections this process may hold. Unset = the pg default (10). Lower it
+    // when the database has a small connection limit shared with other clients.
+    poolSize: process.env.DB_POOL_MAX ? Number(process.env.DB_POOL_MAX) : undefined,
   },
 
   jwt: {

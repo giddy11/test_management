@@ -570,28 +570,68 @@ export class SlaRepository {
     );
   }
 
-  // IT support engineers (assigned_supporter_id) — ticket-only; see
-  // ticketOnlyFilterActive in buildBase.
+  // IT support engineers — ticket-only (bugs/feature requests have no
+  // supporter concept). Lists every supporter the caller can see, including
+  // ones with nothing assigned yet (a company's tickets often sit unassigned
+  // in its queue), plus anyone a ticket in range is assigned to. Removed
+  // (soft-deleted) accounts are left out even if they still hold tickets.
   async bySupporter(scope: SlaScope, filters: SlaQueryFilters, rules: SlaRules, limit = 15) {
+    if (filters.source && filters.source !== "ticket") return [];
+
     const { sql, params } = buildBase(scope, filters, rules);
-    params.push(limit);
+    const add = (value: unknown) => {
+      params.push(value);
+      return `$${params.length}`;
+    };
+
+    const rosterWhere = [
+      "u.role = 'it_support'",
+      "u.deleted_at IS NULL",
+      "cc.deleted_at IS NULL",
+      "p.deleted_at IS NULL",
+    ];
+    if (scope.clientCompanyId) {
+      rosterWhere.push(`u.client_company_id = ${add(scope.clientCompanyId)}`);
+    } else {
+      if (scope.organizationId) rosterWhere.push(`p.organization_id = ${add(scope.organizationId)}`);
+      if (scope.memberUserId) {
+        rosterWhere.push(
+          `EXISTS (SELECT 1 FROM project_members spm WHERE spm.project_id = p.id AND spm.user_id = ${add(scope.memberUserId)})`
+        );
+      }
+    }
+    if (filters.projectId) rosterWhere.push(`cc.project_id = ${add(filters.projectId)}`);
+    if (filters.clientCompanyId) rosterWhere.push(`u.client_company_id = ${add(filters.clientCompanyId)}`);
+    if (filters.supporterId) rosterWhere.push(`u.id = ${add(filters.supporterId)}`);
+
+    const limitParam = add(limit);
     return this.ds.query(
-      `${sql}
+      `${sql},
+       listed AS (
+         SELECT DISTINCT assigned_supporter_id AS user_id FROM t WHERE assigned_supporter_id IS NOT NULL
+         UNION
+         SELECT u.id FROM users u
+           JOIN client_companies cc ON cc.id = u.client_company_id
+           JOIN projects p ON p.id = cc.project_id
+          WHERE ${rosterWhere.join(" AND ")}
+       )
        SELECT u.id AS "userId",
          trim(concat(u.first_name, ' ', u.last_name)) AS name,
-         t.client_company_name AS "clientCompanyName",
-         count(*)::int AS total,
+         ucc.name AS "clientCompanyName",
+         count(t.id)::int AS total,
          count(*) FILTER (WHERE NOT t.is_resolved)::int AS open,
          count(*) FILTER (WHERE t.is_resolved)::int AS resolved,
          count(*) FILTER (WHERE t.compliance = 'met')::int AS met,
          count(*) FILTER (WHERE t.compliance = 'breached')::int AS breached,
          avg(t.first_response_ms)::bigint AS "avgFirstResponseMs",
          avg(t.resolution_ms)::bigint AS "avgResolutionMs"
-       FROM t
-       JOIN users u ON u.id = t.assigned_supporter_id
-       GROUP BY u.id, u.first_name, u.last_name, t.client_company_name
-       ORDER BY total DESC, breached ASC
-       LIMIT $${params.length}`,
+       FROM listed l
+       JOIN users u ON u.id = l.user_id AND u.deleted_at IS NULL
+       LEFT JOIN client_companies ucc ON ucc.id = u.client_company_id
+       LEFT JOIN t ON t.assigned_supporter_id = u.id
+       GROUP BY u.id, u.first_name, u.last_name, ucc.name
+       ORDER BY total DESC, breached ASC, name ASC
+       LIMIT ${limitParam}`,
       params
     );
   }

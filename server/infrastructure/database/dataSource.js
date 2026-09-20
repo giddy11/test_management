@@ -93,6 +93,7 @@ const AppDataSource = new DataSource({
   synchronize: env.db.synchronize, // dev only — use migrations in production
   logging: env.db.logging,
   ssl: env.db.ssl ? { rejectUnauthorized: false } : false,
+  poolSize: env.db.poolSize,
   entities: [
     User,
     RefreshToken,
