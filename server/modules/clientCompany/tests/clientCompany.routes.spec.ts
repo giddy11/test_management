@@ -194,3 +194,7 @@ describe("client-company routes — auto-assign is the company's own call", () =
     expect(permissionsOf(ROLE_KEYS.ORG_ADMIN).has("company.autoassign")).toBe(false);
   });
 });
+
+// This spec uses require() rather than imports; the empty export keeps its
+// top-level declarations file-scoped instead of colliding with other specs.
+export {};

@@ -194,3 +194,7 @@ describe("feedback.routes — external supporters locked out of triage", () => {
     }
   });
 });
+
+// This spec uses require() rather than imports; the empty export keeps its
+// top-level declarations file-scoped instead of colliding with other specs.
+export {};

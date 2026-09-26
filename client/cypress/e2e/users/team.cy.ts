@@ -1,13 +1,33 @@
 import { fail, listMeta, ok } from "../../support/api"
 
+// The user dialog assigns roles from the same list the Roles & access tab
+// edits, so the dialog loads /access/roles whenever the actor holds
+// role.assign — which the admin fixture does.
+const ROLES = [
+  {
+    id: "role-admin", key: "org_admin", name: "Organisation administrator",
+    description: "The everyday owner of this organisation.",
+    isBuiltin: true, isLocked: false,
+    permissions: ["user.read", "user.create"], permissionCount: 2, memberCount: 1,
+  },
+  {
+    id: "role-qa", key: "qa_engineer", name: "QA engineer",
+    description: "Writes and runs tests.",
+    isBuiltin: true, isLocked: false,
+    permissions: ["project.read"], permissionCount: 1, memberCount: 2,
+  },
+]
+
 describe("Team management", () => {
   beforeEach(() => {
     cy.login("admin")
     cy.fixture("team/users").then((users) => {
       cy.interceptApi("GET", "/users", { body: ok(users, listMeta(users.length)) }, "users")
     })
+    cy.interceptApi("GET", "/access/roles", { body: ok(ROLES) }, "roles")
     cy.visit("/team")
     cy.wait("@users")
+    cy.wait("@roles")
   })
 
   it("lists users with roles and guards owner actions", () => {
@@ -54,7 +74,9 @@ describe("Team management", () => {
     cy.get("#lastName").type("Dev")
     cy.get("#email").type("chi.dev@example.com")
     cy.get("#password").type("Welcome123")
-    cy.selectDropdown("#role", "Company Admin")
+    // Assigning the organisation-administrator role is what makes the legacy
+    // users.role field "admin" — the dialog derives it rather than asking twice.
+    cy.dataCy("assign-role-org_admin").click()
     cy.dataCy("user-submit").click()
 
     cy.wait("@createUser").its("request.body").should("deep.include", {
@@ -62,6 +84,7 @@ describe("Team management", () => {
       lastName: "Dev",
       email: "chi.dev@example.com",
       role: "admin",
+      roleIds: ["role-admin"],
     })
     cy.contains("User added").should("be.visible")
   })
@@ -81,6 +104,9 @@ describe("Team management", () => {
       { body: ok({ id: "e2e-user-0001", firstName: "Uchechi" }) },
       "updateUser"
     )
+    // Details and role assignment are two writes; the roles one lands last and
+    // is what the success toast waits on.
+    cy.interceptApi("PUT", "/users/e2e-user-0001/roles", { body: ok([]) }, "updateUserRoles")
 
     cy.contains('[data-cy="user-row"]', "Uche Tester").within(() => {
       cy.dataCy("user-edit").click()
@@ -94,6 +120,7 @@ describe("Team management", () => {
       firstName: "Uchechi",
       role: "user",
     })
+    cy.wait("@updateUserRoles").its("request.body").should("deep.equal", { roleIds: [] })
     cy.contains("User updated").should("be.visible")
   })
 

@@ -18,7 +18,11 @@ describe("Bug reports", () => {
       cy.interceptApi("GET", "/bugs", { body: ok(bugs, listMeta(bugs.length)) }, "bugs")
     })
     cy.visit(`/projects/${PROJECT_ID}?tab=bugs`)
+    // The tab-count query hits /bugs as well and answers first, so @bugs alone
+    // doesn't mean the list has loaded. Wait for a rendered row — until then a
+    // test's own /bugs intercept can catch the unfiltered list request.
     cy.wait("@bugs")
+    cy.dataCy("bug-card").should("have.length", 1)
   })
 
   it("lists bugs with severity and status", () => {
@@ -66,8 +70,13 @@ describe("Bug reports", () => {
     cy.dataCy("date-to").type("2026-07-31")
     cy.wait("@datedBugs").its("request.url").should("include", "from=2026-07-01").and("include", "to=2026-07-31")
 
+    // Clearing goes back to the unfiltered query, which is still cached and
+    // fresh (staleTime 1m), so it is served without another request. Assert the
+    // restored list rather than a fetch that never happens.
     cy.dataCy("date-clear").click()
-    cy.wait("@datedBugs").its("request.url").should("not.include", "from=").and("not.include", "to=")
+    cy.dataCy("date-from").should("have.value", "")
+    cy.dataCy("date-to").should("have.value", "")
+    cy.dataCy("bug-card").should("have.length", 1)
   })
 
   it("reports a bug", () => {
