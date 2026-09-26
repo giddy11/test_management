@@ -1,7 +1,8 @@
 // components/sla/SlaTicketsDialog.tsx — drill-down from a dashboard figure to
-// the tickets behind it, with each ticket's SLA readings. Product-org users
-// can jump straight to the ticket in "All tickets"; IT supporters see the
-// same list (their queue is tabbed by stage, so no deep link).
+// the issues (tickets, bugs, feature requests) behind it, with each one's SLA
+// readings. Product-org users can jump straight to the issue (tickets via
+// "All tickets", bugs/feature requests via their own page); IT supporters see
+// the same list (their queue is tabbed by stage, so no deep link).
 import { useState } from "react"
 import { Link } from "react-router-dom"
 import { AlertTriangle, CheckCircle2, Clock, ExternalLink, PauseCircle } from "lucide-react"
@@ -120,11 +121,16 @@ export function SlaTicketsDialog({
   const isSupporter = Boolean(user?.clientCompanyId)
   const [page, setPage] = useState(1)
   const [sort, setSort] = useState<SlaTicketsParams["sort"]>("newest")
+  // Lets the user flip between related lists (e.g. from "SLA met" to "SLA
+  // breached") without closing the dialog. Cleared on close so the next drill
+  // starts from its own metric.
+  const [metricOverride, setMetricOverride] = useState<SlaMetric | null>(null)
+  const metric = metricOverride ?? drill?.metric ?? "all"
 
   const params: SlaTicketsParams = {
     ...filters,
     ...(drill?.extra ?? {}),
-    metric: drill?.metric ?? "all",
+    metric,
     sort,
     page,
     limit: 20,
@@ -138,13 +144,18 @@ export function SlaTicketsDialog({
     <Dialog
       open={Boolean(drill)}
       onOpenChange={(o) => {
-        if (!o) setPage(1)
+        if (!o) {
+          setPage(1)
+          setMetricOverride(null)
+        }
         onOpenChange(o)
       }}
     >
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-5xl">
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[min(90rem,calc(100vw-2rem))]">
         <DialogHeader>
-          <DialogTitle>{drill?.title ?? (drill ? SLA_METRIC_LABELS[drill.metric] : "Issues")}</DialogTitle>
+          <DialogTitle>
+            {metricOverride ? SLA_METRIC_LABELS[metricOverride] : (drill?.title ?? (drill ? SLA_METRIC_LABELS[drill.metric] : "Issues"))}
+          </DialogTitle>
           <DialogDescription>
             {meta?.total != null && meta.total > 0
               ? `${meta.total} issue${meta.total === 1 ? "" : "s"} match the current filters.`
@@ -152,15 +163,25 @@ export function SlaTicketsDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex items-center justify-between gap-2">
-          <Select value={sort} onValueChange={(v) => { setSort(v as SlaTicketsParams["sort"]); setPage(1) }}>
-            <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="newest">Newest first</SelectItem>
-              <SelectItem value="oldest">Oldest first</SelectItem>
-              <SelectItem value="longest_waiting">Longest waiting</SelectItem>
-            </SelectContent>
-          </Select>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <Select value={metric} onValueChange={(v) => { setMetricOverride(v as SlaMetric); setPage(1) }}>
+              <SelectTrigger className="w-72" data-cy="sla-drill-metric"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {(Object.keys(SLA_METRIC_LABELS) as SlaMetric[]).map((m) => (
+                  <SelectItem key={m} value={m}>{SLA_METRIC_LABELS[m]}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={sort} onValueChange={(v) => { setSort(v as SlaTicketsParams["sort"]); setPage(1) }}>
+              <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="newest">Newest first</SelectItem>
+                <SelectItem value="oldest">Oldest first</SelectItem>
+                <SelectItem value="longest_waiting">Longest waiting</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
           {meta && meta.totalPages > 1 && (
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               Page {meta.page} of {meta.totalPages}
@@ -201,7 +222,8 @@ export function SlaTicketsDialog({
                       <div className="flex items-center gap-2">
                         <span className="font-mono text-xs text-muted-foreground">{t.referenceCode}</span>
                         <Badge variant="outline" className="text-[10px]">
-                          {t.type ? FEEDBACK_TYPE_LABELS[t.type] : SLA_SOURCE_LABELS[t.source]}
+                          {SLA_SOURCE_LABELS[t.source]}
+                          {t.type ? ` · ${FEEDBACK_TYPE_LABELS[t.type]}` : ""}
                         </Badge>
                       </div>
                       <div className="truncate text-sm font-medium" title={t.title}>{t.title}</div>

@@ -311,6 +311,40 @@ describe("BugService", () => {
       );
     });
 
+    it.each(["Verified", "Closed"])(
+      "stamps resolvedAt when a bug skips straight to %s without ever being Fixed",
+      async (status) => {
+        bugRepo.findById.mockResolvedValue(bug);
+        bugRepo.update.mockResolvedValue({ ...bug, status });
+        await service.manageBug(admin, "bug-1", { status });
+        expect(bugRepo.update).toHaveBeenCalledWith(
+          "bug-1",
+          expect.objectContaining({ status, resolvedAt: expect.any(Date) })
+        );
+      }
+    );
+
+    it("treats a resubmitted, unchanged status as no transition (no first response, closedAt or history)", async () => {
+      const closed = { ...bug, status: "Closed", firstResponseAt: null, closedAt: new Date("2026-01-01") };
+      bugRepo.findById.mockResolvedValue(closed);
+      bugRepo.update.mockResolvedValue({ ...closed, priority: "High" });
+      await service.manageBug(admin, "bug-1", { status: "Closed", priority: "High" });
+      expect(bugRepo.update).toHaveBeenCalledWith("bug-1", { priority: "High" });
+      await Promise.resolve();
+      expect(historyRepo.create).not.toHaveBeenCalled();
+    });
+
+    it("keeps the original resolvedAt when a fixed bug moves on to Verified", async () => {
+      const fixed = { ...bug, status: "Fixed", resolvedAt: new Date("2026-01-01") };
+      bugRepo.findById.mockResolvedValue(fixed);
+      bugRepo.update.mockResolvedValue({ ...fixed, status: "Verified" });
+      await service.manageBug(admin, "bug-1", { status: "Verified" });
+      expect(bugRepo.update).toHaveBeenCalledWith(
+        "bug-1",
+        expect.not.objectContaining({ resolvedAt: expect.anything() })
+      );
+    });
+
     it("stamps firstResponseAt the first time status changes away from Open", async () => {
       bugRepo.findById.mockResolvedValue(bug);
       bugRepo.update.mockResolvedValue({ ...bug, status: "In Progress" });

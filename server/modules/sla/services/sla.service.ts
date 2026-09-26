@@ -13,7 +13,7 @@
 //                     target for the ticket's severity. Identified at query
 //                     time, so no batch job is needed.
 import { SlaRepository, type SlaRules, type SlaScope } from "../repositories/sla.repository";
-import type { SlaTargets } from "../entities/slaSettings.entity";
+import type { SlaSettings, SlaTarget, SlaTargets } from "../entities/slaSettings.entity";
 import type { SlaFilters, SlaTicketsQuery, UpdateSlaSettingsBody } from "../validators/sla.schema";
 import type { Actor } from "../../../shared/types/actor";
 
@@ -68,12 +68,15 @@ export class SlaService {
     return rest;
   }
 
-  private async rulesFor(actor: Actor): Promise<SlaRules & { isDefault: boolean; updatedAt: Date | null }> {
+  private async rulesFor(actor: Actor): Promise<SlaRules & { isDefault: boolean; updatedAt: Date | null } & ResolvedTargets> {
     const settings = actor.organizationId ? await this.repo.findSettings(actor.organizationId) : null;
+    const resolved = resolveTargets(settings);
     return {
-      // Merge so a partially-configured row still has every severity key —
-      // the SQL indexes targets by severity and must never hit a null.
-      targets: { ...DEFAULT_SLA_TARGETS, ...(settings?.targets ?? {}) },
+      targets: resolved.targets,
+      bugTargets: resolved.bugTargets,
+      featureRequestTarget: resolved.featureRequestTarget,
+      separateBugTargets: resolved.separateBugTargets,
+      separateFeatureRequestTarget: resolved.separateFeatureRequestTarget,
       pausedStatuses: settings?.pausedStatuses ?? [],
       isDefault: !settings,
       updatedAt: settings?.updatedAt ?? null,
@@ -86,6 +89,10 @@ export class SlaService {
     const rules = await this.rulesFor(actor);
     return {
       targets: rules.targets,
+      bugTargets: rules.bugTargets,
+      featureRequestTarget: rules.featureRequestTarget,
+      separateBugTargets: rules.separateBugTargets,
+      separateFeatureRequestTarget: rules.separateFeatureRequestTarget,
       pausedStatuses: rules.pausedStatuses,
       isDefault: rules.isDefault,
       updatedAt: rules.updatedAt,
@@ -98,20 +105,32 @@ export class SlaService {
     const saved = await this.repo.saveSettings({
       organizationId: actor.organizationId,
       targets: body.targets,
+      bugTargets: body.bugTargets ?? null,
+      featureRequestTarget: body.featureRequestTarget ?? null,
       pausedStatuses: [...new Set(body.pausedStatuses)],
       updatedById: actor.id,
     });
+    const resolved = resolveTargets(saved);
 
     ActivityService.Instance.log(actor, {
       action: "sla.settings_updated",
       summary: "Updated the organisation's SLA rules",
       entityType: "sla_settings",
       entityId: actor.organizationId,
-      metadata: { targets: body.targets, pausedStatuses: body.pausedStatuses },
+      metadata: {
+        targets: body.targets,
+        bugTargets: body.bugTargets ?? null,
+        featureRequestTarget: body.featureRequestTarget ?? null,
+        pausedStatuses: body.pausedStatuses,
+      },
     });
 
     return {
-      targets: saved.targets,
+      targets: resolved.targets,
+      bugTargets: resolved.bugTargets,
+      featureRequestTarget: resolved.featureRequestTarget,
+      separateBugTargets: resolved.separateBugTargets,
+      separateFeatureRequestTarget: resolved.separateFeatureRequestTarget,
       pausedStatuses: saved.pausedStatuses,
       isDefault: false,
       updatedAt: saved.updatedAt,
@@ -197,6 +216,33 @@ export class SlaService {
     const rules = await this.rulesFor(actor);
     return this.repo.filterOptions(scope, rules);
   }
+}
+
+interface ResolvedTargets {
+  targets: SlaTargets;
+  bugTargets: SlaTargets;
+  featureRequestTarget: SlaTarget;
+  // Whether bugs / feature requests have their own targets, or are still
+  // following the tickets' (the state before per-source rules existed).
+  separateBugTargets: boolean;
+  separateFeatureRequestTarget: boolean;
+}
+
+// The targets each source is actually judged against. Unconfigured sources
+// follow the ticket targets, so saving nothing new changes no numbers.
+function resolveTargets(
+  settings: Pick<SlaSettings, "targets" | "bugTargets" | "featureRequestTarget"> | null
+): ResolvedTargets {
+  // Merge so a partially-configured row still has every severity key — the SQL
+  // indexes targets by severity and must never hit a null.
+  const targets = { ...DEFAULT_SLA_TARGETS, ...(settings?.targets ?? {}) };
+  return {
+    targets,
+    bugTargets: { ...targets, ...(settings?.bugTargets ?? {}) },
+    featureRequestTarget: settings?.featureRequestTarget ?? targets.default,
+    separateBugTargets: Boolean(settings?.bugTargets),
+    separateFeatureRequestTarget: Boolean(settings?.featureRequestTarget),
+  };
 }
 
 // pg returns bigint/numeric aggregates as strings — coerce anything that

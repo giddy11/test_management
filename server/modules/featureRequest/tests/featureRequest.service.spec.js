@@ -304,6 +304,24 @@ describe("FeatureRequestService", () => {
       );
     });
 
+    it("stamps firstResponseAt when an admin replies without moving the status", async () => {
+      frRepo.findById.mockResolvedValue(fr);
+      frRepo.update.mockResolvedValue({ ...fr, adminResponse: "On our radar" });
+      await service.updateStatus(admin, "fr-1", { adminResponse: "On our radar" });
+      expect(frRepo.update).toHaveBeenCalledWith(
+        "fr-1",
+        expect.objectContaining({ adminResponse: "On our radar", firstResponseAt: expect.any(Date) })
+      );
+      expect(frRepo.update).toHaveBeenCalledWith("fr-1", expect.not.objectContaining({ status: expect.anything() }));
+    });
+
+    it("doesn't treat a resubmitted, unchanged status as a first response", async () => {
+      frRepo.findById.mockResolvedValue(fr);
+      frRepo.update.mockResolvedValue(fr);
+      await service.updateStatus(admin, "fr-1", { status: "new" });
+      expect(frRepo.update).toHaveBeenCalledWith("fr-1", {});
+    });
+
     it("doesn't record history when the status is unchanged", async () => {
       frRepo.findById.mockResolvedValue(fr);
       frRepo.update.mockResolvedValue({ ...fr, adminResponse: "noted" });

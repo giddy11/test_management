@@ -14,7 +14,14 @@ export type SlaTargets = Record<string, SlaTarget>; // default | low | medium | 
 
 export interface SlaSettings {
   organizationId: string;
+  // Ticket targets — also what bugs and feature requests fall back to.
   targets: SlaTargets;
+  // Separate targets for bugs, keyed by their priority mapped to
+  // low/medium/high/critical (Urgent → critical). Null = follow `targets`.
+  bugTargets: SlaTargets | null;
+  // Feature requests carry no severity, so they get a single target.
+  // Null = follow the tickets' "default" target.
+  featureRequestTarget: SlaTarget | null;
   // Stage names (FeedbackStatus / SupportStatus) during which the SLA clock
   // is paused — e.g. "resolved" while awaiting closure. Empty = never pause.
   pausedStatuses: string[];
@@ -33,6 +40,16 @@ const SlaSettings = new EntitySchema<SlaSettings>({
     },
     targets: {
       type: "jsonb",
+    },
+    bugTargets: {
+      name: "bug_targets",
+      type: "jsonb",
+      nullable: true,
+    },
+    featureRequestTarget: {
+      name: "feature_request_target",
+      type: "jsonb",
+      nullable: true,
     },
     pausedStatuses: {
       name: "paused_statuses",

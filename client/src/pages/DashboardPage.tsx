@@ -133,7 +133,7 @@ export default function DashboardPage() {
         <h1 className="text-2xl font-semibold tracking-tight">Welcome back, {user?.firstName}</h1>
         <p className="text-sm text-muted-foreground">
           {tab === "sla"
-            ? "Support ticket performance: response and resolution times, SLA compliance, and recurring issues."
+            ? "Support performance across tickets, bugs and feature requests: response and resolution times, SLA compliance, and recurring issues."
             : !can("analytics.read")
               ? "Your projects, assigned tests and results at a glance."
               : "Track how your documented tests are being followed up and executed."}

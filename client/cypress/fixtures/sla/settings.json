@@ -6,6 +6,16 @@
     "low": { "firstResponseHours": 24, "resolutionHours": 240 },
     "default": { "firstResponseHours": 24, "resolutionHours": 120 }
   },
+  "bugTargets": {
+    "critical": { "firstResponseHours": 1, "resolutionHours": 24 },
+    "high": { "firstResponseHours": 4, "resolutionHours": 72 },
+    "medium": { "firstResponseHours": 8, "resolutionHours": 120 },
+    "low": { "firstResponseHours": 24, "resolutionHours": 240 },
+    "default": { "firstResponseHours": 24, "resolutionHours": 120 }
+  },
+  "featureRequestTarget": { "firstResponseHours": 24, "resolutionHours": 120 },
+  "separateBugTargets": false,
+  "separateFeatureRequestTarget": false,
   "pausedStatuses": [],
   "isDefault": true,
   "updatedAt": null,

@@ -24,6 +24,7 @@ export const SLA_METRICS = [
   "closed",
   "breached",
   "compliant",
+  "judged",
   "pending",
   "awaiting_response",
   "first_response_breached",
@@ -92,6 +93,19 @@ export const updateSlaSettingsSchema = z.object({
       high: targetSchema,
       critical: targetSchema,
     }),
+    // Bugs are judged by priority (Urgent counts as "critical"), so they have
+    // no "default" row. Null = follow the ticket targets.
+    bugTargets: z
+      .object({
+        low: targetSchema,
+        medium: targetSchema,
+        high: targetSchema,
+        critical: targetSchema,
+      })
+      .nullable()
+      .default(null),
+    // Feature requests have no severity, so one target covers them all.
+    featureRequestTarget: targetSchema.nullable().default(null),
     // An issue's very first stage (feedback: "logged", bugs: "Open",
     // feature requests: "new") can never pause — nothing has happened yet,
     // so pausing there would hide the wait the SLA exists to measure.

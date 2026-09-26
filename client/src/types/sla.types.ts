@@ -13,7 +13,16 @@ export interface SlaTarget {
 export type SlaTargets = Record<SlaSeverityKey, SlaTarget>
 
 export interface SlaSettings {
+  // Ticket targets — also what bugs and feature requests follow until an admin
+  // gives them their own (see the separate* flags).
   targets: SlaTargets
+  // What bugs are judged against, keyed by priority mapped to a severity key
+  // (Urgent → "critical"). Equals `targets` while separateBugTargets is false.
+  bugTargets: SlaTargets
+  // What feature requests are judged against (they carry no severity).
+  featureRequestTarget: SlaTarget
+  separateBugTargets: boolean
+  separateFeatureRequestTarget: boolean
   // Stages during which the SLA clock is paused (never "logged").
   pausedStatuses: string[]
   // True when the organisation hasn't saved its own rules yet.
@@ -22,8 +31,14 @@ export interface SlaSettings {
   canEdit: boolean
 }
 
+// Bugs have no "default" row — every bug has a priority.
+export type SlaBugTargets = Record<Exclude<SlaSeverityKey, "default">, SlaTarget>
+
 export interface UpdateSlaSettingsPayload {
   targets: SlaTargets
+  // null = follow the ticket targets.
+  bugTargets: SlaBugTargets | null
+  featureRequestTarget: SlaTarget | null
   pausedStatuses: string[]
 }
 
@@ -70,6 +85,7 @@ export type SlaMetric =
   | "closed"
   | "breached"
   | "compliant"
+  | "judged"
   | "pending"
   | "awaiting_response"
   | "first_response_breached"
@@ -133,8 +149,6 @@ export interface SlaSeverityRow {
   pending: number
   avgFirstResponseMs: number | null
   avgResolutionMs: number | null
-  firstResponseTargetMs: number
-  resolutionTargetMs: number
 }
 
 export interface SlaStatusRow {
@@ -287,18 +301,20 @@ export const SLA_STAGE_LABELS: Record<string, string> = {
   resolved: "Resolved",
   closed: "Closed",
   escalated: "Escalated",
-  // Bugs.
+  // Bugs. "In Progress" and "Closed" also exist on another source, so those
+  // two carry a suffix — otherwise a chart or checklist would show two
+  // indistinguishable "In Progress" / "Closed" entries.
   Open: "Open",
-  "In Progress": "In Progress",
+  "In Progress": "In Progress (bug)",
   Fixed: "Fixed",
   Verified: "Verified",
-  Closed: "Closed",
+  Closed: "Closed (bug)",
   Reopened: "Reopened",
   // Feature requests.
   new: "New",
   under_review: "Under Review",
   planned: "Planned",
-  in_progress: "In Progress",
+  in_progress: "In Progress (feature)",
   done: "Done",
   rejected: "Rejected",
 }
@@ -325,6 +341,7 @@ export const SLA_ALL_STAGES: SlaStage[] = [
   "In Progress",
   "Fixed",
   "Verified",
+  "Closed",
   "Reopened",
   "new",
   "under_review",
@@ -351,12 +368,13 @@ export const SLA_SEVERITY_KEY_LABELS: Record<SlaSeverityKey, string> = {
 }
 
 export const SLA_METRIC_LABELS: Record<SlaMetric, string> = {
-  all: "All tickets",
-  open: "Open tickets",
-  resolved: "Resolved tickets",
-  closed: "Closed tickets",
+  all: "All issues",
+  open: "Open issues",
+  resolved: "Resolved issues",
+  closed: "Closed issues",
   breached: "SLA breached",
-  compliant: "SLA compliant",
+  compliant: "SLA met",
+  judged: "SLA compliance — met and breached",
   pending: "Within SLA (open)",
   awaiting_response: "Awaiting first response",
   first_response_breached: "First response breached",

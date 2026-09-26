@@ -142,6 +142,87 @@ describe("SlaService — rules", () => {
   });
 });
 
+describe("SlaService — per-source targets", () => {
+  const bugTargets = {
+    critical: { firstResponseHours: 8, resolutionHours: 48 },
+    high: { firstResponseHours: 24, resolutionHours: 120 },
+    medium: { firstResponseHours: 48, resolutionHours: 240 },
+    low: { firstResponseHours: 72, resolutionHours: 480 },
+  };
+
+  it("bugs and feature requests follow the ticket targets until configured", async () => {
+    const repo = makeRepo();
+    await new SlaService(repo as any).overview(admin, {});
+    const [, , rules] = repo.kpis.mock.calls[0];
+    expect(rules.bugTargets).toEqual(DEFAULT_SLA_TARGETS);
+    expect(rules.featureRequestTarget).toEqual(DEFAULT_SLA_TARGETS.default);
+  });
+
+  it("uses the saved bug targets, keeping the ticket 'default' key so the SQL never hits a null", async () => {
+    const repo = makeRepo();
+    repo.findSettings.mockResolvedValue({
+      organizationId: "org-1",
+      targets: DEFAULT_SLA_TARGETS,
+      bugTargets,
+      featureRequestTarget: { firstResponseHours: 72, resolutionHours: 720 },
+      pausedStatuses: [],
+      updatedAt: new Date(),
+    });
+    await new SlaService(repo as any).overview(admin, {});
+    const [, , rules] = repo.kpis.mock.calls[0];
+    expect(rules.bugTargets.critical).toEqual(bugTargets.critical);
+    expect(rules.bugTargets.default).toEqual(DEFAULT_SLA_TARGETS.default);
+    expect(rules.targets).toEqual(DEFAULT_SLA_TARGETS);
+    expect(rules.featureRequestTarget).toEqual({ firstResponseHours: 72, resolutionHours: 720 });
+  });
+
+  it("reports whether bugs / feature requests have their own targets", async () => {
+    const repo = makeRepo();
+    const service = new SlaService(repo as any);
+    const followed = await service.getSettings(admin);
+    expect(followed.separateBugTargets).toBe(false);
+    expect(followed.separateFeatureRequestTarget).toBe(false);
+
+    repo.findSettings.mockResolvedValue({
+      organizationId: "org-1",
+      targets: DEFAULT_SLA_TARGETS,
+      bugTargets,
+      featureRequestTarget: null,
+      pausedStatuses: [],
+      updatedAt: new Date(),
+    });
+    const custom = await service.getSettings(admin);
+    expect(custom.separateBugTargets).toBe(true);
+    expect(custom.separateFeatureRequestTarget).toBe(false);
+  });
+
+  it("saves the per-source targets, and clears them when the body sends null", async () => {
+    const repo = makeRepo();
+    const service = new SlaService(repo as any);
+    await service.updateSettings(admin, {
+      targets: DEFAULT_SLA_TARGETS,
+      bugTargets,
+      featureRequestTarget: { firstResponseHours: 72, resolutionHours: 720 },
+      pausedStatuses: [],
+    } as any);
+    expect(repo.saveSettings).toHaveBeenLastCalledWith(
+      expect.objectContaining({ bugTargets, featureRequestTarget: { firstResponseHours: 72, resolutionHours: 720 } })
+    );
+
+    const cleared = await service.updateSettings(admin, {
+      targets: DEFAULT_SLA_TARGETS,
+      bugTargets: null,
+      featureRequestTarget: null,
+      pausedStatuses: [],
+    } as any);
+    expect(repo.saveSettings).toHaveBeenLastCalledWith(
+      expect.objectContaining({ bugTargets: null, featureRequestTarget: null })
+    );
+    expect(cleared.separateBugTargets).toBe(false);
+    expect(cleared.bugTargets).toEqual(DEFAULT_SLA_TARGETS);
+  });
+});
+
 describe("SlaService.overview — compliance rates", () => {
   it("computes rates over judged tickets only, null when nothing is judged", async () => {
     const repo = makeRepo();

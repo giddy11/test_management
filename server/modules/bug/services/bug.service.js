@@ -37,8 +37,10 @@ const BUG_STAGES = [
   BugStatus.CLOSED,
 ];
 const bugRank = (status) => (status === BugStatus.REOPENED ? 0.5 : BUG_STAGES.indexOf(status));
-// A bug can only be reopened once it has been declared fixed.
-const REOPENABLE_BUG_STATUSES = new Set([BugStatus.FIXED, BugStatus.VERIFIED, BugStatus.CLOSED]);
+// A bug can only be reopened once it has been declared fixed — the same
+// stages that count as "resolved" for the SLA.
+const RESOLVED_BUG_STATUSES = new Set([BugStatus.FIXED, BugStatus.VERIFIED, BugStatus.CLOSED]);
+const REOPENABLE_BUG_STATUSES = RESOLVED_BUG_STATUSES;
 
 // A bug only moves forward — it can't return to an earlier status. The one way
 // back is Reopened (a fixed bug resurfaces), after which it works forward again
@@ -245,13 +247,18 @@ class BugService {
     }
 
     const previousStatus = bug.status;
-    if (data.status !== undefined) {
+    // Only a real move counts as a transition: the edit form resends the current
+    // status with every triage change, and treating that as one would stamp a
+    // first response, push closedAt forward and reset statusUpdatedAt.
+    if (data.status !== undefined && data.status !== bug.status) {
       patch.status = data.status;
       patch.statusUpdatedAt = new Date();
       if (!bug.firstResponseAt) {
         patch.firstResponseAt = patch.statusUpdatedAt;
       }
-      if (data.status === BugStatus.FIXED && !bug.resolvedAt) {
+      // A bug may skip ahead (e.g. Open → Closed), so every resolved stage
+      // stamps resolvedAt — not just Fixed — or the SLA would never see it resolved.
+      if (RESOLVED_BUG_STATUSES.has(data.status) && !bug.resolvedAt) {
         patch.resolvedAt = new Date();
       }
       if (data.status === BugStatus.CLOSED) {

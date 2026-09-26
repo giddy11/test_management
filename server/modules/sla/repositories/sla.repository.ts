@@ -21,7 +21,7 @@
 //   stage              the issue's current stage (dual-tier for tickets,
 //                      plain status for bugs/feature requests)
 import type { Repository } from "typeorm";
-import { SlaSettings, type SlaTargets } from "../entities/slaSettings.entity";
+import { SlaSettings, type SlaTarget, type SlaTargets } from "../entities/slaSettings.entity";
 import { AppDataSource } from "../../../infrastructure/database/dataSource";
 
 const { buildMeta, getOffset } = require("../../../shared/pagination/paginate");
@@ -55,7 +55,12 @@ export interface SlaQueryFilters {
 }
 
 export interface SlaRules {
+  // Tickets' targets, keyed by severity (also the fallback for the others).
   targets: SlaTargets;
+  // Bugs, keyed by their priority mapped to low/medium/high/critical.
+  bugTargets: SlaTargets;
+  // Feature requests have no severity, so they're judged on one target.
+  featureRequestTarget: SlaTarget;
   pausedStatuses: string[];
 }
 
@@ -78,6 +83,19 @@ const BUG_PRIORITY_SEVERITY_CASE = `
     WHEN 'Urgent' THEN 'critical'
   END`;
 
+// A bug counts as resolved from the moment it reaches Fixed, Verified or
+// Closed. The status flow lets a bug skip ahead (Open → Closed, In Progress →
+// Verified), which never stamps resolved_at, so "resolved" is derived from the
+// bug's current status and the stored timestamps only supply *when* (falling
+// back to the next-best moment). Reading it from the column alone would leave
+// closed bugs counted as open and breaching forever.
+const BUG_RESOLVED_AT = `
+  CASE WHEN b.status IN ('Fixed', 'Verified', 'Closed')
+       THEN COALESCE(b.resolved_at, b.closed_at, b.status_updated_at, b.created_at) END`;
+const BUG_CLOSED_AT = `
+  CASE WHEN b.status = 'Closed'
+       THEN COALESCE(b.closed_at, b.status_updated_at, b.created_at) END`;
+
 // Every SQL predicate that narrows the issue set lives here — the service
 // never composes SQL. Builds a UNION ALL of up to three normalized
 // sub-selects (ticket/bug/feature_request), skipping a branch entirely when
@@ -85,7 +103,17 @@ const BUG_PRIORITY_SEVERITY_CASE = `
 // `type` filter, or an IT-support scope that bugs/feature requests have no
 // concept of) rather than filtering it out after the fact.
 function buildBase(scope: SlaScope, filters: SlaQueryFilters, rules: SlaRules): Built {
-  const params: unknown[] = [JSON.stringify(rules.targets), rules.pausedStatuses];
+  // Targets are nested by source so each row is measured against its own
+  // source's rules (see `measured`). Feature requests always carry the
+  // "default" severity key, so that's the only one they need.
+  const params: unknown[] = [
+    JSON.stringify({
+      ticket: rules.targets,
+      bug: rules.bugTargets,
+      feature_request: { default: rules.featureRequestTarget },
+    }),
+    rules.pausedStatuses,
+  ];
   const add = (value: unknown) => {
     params.push(value);
     return `$${params.length}`;
@@ -199,7 +227,8 @@ function buildBase(scope: SlaScope, filters: SlaQueryFilters, rules: SlaRules): 
         NULL::uuid AS assigned_supporter_id,
         trim(concat(ru.first_name, ' ', ru.last_name)) AS submitter_name, NULL::varchar(255) AS submitter_email,
         NULL::varchar(200) AS suite_name, NULL::smallint AS rating,
-        b.created_at, b.first_response_at, b.resolved_at, b.closed_at, b.status_updated_at,
+        b.created_at, b.first_response_at,
+        (${BUG_RESOLVED_AT}) AS resolved_at, (${BUG_CLOSED_AT}) AS closed_at, b.status_updated_at,
         NULL::timestamptz AS escalated_at,
         COALESCE((${BUG_PRIORITY_SEVERITY_CASE})::varchar(20), 'default') AS sev_key,
         b.status::varchar(30) AS stage
@@ -309,8 +338,8 @@ function buildBase(scope: SlaScope, filters: SlaQueryFilters, rules: SlaRules): 
     measured AS (
       SELECT b.*,
         COALESCE(pz.paused_ms, 0)::bigint AS paused_ms,
-        ROUND((cfg.targets -> b.sev_key ->> 'firstResponseHours')::numeric * 3600000)::bigint AS fr_target_ms,
-        ROUND((cfg.targets -> b.sev_key ->> 'resolutionHours')::numeric * 3600000)::bigint AS res_target_ms,
+        ROUND((cfg.targets -> b.source -> b.sev_key ->> 'firstResponseHours')::numeric * 3600000)::bigint AS fr_target_ms,
+        ROUND((cfg.targets -> b.source -> b.sev_key ->> 'resolutionHours')::numeric * 3600000)::bigint AS res_target_ms,
         CASE WHEN b.first_response_at IS NOT NULL
              THEN (EXTRACT(EPOCH FROM (b.first_response_at - b.created_at)) * 1000)::bigint END AS first_response_ms,
         CASE WHEN b.resolved_at IS NOT NULL
@@ -361,6 +390,8 @@ const METRIC_PREDICATES: Record<string, string> = {
   closed: "t.closed_at IS NOT NULL",
   breached: "t.compliance = 'breached'",
   compliant: "t.compliance = 'met'",
+  // Everything the compliance rate is computed over (met + breached).
+  judged: "t.compliance IN ('met', 'breached')",
   pending: "t.compliance = 'pending'",
   awaiting_response: "t.first_response_at IS NULL AND NOT t.is_resolved",
   first_response_breached: "t.fr_breached",
@@ -475,9 +506,7 @@ export class SlaRepository {
          count(*) FILTER (WHERE compliance = 'breached')::int AS breached,
          count(*) FILTER (WHERE compliance = 'pending')::int AS pending,
          avg(first_response_ms)::bigint AS "avgFirstResponseMs",
-         avg(resolution_ms)::bigint AS "avgResolutionMs",
-         min(fr_target_ms)::bigint AS "firstResponseTargetMs",
-         min(res_target_ms)::bigint AS "resolutionTargetMs"
+         avg(resolution_ms)::bigint AS "avgResolutionMs"
        FROM t
        GROUP BY COALESCE(severity, 'unset')`,
       params

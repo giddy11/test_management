@@ -216,13 +216,13 @@ class FeatureRequestService {
     await this.projectService.assertCanManageProject(actor, fr.projectId);
 
     const patch = {};
-    if (data.status !== undefined) {
-      assertValidStatusTransition(fr.status, data.status);
+    if (data.status !== undefined) assertValidStatusTransition(fr.status, data.status);
+    // Only a real move counts as a transition — resending the current status
+    // alongside a reply must not stamp a first response or reset statusUpdatedAt.
+    const statusChanged = data.status !== undefined && data.status !== fr.status;
+    if (statusChanged) {
       patch.status = data.status;
       patch.statusUpdatedAt = new Date();
-      if (!fr.firstResponseAt) {
-        patch.firstResponseAt = patch.statusUpdatedAt;
-      }
       // done/rejected are both terminal — there's no separate "closed" step,
       // so resolvedAt and closedAt are set together. Terminal is final (see
       // assertValidStatusTransition), so they're never cleared again.
@@ -232,6 +232,12 @@ class FeatureRequestService {
       }
     }
     if (data.adminResponse !== undefined) patch.adminResponse = data.adminResponse;
+    // The first response is the first status move or the first written staff
+    // reply — an admin answering a request while leaving it "new" has responded.
+    const staffReplied = typeof data.adminResponse === "string" && data.adminResponse.trim() !== "";
+    if ((statusChanged || staffReplied) && !fr.firstResponseAt) {
+      patch.firstResponseAt = patch.statusUpdatedAt ?? new Date();
+    }
 
     const updated = await this.frRepo.update(id, patch);
     const project = await this.projectService.getProject(actor, fr.projectId);

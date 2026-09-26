@@ -1,8 +1,9 @@
-// components/sla/SlaDashboard.tsx — SLA tracking: ticket volume, response and
-// resolution times, compliance/breaches, waiting tickets, recurring issues,
-// and per-severity / per-person breakdowns. Every figure is clickable and
-// drills down to the tickets behind it (SlaTicketsDialog) — all computed over
-// the same filtered set, so the numbers always agree.
+// components/sla/SlaDashboard.tsx — SLA tracking across tickets, bugs and
+// feature requests: volume, response and resolution times, compliance/breaches,
+// waiting issues, recurring issues, and per-severity / per-person breakdowns.
+// Every figure is clickable and drills down to the issues behind it
+// (SlaTicketsDialog) — all computed over the same filtered set, so the
+// numbers always agree.
 //
 // Rendered inside the main dashboard (product-org roles) and the IT support
 // portal (scoped server-side to the supporter's company).
@@ -115,7 +116,7 @@ function KpiCard({
       onClick={onClick}
       onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && onClick()}
       className="cursor-pointer transition-colors hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring"
-      title="Click to see these tickets"
+      title="Click to see these issues"
     >
       {body}
     </Card>
@@ -233,6 +234,10 @@ export function SlaDashboard() {
   const { data, isLoading, isError } = useSlaOverview(filters)
   const { data: options } = useSlaFilterOptions()
 
+  // Supporters only ever see tickets (no Source filter for them), so the
+  // ticket-only filters are always relevant to them.
+  const ticketOnlyFilters = isSupporter || source === "ticket"
+
   const hasFilters =
     projectId !== "all" || companyId !== "all" || status !== "all" || severity !== "all" ||
     type !== "all" || source !== "all" || assigneeId !== "all" || supporterId !== "all" || search !== ""
@@ -264,7 +269,7 @@ export function SlaDashboard() {
           </>
         )}
         <Select value={bucket} onValueChange={(v) => setBucket(v as SlaInterval | "auto")}>
-          <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="auto">Auto buckets</SelectItem>
             <SelectItem value="day">Daily</SelectItem>
@@ -305,9 +310,10 @@ export function SlaDashboard() {
             value={source}
             onValueChange={(v) => {
               setSource(v)
-              // Ticket-only filters would otherwise silently zero out a
-              // bug/feature-request selection — clear them on switch.
-              if (v === "bug" || v === "feature_request") {
+              // The ticket-only filters are hidden unless Source is "Ticket", and
+              // a hidden filter must not keep narrowing the results — clear them
+              // on any switch away from tickets. Feature requests have no assignee.
+              if (v !== "ticket") {
                 setType("all"); setSupporterId("all")
               }
               if (v === "feature_request") setAssigneeId("all")
@@ -334,10 +340,17 @@ export function SlaDashboard() {
             {SEVERITY_FILTERS.map((s) => <SelectItem key={s} value={s}>{SLA_SEVERITY_FILTER_LABELS[s]}</SelectItem>)}
           </SelectContent>
         </Select>
-        {/* Feedback's own sub-category and IT-support routing only ever apply to tickets. */}
-        {source !== "bug" && source !== "feature_request" && (
+        {/* A ticket's own category (bug / feature request / complaint) and IT-support
+            routing only exist on tickets. They're offered only once Source is
+            "Ticket" — otherwise a ticket category named "Bug" reads like the Bug
+            source and silently hides every real bug. */}
+        {ticketOnlyFilters && (
           <Select value={type} onValueChange={setType}>
-            <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="w-48">
+              <SelectValue>
+                {type === "all" ? "All ticket types" : `Ticket type: ${FEEDBACK_TYPE_LABELS[type as FeedbackType]}`}
+              </SelectValue>
+            </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All ticket types</SelectItem>
               {Object.entries(FEEDBACK_TYPE_LABELS).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
@@ -353,9 +366,9 @@ export function SlaDashboard() {
             </SelectContent>
           </Select>
         )}
-        {source !== "bug" && source !== "feature_request" && (options?.supporters.length ?? 0) > 0 && (
+        {ticketOnlyFilters && (options?.supporters.length ?? 0) > 0 && (
           <Select value={supporterId} onValueChange={setSupporterId}>
-            <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="w-52"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All support engineers</SelectItem>
               {(options?.supporters ?? []).map((u) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
@@ -365,7 +378,7 @@ export function SlaDashboard() {
         <div className="relative">
           <Search className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
           <Input
-            className="w-52 pl-8"
+            className="w-72 pl-8"
             placeholder="Title, email, or TKT/BF/FR code…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -409,7 +422,7 @@ export function SlaDashboard() {
               value={k.open}
               sub={k.open > 0 ? `avg wait ${fmtMs(k.avgWaitingMs)} · oldest ${fmtMs(k.oldestWaitingMs)}` : "Nothing waiting"}
               tone={k.open > 0 ? "text-yellow-600" : undefined}
-              onClick={() => setDrill({ metric: "open", title: "Waiting tickets" })}
+              onClick={() => setDrill({ metric: "open", title: "Waiting issues" })}
               testId="sla-kpi-open"
             />
             <KpiCard
@@ -417,7 +430,7 @@ export function SlaDashboard() {
               label="Awaiting first response"
               value={k.awaitingResponse}
               tone={k.awaitingResponse > 0 ? "text-red-600" : undefined}
-              sub="Open tickets nobody has replied to yet"
+              sub="Open issues nobody has picked up yet"
               onClick={() => setDrill({ metric: "awaiting_response" })}
               testId="sla-kpi-awaiting"
             />
@@ -457,7 +470,7 @@ export function SlaDashboard() {
               value={fmtPct(k.complianceRate)}
               tone={rateTone(k.complianceRate)}
               sub={`${k.slaMet} met · ${k.slaBreached} breached · ${k.slaPending} within target`}
-              onClick={() => setDrill({ metric: "compliant" })}
+              onClick={() => setDrill({ metric: "judged" })}
               testId="sla-kpi-compliance"
             />
             <KpiCard
@@ -515,15 +528,15 @@ export function SlaDashboard() {
               <CardHeader>
                 <CardTitle className="text-base">Issues by severity</CardTitle>
                 <CardDescription>
-                  Severity is set by IT support on escalation — targets:{" "}
-                  {data.bySeverity.map((r) => `${SLA_SEVERITY_FILTER_LABELS[r.severity]} ${fmtMs(r.resolutionTargetMs)}`).join(" · ") || "—"}
+                  Tickets: severity set by IT support on escalation · bugs: from priority · features: none.
+                  Targets for each are under SLA rules.
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <SeverityChart
                   data={data.bySeverity}
                   onSelect={(sev) =>
-                    setDrill({ metric: "all", extra: { severity: sev }, title: `${SLA_SEVERITY_FILTER_LABELS[sev]} severity tickets` })
+                    setDrill({ metric: "all", extra: { severity: sev }, title: `${SLA_SEVERITY_FILTER_LABELS[sev]} severity issues` })
                   }
                 />
               </CardContent>
@@ -631,7 +644,7 @@ export function SlaDashboard() {
                           <TableRow
                             key={p.projectId}
                             className="cursor-pointer"
-                            onClick={() => setDrill({ metric: "all", extra: { projectId: p.projectId }, title: `${p.projectName} tickets` })}
+                            onClick={() => setDrill({ metric: "all", extra: { projectId: p.projectId }, title: `${p.projectName} issues` })}
                           >
                             <TableCell className="font-medium">{p.projectName}</TableCell>
                             <TableCell className="text-right tabular-nums">{p.total}</TableCell>
@@ -662,8 +675,8 @@ export function SlaDashboard() {
                   <PeopleTable
                     rows={data.byAssignee}
                     personLabel="Team member"
-                    emptyLabel="No assigned tickets in this range."
-                    onSelect={(r) => setDrill({ metric: "all", extra: { assigneeId: r.userId }, title: `Tickets assigned to ${r.name}` })}
+                    emptyLabel="No assigned issues in this range."
+                    onSelect={(r) => setDrill({ metric: "all", extra: { assigneeId: r.userId }, title: `Issues assigned to ${r.name}` })}
                   />
                 </CardContent>
               </Card>
