@@ -15,7 +15,6 @@ const {
   ProjectMemberRepository,
 } = require("../../project/repositories/projectMember.repository");
 const { AppError } = require("../../../shared/errors/AppError");
-const { assertPermission } = require("../../../shared/access/can");
 const { parseReferenceCode } = require("../../../shared/utils/referenceCode");
 const { UserRole, FeatureRequestStatus } = require("../../../config/constants");
 
@@ -100,6 +99,7 @@ class FeatureRequestService {
 
   async createFeatureRequest(actor, data) {
     const project = await this.projectService.getProject(actor, data.projectId);
+    await this.projectService.assertCanContribute(actor, data.projectId);
 
     const fr = await this.frRepo.create({
       projectId: data.projectId,
@@ -165,12 +165,9 @@ class FeatureRequestService {
 
   async updateStatus(actor, id, data) {
     const fr = await this.getAccessible(actor, id);
+    // Editing a request and deciding its fate (planned, done, rejected) are both
+    // the project's team lead's call.
     await this.projectService.assertCanManageProject(actor, fr.projectId);
-    // Deciding a request's fate (planned, done, rejected) is separate from
-    // editing its content.
-    if (data.status !== undefined && data.status !== fr.status) {
-      assertPermission(actor, "featurerequest.decide");
-    }
 
     const patch = {};
     if (data.status !== undefined) {
@@ -258,7 +255,8 @@ class FeatureRequestService {
   }
 
   async toggleVote(actor, id) {
-    await this.getAccessible(actor, id);
+    const fr = await this.getAccessible(actor, id);
+    await this.projectService.assertCanContribute(actor, fr.projectId);
     return this.voteRepo.toggle(id, actor.id);
   }
 
@@ -269,6 +267,7 @@ class FeatureRequestService {
 
   async addComment(actor, id, body) {
     const fr = await this.getAccessible(actor, id);
+    await this.projectService.assertCanContribute(actor, fr.projectId);
 
     // Firestore has no join — the author's display name is denormalized onto the doc.
     const commenter = await this.authRepo.findUserById(actor.id);

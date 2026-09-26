@@ -52,6 +52,8 @@ function makeProjectService() {
     // Default mimics the real rule: admins pass, plain users don't (override
     // canManageProject/assertCanManageProject in team-lead tests).
     canManageProject: jest.fn().mockImplementation(async (actor) => actor.role !== "user"),
+    // Anyone on the project can take part; override to reject for a read-only viewer.
+    assertCanContribute: jest.fn().mockResolvedValue(undefined),
     assertCanManageProject: jest.fn().mockImplementation(async (actor) => {
       if (actor.role === "user") {
         const err = new Error("Only admins or this project's team lead can do this");
@@ -360,5 +362,62 @@ describe("FeatureRequestService", () => {
       await expect(service.deleteComment(other, "fr-1", "c-1")).rejects.toMatchObject({ statusCode: 403 });
       expect(frRepo.decrementCommentCount).not.toHaveBeenCalled();
     });
+  });
+});
+
+
+describe("FeatureRequestService — project-level authority", () => {
+  const viewer = { id: "viewer-1", role: "user", permissions: new Set(["project.read", "project.readall"]), organizationId: "org-1" };
+
+  function build() {
+    const ctx = {};
+    ctx.frRepo = {
+      findById: jest.fn().mockResolvedValue({ id: "fr-1", projectId: "proj-1", status: "new", deletedAt: null }),
+      create: jest.fn(),
+      update: jest.fn(),
+      incrementCommentCount: jest.fn(),
+    };
+    ctx.voteRepo = { toggle: jest.fn() };
+    ctx.commentRepo = { create: jest.fn() };
+    ctx.projectService = makeProjectService();
+    ctx.projectService.assertCanContribute.mockRejectedValue(
+      Object.assign(new Error("You have read-only access to this project"), { statusCode: 403 })
+    );
+    ctx.service = new FeatureRequestService(
+      ctx.frRepo,
+      ctx.voteRepo,
+      ctx.commentRepo,
+      makeAuthRepo(),
+      {},
+      ctx.projectService,
+      {},
+      {}
+    );
+    return ctx;
+  }
+
+  it("cannot raise a request, vote on one, or comment", async () => {
+    const { service, frRepo, voteRepo, commentRepo } = build();
+    await expect(
+      service.createFeatureRequest(viewer, { projectId: "proj-1", title: "t", description: "d" })
+    ).rejects.toMatchObject({ statusCode: 403 });
+    await expect(service.toggleVote(viewer, "fr-1")).rejects.toMatchObject({ statusCode: 403 });
+    await expect(service.addComment(viewer, "fr-1", "hi")).rejects.toMatchObject({ statusCode: 403 });
+    expect(frRepo.create).not.toHaveBeenCalled();
+    expect(voteRepo.toggle).not.toHaveBeenCalled();
+    expect(commentRepo.create).not.toHaveBeenCalled();
+  });
+
+  it("changing a request's status is the lead's call, with no finer split", async () => {
+    const { service, projectService, frRepo } = build();
+    projectService.assertCanManageProject.mockImplementation(async () => {
+      throw Object.assign(new Error("Only this project's team lead or an administrator can do this"), {
+        statusCode: 403,
+      });
+    });
+    await expect(service.updateStatus(viewer, "fr-1", { status: "planned" })).rejects.toMatchObject({
+      statusCode: 403,
+    });
+    expect(frRepo.update).not.toHaveBeenCalled();
   });
 });

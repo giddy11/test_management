@@ -175,8 +175,9 @@ export class SlaService {
       page: query.page,
       limit: query.limit,
     });
-    // Only someone who can read the product-org triage list can deep-link into it.
-    const canOpen = can(actor, "ticket.read");
+    // The product-org triage list is for the product team; an external
+    // supporter has their own queue and cannot deep-link into it.
+    const canOpen = !isExternalSupporter(actor);
     return {
       data: data.map((row: Record<string, unknown>) => ({
         ...numeric(row),

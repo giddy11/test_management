@@ -29,7 +29,8 @@ class FeatureRequestAttachmentService {
 
   // files: array of { buffer, originalname, mimetype, size } (multer memory files)
   async uploadAttachments(actor, featureRequestId, files) {
-    await this.featureRequestService.getAccessible(actor, featureRequestId);
+    const fr = await this.featureRequestService.getAccessible(actor, featureRequestId);
+    await this.featureRequestService.projectService.assertCanContribute(actor, fr.projectId);
 
     if (!files || files.length === 0) {
       throw new AppError("No files provided", 400);
@@ -63,7 +64,8 @@ class FeatureRequestAttachmentService {
   }
 
   async deleteAttachment(actor, featureRequestId, attachmentId) {
-    await this.featureRequestService.getAccessible(actor, featureRequestId);
+    const fr = await this.featureRequestService.getAccessible(actor, featureRequestId);
+    await this.featureRequestService.projectService.assertCanContribute(actor, fr.projectId);
 
     const attachment = await this.attachmentRepo.findById(attachmentId);
     if (!attachment || attachment.featureRequestId !== featureRequestId) {

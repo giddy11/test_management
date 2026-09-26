@@ -523,6 +523,8 @@ export class LiveChatService {
   // admins, so no extra service-level role check here).
   async setWidgetLink(actor: Actor, projectId: string, enabled: boolean) {
     const project = await this.projectService.getProject(actor, projectId);
+    // Rotating the widget link breaks every embedded copy: the team lead's call.
+    await this.projectService.assertCanManageProject(actor, projectId);
     project.liveChatToken = enabled ? randomUUID() : null;
     await this.projectRepo.save(project);
     return { liveChatToken: project.liveChatToken };

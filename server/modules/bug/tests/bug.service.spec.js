@@ -18,6 +18,8 @@ function makeProjectService() {
     // Default mimics the real rule: admins pass, plain users don't (override
     // canManageProject/assertCanManageProject in team-lead tests).
     canManageProject: jest.fn().mockImplementation(async (actor) => actor.role !== "user"),
+    // Anyone on the project can take part; override to reject for a read-only viewer.
+    assertCanContribute: jest.fn().mockResolvedValue(undefined),
     assertCanManageProject: jest.fn().mockImplementation(async (actor) => {
       if (actor.role === "user") {
         const err = new Error("Only admins or this project's team lead can do this");
@@ -247,8 +249,9 @@ describe("BugService", () => {
     // Separation of duties: reporting a bug and signing off its fix are
     // different privileges, so the person who raised it can never verify it.
     it("lets the reporter correct their own report but not triage it", async () => {
+      // The reporter is a plain project member, so it is the PROJECT bar that
+      // stops them: assertCanManageProject rejects anyone who is not the lead.
       const ownBug = { ...bug, reportedById: reporter.id };
-      projectService.assertCanManageProject.mockResolvedValue(undefined);
       bugRepo.findById.mockResolvedValue(ownBug);
       bugRepo.update.mockResolvedValue(ownBug);
 
@@ -491,5 +494,58 @@ describe("BugService", () => {
       expect(projectService.getProject).toHaveBeenCalledWith(admin, "proj-1");
       expect(bugRepo.softDelete).toHaveBeenCalledWith("bug-1");
     });
+  });
+});
+
+
+describe("BugService — project-level authority", () => {
+  // A read-only viewer (org-wide read, not on the project) can see every bug in
+  // the organisation but is not a participant in any project.
+  const viewer = { id: "viewer-1", role: "user", permissions: new Set(["project.read", "project.readall"]), organizationId: "org-1" };
+  const viewerBug = { ...bug, reportedById: viewer.id };
+
+  function build() {
+    const ctx = {};
+    ctx.bugRepo = { findById: jest.fn(), create: jest.fn(), update: jest.fn(), softDelete: jest.fn() };
+    ctx.projectService = makeProjectService();
+    ctx.projectService.assertCanContribute.mockRejectedValue(
+      Object.assign(new Error("You have read-only access to this project"), { statusCode: 403 })
+    );
+    ctx.service = new BugService(
+      ctx.bugRepo,
+      ctx.projectService,
+      makeAuthRepo(),
+      { findById: jest.fn() },
+      { findById: jest.fn() },
+      { findById: jest.fn() },
+      {},
+      { findMemberUsers: jest.fn().mockResolvedValue([]) },
+      { create: jest.fn() }
+    );
+    return ctx;
+  }
+
+  it("cannot report a bug", async () => {
+    const { service, bugRepo } = build();
+    await expect(
+      service.createBug(viewer, { projectId: "proj-1", title: "t", description: "d", severity: "Minor", priority: "Low" })
+    ).rejects.toMatchObject({ statusCode: 403, message: expect.stringContaining("read-only") });
+    expect(bugRepo.create).not.toHaveBeenCalled();
+  });
+
+  it("cannot edit a bug, even one carrying their own id as reporter", async () => {
+    const { service, bugRepo } = build();
+    bugRepo.findById.mockResolvedValue(viewerBug);
+    await expect(service.manageBug(viewer, "bug-1", { title: "x" })).rejects.toMatchObject({
+      statusCode: 403,
+    });
+    expect(bugRepo.update).not.toHaveBeenCalled();
+  });
+
+  it("can still read one", async () => {
+    const { service, bugRepo, projectService } = build();
+    bugRepo.findById.mockResolvedValue(bug);
+    await expect(service.getBug(viewer, "bug-1")).resolves.toMatchObject({ id: "bug-1" });
+    expect(projectService.getProject).toHaveBeenCalled();
   });
 });

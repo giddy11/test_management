@@ -27,7 +27,8 @@ class BugAttachmentService {
 
   // files: array of { buffer, originalname, mimetype, size } (multer memory files)
   async uploadAttachments(actor, bugId, files) {
-    await this.bugService.getAccessible(actor, bugId);
+    const bug = await this.bugService.getAccessible(actor, bugId);
+    await this.bugService.projectService.assertCanContribute(actor, bug.projectId);
 
     if (!files || files.length === 0) {
       throw new AppError("No files provided", 400);
@@ -58,7 +59,8 @@ class BugAttachmentService {
   }
 
   async deleteAttachment(actor, bugId, attachmentId) {
-    await this.bugService.getAccessible(actor, bugId);
+    const bug = await this.bugService.getAccessible(actor, bugId);
+    await this.bugService.projectService.assertCanContribute(actor, bug.projectId);
 
     const attachment = await this.attachmentRepo.findById(attachmentId);
     if (!attachment || attachment.bugId !== bugId) {

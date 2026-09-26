@@ -12,7 +12,6 @@ const {
   ProjectMemberRepository,
 } = require("../../project/repositories/projectMember.repository");
 const { AppError } = require("../../../shared/errors/AppError");
-const { assertPermission } = require("../../../shared/access/can");
 const { parseReferenceCode } = require("../../../shared/utils/referenceCode");
 const { UserRole, BugStatus } = require("../../../config/constants");
 
@@ -105,6 +104,9 @@ class BugService {
 
   async createBug(actor, data) {
     const project = await this.projectService.getProject(actor, data.projectId);
+    // Reporting a bug is taking part in the project. A read-only viewer can read
+    // every bug but not raise one.
+    await this.projectService.assertCanContribute(actor, data.projectId);
     await this._assertLinksBelongToProject(data.projectId, data);
 
     const bug = await this.bugRepo.create({
@@ -175,33 +177,18 @@ class BugService {
 
   async manageBug(actor, id, data) {
     const bug = await this.getAccessible(actor, id);
+    await this.projectService.assertCanContribute(actor, bug.projectId);
 
-    // Triage fields (status/severity/priority/assignee) are for admins/superadmins
-    // and the project's team leads only — severity/priority also drive the SLA
-    // targets, so a reporter must not be able to relax their own. Fixing a
-    // mistake in the report itself is also open to whoever reported it; a
-    // request that mixes both is treated as triage (all-or-nothing).
+    // Triage fields (status/severity/priority/assignee) are for the project's
+    // team lead only — severity/priority also drive the SLA targets, so a
+    // reporter must not be able to relax their own, and a reporter cannot
+    // verify or close their own report unless they also lead the project.
+    // Fixing a mistake in the report itself is also open to whoever reported it;
+    // a request that mixes both is treated as triage (all-or-nothing).
     const touchesTriage = TRIAGE_FIELDS.some((f) => data[f] !== undefined);
     const isReporter = bug.reportedById === actor.id;
     if (touchesTriage || !isReporter) {
       await this.projectService.assertCanManageProject(actor, bug.projectId);
-    }
-
-    // Separation of duties across the defect lifecycle. Whoever reports a bug
-    // holds bug.create and bug.update; setting its severity/priority/assignee
-    // is triage, confirming a fix is verification, and closing it is a third
-    // privilege again — so a reporter can never sign off their own report.
-    if (["severity", "priority", "assignedToId"].some((f) => data[f] !== undefined)) {
-      assertPermission(actor, "bug.triage");
-    }
-    if (data.status !== undefined && data.status !== bug.status) {
-      if (data.status === BugStatus.VERIFIED) {
-        assertPermission(actor, "bug.verify");
-      } else if (data.status === BugStatus.CLOSED || data.status === BugStatus.REOPENED) {
-        assertPermission(actor, "bug.close");
-      } else {
-        assertPermission(actor, "bug.triage");
-      }
     }
     if (data.testCaseId) {
       await this._assertLinksBelongToProject(bug.projectId, { testCaseId: data.testCaseId });

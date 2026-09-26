@@ -41,7 +41,6 @@ const {
   seesAllProjects,
 } = require("../../../shared/access/scope");
 const { UserRole, FeedbackStatus, SupportStatus } = require("../../../config/constants");
-const { assertPermission } = require("../../../shared/access/can");
 const { env } = require("../../../config/env");
 
 // The lifecycle is strictly ordered — Object.freeze preserves declaration order.
@@ -382,20 +381,6 @@ export class FeedbackService {
       throw new AppError("Only admins or this project's team lead can reassign feedback", 403);
     }
 
-    // Separation of duties on the ticket lifecycle: working a ticket
-    // (ticket.update) is not the same privilege as routing it, calling it
-    // resolved, or closing it for good.
-    if (data.assignedToIds !== undefined) {
-      assertPermission(actor, "ticket.assign");
-    }
-    if (data.status !== undefined && data.status !== fb.status) {
-      if (data.status === FeedbackStatus.RESOLVED) {
-        assertPermission(actor, "ticket.resolve");
-      } else if (data.status === FeedbackStatus.CLOSED) {
-        assertPermission(actor, "ticket.close");
-      }
-    }
-
     const patch: Record<string, unknown> = {};
     if (data.adminResponse !== undefined) patch.adminResponse = data.adminResponse;
 
@@ -625,6 +610,10 @@ export class FeedbackService {
 
   async setFeedbackLink(actor: Actor, projectId: string, enabled: boolean) {
     const project = await this.projectService.getProject(actor, projectId);
+    // Enabling or rotating the public form link breaks every copy already
+    // shared, so it is the project's team lead's call. This used to lean on the
+    // route guard alone.
+    await this.projectService.assertCanManageProject(actor, projectId);
     project.feedbackToken = enabled ? randomUUID() : null;
     await this.projectRepo.save(project);
     return { feedbackToken: project.feedbackToken };
