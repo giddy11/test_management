@@ -1,7 +1,14 @@
 import { useEffect, useState } from "react"
 import { Plus, Bug as BugIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
 import {
   Select,
   SelectContent,
@@ -12,7 +19,7 @@ import {
 import { InlineLoader } from "@/components/shared/PageLoader"
 import { DateRangeFilter } from "@/components/shared/DateRangeFilter"
 import { SearchByInput, type SearchByOption } from "@/components/shared/SearchByInput"
-import { BugCard } from "@/components/bugs/BugCard"
+import { BugRow } from "@/components/bugs/BugRow"
 import { BugFormDialog } from "@/components/bugs/BugFormDialog"
 import { useBugs } from "@/hooks/useBugs"
 import { useDebounce } from "@/hooks/useDebounce"
@@ -85,26 +92,47 @@ export function BugsTab({ projectId }: { projectId: string }) {
         </Button>
       </div>
 
-      {isLoading && <InlineLoader className="py-8" />}
       {isError && (
         <p className="text-sm text-destructive">
           {error instanceof Error ? error.message : "Failed to load bugs"}
         </p>
       )}
 
-      {!isLoading && !isError && bugs.length === 0 && (
-        <Card className="border-dashed">
-          <CardContent className="flex flex-col items-center gap-2 py-10 text-center">
-            <BugIcon className="size-7 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">No bugs reported yet.</p>
-            <Button size="sm" onClick={() => setFormOpen(true)}>Report the first one</Button>
-          </CardContent>
-        </Card>
+      {!isError && (
+        <div className="rounded-lg border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-28">Ref</TableHead>
+                <TableHead>Title</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Severity</TableHead>
+                <TableHead>Priority</TableHead>
+                <TableHead>Reported by</TableHead>
+                <TableHead>Assigned to</TableHead>
+                <TableHead>Reported</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {isLoading && (
+                <TableRow><TableCell colSpan={8} className="h-24"><InlineLoader /></TableCell></TableRow>
+              )}
+              {!isLoading && bugs.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={8} className="h-32">
+                    <div className="flex flex-col items-center gap-2 text-center">
+                      <BugIcon className="size-7 text-muted-foreground" />
+                      <p className="text-sm text-muted-foreground">No bugs reported yet.</p>
+                      <Button size="sm" onClick={() => setFormOpen(true)}>Report the first one</Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              )}
+              {bugs.map((b) => <BugRow key={b.id} bug={b} />)}
+            </TableBody>
+          </Table>
+        </div>
       )}
-
-      <div className="space-y-3">
-        {bugs.map((b) => <BugCard key={b.id} bug={b} />)}
-      </div>
 
       {data?.meta && data.meta.totalPages > 1 && (
         <div className="flex items-center justify-end gap-2">

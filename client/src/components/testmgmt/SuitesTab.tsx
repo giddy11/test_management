@@ -4,7 +4,14 @@ import { Plus, Pencil, Trash2, Layers, ChevronRight, ClipboardList, Download } f
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
 import { SummaryBar } from "@/components/shared/SummaryBar"
 import { SuiteFormDialog } from "@/components/testmgmt/SuiteFormDialog"
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog"
@@ -67,67 +74,87 @@ export function SuitesTab({
         </div>
       </div>
 
-      {isLoading && <InlineLoader className="py-8" />}
-      {!isLoading && suites.length === 0 && (
-        <Card className="border-dashed">
-          <CardContent className="flex flex-col items-center gap-2 py-10 text-center">
-            <Layers className="size-7 text-muted-foreground" />
-            {search ? (
-              <p className="text-sm text-muted-foreground">No suites match “{search}”.</p>
-            ) : (
-              <>
-                <p className="text-sm text-muted-foreground">No test suites yet.</p>
-                {canManage && <Button size="sm" onClick={() => { setEditing(null); setFormOpen(true) }}>Create a suite</Button>}
-              </>
+      <div className="rounded-lg border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Suite</TableHead>
+              <TableHead>Test cases</TableHead>
+              <TableHead className="w-56">Results</TableHead>
+              {canManage && <TableHead className="w-24 text-right">Actions</TableHead>}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {isLoading && (
+              <TableRow><TableCell colSpan={canManage ? 4 : 3} className="h-24"><InlineLoader /></TableCell></TableRow>
             )}
-          </CardContent>
-        </Card>
-      )}
-
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {suites.map((s) => (
-          <Card
-            key={s.id}
-            data-cy="suite-card"
-            className="group cursor-pointer transition-colors hover:border-primary/50"
-            onClick={() => navigate(`/projects/${projectId}/suites/${s.id}`)}
-          >
-            <CardHeader>
-              <div className="flex items-start justify-between gap-2">
-                <CardTitle className="text-base">{s.name}</CardTitle>
-                <ChevronRight className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
-              </div>
-              <CardDescription className="line-clamp-2">{s.description || "No description"}</CardDescription>
-              <div className="flex items-center gap-1 pt-1 text-xs text-muted-foreground">
-                <ClipboardList className="size-3" />
-                {s.caseCount === 0
-                  ? <span className="text-amber-600">No test cases yet</span>
-                  : <span>{s.caseCount} test case{s.caseCount === 1 ? "" : "s"}</span>}
-              </div>
-              {(() => {
-                const bd = breakdown?.get(s.id)
-                if (!bd) return null
-                const total = bd.pass + bd.fail + bd.blocked + bd.skipped + bd.pending
-                if (total === 0) return null
-                return (
-                  <div className="pt-2">
-                    <SummaryBar summary={{ total, pass: bd.pass, fail: bd.fail, blocked: bd.blocked, skipped: bd.skipped, pending: bd.pending }} />
+            {!isLoading && suites.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={canManage ? 4 : 3} className="h-32">
+                  <div className="flex flex-col items-center gap-2 text-center">
+                    <Layers className="size-7 text-muted-foreground" />
+                    {search ? (
+                      <p className="text-sm text-muted-foreground">No suites match “{search}”.</p>
+                    ) : (
+                      <>
+                        <p className="text-sm text-muted-foreground">No test suites yet.</p>
+                        {canManage && <Button size="sm" onClick={() => { setEditing(null); setFormOpen(true) }}>Create a suite</Button>}
+                      </>
+                    )}
                   </div>
-                )
-              })()}
-            </CardHeader>
-            {canManage && (
-              <CardContent className="flex justify-end gap-1 pt-0">
-                <Button variant="ghost" size="sm" data-cy="suite-edit" onClick={(e) => { e.stopPropagation(); setEditing(s); setFormOpen(true) }}>
-                  <Pencil className="size-4" />
-                </Button>
-                <Button variant="ghost" size="sm" data-cy="suite-delete" onClick={(e) => { e.stopPropagation(); setDeleting(s) }}>
-                  <Trash2 className="size-4 text-destructive" />
-                </Button>
-              </CardContent>
+                </TableCell>
+              </TableRow>
             )}
-          </Card>
-        ))}
+            {suites.map((s) => {
+              const bd = breakdown?.get(s.id)
+              const executed = bd ? bd.pass + bd.fail + bd.blocked + bd.skipped + bd.pending : 0
+              return (
+                <TableRow
+                  key={s.id}
+                  data-cy="suite-card"
+                  className="group cursor-pointer"
+                  onClick={() => navigate(`/projects/${projectId}/suites/${s.id}`)}
+                >
+                  <TableCell className="max-w-md whitespace-normal">
+                    <div className="flex items-center gap-1.5">
+                      <p className="font-medium leading-snug">{s.name}</p>
+                      <ChevronRight className="size-4 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+                    </div>
+                    <p className="line-clamp-1 text-xs text-muted-foreground">{s.description || "No description"}</p>
+                  </TableCell>
+                  <TableCell className="text-sm">
+                    <span className="flex items-center gap-1 text-muted-foreground">
+                      <ClipboardList className="size-3 shrink-0" />
+                      {s.caseCount === 0
+                        ? <span className="text-amber-600">No test cases yet</span>
+                        : <span>{s.caseCount} test case{s.caseCount === 1 ? "" : "s"}</span>}
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    {bd && executed > 0 ? (
+                      <SummaryBar
+                        compact
+                        summary={{ total: executed, pass: bd.pass, fail: bd.fail, blocked: bd.blocked, skipped: bd.skipped, pending: bd.pending }}
+                      />
+                    ) : (
+                      <span className="text-xs text-muted-foreground">Not run</span>
+                    )}
+                  </TableCell>
+                  {canManage && (
+                    <TableCell className="text-right">
+                      <Button variant="ghost" size="sm" data-cy="suite-edit" onClick={(e) => { e.stopPropagation(); setEditing(s); setFormOpen(true) }}>
+                        <Pencil className="size-4" />
+                      </Button>
+                      <Button variant="ghost" size="sm" data-cy="suite-delete" onClick={(e) => { e.stopPropagation(); setDeleting(s) }}>
+                        <Trash2 className="size-4 text-destructive" />
+                      </Button>
+                    </TableCell>
+                  )}
+                </TableRow>
+              )
+            })}
+          </TableBody>
+        </Table>
       </div>
 
       <SuiteFormDialog open={formOpen} onOpenChange={setFormOpen} projectId={projectId} editing={editing} />

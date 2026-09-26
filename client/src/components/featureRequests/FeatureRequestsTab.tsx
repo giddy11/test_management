@@ -1,7 +1,14 @@
 import { useEffect, useState } from "react"
 import { Plus, Lightbulb } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
 import {
   Select,
   SelectContent,
@@ -12,7 +19,7 @@ import {
 import { InlineLoader } from "@/components/shared/PageLoader"
 import { DateRangeFilter } from "@/components/shared/DateRangeFilter"
 import { SearchByInput, type SearchByOption } from "@/components/shared/SearchByInput"
-import { FeatureRequestCard } from "@/components/featureRequests/FeatureRequestCard"
+import { FeatureRequestRow } from "@/components/featureRequests/FeatureRequestRow"
 import { FeatureRequestFormDialog } from "@/components/featureRequests/FeatureRequestFormDialog"
 import { useFeatureRequests } from "@/hooks/useFeatureRequests"
 import { useDebounce } from "@/hooks/useDebounce"
@@ -99,26 +106,47 @@ export function FeatureRequestsTab({ projectId }: { projectId: string }) {
         </Button>
       </div>
 
-      {isLoading && <InlineLoader className="py-8" />}
       {isError && (
         <p className="text-sm text-destructive">
           {error instanceof Error ? error.message : "Failed to load feature requests"}
         </p>
       )}
 
-      {!isLoading && !isError && requests.length === 0 && (
-        <Card className="border-dashed">
-          <CardContent className="flex flex-col items-center gap-2 py-10 text-center">
-            <Lightbulb className="size-7 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">No feature requests yet.</p>
-            <Button size="sm" onClick={() => setFormOpen(true)}>Submit the first one</Button>
-          </CardContent>
-        </Card>
+      {!isError && (
+        <div className="rounded-lg border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-16">Votes</TableHead>
+                <TableHead className="w-28">Ref</TableHead>
+                <TableHead>Title</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Category</TableHead>
+                <TableHead>Submitted by</TableHead>
+                <TableHead>Comments</TableHead>
+                <TableHead>Submitted</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {isLoading && (
+                <TableRow><TableCell colSpan={8} className="h-24"><InlineLoader /></TableCell></TableRow>
+              )}
+              {!isLoading && requests.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={8} className="h-32">
+                    <div className="flex flex-col items-center gap-2 text-center">
+                      <Lightbulb className="size-7 text-muted-foreground" />
+                      <p className="text-sm text-muted-foreground">No feature requests yet.</p>
+                      <Button size="sm" onClick={() => setFormOpen(true)}>Submit the first one</Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              )}
+              {requests.map((r) => <FeatureRequestRow key={r.id} request={r} />)}
+            </TableBody>
+          </Table>
+        </div>
       )}
-
-      <div className="space-y-3">
-        {requests.map((r) => <FeatureRequestCard key={r.id} request={r} />)}
-      </div>
 
       {data?.meta && data.meta.totalPages > 1 && (
         <div className="flex items-center justify-end gap-2">

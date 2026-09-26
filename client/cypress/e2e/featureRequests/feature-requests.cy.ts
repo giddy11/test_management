@@ -28,7 +28,7 @@ describe("Feature requests", () => {
       cy.contains("Under Review").should("be.visible")
       cy.contains("UI/UX").should("be.visible")
       cy.contains("4").should("be.visible")
-      cy.contains("by Uche Tester").should("be.visible")
+      cy.contains("Uche Tester").should("be.visible")
     })
     cy.contains('[data-cy="feature-request-card"]', "Bulk import from TestRail").within(() => {
       cy.contains("Planned").should("be.visible")

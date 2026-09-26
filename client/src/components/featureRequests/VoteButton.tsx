@@ -6,14 +6,18 @@ import { cn } from "@/lib/utils"
 import { useToggleFeatureRequestVote } from "@/hooks/useFeatureRequestVote"
 import { ApiError } from "@/transport/http"
 
+// `compact` lays the chevron and count out on one line so the control fits a
+// table cell; the default stacks them for the detail page.
 export function VoteButton({
   requestId,
   upvoteCount,
   hasVoted,
+  compact = false,
 }: {
   requestId: string
   upvoteCount: number
   hasVoted: boolean
+  compact?: boolean
 }) {
   const toggle = useToggleFeatureRequestVote()
 
@@ -27,7 +31,9 @@ export function VoteButton({
           data-cy="vote-button"
           aria-label={hasVoted ? "Remove upvote" : "Upvote this request"}
           className={cn(
-            "flex h-auto flex-col items-center gap-0.5 px-3 py-1.5",
+            compact
+              ? "h-7 gap-1 px-2"
+              : "flex h-auto flex-col items-center gap-0.5 px-3 py-1.5",
             hasVoted && "border-primary bg-primary/10 text-primary"
           )}
           disabled={toggle.isPending}

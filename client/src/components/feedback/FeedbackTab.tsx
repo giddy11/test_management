@@ -17,6 +17,14 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -160,70 +168,113 @@ export function FeedbackTab({ projectId, canManage }: Props) {
         </Select>
       </div>
 
-      {isLoading && <p className="text-sm text-muted-foreground">Loading tickets…</p>}
-      {!isLoading && items.length === 0 && (
-        <Card className="border-dashed">
-          <CardContent className="py-10 text-center text-sm text-muted-foreground">
-            No tickets yet{statusFilter !== "all" ? " for this status" : ""}.
-          </CardContent>
-        </Card>
-      )}
-
-      <div className="space-y-2">
-        {items.map((fb) => (
-          <Card key={fb.id}>
-            <CardHeader className="pb-2">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="font-mono text-xs text-muted-foreground">{fb.ticketCode}</span>
-                <CardTitle className="text-base">{fb.title}</CardTitle>
-                <Badge variant="outline">{FEEDBACK_TYPE_LABELS[fb.type]}</Badge>
-                {fb.suiteName && (
-                  <Badge variant="outline" className="text-muted-foreground">{fb.suiteName}</Badge>
-                )}
-                {fb.clientCompanyName && (
-                  <Badge variant="secondary">via {fb.clientCompanyName} IT</Badge>
-                )}
-                {fb.severity && (
-                  <Badge variant={SEVERITY_VARIANT[fb.severity]}>
-                    {FEEDBACK_SEVERITY_LABELS[fb.severity]}
-                  </Badge>
-                )}
-                {fb.attachments.length > 0 && (
-                  <Badge variant="secondary">{fb.attachments.length} 📎</Badge>
-                )}
-                <Badge variant={STATUS_VARIANT[fb.status]}>{FEEDBACK_STATUS_LABELS[fb.status]}</Badge>
-              </div>
-              <CardDescription>
-                From {fb.submitterName} ({fb.submitterEmail}
-                {fb.submitterPhone && <> · {fb.submitterPhone}</>}) ·{" "}
-                {new Date(fb.createdAt).toLocaleDateString()}
-                {fb.assignees.length > 0 && (
-                  <> · assigned to {fb.assignees.map((a) => a.name).join(", ")}</>
-                )}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="flex items-start justify-between gap-3 pt-0">
-              <p className="line-clamp-2 text-sm text-muted-foreground">{fb.description}</p>
-              <div className="flex shrink-0 items-center gap-2">
-                {(canManage || fb.assignees.some((a) => a.id === user?.id)) && (
-                  <Button size="sm" variant="outline" onClick={() => setManaging(fb)}>
-                    Manage
-                  </Button>
-                )}
-                {canManage && (
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="text-destructive hover:text-destructive"
-                    onClick={() => setDeleting(fb)}
+      <div className="rounded-lg border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-40">Ticket</TableHead>
+              <TableHead>Title</TableHead>
+              <TableHead>Type</TableHead>
+              <TableHead>Severity</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>From</TableHead>
+              <TableHead>Assigned to</TableHead>
+              <TableHead>Received</TableHead>
+              <TableHead className="w-32 text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {isLoading && (
+              <TableRow>
+                <TableCell colSpan={9} className="h-24 text-center text-sm text-muted-foreground">
+                  Loading tickets…
+                </TableCell>
+              </TableRow>
+            )}
+            {!isLoading && items.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={9} className="h-24 text-center text-sm text-muted-foreground">
+                  No tickets yet{statusFilter !== "all" ? " for this status" : ""}.
+                </TableCell>
+              </TableRow>
+            )}
+            {items.map((fb) => (
+              <TableRow key={fb.id} data-cy="ticket-row">
+                <TableCell className="font-mono text-xs text-muted-foreground">{fb.ticketCode}</TableCell>
+                <TableCell className="max-w-sm whitespace-normal">
+                  <div className="flex items-center gap-1.5">
+                    <p className="font-medium leading-snug">{fb.title}</p>
+                    {fb.attachments.length > 0 && (
+                      <span
+                        className="shrink-0 rounded bg-muted px-1 py-0.5 text-[10px] text-muted-foreground"
+                        title={`${fb.attachments.length} attachment${fb.attachments.length === 1 ? "" : "s"}`}
+                      >
+                        {fb.attachments.length} 📎
+                      </span>
+                    )}
+                  </div>
+                  <p className="line-clamp-1 text-xs text-muted-foreground">{fb.description}</p>
+                  {(fb.suiteName || fb.clientCompanyName) && (
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {fb.suiteName && (
+                        <Badge variant="outline" className="text-muted-foreground">{fb.suiteName}</Badge>
+                      )}
+                      {fb.clientCompanyName && (
+                        <Badge variant="secondary">via {fb.clientCompanyName} IT</Badge>
+                      )}
+                    </div>
+                  )}
+                </TableCell>
+                <TableCell><Badge variant="outline">{FEEDBACK_TYPE_LABELS[fb.type]}</Badge></TableCell>
+                <TableCell>
+                  {fb.severity ? (
+                    <Badge variant={SEVERITY_VARIANT[fb.severity]}>{FEEDBACK_SEVERITY_LABELS[fb.severity]}</Badge>
+                  ) : (
+                    <span className="text-muted-foreground">—</span>
+                  )}
+                </TableCell>
+                <TableCell>
+                  <Badge variant={STATUS_VARIANT[fb.status]}>{FEEDBACK_STATUS_LABELS[fb.status]}</Badge>
+                </TableCell>
+                <TableCell className="text-sm">
+                  <p>{fb.submitterName}</p>
+                  <p
+                    className="max-w-50 truncate text-xs text-muted-foreground"
+                    title={fb.submitterPhone ? `${fb.submitterEmail} · ${fb.submitterPhone}` : fb.submitterEmail}
                   >
-                    <Trash2 className="size-3.5" />
-                  </Button>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+                    {fb.submitterEmail}
+                  </p>
+                </TableCell>
+                <TableCell className="max-w-50 truncate text-sm text-muted-foreground">
+                  {fb.assignees.length > 0 ? fb.assignees.map((a) => a.name).join(", ") : "—"}
+                </TableCell>
+                <TableCell className="text-sm text-muted-foreground">
+                  {new Date(fb.createdAt).toLocaleDateString()}
+                </TableCell>
+                <TableCell className="text-right">
+                  <div className="flex items-center justify-end gap-1">
+                    {(canManage || fb.assignees.some((a) => a.id === user?.id)) && (
+                      <Button size="sm" variant="outline" onClick={() => setManaging(fb)}>
+                        Manage
+                      </Button>
+                    )}
+                    {canManage && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        aria-label="Delete ticket"
+                        className="text-destructive hover:text-destructive"
+                        onClick={() => setDeleting(fb)}
+                      >
+                        <Trash2 className="size-3.5" />
+                      </Button>
+                    )}
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
       </div>
 
       {meta && meta.totalPages > 1 && (

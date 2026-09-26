@@ -1,11 +1,18 @@
 import { useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { Play, Pencil, Trash2, FlaskConical, Layers, User, Users } from "lucide-react"
+import { Play, Pencil, Trash2, FlaskConical } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
 import {
   Dialog,
   DialogContent,
@@ -85,39 +92,68 @@ export function RunsTab({ projectId, canManage }: { projectId: string; canManage
         </Tooltip>
       </div>
 
-      {isLoading && <InlineLoader className="py-8" />}
-      {!isLoading && runs.length === 0 && (
-        <Card className="border-dashed">
-          <CardContent className="flex flex-col items-center gap-2 py-10 text-center">
-            <FlaskConical className="size-7 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">No test runs yet. Start one to track execution.</p>
-          </CardContent>
-        </Card>
-      )}
-
-      <div className="grid gap-3">
-        {runs.map((run) => (
-          <Card
-            key={run.id}
-            data-cy="run-card"
-            className="cursor-pointer transition-colors hover:border-primary/50"
-            onClick={() => navigate(`/projects/${projectId}/runs/${run.id}`)}
-          >
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <CardTitle className="text-base">{run.name}</CardTitle>
-                  {suiteMap.get(run.suiteId) && (
-                    <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
-                      <Layers className="size-3 shrink-0" />
-                      {suiteMap.get(run.suiteId)}
-                    </p>
-                  )}
-                </div>
-                <div className="flex items-center gap-2">
+      <div className="rounded-lg border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Run</TableHead>
+              <TableHead>Suite</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Started by</TableHead>
+              <TableHead>Tested by</TableHead>
+              <TableHead className="w-56">Progress</TableHead>
+              <TableHead className="w-24 text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {isLoading && (
+              <TableRow><TableCell colSpan={7} className="h-24"><InlineLoader /></TableCell></TableRow>
+            )}
+            {!isLoading && runs.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={7} className="h-32">
+                  <div className="flex flex-col items-center gap-2 text-center">
+                    <FlaskConical className="size-7 text-muted-foreground" />
+                    <p className="text-sm text-muted-foreground">No test runs yet. Start one to track execution.</p>
+                  </div>
+                </TableCell>
+              </TableRow>
+            )}
+            {runs.map((run) => (
+              <TableRow
+                key={run.id}
+                data-cy="run-card"
+                className="cursor-pointer"
+                onClick={() => navigate(`/projects/${projectId}/runs/${run.id}`)}
+              >
+                <TableCell className="max-w-xs whitespace-normal font-medium">{run.name}</TableCell>
+                <TableCell className="text-sm text-muted-foreground">
+                  {suiteMap.get(run.suiteId) ?? "—"}
+                </TableCell>
+                <TableCell>
                   <Badge variant={run.status === "completed" ? "default" : "secondary"}>
                     {run.status === "completed" ? "Completed" : "In progress"}
                   </Badge>
+                </TableCell>
+                <TableCell className="text-sm text-muted-foreground">{run.createdByName ?? "—"}</TableCell>
+                <TableCell className="max-w-50 truncate text-sm text-muted-foreground">
+                  {run.testers && run.testers.length > 0 ? (
+                    <span title={run.testers.join(", ")}>
+                      {run.testers.slice(0, 2).join(", ")}
+                      {run.testers.length > 2 && ` +${run.testers.length - 2}`}
+                    </span>
+                  ) : (
+                    "—"
+                  )}
+                </TableCell>
+                <TableCell>
+                  {run.summary && run.summary.total > 0 ? (
+                    <SummaryBar summary={run.summary} compact />
+                  ) : (
+                    <span className="text-xs text-muted-foreground">Open to record results</span>
+                  )}
+                </TableCell>
+                <TableCell className="text-right">
                   <Button
                     variant="ghost"
                     size="sm"
@@ -134,44 +170,17 @@ export function RunsTab({ projectId, canManage }: { projectId: string; canManage
                     <Button
                       variant="ghost"
                       size="sm"
+                      aria-label="Delete run"
                       onClick={(e) => { e.stopPropagation(); setDeleting(run) }}
                     >
                       <Trash2 className="size-4 text-destructive" />
                     </Button>
                   )}
-                </div>
-              </div>
-            </CardHeader>
-
-            <CardContent className="space-y-3">
-              {/* People */}
-              <div className="flex flex-col gap-1 text-xs text-muted-foreground">
-                {run.createdByName && (
-                  <span className="flex items-center gap-1.5">
-                    <User className="size-3 shrink-0" />
-                    Started by <span className="font-medium text-foreground">{run.createdByName}</span>
-                  </span>
-                )}
-                {run.testers && run.testers.length > 0 && (
-                  <span className="flex items-center gap-1.5">
-                    <Users className="size-3 shrink-0" />
-                    Tested by{" "}
-                    <span className="font-medium text-foreground">
-                      {run.testers.slice(0, 3).join(", ")}
-                      {run.testers.length > 3 && ` +${run.testers.length - 3} more`}
-                    </span>
-                  </span>
-                )}
-              </div>
-
-              {run.summary && run.summary.total > 0 ? (
-                <SummaryBar summary={run.summary} />
-              ) : (
-                <p className="text-xs text-muted-foreground">Open to record results</p>
-              )}
-            </CardContent>
-          </Card>
-        ))}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
       </div>
 
       <CreateRunDialog
