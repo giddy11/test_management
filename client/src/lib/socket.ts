@@ -9,7 +9,12 @@ const SOCKET_URL = import.meta.env.VITE_API_URL ?? "http://localhost:4000"
 let socket: Socket | null = null
 
 export function connectSocket(): Socket {
-  if (socket?.connected) return socket
+  // Reuse the instance whether or not it has finished connecting: socket.io
+  // reconnects on its own, and guarding on `.connected` meant every caller
+  // during a connect or a reconnect opened ANOTHER client, leaving the old one
+  // retrying forever. Four call sites share this connection, so a server that
+  // is slow, down, or briefly unreachable used to leak a socket per render.
+  if (socket) return socket
   socket = io(SOCKET_URL, {
     auth: { token: tokenStorage.getAccess() },
   })

@@ -8,6 +8,8 @@ import {
   BUG_SEVERITY_BADGE,
   BUG_PRIORITY_BADGE,
   BUG_STATUS_META,
+  AUDIT_SEVERITY_META,
+  type AuditSeverity,
   type TcPriority,
   type TcStatus,
   type ResultStatus,
@@ -45,5 +47,12 @@ export function BugPriorityBadge({ value }: { value: BugPriority }) {
 
 export function BugStatusBadge({ value }: { value: BugStatus }) {
   const meta = BUG_STATUS_META[value]
+  return <Badge className={cn("border-transparent", meta.badge)}>{meta.label}</Badge>
+}
+
+// Activity log entries. `info` is deliberately the quietest badge on the page —
+// most of the log is routine, and the point is that warning and critical stand out.
+export function AuditSeverityBadge({ value }: { value: AuditSeverity }) {
+  const meta = AUDIT_SEVERITY_META[value] ?? AUDIT_SEVERITY_META.info
   return <Badge className={cn("border-transparent", meta.badge)}>{meta.label}</Badge>
 }

@@ -36,7 +36,11 @@ describe("Project detail — suites", () => {
     cy.login("admin")
     stubProjectDetail()
     cy.visit(`/projects/${PROJECT_ID}`)
+    // The tab-count query hits /test-suites too (limit=1) and answers first, so
+    // @suites alone doesn't mean the list has loaded. Wait for a rendered card —
+    // until then a test's own intercept can catch the unfiltered list request.
     cy.wait(["@project", "@suites"])
+    cy.dataCy("suite-card").should("have.length", 2)
   })
 
   it("shows the project header, members, and suite cards", () => {
@@ -141,6 +145,7 @@ describe("Project detail — runs tab", () => {
     cy.interceptApi("GET", "/test-runs/active-status", { body: ok({ activeSuiteIds: [] }) }, "activeStatus")
     cy.visit(`/projects/${PROJECT_ID}?tab=runs`)
     cy.wait("@runs")
+    cy.dataCy("run-card").should("have.length", 1)
   })
 
   it("lists runs with status and suite name", () => {

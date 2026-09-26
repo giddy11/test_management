@@ -22,6 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { PageLoader } from "@/components/shared/PageLoader"
+import { AuditSeverityBadge } from "@/components/shared/StatusBadge"
 import { useActivity } from "@/hooks/useActivity"
 import { timeAgo } from "@/lib/timeAgo"
 import type { ActivityLog } from "@/types/activity.types"
@@ -80,7 +81,7 @@ export default function SupportActivityPage() {
         <h1 className="text-2xl font-semibold tracking-tight">Activity</h1>
         <p className="text-sm text-muted-foreground">
           Stage changes, resolutions, and escalations your team has made — plus changes to your
-          company's supporter roster.
+          company's supporter roster. Entries are permanent and cannot be edited or deleted.
         </p>
       </div>
 
@@ -148,9 +149,12 @@ export default function SupportActivityPage() {
                       <p className="text-xs text-muted-foreground">
                         <span className="font-medium text-foreground">{actorName}</span>
                         {" · "}
-                        {timeAgo(a.createdAt)}
+                        <span title={new Date(a.createdAt).toLocaleString()}>
+                          {timeAgo(a.createdAt)}
+                        </span>
                       </p>
                     </div>
+                    <AuditSeverityBadge value={a.severity} />
                     {a.actor && (
                       <Avatar className="size-7 shrink-0">
                         <AvatarFallback className="text-[10px]">

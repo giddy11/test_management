@@ -45,6 +45,11 @@ class AuthService {
     const payload = {
       id: user.id,
       email: user.email,
+      // Carried so the audit trail can denormalise who did a thing onto the log
+      // row without a lookup per write. A token issued before this existed just
+      // falls back to the email — see ActivityService.buildEntry.
+      firstName: user.firstName ?? null,
+      lastName: user.lastName ?? null,
       role: user.role,
       organizationId: user.organizationId ?? null,
       clientCompanyId: user.clientCompanyId ?? null,

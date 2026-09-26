@@ -43,9 +43,8 @@ describe("Feature requests", () => {
   it("searches requests by reporter through the API", () => {
     cy.interceptApi("GET", "/feature-requests", { body: ok([], listMeta(0)) }, "searchedRequests")
 
-    cy.dataCy("search-by").click()
-    cy.contains('[role="option"]', "Reporter").click()
-    cy.get('input[placeholder="Search by reporter name…"]').type("Uche")
+    cy.selectDropdown('[data-cy="search-by"]', "Reporter")
+    cy.get('input[placeholder="Search by reporter name…"]').type("Uche").should("have.value", "Uche")
 
     cy.wait("@searchedRequests").its("request.url").should("include", "searchBy=reporter").and("include", "search=Uche")
   })

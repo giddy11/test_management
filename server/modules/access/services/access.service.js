@@ -400,11 +400,11 @@ class AccessService {
     const beforeRoles = await this.repo.rolesForUser(userId);
     await this.assertLockoutOnAssignment(actor, userId, granted, beforeRoles);
 
-    await this.repo.setUserRoles(userId, roleIds, actor.id);
-    cache.invalidate(userId);
-    cache.invalidateAll();
-
-    this.activity.log(actor, {
+    // Granting a role grants every permission in it, so this is the one write
+    // here whose audit entry must not be best-effort: the row goes in inside the
+    // assignment's own transaction, and a failure to record it rolls the
+    // assignment back rather than leaving a silent escalation.
+    const auditEntry = this.activity.buildEntry(actor, {
       action: "role.assigned",
       entityType: "user",
       entityId: userId,
@@ -414,6 +414,9 @@ class AccessService {
         after: roles.map((r) => ({ id: r.id, name: r.name })),
       },
     });
+    await this.repo.setUserRoles(userId, roleIds, actor.id, auditEntry);
+    cache.invalidate(userId);
+    cache.invalidateAll();
 
     return this.repo.rolesForUser(userId);
   }

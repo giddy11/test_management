@@ -47,17 +47,14 @@ describe("Bug reports", () => {
   it("searches bugs by reporter, suite and assignee through the API", () => {
     cy.interceptApi("GET", "/bugs", { body: ok([], listMeta(0)) }, "searchedBugs")
 
-    cy.dataCy("search-by").click()
-    cy.contains('[role="option"]', "Reporter").click()
-    cy.get('input[placeholder="Search by reporter name…"]').type("Uche")
+    cy.selectDropdown('[data-cy="search-by"]', "Reporter")
+    cy.get('input[placeholder="Search by reporter name…"]').type("Uche").should("have.value", "Uche")
     cy.wait("@searchedBugs").its("request.url").should("include", "searchBy=reporter").and("include", "search=Uche")
 
-    cy.dataCy("search-by").click()
-    cy.contains('[role="option"]', "Suite").click()
+    cy.selectDropdown('[data-cy="search-by"]', "Suite")
     cy.wait("@searchedBugs").its("request.url").should("include", "searchBy=suite").and("include", "search=Uche")
 
-    cy.dataCy("search-by").click()
-    cy.contains('[role="option"]', "Assigned to").click()
+    cy.selectDropdown('[data-cy="search-by"]', "Assigned to")
     cy.wait("@searchedBugs").its("request.url").should("include", "searchBy=assignee").and("include", "search=Uche")
   })
 

@@ -106,6 +106,9 @@ Cypress.Commands.add("selectDropdown", (triggerSelector: string, option: string)
   // drives the same selection code path as a keyboard user.
   cy.contains('[role="option"]', option).focus().type("{enter}")
   cy.get('[role="listbox"]').should("not.exist")
+  // Radix hands focus back to the trigger as the listbox unmounts. Typing into
+  // a neighbouring field before that lands loses the keystrokes, so wait for it.
+  cy.get(triggerSelector).should("have.focus")
 })
 
 Cypress.Commands.add("loginByApi", (email: string, password: string) => {

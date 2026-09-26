@@ -115,3 +115,40 @@ export function isBugStatusSelectable(current: BugStatus, candidate: BugStatus):
   if (candidate === "Reopened") return current === "Fixed" || current === "Verified" || current === "Closed"
   return bugRank(candidate) > bugRank(current)
 }
+
+// ── Activity log ─────────────────────────────────────────────────────────────
+
+export const AUDIT_SEVERITIES = ["critical", "warning", "info"] as const
+export type AuditSeverity = (typeof AUDIT_SEVERITIES)[number]
+
+// Mirrors severity.catalog.js on the API: info is routine, warning is sensitive
+// or hard to reverse, critical changes who can do what or destroys something.
+export const AUDIT_SEVERITY_META: Record<AuditSeverity, { label: string; badge: string }> = {
+  critical: { label: "Critical", badge: "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300" },
+  warning: { label: "Warning", badge: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300" },
+  info: { label: "Info", badge: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300" },
+}
+
+// The entity types the services instrument, as the record-type filter offers
+// them. Keep in step with the `entityType` values passed to ActivityService.log.
+export const AUDIT_RECORD_TYPES: { value: string; label: string }[] = [
+  { value: "project", label: "Projects" },
+  { value: "suite", label: "Test suites" },
+  { value: "test_case", label: "Test cases" },
+  { value: "test_run", label: "Test runs" },
+  { value: "test_run_result", label: "Test results" },
+  { value: "bug", label: "Bugs" },
+  { value: "feature_request", label: "Feature requests" },
+  { value: "feedback", label: "Support tickets" },
+  { value: "client_company", label: "Client companies" },
+  { value: "role", label: "Roles" },
+  { value: "user", label: "Team members" },
+]
+
+// The app-wide role recorded on each entry at the time it was written.
+export const AUDIT_ACTOR_ROLE_LABELS: Record<string, string> = {
+  superadmin: "Platform owner",
+  admin: "Administrator",
+  user: "Team member",
+  it_support: "IT support",
+}

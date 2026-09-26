@@ -8,6 +8,7 @@ const { Permission } = require("../entities/permission.entity");
 const { PermissionCategory } = require("../entities/permissionCategory.entity");
 const { RolePermission } = require("../entities/rolePermission.entity");
 const { UserRoleAssignment } = require("../entities/userRole.entity");
+const { ActivityLog } = require("../../activity/entities/activityLog.entity");
 
 class AccessRepository {
   static Instance = new AccessRepository();
@@ -176,7 +177,12 @@ class AccessRepository {
 
   // ── Assignment ─────────────────────────────────────────────────────────────
 
-  async setUserRoles(userId, roleIds, grantedBy) {
+  // `auditEntry` is an activity_logs row (built by ActivityService.buildEntry)
+  // written inside the SAME transaction as the assignment. Changing who holds
+  // which role is the one write in this module where a missing audit entry is
+  // itself the incident, so it is not left to the fire-and-forget logger: either
+  // the roles change and the log records it, or neither happens.
+  async setUserRoles(userId, roleIds, grantedBy, auditEntry = null) {
     await AppDataSource.transaction(async (manager) => {
       await manager.delete(UserRoleAssignment, { userId });
       if (roleIds.length) {
@@ -184,6 +190,9 @@ class AccessRepository {
           UserRoleAssignment,
           roleIds.map((roleId) => ({ userId, roleId, grantedBy: grantedBy ?? null }))
         );
+      }
+      if (auditEntry) {
+        await manager.insert(ActivityLog, auditEntry);
       }
     });
   }

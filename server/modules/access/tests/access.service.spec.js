@@ -28,7 +28,12 @@ function makeRepo(overrides = {}) {
   };
 }
 
-const activity = { log: jest.fn() };
+// buildEntry is the pure row builder the real service exposes, so the double
+// returns something recognisable that the repository assertions can match on.
+const activity = {
+  log: jest.fn(),
+  buildEntry: jest.fn((actor, opts) => ({ ...opts, actorId: actor.id })),
+};
 
 // An organisation administrator: holds role.manage, but not the wildcard.
 const admin = {
@@ -252,7 +257,12 @@ describe("AccessService", () => {
       repo.userIdsWithPermission.mockResolvedValue(["victim-1", "someone-else"]);
 
       await service.setUserRoles(admin, "victim-1", []);
-      expect(repo.setUserRoles).toHaveBeenCalledWith("victim-1", [], admin.id);
+      expect(repo.setUserRoles).toHaveBeenCalledWith(
+        "victim-1",
+        [],
+        admin.id,
+        expect.objectContaining({ action: "role.assigned" })
+      );
     });
 
     it("refuses to remove the last super administrator", async () => {
@@ -336,7 +346,12 @@ describe("AccessService", () => {
 
       repo.superAdminUserIds.mockResolvedValue(["super-1", "other-super"]);
       await service.setUserRoles(superAdmin, "someone", ["role-locked"]);
-      expect(repo.setUserRoles).toHaveBeenCalledWith("someone", ["role-locked"], "super-1");
+      expect(repo.setUserRoles).toHaveBeenCalledWith(
+        "someone",
+        ["role-locked"],
+        "super-1",
+        expect.objectContaining({ action: "role.assigned" })
+      );
     });
   });
 
@@ -632,17 +647,36 @@ describe("AccessService", () => {
       );
     });
 
-    it("records who was given which roles", async () => {
+    // A role assignment's audit entry is not fire-and-forget: it is handed to
+    // the repository and written inside the assignment's own transaction, so a
+    // permission change can never commit unrecorded.
+    it("writes the role assignment's entry in the same unit of work as the change", async () => {
       repo.findRoleById.mockResolvedValue(customRole);
       repo.permissionsForRole.mockResolvedValue(["project.read"]);
       activity.log.mockClear();
 
       await service.setUserRoles(admin, "target-1", ["role-custom"]);
 
-      expect(activity.log).toHaveBeenCalledWith(
-        admin,
+      expect(activity.log).not.toHaveBeenCalled();
+      expect(repo.setUserRoles).toHaveBeenCalledWith(
+        "target-1",
+        ["role-custom"],
+        admin.id,
         expect.objectContaining({ action: "role.assigned", entityId: "target-1" })
       );
+    });
+
+    // The other half of the guarantee: if the transaction fails — whether on the
+    // assignment or on the audit insert — the caller sees the failure and no
+    // cache is invalidated as though the change had landed.
+    it("fails the assignment when its audit entry cannot be written", async () => {
+      repo.findRoleById.mockResolvedValue(customRole);
+      repo.permissionsForRole.mockResolvedValue(["project.read"]);
+      repo.setUserRoles.mockRejectedValueOnce(new Error("audit insert failed"));
+
+      await expect(
+        service.setUserRoles(admin, "target-1", ["role-custom"])
+      ).rejects.toThrow("audit insert failed");
     });
   });
 });

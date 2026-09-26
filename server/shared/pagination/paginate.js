@@ -16,4 +16,19 @@ function buildMeta(page, limit, total, resultCount) {
   };
 }
 
-module.exports = { getOffset, buildMeta };
+// For the callers that DO count on every page (the activity log, which has to
+// render "Showing 1–50 of N" on page 5 as well as page 1). `total` is exact
+// here, so hasNext comes from the total rather than from the "a full page came
+// back, there is probably another" guess buildMeta has to make.
+function buildMetaFromTotal(page, limit, total) {
+  return {
+    page,
+    limit,
+    total,
+    totalPages: total ? Math.ceil(total / limit) : 0,
+    hasNext: page * limit < total,
+    hasPrev: page > 1,
+  };
+}
+
+module.exports = { getOffset, buildMeta, buildMetaFromTotal };
