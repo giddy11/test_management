@@ -12,7 +12,6 @@ const {
 const { ActivityService } = require("../../activity/services/activity.service");
 const { AppError } = require("../../../shared/errors/AppError");
 const { seesAllProjects } = require("../../../shared/access/scope");
-const { assertPermission } = require("../../../shared/access/can");
 const { RunStatus } = require("../../../config/constants");
 
 class TestRunService {
@@ -69,6 +68,9 @@ class TestRunService {
     if (suite.projectId !== data.projectId) {
       throw new AppError("Suite does not belong to the given project", 400);
     }
+    // Starting a run is taking part in the project; a read-only viewer can watch
+    // one but not start one.
+    await this.suiteService.projectService.assertCanContribute(actor, data.projectId);
 
     // Only one run may be in progress per suite at a time (other suites are unaffected).
     const activeRun = await this.runRepo.findActiveBySuite(data.suiteId);
@@ -111,6 +113,7 @@ class TestRunService {
   async updateTestRun(actor, id, data) {
     const { run } = await this.getTestRun(actor, id);
     const wasCompleted = run.status === RunStatus.COMPLETED;
+    await this.suiteService.projectService.assertCanContribute(actor, run.projectId);
 
     // Only admins or the project's team lead can reopen a completed run.
     if (
@@ -119,12 +122,6 @@ class TestRunService {
       !(await this.suiteService.projectService.canManageProject(actor, run.projectId))
     ) {
       throw new AppError("Only admins or the project's team lead can reopen a completed run.", 403);
-    }
-
-    // Closing a run freezes its results, so it is a separate privilege from
-    // editing the run's details.
-    if (!wasCompleted && data.status === RunStatus.COMPLETED) {
-      assertPermission(actor, "run.close");
     }
 
     const patch = {};

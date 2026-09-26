@@ -7,7 +7,6 @@ const { NotificationService } = require("../../notification/services/notificatio
 const { ActivityService } = require("../../activity/services/activity.service");
 const { AppError } = require("../../../shared/errors/AppError");
 const { seesAllProjects } = require("../../../shared/access/scope");
-const { assertPermission } = require("../../../shared/access/can");
 const { TestCaseStatus } = require("../../../config/constants");
 
 // Human-readable label for an activity summary: names up to 3 users, else a count.
@@ -76,6 +75,15 @@ class TestCaseService {
     });
   }
 
+  // Taking part in the project a case lives in (adding notes, attaching files).
+  // Returns the case's suite so callers don't fetch it twice. An org-wide
+  // read-only viewer can open any case but is turned away here.
+  async assertCanContribute(actor, tc) {
+    const suite = await this.suiteService.getTestSuite(actor, tc.suiteId);
+    await this.suiteService.projectService.assertCanContribute(actor, suite.projectId);
+    return suite;
+  }
+
   async getTestCase(actor, id) {
     const tc = await this.tcRepo.findById(id);
     if (!tc || tc.deletedAt) {
@@ -122,17 +130,9 @@ class TestCaseService {
     const suiteForCheck = await this.suiteService.getTestSuite(actor, tc.suiteId);
     await this.suiteService.projectService.assertCanManageProject(actor, suiteForCheck.projectId);
 
-    // Separation of duties: writing a test case and blessing it are different
-    // privileges. testcase.update covers the content; moving a Draft to Active
-    // needs testcase.approve, and retiring an Active one testcase.deprecate.
-    if (data.status !== undefined && data.status !== tc.status) {
-      if (data.status === TestCaseStatus.ACTIVE) {
-        assertPermission(actor, "testcase.approve");
-      }
-      if (data.status === TestCaseStatus.DEPRECATED) {
-        assertPermission(actor, "testcase.deprecate");
-      }
-    }
+    // Activating or retiring a case is covered by the check above: editing a
+    // case at all already means being the project's team lead, so there is no
+    // finer split to make between writing a case and approving it.
 
     const patch = {};
     if (data.title !== undefined) patch.title = data.title;

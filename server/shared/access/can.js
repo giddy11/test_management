@@ -7,6 +7,8 @@
 //   assertPermission(actor, "run.close")  -> throws AppError(403)
 //   requirePermission("role.manage")      -> Express middleware
 //   requireAny("bug.triage","bug.verify") -> Express middleware (union)
+//   requireProjectAccess(reason)          -> Express middleware: project.read, then the
+//                                            service decides by role IN the project
 //   publicRoute()                         -> explicit opt-out of the default deny
 //
 // Effective permissions are the union of every role the actor holds. A role
@@ -101,6 +103,31 @@ function requireAny(...codes) {
   return guard;
 }
 
+// For routes whose real authorisation is the caller's ROLE IN THE PROJECT
+// (project_members.role: member or team_lead) rather than a platform permission.
+//
+// Two layers, on purpose:
+//   1. this guard, at the route: project.read. It says "you may use projects at
+//      all", which is what keeps an external supporter -- who holds no
+//      project.read -- out of the product surface entirely. Without it, a route
+//      declared project-level would be open to every authenticated principal.
+//   2. the service, per project: ProjectService.getProject / assertCanContribute
+//      / assertCanManageProject decide what this person may do in THIS project.
+//
+// It is a declaration, not a promise: nothing here checks that the service did
+// its half. That is what the project-level specs are for.
+function requireProjectAccess(reason) {
+  const guard = (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json(ApiResponse.error("Unauthorised", 401));
+    }
+    if (!can(req.user, "project.read")) return deny(res);
+    next();
+  };
+  guard[GUARD_TAG] = { kind: "project", codes: ["project.read"], reason };
+  return guard;
+}
+
 // Authenticated, but needs no particular permission — pure self-service
 // (your own profile, your own notifications). The service still scopes to
 // req.user.id; this only records that the omission is deliberate.
@@ -133,6 +160,7 @@ module.exports = {
   assertAnyPermission,
   requirePermission,
   requireAny,
+  requireProjectAccess,
   requireAuthenticatedOnly,
   publicRoute,
   GUARD_TAG,

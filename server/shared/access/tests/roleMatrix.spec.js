@@ -130,6 +130,7 @@ describe("role matrix — the API matches every role definition", () => {
     // update endpoint) or is a scoping switch rather than a route guard.
     const enforcedInServices = new Set([
       "project.readall",
+      "project.manageall",
       "project.configure",
       "testcase.approve",
       "testcase.deprecate",

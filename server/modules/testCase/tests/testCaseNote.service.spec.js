@@ -16,6 +16,9 @@ function makeNoteRepo() {
 function makeTestCaseService(assertCanManageProject = jest.fn().mockResolvedValue(undefined)) {
   return {
     getTestCase: jest.fn().mockResolvedValue({ id: "tc-1", suiteId: "s-1", title: "Valid login" }),
+    assertCanContribute: jest
+      .fn()
+      .mockResolvedValue({ id: "s-1", name: "Auth", projectId: "p-1" }),
     suiteService: {
       getTestSuite: jest.fn().mockResolvedValue({ id: "s-1", name: "Auth", projectId: "p-1" }),
       projectService: { assertCanManageProject },
@@ -102,5 +105,23 @@ describe("TestCaseNoteService", () => {
       });
       expect(repo.delete).not.toHaveBeenCalled();
     });
+  });
+});
+
+
+describe("TestCaseNoteService — a read-only viewer", () => {
+  it("can read notes but not add one", async () => {
+    const repo = makeNoteRepo();
+    const tcService = makeTestCaseService();
+    tcService.assertCanContribute.mockRejectedValue(
+      Object.assign(new Error("You have read-only access to this project"), { statusCode: 403 })
+    );
+    const service = new TestCaseNoteService(repo, tcService);
+
+    await expect(service.listNotes(actor, "tc-1")).resolves.toEqual([]);
+    await expect(service.addNote(actor, "tc-1", "hello")).rejects.toMatchObject({
+      statusCode: 403,
+    });
+    expect(repo.create).not.toHaveBeenCalled();
   });
 });

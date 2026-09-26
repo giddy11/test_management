@@ -27,10 +27,12 @@ class TestCaseNoteService {
     return this.noteRepo.findRunNotes(testCaseId);
   }
 
-  // Anyone who can see the case can add a note — assignees included, same bar
-  // as attaching a screenshot. Notes are commentary, not case definition.
+  // Any project member can add a note — assignees included, same bar as
+  // attaching a screenshot. Notes are commentary, not case definition. A
+  // read-only viewer can read them but not add to them.
   async addNote(actor, testCaseId, body) {
     const tc = await this.testCaseService.getTestCase(actor, testCaseId);
+    const suite = await this.testCaseService.assertCanContribute(actor, tc);
 
     const existing = await this.noteRepo.countByTestCase(testCaseId);
     if (existing >= MAX_NOTES_PER_CASE) {
@@ -39,7 +41,6 @@ class TestCaseNoteService {
 
     const note = await this.noteRepo.create({ testCaseId, body, authorId: actor.id });
 
-    const suite = await this.testCaseService.suiteService.getTestSuite(actor, tc.suiteId);
     ActivityService.Instance.log(actor, {
       action: "test_case.note_added",
       summary: `Added a note on test case "${tc.title}"${suite ? ` in suite "${suite.name}"` : ""}`,

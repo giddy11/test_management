@@ -6,6 +6,7 @@ const { TestCaseService } = require("./testCase.service");
 const { StorageService } = require("../../../shared/services/storage.service");
 const { AppError } = require("../../../shared/errors/AppError");
 const { TestRunResultRepository } = require("../../testRunResult/repositories/testRunResult.repository");
+const { TestRunResultService } = require("../../testRunResult/services/testRunResult.service");
 
 const MAX_ATTACHMENTS_PER_CASE = 10;
 const MAX_ATTACHMENTS_PER_RESULT = 10;
@@ -18,12 +19,14 @@ class TestCaseAttachmentService {
     attachmentRepo = TestCaseAttachmentRepository.Instance,
     testCaseService = TestCaseService.Instance,
     storage = StorageService.Instance,
-    resultRepo = TestRunResultRepository.Instance
+    resultRepo = TestRunResultRepository.Instance,
+    resultService = TestRunResultService.Instance
   ) {
     this.attachmentRepo = attachmentRepo;
     this.testCaseService = testCaseService;
     this.storage = storage;
     this.resultRepo = resultRepo;
+    this.resultService = resultService;
   }
 
   async listAttachments(actor, testCaseId) {
@@ -33,7 +36,8 @@ class TestCaseAttachmentService {
 
   // files: array of { buffer, originalname, mimetype, size } (multer memory files)
   async uploadAttachments(actor, testCaseId, files) {
-    await this.testCaseService.getTestCase(actor, testCaseId);
+    const tc = await this.testCaseService.getTestCase(actor, testCaseId);
+    await this.testCaseService.assertCanContribute(actor, tc);
 
     if (!files || files.length === 0) {
       throw new AppError("No files provided", 400);
@@ -66,15 +70,18 @@ class TestCaseAttachmentService {
     return this.attachmentRepo.createMany(uploaded);
   }
 
+  // The three run-result methods below used to look the result up by id and
+  // stop: no check that the caller could see the project it belongs to, so the
+  // only barrier was a route guard that knew nothing about organisations.
+  // resultService applies the project access check (and, for a tester, the
+  // assigned-cases restriction) exactly as it does for the result itself.
   async listRunResultAttachments(actor, runResultId) {
-    const result = await this.resultRepo.findById(runResultId);
-    if (!result) throw new AppError("Test run result not found", 404);
+    await this.resultService.getResult(actor, runResultId);
     return this.attachmentRepo.findByRunResult(runResultId);
   }
 
   async uploadRunResultAttachments(actor, runResultId, files) {
-    const result = await this.resultRepo.findById(runResultId);
-    if (!result) throw new AppError("Test run result not found", 404);
+    const result = await this.resultService.getResultForContribution(actor, runResultId);
 
     if (!files || files.length === 0) throw new AppError("No files provided", 400);
 
@@ -101,6 +108,7 @@ class TestCaseAttachmentService {
   }
 
   async deleteRunResultAttachment(actor, runResultId, attachmentId) {
+    await this.resultService.getResultForContribution(actor, runResultId);
     const attachment = await this.attachmentRepo.findById(attachmentId);
     if (!attachment || attachment.runResultId !== runResultId) {
       throw new AppError("Attachment not found", 404);
@@ -110,7 +118,8 @@ class TestCaseAttachmentService {
   }
 
   async deleteAttachment(actor, testCaseId, attachmentId) {
-    await this.testCaseService.getTestCase(actor, testCaseId);
+    const tc = await this.testCaseService.getTestCase(actor, testCaseId);
+    await this.testCaseService.assertCanContribute(actor, tc);
 
     const attachment = await this.attachmentRepo.findById(attachmentId);
     if (!attachment || attachment.testCaseId !== testCaseId) {

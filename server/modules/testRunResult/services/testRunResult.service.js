@@ -8,7 +8,6 @@ const { TestSuiteRepository } = require("../../testSuite/repositories/testSuite.
 const { ProjectRepository } = require("../../project/repositories/project.repository");
 const { ActivityService } = require("../../activity/services/activity.service");
 const { AppError } = require("../../../shared/errors/AppError");
-const { can } = require("../../../shared/access/can");
 const {
   seesAllProjects,
   restrictToOwnWork,
@@ -56,8 +55,18 @@ class TestRunResultService {
     return result;
   }
 
+  // The result, once the caller is known to be allowed to take part in its
+  // project. Used by anything that WRITES against a result.
+  async getResultForContribution(actor, id) {
+    const result = await this.getResult(actor, id);
+    const { run } = await this.runService.getTestRun(actor, result.runId);
+    await this.runService.suiteService.projectService.assertCanContribute(actor, run.projectId);
+    return result;
+  }
+
   async createResult(actor, data) {
-    await this.runService.getTestRun(actor, data.runId);
+    const { run } = await this.runService.getTestRun(actor, data.runId);
+    await this.runService.suiteService.projectService.assertCanContribute(actor, run.projectId);
     const tc = await this.tcRepo.findById(data.testCaseId);
     if (!tc || tc.deletedAt) throw new AppError("Test case not found", 404);
 
@@ -71,14 +80,16 @@ class TestRunResultService {
   async recordResult(actor, id, data) {
     const result = await this.getResult(actor, id);
     const { run } = await this.runService.getTestRun(actor, result.runId);
+    const projectService = this.runService.suiteService.projectService;
+    await projectService.assertCanContribute(actor, run.projectId);
 
     // Recording a result and amending one after the run was closed are
-    // different privileges. result.enter got the caller through the route;
-    // changing a frozen result needs result.amend, and every such change is
+    // different things. Recording is taking part in the project; changing a
+    // frozen result is the project's team lead's call, and every such change is
     // written to the audit log with its before and after values.
     const isAmendment = run.status === "completed";
     if (isAmendment) {
-      if (!can(actor, "result.amend")) {
+      if (!(await projectService.canManageProject(actor, run.projectId))) {
         throw new AppError(
           "This run is completed. Reopen it before recording results.",
           403
@@ -156,6 +167,7 @@ class TestRunResultService {
 
   async bulkRecordResults(actor, { runId, ids, status }) {
     const { run } = await this.runService.getTestRun(actor, runId); // access check
+    await this.runService.suiteService.projectService.assertCanContribute(actor, run.projectId);
     if (run.status === "completed") {
       throw new AppError("This run is completed. Reopen it before recording results.", 403);
     }

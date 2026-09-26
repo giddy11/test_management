@@ -20,6 +20,8 @@ function makeRunService() {
     }),
     suiteService: {
       projectService: {
+        assertCanContribute: jest.fn().mockResolvedValue(undefined),
+        canManageProject: jest.fn().mockImplementation(async (a) => a.role !== "user"),
         assertCanManageProject: jest.fn().mockImplementation(async (a) => {
           if (a.role === "user") {
             const err = new Error("Only admins or this project's team lead can do this");
@@ -156,6 +158,112 @@ describe("TestRunResultService", () => {
       resultRepo.findById.mockResolvedValue(result);
       await service.deleteResult(actor, "res-1");
       expect(resultRepo.delete).toHaveBeenCalledWith("res-1");
+    });
+  });
+});
+
+
+describe("TestRunResultService — project-level authority", () => {
+  const closedRun = {
+    id: "run-1",
+    name: "Sprint 3",
+    suiteId: "suite-1",
+    projectId: "proj-1",
+    status: "completed",
+  };
+  const pendingResult = { id: "res-1", runId: "run-1", testCaseId: "tc-1", status: "pass", notes: "old" };
+  const member = { id: "member-1", role: "user", permissions: permissionsFor("user"), organizationId: "org-1" };
+
+  function build({ run } = {}) {
+    const resultRepo = makeResultRepo();
+    const runService = makeRunService();
+    if (run) {
+      runService.getTestRun.mockResolvedValue({ run, summary: {} });
+    }
+    resultRepo.findById.mockResolvedValue(pendingResult);
+    resultRepo.update.mockImplementation(async (_id, patch) => ({ ...pendingResult, ...patch }));
+    // A plain member may only touch results for cases assigned to them.
+    const tcRepo = makeTcRepo();
+    tcRepo.findById.mockResolvedValue({ id: "tc-1", assignees: [{ id: "member-1" }] });
+    const service = new TestRunResultService(
+      resultRepo,
+      runService,
+      tcRepo,
+      makeSuiteRepo(),
+      makeProjectRepo()
+    );
+    return { service, resultRepo, runService };
+  }
+
+  it("turns away a read-only viewer from recording, creating and bulk-recording", async () => {
+    const { service, resultRepo, runService } = build();
+    runService.suiteService.projectService.assertCanContribute.mockRejectedValue(
+      Object.assign(new Error("You have read-only access to this project"), { statusCode: 403 })
+    );
+
+    await expect(service.recordResult(actor, "res-1", { status: "fail" })).rejects.toMatchObject({
+      statusCode: 403,
+    });
+    await expect(service.bulkRecordResults(actor, { runId: "run-1", ids: ["res-1"], status: "pass" })).rejects.toMatchObject({
+      statusCode: 403,
+    });
+    expect(resultRepo.update).not.toHaveBeenCalled();
+  });
+
+  describe("amending a result on a closed run", () => {
+    it("is a lead's call: a plain member is told to reopen the run", async () => {
+      const { service, resultRepo } = build({ run: closedRun });
+      await expect(
+        service.recordResult(member, "res-1", { status: "fail" })
+      ).rejects.toMatchObject({
+        statusCode: 403,
+        message: expect.stringContaining("Reopen it"),
+      });
+      expect(resultRepo.update).not.toHaveBeenCalled();
+    });
+
+    it("goes ahead for the project's lead, and is audited with before and after", async () => {
+      const { ActivityService } = require("../../activity/services/activity.service");
+      const spy = jest.spyOn(ActivityService.Instance, "log").mockImplementation(() => {});
+      const { service, resultRepo } = build({ run: closedRun });
+
+      await service.recordResult(actor, "res-1", { status: "fail", notes: "regressed" });
+
+      expect(resultRepo.update).toHaveBeenCalled();
+      expect(spy).toHaveBeenCalledWith(
+        actor,
+        expect.objectContaining({
+          action: "result.amended",
+          entityId: "res-1",
+          metadata: expect.objectContaining({
+            before: expect.objectContaining({ status: "pass", notes: "old" }),
+            after: expect.objectContaining({ status: "fail", notes: "regressed" }),
+          }),
+        })
+      );
+      spy.mockRestore();
+    });
+
+    it("does not log an amendment for an ordinary edit on an open run", async () => {
+      const { ActivityService } = require("../../activity/services/activity.service");
+      const spy = jest.spyOn(ActivityService.Instance, "log").mockImplementation(() => {});
+      const { service } = build();
+      await service.recordResult(actor, "res-1", { notes: "still open" });
+      expect(spy.mock.calls.some(([, o]) => o.action === "result.amended")).toBe(false);
+      spy.mockRestore();
+    });
+  });
+
+  it("gates attachments on the same contribution check as recording", async () => {
+    const { service, runService } = build();
+    await expect(service.getResultForContribution(actor, "res-1")).resolves.toMatchObject({
+      id: "res-1",
+    });
+    runService.suiteService.projectService.assertCanContribute.mockRejectedValue(
+      Object.assign(new Error("read-only"), { statusCode: 403 })
+    );
+    await expect(service.getResultForContribution(actor, "res-1")).rejects.toMatchObject({
+      statusCode: 403,
     });
   });
 });

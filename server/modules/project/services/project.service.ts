@@ -13,8 +13,12 @@ const { ActivityService } = require("../../activity/services/activity.service");
 const { NotificationService } = require("../../notification/services/notification.service");
 const { AppError } = require("../../../shared/errors/AppError");
 const { ProjectMemberRole } = require("../../../config/constants");
-const { can } = require("../../../shared/access/can");
+const { can, assertPermission } = require("../../../shared/access/can");
 const { seesAllProjects } = require("../../../shared/access/scope");
+
+// What a person can be IN one project — see ProjectService.getProjectRole.
+export const ProjectRole = { LEAD: "lead", MEMBER: "member", VIEWER: "viewer" } as const;
+export type ProjectRoleValue = (typeof ProjectRole)[keyof typeof ProjectRole];
 
 interface ProjectInput {
   name?: string;
@@ -51,23 +55,50 @@ export class ProjectService {
     this.notificationService = notificationService;
   }
 
-  // Team leads get unrestricted visibility inside their project (all suites and
-  // cases). Actors with org-wide project visibility are already unrestricted,
-  // so this only matters for the rest — used by TestSuiteService and
-  // TestCaseService.
+  // Is this person recorded as the project's team lead? Membership only — the
+  // org-wide override lives in canManageProject, and org-wide READ visibility
+  // (which callers check separately) is deliberately not consulted here: a
+  // Viewer-style role that is also a project's lead must still be its lead.
   async isTeamLead(actor: Actor, projectId: string): Promise<boolean> {
-    if (seesAllProjects(actor)) return false;
     const role = await this.memberRepo.getRole(projectId, actor.id);
     return role === ProjectMemberRole.TEAM_LEAD;
   }
 
+  // The person's role IN ONE PROJECT — the thing that decides what they may do
+  // there. Platform roles only say whether projects are usable at all (and, via
+  // project.readall / project.manageall, whether to look or act across all of
+  // them); everything finer is decided here.
+  //
+  //   lead    manage the project: suites, cases, assignment, deleting things,
+  //           triage, decisions, live-chat and ticket management, membership.
+  //           Also anyone holding project.manageall, in any project of the org.
+  //   member  contribute: run tests, record results on their own cases, report
+  //           bugs, raise/vote/comment on feature requests, add notes.
+  //   viewer  read only. Reached only through org-wide read (project.readall)
+  //           without being on the project — a stakeholder, not a participant.
+  //
+  // Callers must already have established access to the project (getProject /
+  // a getAccessible that calls it): this resolves a role, it does not check that
+  // the project belongs to the actor's organisation.
+  async getProjectRole(actor: Actor, projectId: string): Promise<ProjectRoleValue | null> {
+    if (can(actor, "project.manageall")) return ProjectRole.LEAD;
+    const membership = await this.memberRepo.getRole(projectId, actor.id);
+    if (membership === ProjectMemberRole.TEAM_LEAD) return ProjectRole.LEAD;
+    if (membership) return ProjectRole.MEMBER;
+    // Legacy behaviour, kept so nobody loses access: being assigned a test case
+    // in the project counts as being on it.
+    if (await this.testCaseRepo.hasAssignmentInProject(projectId, actor.id)) {
+      return ProjectRole.MEMBER;
+    }
+    return seesAllProjects(actor) ? ProjectRole.VIEWER : null;
+  }
+
   // Management inside a project (create/edit suites & cases, assign testers,
-  // manage runs/bugs/feature requests). The route has already checked that the
-  // actor may perform the action at all; this decides whether they may perform
-  // it HERE. Holding project.configure means org-wide project authority;
-  // everyone else must be that project's team lead.
+  // manage runs/bugs/feature requests, membership, links). Holding
+  // project.manageall means authority over every project in the organisation;
+  // everyone else must be THIS project's team lead.
   async canManageProject(actor: Actor, projectId: string): Promise<boolean> {
-    if (can(actor, "project.configure")) return true;
+    if (can(actor, "project.manageall")) return true;
     return this.isTeamLead(actor, projectId);
   }
 
@@ -75,6 +106,18 @@ export class ProjectService {
     if (!(await this.canManageProject(actor, projectId))) {
       throw new AppError("Only this project's team lead or an administrator can do this", 403);
     }
+  }
+
+  // Taking part: anything a project member may do. An org-wide viewer can SEE
+  // every project but is not on any of them, so this is what keeps a read-only
+  // stakeholder from reporting bugs, starting runs or commenting.
+  async assertCanContribute(actor: Actor, projectId: string): Promise<void> {
+    const role = await this.getProjectRole(actor, projectId);
+    if (role === ProjectRole.LEAD || role === ProjectRole.MEMBER) return;
+    if (role === ProjectRole.VIEWER) {
+      throw new AppError("You have read-only access to this project", 403);
+    }
+    throw new AppError("You do not have access to this project", 403);
   }
 
   // Admins (including superadmin) see every project in their own org — a
@@ -114,6 +157,9 @@ export class ProjectService {
   }
 
   async createProject(actor: Actor, data: ProjectInput): Promise<Project> {
+    // The one project action that cannot be project-level: there is no project
+    // yet to hold a role in. Also enforced at the route; this is the second layer.
+    assertPermission(actor, "project.manageall");
     const members = await this.resolveMembers(actor, data.members);
     const project = await this.projectRepo.create({
       name: data.name,
@@ -145,6 +191,9 @@ export class ProjectService {
 
   async updateProject(actor: Actor, id: string, data: ProjectInput): Promise<Project> {
     const project = await this.getProject(actor, id);
+    // Editing a project — including who is on it and who leads it — is the
+    // team lead's job. This method used to lean on the route guard alone.
+    await this.assertCanManageProject(actor, project.id);
 
     if (data.name !== undefined) project.name = data.name;
     if (data.description !== undefined) project.description = data.description;
@@ -176,6 +225,7 @@ export class ProjectService {
 
   async deleteProject(actor: Actor, id: string): Promise<void> {
     const project = await this.getProject(actor, id);
+    await this.assertCanManageProject(actor, project.id);
     await this.projectRepo.softDelete(project.id);
     ActivityService.Instance.log(actor, {
       action: "project.deleted",

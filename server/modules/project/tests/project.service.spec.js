@@ -224,9 +224,158 @@ describe("ProjectService", () => {
       await expect(service.isTeamLead(plainUser, "proj-1")).resolves.toBe(false);
     });
 
-    it("is false for admins — they are unrestricted anyway", async () => {
+    it("reads membership only — org-wide read visibility does not hide a real lead", async () => {
+      // It used to short-circuit to false for anyone who could see every
+      // project, so a Viewer-style role that was ALSO a project's lead could
+      // not manage it. Membership is the only thing that makes someone a lead.
+      const orgWideReader = {
+        id: "u-2",
+        organizationId: "org-1",
+        permissions: new Set(["project.read", "project.readall"]),
+      };
+      memberRepo.getRole.mockResolvedValue("team_lead");
+      await expect(service.isTeamLead(orgWideReader, "proj-1")).resolves.toBe(true);
+    });
+
+    it("is false for an admin who is not on the project — their authority is manageall", async () => {
+      memberRepo.getRole.mockResolvedValue(null);
       await expect(service.isTeamLead(actor, "proj-1")).resolves.toBe(false);
-      expect(memberRepo.getRole).not.toHaveBeenCalled();
+      // ...but they can still manage it, which is a different question.
+      await expect(service.canManageProject(actor, "proj-1")).resolves.toBe(true);
+    });
+  });
+
+  // The role a person holds IN one project is what decides what they may do
+  // there. Platform roles say only whether projects are usable at all.
+  describe("getProjectRole", () => {
+    const projectLevel = (permissions) => ({
+      id: "u-9",
+      organizationId: "org-1",
+      permissions: new Set(permissions),
+    });
+    const member = projectLevel(["project.read"]);
+    const viewer = projectLevel(["project.read", "project.readall"]);
+
+    beforeEach(() => {
+      memberRepo.getRole.mockResolvedValue(null);
+      testCaseRepo.hasAssignmentInProject.mockResolvedValue(false);
+    });
+
+    it("is lead for the project's team lead", async () => {
+      memberRepo.getRole.mockResolvedValue("team_lead");
+      await expect(service.getProjectRole(member, "proj-1")).resolves.toBe("lead");
+    });
+
+    it("is member for an ordinary project member", async () => {
+      memberRepo.getRole.mockResolvedValue("member");
+      await expect(service.getProjectRole(member, "proj-1")).resolves.toBe("member");
+    });
+
+    it("is member for someone only assigned a case there (legacy access, kept)", async () => {
+      testCaseRepo.hasAssignmentInProject.mockResolvedValue(true);
+      await expect(service.getProjectRole(member, "proj-1")).resolves.toBe("member");
+    });
+
+    it("is lead everywhere for a project.manageall holder, member or not", async () => {
+      const admin = projectLevel(["project.read", "project.readall", "project.manageall"]);
+      await expect(service.getProjectRole(admin, "proj-1")).resolves.toBe("lead");
+      // ...even when their own membership row says plain member.
+      memberRepo.getRole.mockResolvedValue("member");
+      await expect(service.getProjectRole(admin, "proj-1")).resolves.toBe("lead");
+    });
+
+    it("is viewer for org-wide read without being on the project", async () => {
+      await expect(service.getProjectRole(viewer, "proj-1")).resolves.toBe("viewer");
+    });
+
+    it("lets an org-wide reader who IS on the project take part in it", async () => {
+      memberRepo.getRole.mockResolvedValue("member");
+      await expect(service.getProjectRole(viewer, "proj-1")).resolves.toBe("member");
+    });
+
+    it("is null for someone with no route into the project at all", async () => {
+      await expect(service.getProjectRole(member, "proj-1")).resolves.toBeNull();
+    });
+  });
+
+  describe("assertCanContribute", () => {
+    const viewer = {
+      id: "u-9",
+      organizationId: "org-1",
+      permissions: new Set(["project.read", "project.readall"]),
+    };
+    const member = { id: "u-8", organizationId: "org-1", permissions: new Set(["project.read"]) };
+
+    beforeEach(() => {
+      memberRepo.getRole.mockResolvedValue(null);
+      testCaseRepo.hasAssignmentInProject.mockResolvedValue(false);
+    });
+
+    it("admits a project member", async () => {
+      memberRepo.getRole.mockResolvedValue("member");
+      await expect(service.assertCanContribute(member, "proj-1")).resolves.toBeUndefined();
+    });
+
+    it("admits a team lead", async () => {
+      memberRepo.getRole.mockResolvedValue("team_lead");
+      await expect(service.assertCanContribute(member, "proj-1")).resolves.toBeUndefined();
+    });
+
+    it("turns away a read-only stakeholder with a message that says why", async () => {
+      // Without this tier a Viewer, who passes the access check for every
+      // project, would inherit write access the moment the platform-level write
+      // permissions went away.
+      await expect(service.assertCanContribute(viewer, "proj-1")).rejects.toMatchObject({
+        statusCode: 403,
+        message: expect.stringContaining("read-only"),
+      });
+    });
+
+    it("turns away someone with no access", async () => {
+      await expect(service.assertCanContribute(member, "proj-1")).rejects.toMatchObject({
+        statusCode: 403,
+      });
+    });
+  });
+
+  describe("managing a project", () => {
+    const leadOnly = { id: "u-7", organizationId: "org-1", permissions: new Set(["project.read"]) };
+
+    beforeEach(() => {
+      projectRepo.findById.mockResolvedValue({ ...project });
+      projectRepo.save.mockImplementation(async (e) => e);
+      testCaseRepo.hasAssignmentInProject.mockResolvedValue(false);
+    });
+
+    it("lets a team lead edit their own project", async () => {
+      memberRepo.getRole.mockResolvedValue("team_lead");
+      await expect(service.updateProject(leadOnly, "proj-1", { name: "Renamed" })).resolves.toBeDefined();
+    });
+
+    it("stops an ordinary member editing it", async () => {
+      // updateProject used to lean on the route guard alone.
+      memberRepo.getRole.mockResolvedValue("member");
+      await expect(service.updateProject(leadOnly, "proj-1", { name: "Nope" })).rejects.toMatchObject({
+        statusCode: 403,
+      });
+      expect(projectRepo.save).not.toHaveBeenCalled();
+    });
+
+    it("stops an ordinary member deleting it, and lets the lead", async () => {
+      memberRepo.getRole.mockResolvedValue("member");
+      await expect(service.deleteProject(leadOnly, "proj-1")).rejects.toMatchObject({ statusCode: 403 });
+      expect(projectRepo.softDelete).not.toHaveBeenCalled();
+
+      memberRepo.getRole.mockResolvedValue("team_lead");
+      await service.deleteProject(leadOnly, "proj-1");
+      expect(projectRepo.softDelete).toHaveBeenCalledWith("proj-1");
+    });
+
+    it("keeps creating a project behind project.manageall — there is no project yet to lead", async () => {
+      await expect(
+        service.createProject(leadOnly, { name: "New" })
+      ).rejects.toMatchObject({ statusCode: 403 });
+      expect(projectRepo.create).not.toHaveBeenCalled();
     });
   });
 

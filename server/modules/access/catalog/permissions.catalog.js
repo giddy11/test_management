@@ -89,6 +89,13 @@ const PERMISSIONS = [
   // ones you belong to or have a test case assigned in. It is what the
   // services' old `actor.role === UserRole.USER` checks became.
   { code: "project.readall", category: "projects", label: "View all projects", description: "See every project in the organisation, not only your own." },
+  // The platform-level counterpart of project.readall. Everything ELSE about a
+  // project -- suites, cases, runs, bugs, tickets, membership -- is decided by the
+  // person's role IN that project (project_members.role). This one grant exists
+  // because two things cannot be project-level: creating a project (there is no
+  // project yet to hold a role in) and managing one you are not on (a project
+  // whose lead has left would otherwise be unmanageable for ever).
+  { code: "project.manageall", category: "projects", label: "Manage all projects", description: "Create projects, and act as team lead on every project in the organisation.", warning: "Full control of every project, including deleting it" },
   { code: "project.create", category: "projects", label: "Create projects", description: "Start a new project." },
   { code: "project.update", category: "projects", label: "Edit projects", description: "Change a project's name, description and metadata." },
   { code: "project.delete", category: "projects", label: "Delete projects", description: "Remove a project and everything in it." },

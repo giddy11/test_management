@@ -31,6 +31,7 @@ function makeSuiteService() {
     projectService: {
       getProject: jest.fn().mockResolvedValue({ id: "proj-1", name: "Web" }),
       isTeamLead: jest.fn().mockResolvedValue(false),
+      assertCanContribute: jest.fn().mockResolvedValue(undefined),
       canManageProject: jest.fn().mockImplementation(async (a) => a.role !== "user"),
       assertCanManageProject: jest.fn().mockImplementation(async (a) => {
         if (a.role === "user") {
@@ -191,5 +192,40 @@ describe("TestRunService", () => {
       await service.deleteTestRun(actor, "run-1");
       expect(runRepo.delete).toHaveBeenCalledWith("run-1");
     });
+  });
+});
+
+
+describe("TestRunService — a read-only viewer", () => {
+  function build() {
+    const runRepo = makeRunRepo();
+    const suiteService = makeSuiteService();
+    suiteService.projectService.assertCanContribute.mockRejectedValue(
+      Object.assign(new Error("You have read-only access to this project"), { statusCode: 403 })
+    );
+    runRepo.findById.mockResolvedValue({ ...run, status: "in_progress" });
+    const service = new TestRunService(
+      runRepo,
+      makeResultRepo(),
+      makeTcRepo(),
+      suiteService
+    );
+    return { service, runRepo };
+  }
+
+  it("cannot start a run", async () => {
+    const { service, runRepo } = build();
+    await expect(
+      service.createTestRun(actor, { name: "R", projectId: "proj-1", suiteId: "suite-1" })
+    ).rejects.toMatchObject({ statusCode: 403 });
+    expect(runRepo.create).not.toHaveBeenCalled();
+  });
+
+  it("cannot rename or close one", async () => {
+    const { service, runRepo } = build();
+    await expect(
+      service.updateTestRun(actor, "run-1", { status: "completed" })
+    ).rejects.toMatchObject({ statusCode: 403 });
+    expect(runRepo.update).not.toHaveBeenCalled();
   });
 });
