@@ -32,7 +32,7 @@ const CATEGORIES = [
   {
     key: "support",
     label: "Support desk",
-    description: "External client companies and the queue their IT supporters work.",
+    description: "The queue a client company's own IT supporters work, and how it is routed.",
   },
   {
     key: "conversations",
@@ -89,14 +89,12 @@ const PERMISSIONS = [
   { code: "supportqueue.resolve", category: "support", label: "Resolve queue items", description: "Close an item fixed locally." },
   { code: "supportqueue.escalate", category: "support", label: "Escalate to the product team", description: "Hand an item over with a severity." },
   { code: "supportqueue.send", category: "support", label: "Notify submitters", description: "Email the end user about their item." },
-  { code: "company.read", category: "support", label: "View client companies", description: "See client company records." },
-  { code: "company.manage", category: "support", label: "Manage client companies", description: "Create, edit and delete client companies." },
-  // Deliberately NOT bundled with designating the primary lead, which is the
-  // product team's call and never self-service. Auto-assign is the opposite:
-  // the company's own routing rule. Both were one "configure" permission at
-  // first, which quietly handed each audience the other's power.
+  // Client companies and their supporter rosters are deliberately not here. A
+  // company belongs to a project, so creating, editing, deleting or rostering one
+  // is the project's team lead's call (or project.manageall's), checked in
+  // ClientCompanyService. What stays is the one thing that belongs to the company
+  // itself: how ITS queue is routed. No product-team role holds it.
   { code: "company.autoassign", category: "support", label: "Configure auto-assign", description: "Set how incoming queue items are routed within a client company." },
-  { code: "supporter.manage", category: "support", label: "Manage supporters", description: "Add, remove and promote a company's IT supporters." },
 
   // ── Platform inbox & broadcasts ────────────────────────────────────────────
   { code: "supportchat.read", category: "conversations", label: "View support chat inbox", description: "Read in-app conversations with the platform team." },
@@ -168,14 +166,18 @@ const ROLE_KEYS = Object.freeze({
   QA_ENGINEER: "qa_engineer",
   TESTER: "tester",
   SUPPORT_LEAD: "support_lead",
-  VIEWER: "viewer",
 });
 
 // Built-in roles that were once seeded and no longer are. Where an organisation
 // already has one, the seed keeps it — members and permissions untouched — as an
 // ordinary custom role, so an admin can delete it once it is empty. See
 // retireBuiltinRoles in accessSeed.service.
-const RETIRED_ROLE_KEYS = Object.freeze(["qa_manager", "support_manager", "support_agent"]);
+const RETIRED_ROLE_KEYS = Object.freeze([
+  "qa_manager",
+  "support_manager",
+  "support_agent",
+  "viewer",
+]);
 
 // What is left at the platform level, once everything about working INSIDE a
 // project has moved to the project's own roles (project_members.role: member or
@@ -194,7 +196,7 @@ const TESTER_REMOVES = ["project.export"];
 const SUPPORT_LEAD_PERMISSIONS = [
   "supportqueue.read", "supportqueue.update", "supportqueue.assign",
   "supportqueue.resolve", "supportqueue.escalate", "supportqueue.send",
-  "company.read", "company.autoassign", "supporter.manage",
+  "company.autoassign",
   "audit.read", "sla.read",
 ];
 
@@ -246,16 +248,6 @@ const BUILTIN_ROLES = [
     name: "Support lead",
     description: "The IT support lead at a client company. Sees only their own company's queue.",
     permissions: SUPPORT_LEAD_PERMISSIONS,
-  },
-  {
-    key: ROLE_KEYS.VIEWER,
-    name: "Viewer",
-    description:
-      "Sees quality status across every project in the organisation and changes nothing: read-only in every project they are not on.",
-    permissions: [
-      "project.read", "project.readall",
-      "dashboard.read", "analytics.read", "sla.read",
-    ],
   },
 ];
 

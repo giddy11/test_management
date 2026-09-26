@@ -62,11 +62,13 @@ interface Props {
 }
 
 export function FeedbackTab({ projectId, canManage }: Props) {
-  const { user, can } = useAuth()
+  const { user } = useAuth()
   // Enabling or rotating the public form link is the project's team lead's call
   // (or a holder of project.manageall) -- exactly what canManage already says.
   const canConfigureForm = canManage
-  const canManageCompanies = can("company.manage")
+  // A client company belongs to the project, so managing one is the team lead's
+  // call too (canManage), not a platform permission.
+  const canManageCompanies = canManage
   const [page, setPage] = useState(1)
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [managing, setManaging] = useState<Feedback | null>(null)

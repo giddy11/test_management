@@ -57,8 +57,8 @@ export class ProjectService {
 
   // Is this person recorded as the project's team lead? Membership only — the
   // org-wide override lives in canManageProject, and org-wide READ visibility
-  // (which callers check separately) is deliberately not consulted here: a
-  // Viewer-style role that is also a project's lead must still be its lead.
+  // (which callers check separately) is deliberately not consulted here: a role
+  // with org-wide read that is also a project's lead must still be its lead.
   async isTeamLead(actor: Actor, projectId: string): Promise<boolean> {
     const role = await this.memberRepo.getRole(projectId, actor.id);
     return role === ProjectMemberRole.TEAM_LEAD;

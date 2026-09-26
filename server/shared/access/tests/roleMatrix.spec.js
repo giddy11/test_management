@@ -157,9 +157,15 @@ describe("what the platform level promises", () => {
     // would quietly reintroduce a second, platform-wide way to decide the same
     // thing, which is what caused the confusion in the first place.
     const projectLevel =
-      /^(suite|testcase|import|note|run|result|bug|featurerequest|ticket|livechat|widget|form)\./;
+      /^(suite|testcase|import|note|run|result|bug|featurerequest|ticket|livechat|widget|form|supporter)\./;
+    // Client companies belong to a project too: creating, editing, deleting and
+    // rostering one is the project's team lead's call. company.autoassign stays,
+    // because it is the company's own routing rule, not the product team's.
     const stray = PERMISSIONS.map((p) => p.code).filter(
-      (code) => projectLevel.test(code) || /^project\.(create|update|delete|configure)$/.test(code)
+      (code) =>
+        projectLevel.test(code) ||
+        /^project\.(create|update|delete|configure)$/.test(code) ||
+        /^company\.(read|manage)$/.test(code)
     );
     expect(stray).toEqual([]);
   });
@@ -173,7 +179,7 @@ describe("what the platform level promises", () => {
 
   it("gates every project-level route on project.read alone, at the route", () => {
     const projectRoutes = routes.filter((r) => r.kind === "project");
-    // 80 routes: the whole project-level surface. A sudden drop would mean routes
+    // 85 routes: the whole project-level surface. A sudden drop would mean routes
     // silently moved to another kind of guard.
     expect(projectRoutes.length).toBeGreaterThan(70);
     for (const r of projectRoutes) {
@@ -206,22 +212,21 @@ describe("what the platform level promises", () => {
     expect(holders).toEqual(["org_admin"]);
   });
 
-  it("leaves the Viewer read-only in every project", () => {
-    // The Viewer sees every project (project.readall) but is on none of them, so
-    // ProjectService resolves them to the read-only tier everywhere. Nothing in
-    // their platform set may grant more.
-    expect([...role("viewer")].sort()).toEqual([
-      "analytics.read",
-      "dashboard.read",
-      "project.read",
-      "project.readall",
-      "sla.read",
-    ]);
+  it("keeps org-wide read and manage-everything together: only the administrator holds either", () => {
+    // project.readall lets someone SEE every project; project.manageall lets them
+    // act as team lead on every project. A role holding only the first is
+    // read-only in projects it is not a member of. No built-in role is that any
+    // more (the Viewer role was retired), but a custom role can be, and
+    // ProjectService resolves it to the read-only "viewer" tier.
+    const holders = (code) =>
+      BUILTIN_ROLES.filter((r) => r.permissions.includes(code)).map((r) => r.key);
+    expect(holders("project.readall")).toEqual(["org_admin"]);
+    expect(holders("project.manageall")).toEqual(["org_admin"]);
   });
 
   it("confines configuration to administrators", () => {
     const config = ["sla.configure", "role.manage", "role.assign", "project.manageall"];
-    for (const key of ["tester", "qa_engineer", "test_lead", "viewer"]) {
+    for (const key of ["tester", "qa_engineer", "test_lead"]) {
       for (const code of config) {
         expect({ key, code, held: role(key).has(code) }).toEqual({ key, code, held: false });
       }
@@ -245,7 +250,7 @@ describe("what the platform level promises", () => {
   });
 
   it("keeps the client company's queue out of every product-org role", () => {
-    const internal = ["org_admin", "test_lead", "qa_engineer", "tester", "viewer"];
+    const internal = ["org_admin", "test_lead", "qa_engineer", "tester"];
     for (const key of internal) {
       const held = new Set(BUILTIN_ROLES.find((r) => r.key === key).permissions);
       for (const code of SUPPORT_DESK_ONLY) {
@@ -260,7 +265,6 @@ describe("what the platform level promises", () => {
       "role.read", "role.manage", "role.assign",
       "user.read", "user.create", "user.update", "user.delete",
       "project.read", "project.readall", "project.manageall", "project.export",
-      "company.read", "company.manage", "supporter.manage",
       "dashboard.read", "analytics.read", "analytics.team",
       "sla.read", "sla.configure", "audit.read",
     ]) {

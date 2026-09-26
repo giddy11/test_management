@@ -273,6 +273,7 @@ describe("accessSeed — retired built-in roles", () => {
     ["qa_manager", "QA manager", "result.amend"],
     ["support_manager", "Support manager", "ticket.close"],
     ["support_agent", "Support agent", "supportqueue.update"],
+    ["viewer", "Viewer", "project.readall"],
   ];
 
   // An organisation seeded before these roles were dropped: it has them, with

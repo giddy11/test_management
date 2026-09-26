@@ -85,7 +85,6 @@ const INTERNAL = [
   ROLE_KEYS.TEST_LEAD,
   ROLE_KEYS.QA_ENGINEER,
   ROLE_KEYS.TESTER,
-  ROLE_KEYS.VIEWER,
 ];
 
 describe("feedbackSupport.routes — permission wiring", () => {

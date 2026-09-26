@@ -11,6 +11,7 @@ jest.mock("../../../shared/utils/mail/support.mail", () => ({
 import { ClientCompanyService } from "../services/clientCompany.service";
 
 const { UserRole } = require("../../../config/constants");
+const { AppError } = require("../../../shared/errors/AppError");
 
 function makeCompanyRepo() {
   return {
@@ -30,6 +31,9 @@ function makeProjectService() {
     getProject: jest
       .fn()
       .mockResolvedValue({ id: "proj-1", name: "Product A", organizationId: "org-1" }),
+    // Resolves: the actor is the project's team lead (or holds project.manageall).
+    // The specs that care make it reject.
+    assertCanManageProject: jest.fn().mockResolvedValue(undefined),
   };
 }
 
@@ -786,6 +790,137 @@ describe("ClientCompanyService", () => {
       await expect(service.listSupporters(otherCompanyLead, "cc-1")).rejects.toMatchObject({
         statusCode: 403,
       });
+    });
+  });
+
+  describe("changing a company is decided by role in its project", () => {
+    // company.manage and supporter.manage are gone from the catalog. What someone
+    // may do to a company follows their role in the company's project, the same
+    // as everything else in the project: its team lead, or project.manageall.
+    const member = { id: "member-1", role: UserRole.USER, organizationId: "org-1" };
+    const refuseManage = () =>
+      projectService.assertCanManageProject.mockRejectedValue(
+        new AppError("Only this project's team lead or an administrator can do this", 403)
+      );
+    const teamLeadOnlyMessage = { statusCode: 403 };
+
+    beforeEach(() => {
+      companyRepo.findById.mockResolvedValue(company);
+      userRepo.findById.mockResolvedValue({
+        id: "u-9",
+        role: UserRole.IT_SUPPORT,
+        clientCompanyId: "cc-1",
+        isSupportLead: true,
+        deletedAt: null,
+      });
+    });
+
+    it("asks the project whether the actor may manage it, for the company's own project", async () => {
+      companyRepo.create.mockResolvedValue(company);
+      userRepo.create.mockImplementation(async (d: any) => ({ id: "u-9", ...d }));
+
+      await service.createCompany(member, "proj-1", {
+        name: "Client Co",
+        supporter: { firstName: "Sam", lastName: "Support", email: "sam@client.co", password: "Password1" },
+      });
+      expect(projectService.assertCanManageProject).toHaveBeenCalledWith(member, "proj-1");
+
+      projectService.assertCanManageProject.mockClear();
+      await service.updateCompany(member, "cc-1", { name: "Renamed" });
+      expect(projectService.assertCanManageProject).toHaveBeenCalledWith(member, "proj-1");
+    });
+
+    it("refuses someone who is not the project's team lead, writing nothing", async () => {
+      refuseManage();
+
+      await expect(
+        service.createCompany(member, "proj-1", {
+          name: "Client Co",
+          supporter: { firstName: "Sam", lastName: "Support", email: "sam@client.co", password: "Password1" },
+        })
+      ).rejects.toMatchObject(teamLeadOnlyMessage);
+      expect(companyRepo.create).not.toHaveBeenCalled();
+      expect(userRepo.create).not.toHaveBeenCalled();
+
+      await expect(service.updateCompany(member, "cc-1", { name: "Renamed" })).rejects.toMatchObject(
+        teamLeadOnlyMessage
+      );
+      expect(companyRepo.update).not.toHaveBeenCalled();
+
+      await expect(service.deleteCompany(member, "cc-1")).rejects.toMatchObject(teamLeadOnlyMessage);
+      expect(companyRepo.softDelete).not.toHaveBeenCalled();
+
+      await expect(service.setFeedbackLink(member, "cc-1", true)).rejects.toMatchObject(
+        teamLeadOnlyMessage
+      );
+      expect(companyRepo.save).not.toHaveBeenCalled();
+
+      await expect(
+        service.setPrimarySupportLead(member, "cc-1", "u-9", true)
+      ).rejects.toMatchObject(teamLeadOnlyMessage);
+      expect(userRepo.update).not.toHaveBeenCalled();
+    });
+
+    it("refuses someone who is not the project's team lead the whole roster, reading or writing", async () => {
+      refuseManage();
+
+      await expect(service.listSupporters(member, "cc-1")).rejects.toMatchObject(teamLeadOnlyMessage);
+      expect(userRepo.findByClientCompany).not.toHaveBeenCalled();
+
+      await expect(
+        service.createSupporter(member, "cc-1", {
+          firstName: "Sam",
+          lastName: "Support",
+          email: "sam@client.co",
+          password: "Password1",
+        })
+      ).rejects.toMatchObject(teamLeadOnlyMessage);
+      expect(userRepo.create).not.toHaveBeenCalled();
+
+      await expect(service.removeSupporter(member, "cc-1", "u-9")).rejects.toMatchObject(
+        teamLeadOnlyMessage
+      );
+      expect(userRepo.softDelete).not.toHaveBeenCalled();
+
+      await expect(service.setSupporterLead(member, "cc-1", "u-9", false)).rejects.toMatchObject(
+        teamLeadOnlyMessage
+      );
+      expect(userRepo.update).not.toHaveBeenCalled();
+    });
+
+    it("still refuses a company in a project the actor cannot see, before asking about management", async () => {
+      projectService.getProject.mockRejectedValue(
+        new AppError("You do not have access to this project", 403)
+      );
+
+      await expect(service.updateCompany(member, "cc-1", { name: "Renamed" })).rejects.toMatchObject({
+        statusCode: 403,
+      });
+      expect(projectService.assertCanManageProject).not.toHaveBeenCalled();
+    });
+
+    it("lets any project role SEE the company list: reading is not management", async () => {
+      refuseManage();
+      companyRepo.fetchByProject.mockResolvedValue([company]);
+
+      const rows = await service.fetchCompanies(member, "proj-1");
+
+      expect(rows).toHaveLength(1);
+      expect(projectService.assertCanManageProject).not.toHaveBeenCalled();
+    });
+
+    it("does not put the company's own support lead through the project check", async () => {
+      refuseManage(); // they are no team lead of anything, and must not need to be
+      const ownLead = {
+        id: "sup-lead-1",
+        role: UserRole.IT_SUPPORT,
+        clientCompanyId: "cc-1",
+        isSupportLead: true,
+      };
+      userRepo.findByClientCompany.mockResolvedValue([{ id: "u-9" }]);
+
+      await expect(service.listSupporters(ownLead, "cc-1")).resolves.toEqual([{ id: "u-9" }]);
+      expect(projectService.assertCanManageProject).not.toHaveBeenCalled();
     });
   });
 

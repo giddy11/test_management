@@ -36,10 +36,11 @@ interface Props {
 }
 
 export function SupportersDialog({ company, onOpenChange }: Props) {
-  const { user, can } = useAuth()
-  // The product team manages companies; a company's own support lead manages
-  // only its roster. company.manage is what separates the two.
-  const isAdmin = can("company.manage")
+  const { user } = useAuth()
+  // The product team (the project's team lead) manages companies; a company's own
+  // support lead manages only its roster. Only supporters carry a clientCompanyId,
+  // which is what separates the two.
+  const isAdmin = !user?.clientCompanyId
   const companyId = company?.id ?? ""
   const { data: supporters = [], isLoading } = useSupporters(companyId, Boolean(company))
   const createSupporter = useCreateSupporter(companyId)
@@ -195,7 +196,7 @@ export function SupportersDialog({ company, onOpenChange }: Props) {
                   </span>
                 ) : primaryLockedForActor ? (
                   <span className="shrink-0 text-xs text-muted-foreground">
-                    Only a TestMate admin can change this
+                    Only the product team can change this
                   </span>
                 ) : (
                   <>

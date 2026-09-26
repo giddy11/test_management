@@ -15,9 +15,10 @@ const {
   roleKeyForLegacyUser,
 } = require("../modules/access/catalog/permissions.catalog");
 
-// What only a support lead may do: route work to a teammate, turn on
-// auto-assign, change the company's roster.
-const LEAD_ONLY = ["supportqueue.assign", "company.autoassign", "supporter.manage"];
+// What only a support lead may do: route work to a teammate and turn on
+// auto-assign. (Changing the company's roster is not a permission any more: it is
+// the company's own lead, checked in ClientCompanyService.)
+const LEAD_ONLY = ["supportqueue.assign", "company.autoassign"];
 
 // A supporter who is not a lead has no built-in role — an admin gives them one,
 // typically a custom role. Specs that need that persona get the Support lead set

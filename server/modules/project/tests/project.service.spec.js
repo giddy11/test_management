@@ -226,7 +226,7 @@ describe("ProjectService", () => {
 
     it("reads membership only — org-wide read visibility does not hide a real lead", async () => {
       // It used to short-circuit to false for anyone who could see every
-      // project, so a Viewer-style role that was ALSO a project's lead could
+      // project, so a role with org-wide read that was ALSO a project's lead could
       // not manage it. Membership is the only thing that makes someone a lead.
       const orgWideReader = {
         id: "u-2",
@@ -322,7 +322,7 @@ describe("ProjectService", () => {
     });
 
     it("turns away a read-only stakeholder with a message that says why", async () => {
-      // Without this tier a Viewer, who passes the access check for every
+      // Without this tier a role with org-wide read, which passes the access check for every
       // project, would inherit write access the moment the platform-level write
       // permissions went away.
       await expect(service.assertCanContribute(viewer, "proj-1")).rejects.toMatchObject({

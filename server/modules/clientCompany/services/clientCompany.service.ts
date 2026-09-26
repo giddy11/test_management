@@ -1,7 +1,9 @@
 // modules/clientCompany/services/clientCompany.service.ts
-// External client companies that use one of the org's products. Admin-only
-// management: the company record, its public feedback form link, and its IT
-// supporter accounts (users with role it_support scoped to the company).
+// External client companies that use one of the org's products. A company
+// belongs to a project, so managing it — the record, its public feedback form
+// link, its IT supporter accounts (users with role it_support scoped to the
+// company) — is the project's team lead's call, or project.manageall's. Reading
+// needs only access to the project.
 import { randomUUID } from "crypto";
 import { ClientCompanyRepository } from "../repositories/clientCompany.repository";
 import { ProjectRepository } from "../../project/repositories/project.repository";
@@ -50,11 +52,22 @@ export class ClientCompanyService {
     return company;
   }
 
+  // The same, for changing the company: the project's team lead (or a holder of
+  // project.manageall). This replaces the platform permissions company.manage and
+  // supporter.manage — what someone may do to a company follows their role in its
+  // project, like everything else in the project.
+  private async getManageable(actor: Actor, id: string): Promise<ClientCompany> {
+    const company = await this.getAccessible(actor, id);
+    await this.projectService.assertCanManageProject(actor, company.projectId);
+    return company;
+  }
+
   // Supporter-roster management (list/add/remove/promote) is the one area a
   // company can self-serve: its own IT support lead can do it too, not just
   // the product team — scoped strictly to their own company. Everything else
-  // about a client company (the record itself, its ticket-form link) stays
-  // product-team-only.
+  // about a client company (the record itself, its ticket-form link) stays with
+  // the project's team lead. For the product team, seeing the roster is a
+  // manager's business too, so this is the manage check for reads and writes.
   private async getAccessibleForSupporterManagement(actor: Actor, id: string): Promise<ClientCompany> {
     if (isExternalSupporter(actor)) {
       if (!actor.isSupportLead || actor.clientCompanyId !== id) {
@@ -64,7 +77,7 @@ export class ClientCompanyService {
       if (!company || company.deletedAt) throw new AppError("Client company not found", 404);
       return company;
     }
-    return this.getAccessible(actor, id);
+    return this.getManageable(actor, id);
   }
 
   // Self-service lookup for the support portal — an IT supporter's own
@@ -117,6 +130,7 @@ export class ClientCompanyService {
     }
   ) {
     const project = await this.projectService.getProject(actor, projectId);
+    await this.projectService.assertCanManageProject(actor, projectId);
     if (data.contactEmail) {
       await this.assertContactEmailAvailable(data.contactEmail);
     }
@@ -169,7 +183,7 @@ export class ClientCompanyService {
     id: string,
     data: { name?: string; contactEmail?: string | null }
   ) {
-    const company = await this.getAccessible(actor, id);
+    const company = await this.getManageable(actor, id);
     if (data.contactEmail && data.contactEmail !== company.contactEmail) {
       await this.assertContactEmailAvailable(data.contactEmail, company.id);
     }
@@ -180,7 +194,7 @@ export class ClientCompanyService {
   }
 
   async deleteCompany(actor: Actor, id: string) {
-    const company = await this.getAccessible(actor, id);
+    const company = await this.getManageable(actor, id);
     const supporterCount = await this.userRepo.countByClientCompany(company.id);
     if (supporterCount > 0) {
       throw new AppError(
@@ -202,7 +216,7 @@ export class ClientCompanyService {
   // Enable (rotate) or disable the company's public feedback form link —
   // mirrors FeedbackService.setFeedbackLink for the project-level token.
   async setFeedbackLink(actor: Actor, id: string, enabled: boolean) {
-    const company = await this.getAccessible(actor, id);
+    const company = await this.getManageable(actor, id);
     company.feedbackToken = enabled ? randomUUID() : null;
     await this.companyRepo.save(company);
     return { feedbackToken: company.feedbackToken };
@@ -452,14 +466,14 @@ export class ClientCompanyService {
     // the self-service path (an admin's id can never match a supporter's).
     if (actor.id === user.id) {
       throw new AppError(
-        "You can't remove your own account — ask another lead or a TestMate admin",
+        "You can't remove your own account — ask another lead or the product team",
         403
       );
     }
     // Peer leads can manage each other freely, but the primary lead is
     // protected from anyone but a TestMate admin.
     if (user.isPrimarySupportLead && isExternalSupporter(actor)) {
-      throw new AppError("Only a TestMate admin can remove the primary lead", 403);
+      throw new AppError("Only the product team can remove the primary lead", 403);
     }
     if (user.isSupportLead) {
       await this.assertLeadRemovalSafe(company.id, user.id);
@@ -492,14 +506,14 @@ export class ClientCompanyService {
     // removeSupporter above (only reachable via the self-service path).
     if (actor.id === user.id) {
       throw new AppError(
-        "You can't change your own lead status — ask another lead or a TestMate admin",
+        "You can't change your own lead status — ask another lead or the product team",
         403
       );
     }
     // Peer leads can promote/demote each other freely, but the primary lead
     // is protected from anyone but a TestMate admin.
     if (user.isPrimarySupportLead && isExternalSupporter(actor)) {
-      throw new AppError("Only a TestMate admin can change the primary lead's status", 403);
+      throw new AppError("Only the product team can change the primary lead's status", 403);
     }
     if (user.isSupportLead && !isSupportLead) {
       await this.assertLeadRemovalSafe(company.id, user.id);
@@ -535,7 +549,7 @@ export class ClientCompanyService {
   // self-service, since the whole point is that peer leads can't do this to
   // each other (see setSupporterLead/removeSupporter above).
   async setPrimarySupportLead(actor: Actor, id: string, userId: string, isPrimary: boolean) {
-    const company = await this.getAccessible(actor, id);
+    const company = await this.getManageable(actor, id);
     const user = await this.userRepo.findById(userId);
     if (
       !user ||

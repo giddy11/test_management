@@ -770,7 +770,7 @@ const ALL_SECTIONS: DocSection[] = [
         <UL>
           <li>A company with supporters must always have at least one lead — demote or remove the last one and TestMate asks you to promote someone first.</li>
           <li>Leads can’t remove themselves or change their own lead status — that’s how someone locks themselves out.</li>
-          <li>The <Strong>primary lead</Strong> can only be changed or removed by a TestMate admin, not by a peer lead.</li>
+          <li>The <Strong>primary lead</Strong> can only be changed or removed by the product team, not by a peer lead.</li>
           <li>A company must have zero supporters before it can be deleted.</li>
         </UL>
         <H3>The ticket queue</H3>
