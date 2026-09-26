@@ -39,9 +39,10 @@ export function useProject(id: string) {
 // Mirrors the server's ProjectService.canManageProject.
 export function useCanManageProject(projectId: string) {
   const { user, can } = useAuth()
-  // Org-wide project authority; everyone else must be that project's team
-  // lead, exactly as ProjectService.canManageProject decides on the server.
-  const isAdmin = can("project.configure")
+  // Org-wide project authority (project.manageall); everyone else must be that
+  // project's team lead, exactly as ProjectService.canManageProject decides on
+  // the server.
+  const isAdmin = can("project.manageall")
   // Admins never need the membership lookup — skip the fetch.
   const { data: project } = useProject(isAdmin ? "" : projectId)
   if (isAdmin) return true

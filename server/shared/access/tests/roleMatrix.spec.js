@@ -69,7 +69,11 @@ function attempt(route, permissions) {
   return `deny:${status.mock.calls[0]?.[0]}`;
 }
 
-const permissionRoutes = () => routes.filter((r) => r.kind === "permission");
+// Routes whose guard is a platform permission, plus routes declared project-level:
+// those are gated on project.read at the route (the per-project decision is the
+// service's, and is covered by the service specs).
+const permissionRoutes = () =>
+  routes.filter((r) => r.kind === "permission" || r.kind === "project");
 
 describe("role matrix — the API matches every role definition", () => {
   for (const role of BUILTIN_ROLES) {
@@ -128,21 +132,11 @@ describe("role matrix — the API matches every role definition", () => {
     // These are enforced below the route, inside a service, because the action
     // shares a route with a less-privileged one (a status transition on an
     // update endpoint) or is a scoping switch rather than a route guard.
+    // project.readall and project.manageall are read inside ProjectService (they
+    // are what turns a project role into "everything in the organisation"), and
+    // the two analytics permissions decide what the dashboard computes.
     const enforcedInServices = new Set([
       "project.readall",
-      "project.manageall",
-      "project.configure",
-      "testcase.approve",
-      "testcase.deprecate",
-      "run.close",
-      "result.amend",
-      "bug.triage",
-      "bug.verify",
-      "bug.close",
-      "featurerequest.decide",
-      "ticket.assign",
-      "ticket.resolve",
-      "ticket.close",
       "analytics.read",
       "analytics.team",
     ]);
@@ -154,42 +148,79 @@ describe("role matrix — the API matches every role definition", () => {
   });
 });
 
-describe("separation of duties — the splits the model promises", () => {
+describe("what the platform level promises", () => {
   const role = (key) => new Set(BUILTIN_ROLES.find((r) => r.key === key).permissions);
 
-  it("lets engineers enter results but never amend a closed run", () => {
-    for (const key of ["tester", "qa_engineer", "test_lead"]) {
-      expect(role(key).has("result.enter")).toBe(true);
-      expect(role(key).has("result.amend")).toBe(false);
-    }
-    // Amending is the organisation administrator's alone.
-    expect(role("org_admin").has("result.amend")).toBe(true);
+  it("keeps everything about working INSIDE a project out of the catalog", () => {
+    // The review moved these to the project level, where roles already exist
+    // (project_members.role: member / team_lead). A permission that reappears here
+    // would quietly reintroduce a second, platform-wide way to decide the same
+    // thing, which is what caused the confusion in the first place.
+    const projectLevel =
+      /^(suite|testcase|import|note|run|result|bug|featurerequest|ticket|livechat|widget|form)\./;
+    const stray = PERMISSIONS.map((p) => p.code).filter(
+      (code) => projectLevel.test(code) || /^project\.(create|update|delete|configure)$/.test(code)
+    );
+    expect(stray).toEqual([]);
   });
 
-  it("keeps whoever reports a bug from verifying its fix", () => {
-    for (const key of ["tester", "qa_engineer"]) {
-      expect(role(key).has("bug.create")).toBe(true);
-      expect(role(key).has("bug.verify")).toBe(false);
-    }
-    for (const key of ["test_lead", "org_admin"]) {
-      expect(role(key).has("bug.verify")).toBe(true);
+  it("leaves exactly the project permissions the review said should stay", () => {
+    const project = PERMISSIONS.filter((p) => p.category === "projects").map((p) => p.code).sort();
+    // view, view all, export -- and manage all, which cannot be project-level:
+    // creating a project has no project to hold a role in.
+    expect(project).toEqual(["project.export", "project.manageall", "project.read", "project.readall"]);
+  });
+
+  it("gates every project-level route on project.read alone, at the route", () => {
+    const projectRoutes = routes.filter((r) => r.kind === "project");
+    // 80 routes: the whole project-level surface. A sudden drop would mean routes
+    // silently moved to another kind of guard.
+    expect(projectRoutes.length).toBeGreaterThan(70);
+    for (const r of projectRoutes) {
+      expect({ route: `${r.method} ${r.path}`, codes: r.codes }).toEqual({
+        route: `${r.method} ${r.path}`,
+        codes: ["project.read"],
+      });
     }
   });
 
-  it("stops a tester approving their own test cases", () => {
-    expect(role("qa_engineer").has("testcase.create")).toBe(true);
-    expect(role("qa_engineer").has("testcase.approve")).toBe(false);
-    expect(role("test_lead").has("testcase.approve")).toBe(true);
+  it("keeps an external supporter out of the whole project-level surface", () => {
+    // Support lead holds no project.read, so none of these routes admit them --
+    // which is what stops the product surface leaking to the customer side now
+    // that the routes no longer name a role.
+    const support = role("support_lead");
+    for (const r of routes.filter((x) => x.kind === "project")) {
+      expect({ route: `${r.method} ${r.path}`, admitted: attempt(r, support) === "allow" }).toEqual({
+        route: `${r.method} ${r.path}`,
+        admitted: false,
+      });
+    }
+  });
+
+  it("lets only the organisation administrator manage every project", () => {
+    // project.manageall is full control of every project in the organisation,
+    // including deleting it. Nobody else holds it by default.
+    const holders = BUILTIN_ROLES.filter((r) => r.permissions.includes("project.manageall")).map(
+      (r) => r.key
+    );
+    expect(holders).toEqual(["org_admin"]);
+  });
+
+  it("leaves the Viewer read-only in every project", () => {
+    // The Viewer sees every project (project.readall) but is on none of them, so
+    // ProjectService resolves them to the read-only tier everywhere. Nothing in
+    // their platform set may grant more.
+    expect([...role("viewer")].sort()).toEqual([
+      "analytics.read",
+      "dashboard.read",
+      "project.read",
+      "project.readall",
+      "sla.read",
+    ]);
   });
 
   it("confines configuration to administrators", () => {
-    const config = [
-      "sla.configure",
-      "form.configure",
-      "widget.configure",
-      "integration.manage",
-      "role.manage",
-    ];
+    const config = ["sla.configure", "role.manage", "role.assign", "project.manageall"];
     for (const key of ["tester", "qa_engineer", "test_lead", "viewer"]) {
       for (const code of config) {
         expect({ key, code, held: role(key).has(code) }).toEqual({ key, code, held: false });
@@ -226,13 +257,12 @@ describe("separation of duties — the splits the model promises", () => {
   it("still gives the organisation administrator everything inside its own workspace", () => {
     const held = new Set(BUILTIN_ROLES.find((r) => r.key === "org_admin").permissions);
     for (const code of [
-      "role.manage", "role.assign", "user.create", "user.delete",
-      "project.create", "project.delete", "project.readall",
-      "testcase.approve", "run.close", "result.amend",
-      "bug.close", "featurerequest.decide",
-      "ticket.delete", "form.configure", "widget.configure",
-      "company.manage", "supporter.manage",
-      "sla.configure", "analytics.team", "audit.read",
+      "role.read", "role.manage", "role.assign",
+      "user.read", "user.create", "user.update", "user.delete",
+      "project.read", "project.readall", "project.manageall", "project.export",
+      "company.read", "company.manage", "supporter.manage",
+      "dashboard.read", "analytics.read", "analytics.team",
+      "sla.read", "sla.configure", "audit.read",
     ]) {
       expect({ code, held: held.has(code) }).toEqual({ code, held: true });
     }

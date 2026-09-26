@@ -53,7 +53,11 @@ const SEVERITY_VARIANT: Record<FeedbackSeverity, "default" | "secondary" | "outl
 
 export default function AllFeedbackPage() {
   const { user, can } = useAuth()
-  const isAdmin = can("ticket.assign")
+  // This cross-project list does not know the viewer's role in each ticket's
+  // project, so it offers delete / reassign only to org-wide managers, as it
+  // always has. A team lead does those from the project's own Tickets tab. The
+  // server decides either way.
+  const isAdmin = can("project.manageall")
   const [projectFilter, setProjectFilter] = useState<string>("all")
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [typeFilter, setTypeFilter] = useState<string>("all")

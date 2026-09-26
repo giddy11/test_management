@@ -5,7 +5,7 @@
 // Every route now declares a permission instead:
 //
 //   const { requirePermission } = require("../../../shared/access/can");
-//   router.patch("/:id", authMiddleware, requirePermission("project.update"), ...)
+//   router.patch("/:id", authMiddleware, requirePermission("role.manage"), ...)
 //
 // and services check with can(actor, code) / assertPermission(actor, code).
 // See docs/access-model.md and shared/access/can.js.

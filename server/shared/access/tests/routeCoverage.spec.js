@@ -35,9 +35,9 @@ describe("route coverage — every route declares what it needs", () => {
     ).toEqual([]);
   });
 
-  it("declares every route as exactly one of permission, self or public", () => {
+  it("declares every route as exactly one of permission, project, self or public", () => {
     const kinds = new Set(routes.map((r) => r.kind));
-    expect([...kinds].sort()).toEqual(["permission", "public", "self"]);
+    expect([...kinds].sort()).toEqual(["permission", "project", "public", "self"]);
   });
 
   it("gates every permission-declaring route on a code that exists in the catalog", () => {

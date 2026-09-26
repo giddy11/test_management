@@ -8,8 +8,10 @@ import { AttachmentsSection } from "@/components/testmgmt/AttachmentsSection"
 import { CaseNotesSection, RunNotesSection } from "@/components/testmgmt/CaseNotesSection"
 import { PageLoader } from "@/components/shared/PageLoader"
 import { useCase } from "@/hooks/useCases"
+import { useCanManageProject } from "@/hooks/useProjects"
 export default function TestCaseDetailPage() {
   const { projectId = "", suiteId = "", caseId = "" } = useParams()
+  const canManageProject = useCanManageProject(projectId)
   const { data: tc, isLoading } = useCase(caseId)
 
   if (isLoading) return <PageLoader />
@@ -70,7 +72,7 @@ export default function TestCaseDetailPage() {
         <Card>
           <CardContent className="pt-6">
             {/* Same bar as attachments — anyone who can see the case can add a note. */}
-            <CaseNotesSection caseId={tc.id} />
+            <CaseNotesSection caseId={tc.id} canModerate={canManageProject} />
           </CardContent>
         </Card>
 

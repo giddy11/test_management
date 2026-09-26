@@ -27,27 +27,7 @@ const CATEGORIES = [
   {
     key: "projects",
     label: "Projects",
-    description: "The containers everything else hangs off.",
-  },
-  {
-    key: "authoring",
-    label: "Test authoring",
-    description: "Suites, test cases, their notes, and bulk import.",
-  },
-  {
-    key: "execution",
-    label: "Test execution",
-    description: "Runs, and the results recorded against them.",
-  },
-  {
-    key: "workitems",
-    label: "Defects & feature requests",
-    description: "Work raised against a project, from report through to closure.",
-  },
-  {
-    key: "tickets",
-    label: "Customer tickets",
-    description: "Feedback submitted through a project's public form, and its triage.",
+    description: "Who can see, export and create projects. What someone can DO inside a project is set by their role in that project.",
   },
   {
     key: "support",
@@ -56,8 +36,8 @@ const CATEGORIES = [
   },
   {
     key: "conversations",
-    label: "Conversations & broadcasts",
-    description: "Live chat, in-app support chat, and messages sent to everyone.",
+    label: "Platform inbox & broadcasts",
+    description: "The in-app support inbox and messages sent to every user — the platform owner's, not any one organisation's.",
   },
   {
     key: "analytics",
@@ -96,62 +76,11 @@ const PERMISSIONS = [
   // project yet to hold a role in) and managing one you are not on (a project
   // whose lead has left would otherwise be unmanageable for ever).
   { code: "project.manageall", category: "projects", label: "Manage all projects", description: "Create projects, and act as team lead on every project in the organisation.", warning: "Full control of every project, including deleting it" },
-  { code: "project.create", category: "projects", label: "Create projects", description: "Start a new project." },
-  { code: "project.update", category: "projects", label: "Edit projects", description: "Change a project's name, description and metadata." },
-  { code: "project.delete", category: "projects", label: "Delete projects", description: "Remove a project and everything in it." },
-  { code: "project.configure", category: "projects", label: "Manage project membership", description: "Add and remove members, and set team leads." },
   { code: "project.export", category: "projects", label: "Export projects", description: "Download a project or suite as a spreadsheet." },
 
-  // ── Test authoring ─────────────────────────────────────────────────────────
-  { code: "suite.read", category: "authoring", label: "View test suites", description: "See suites and their contents." },
-  { code: "suite.manage", category: "authoring", label: "Manage test suites", description: "Create, edit and delete suites." },
-  { code: "testcase.read", category: "authoring", label: "View test cases", description: "See test cases and their steps." },
-  { code: "testcase.create", category: "authoring", label: "Write test cases", description: "Draft a new test case." },
-  { code: "testcase.update", category: "authoring", label: "Edit test cases", description: "Change an existing test case." },
-  { code: "testcase.delete", category: "authoring", label: "Delete test cases", description: "Remove a test case." },
-  { code: "testcase.approve", category: "authoring", label: "Activate test cases", description: "Move a case from Draft to Active." },
-  { code: "testcase.deprecate", category: "authoring", label: "Retire test cases", description: "Move an Active case to Deprecated." },
-  { code: "testcase.assign", category: "authoring", label: "Assign testers", description: "Choose who runs a test case." },
-  { code: "import.run", category: "authoring", label: "Run bulk import", description: "Import test cases from a spreadsheet." },
-  { code: "note.read", category: "authoring", label: "View case notes", description: "Read notes on a test case and notes recorded during runs." },
-  { code: "note.manage", category: "authoring", label: "Write case notes", description: "Add and delete notes." },
 
-  // ── Test execution ─────────────────────────────────────────────────────────
-  { code: "run.read", category: "execution", label: "View test runs", description: "See runs and their progress." },
-  { code: "run.create", category: "execution", label: "Start test runs", description: "Open a new run." },
-  { code: "run.update", category: "execution", label: "Edit test runs", description: "Change a run's details while it is in progress." },
-  { code: "run.delete", category: "execution", label: "Delete test runs", description: "Remove a run and its results." },
-  { code: "run.close", category: "execution", label: "Close test runs", description: "Mark a run complete, freezing its results." },
-  { code: "result.read", category: "execution", label: "View results", description: "See recorded pass, fail, blocked and skipped outcomes." },
-  { code: "result.enter", category: "execution", label: "Record results", description: "Record the outcome of executing a test case." },
-  { code: "result.amend", category: "execution", label: "Amend closed results", description: "Change a result after its run has been closed.", warning: "Every change is audited" },
-  { code: "result.delete", category: "execution", label: "Delete results", description: "Remove a recorded result." },
 
-  // ── Defects & feature requests ─────────────────────────────────────────────
-  { code: "bug.read", category: "workitems", label: "View bugs", description: "See reported bugs." },
-  { code: "bug.create", category: "workitems", label: "Report bugs", description: "Raise a new bug." },
-  { code: "bug.update", category: "workitems", label: "Edit bugs", description: "Change a bug's description and details." },
-  { code: "bug.delete", category: "workitems", label: "Delete bugs", description: "Remove a bug report." },
-  { code: "bug.triage", category: "workitems", label: "Triage bugs", description: "Set severity, priority and assignee." },
-  { code: "bug.verify", category: "workitems", label: "Verify fixes", description: "Move a Fixed bug to Verified." },
-  { code: "bug.close", category: "workitems", label: "Close bugs", description: "Close a bug, or reopen a closed one." },
-  { code: "featurerequest.read", category: "workitems", label: "View feature requests", description: "See feature requests." },
-  { code: "featurerequest.create", category: "workitems", label: "Raise feature requests", description: "Submit a new feature request." },
-  { code: "featurerequest.update", category: "workitems", label: "Edit feature requests", description: "Change a request's details." },
-  { code: "featurerequest.delete", category: "workitems", label: "Delete feature requests", description: "Remove a feature request." },
-  { code: "featurerequest.decide", category: "workitems", label: "Decide feature requests", description: "Move a request through review to Planned, Done or Rejected." },
-  { code: "featurerequest.vote", category: "workitems", label: "Vote on feature requests", description: "Add or remove a vote." },
-  { code: "featurerequest.comment", category: "workitems", label: "Comment on feature requests", description: "Post and delete thread comments." },
 
-  // ── Customer tickets ───────────────────────────────────────────────────────
-  { code: "ticket.read", category: "tickets", label: "View tickets", description: "See submitted tickets and their history." },
-  { code: "ticket.assign", category: "tickets", label: "Assign tickets", description: "Route a ticket to a team member." },
-  { code: "ticket.update", category: "tickets", label: "Update ticket status", description: "Advance a ticket through its working stages." },
-  { code: "ticket.resolve", category: "tickets", label: "Resolve tickets", description: "Mark a ticket resolved." },
-  { code: "ticket.close", category: "tickets", label: "Close tickets", description: "Close a resolved ticket." },
-  { code: "ticket.delete", category: "tickets", label: "Delete tickets", description: "Remove a ticket." },
-  { code: "ticket.comment", category: "tickets", label: "Reply to tickets", description: "Post in a ticket's conversation thread." },
-  { code: "form.configure", category: "tickets", label: "Configure the public form", description: "Enable, rotate or disable a project's public form link.", warning: "Rotating a link breaks every form already shared" },
 
   // ── Support desk ───────────────────────────────────────────────────────────
   { code: "supportqueue.read", category: "support", label: "View support queue", description: "See the client company's ticket queue." },
@@ -169,13 +98,7 @@ const PERMISSIONS = [
   { code: "company.autoassign", category: "support", label: "Configure auto-assign", description: "Set how incoming queue items are routed within a client company." },
   { code: "supporter.manage", category: "support", label: "Manage supporters", description: "Add, remove and promote a company's IT supporters." },
 
-  // ── Conversations & broadcasts ─────────────────────────────────────────────
-  { code: "livechat.read", category: "conversations", label: "View live chat", description: "Read the operator inbox and visitor list." },
-  { code: "livechat.send", category: "conversations", label: "Reply in live chat", description: "Send a message to a visitor." },
-  { code: "livechat.assign", category: "conversations", label: "Assign conversations", description: "Route a conversation to an operator." },
-  { code: "livechat.manage", category: "conversations", label: "Manage conversations", description: "Change a conversation's status." },
-  { code: "livechat.configure", category: "conversations", label: "Configure the widget", description: "Change a project's widget presentation settings." },
-  { code: "widget.configure", category: "conversations", label: "Configure the widget link", description: "Enable, rotate or disable a project's widget link.", warning: "Rotating a link breaks every embedded widget" },
+  // ── Platform inbox & broadcasts ────────────────────────────────────────────
   { code: "supportchat.read", category: "conversations", label: "View support chat inbox", description: "Read in-app conversations with the platform team." },
   { code: "supportchat.send", category: "conversations", label: "Reply in support chat", description: "Respond in an in-app support conversation." },
   { code: "supportchat.manage", category: "conversations", label: "Manage support chat", description: "Close conversations, and turn the platform-wide support chat on or off." },
@@ -219,7 +142,7 @@ const PLATFORM_ONLY = [
 
 // The support queue belongs to an external client company's own IT supporters.
 // The product team sees one of their tickets only once it is escalated, and
-// then through ticket.read like any other ticket.
+// then as an ordinary project ticket, by role in that project.
 const SUPPORT_DESK_ONLY = [
   "supportqueue.read",
   "supportqueue.update",
@@ -254,35 +177,19 @@ const ROLE_KEYS = Object.freeze({
 // retireBuiltinRoles in accessSeed.service.
 const RETIRED_ROLE_KEYS = Object.freeze(["qa_manager", "support_manager", "support_agent"]);
 
+// What is left at the platform level, once everything about working INSIDE a
+// project has moved to the project's own roles (project_members.role: member or
+// team_lead). The three engineering roles below therefore differ only in what
+// they may export and see in reporting; what each person can do in a given
+// project comes from their role there, not from anything in this list.
 const QA_ENGINEER_PERMISSIONS = [
   "user.read",
   "project.read", "project.export",
-  "suite.read", "suite.manage",
-  "testcase.read", "testcase.create", "testcase.update", "testcase.assign",
-  "import.run", "note.read", "note.manage",
-  "run.read", "run.create", "run.update",
-  "result.read", "result.enter",
-  "bug.read", "bug.create", "bug.update",
-  "featurerequest.read", "featurerequest.create", "featurerequest.update",
-  "featurerequest.vote", "featurerequest.comment",
-  "ticket.read", "ticket.comment",
-  "livechat.read", "livechat.send",
   "dashboard.read",
 ];
 
-// A Tester is a QA engineer who executes rather than authors: no suite or case
-// authoring, no assignment, no bulk import.
-const TESTER_REMOVES = [
-  "suite.manage",
-  "testcase.create",
-  "testcase.update",
-  "testcase.assign",
-  "import.run",
-  "project.export",
-  "featurerequest.update",
-  "run.update",
-  "livechat.send",
-];
+// A Tester is a QA engineer who does not export projects.
+const TESTER_REMOVES = ["project.export"];
 
 const SUPPORT_LEAD_PERMISSIONS = [
   "supportqueue.read", "supportqueue.update", "supportqueue.assign",
@@ -312,33 +219,26 @@ const BUILTIN_ROLES = [
   {
     key: ROLE_KEYS.TEST_LEAD,
     name: "Test lead",
-    description: "Supervisor and approver inside their own projects. Enters data and approves it.",
+    description:
+      "Exports projects and sees analytics and SLA reporting. What they can do inside a project comes from their role in that project.",
     permissions: [
       "user.read",
       "project.read", "project.export",
-      "suite.read", "suite.manage",
-      "testcase.read", "testcase.create", "testcase.update", "testcase.approve", "testcase.assign",
-      "import.run", "note.read", "note.manage",
-      "run.read", "run.create", "run.update", "run.close",
-      "result.read", "result.enter",
-      "bug.read", "bug.create", "bug.update", "bug.triage", "bug.verify",
-      "featurerequest.read", "featurerequest.create", "featurerequest.update",
-      "featurerequest.vote", "featurerequest.comment",
-      "ticket.read", "ticket.assign", "ticket.update", "ticket.resolve", "ticket.comment",
-      "livechat.read", "livechat.send", "livechat.assign", "livechat.manage",
       "dashboard.read", "analytics.read", "sla.read",
     ],
   },
   {
     key: ROLE_KEYS.QA_ENGINEER,
     name: "QA engineer",
-    description: "Authors test cases and executes them. Cannot approve anything.",
+    description:
+      "Works in the projects they belong to and can export them. What they can do in each comes from their role there.",
     permissions: QA_ENGINEER_PERMISSIONS,
   },
   {
     key: ROLE_KEYS.TESTER,
     name: "Tester",
-    description: "Executes the cases assigned to them and reports what they find.",
+    description:
+      "Works in the projects they belong to. What they can do in each comes from their role there.",
     permissions: without(QA_ENGINEER_PERMISSIONS, TESTER_REMOVES),
   },
   {
@@ -350,11 +250,10 @@ const BUILTIN_ROLES = [
   {
     key: ROLE_KEYS.VIEWER,
     name: "Viewer",
-    description: "A stakeholder who needs to see quality status across the organisation without touching anything.",
+    description:
+      "Sees quality status across every project in the organisation and changes nothing: read-only in every project they are not on.",
     permissions: [
-      "project.read", "project.readall", "suite.read", "testcase.read", "note.read",
-      "run.read", "result.read",
-      "bug.read", "featurerequest.read", "ticket.read",
+      "project.read", "project.readall",
       "dashboard.read", "analytics.read", "sla.read",
     ],
   },
@@ -370,10 +269,11 @@ const LEGACY_ROLE_MAP = Object.freeze({
 });
 
 // `isTeamLead` is true when the user leads at least one project
-// (project_members.role = 'team_lead'). Under the old model that gave them
-// management of those projects — approving work, triaging their bugs — which
-// is the Test lead role, not QA engineer. Mapping them to QA engineer would
-// quietly take away capabilities they have today.
+// (project_members.role = 'team_lead'). What they can DO in that project comes
+// from that membership, not from this role, so the mapping no longer carries any
+// capability. It is kept because Test lead is still the closest description of
+// the person, and because changing it would move people between roles for no
+// reason.
 //
 // Returns null when there is no built-in role to give: a supporter who is not a
 // lead. An admin assigns them a role instead (a custom one, or Support lead).

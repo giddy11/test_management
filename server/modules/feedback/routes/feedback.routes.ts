@@ -13,14 +13,14 @@ import {
 const router = require("express").Router();
 const { validate } = require("../../../shared/middleware/validate.middleware");
 const { authMiddleware } = require("../../../shared/middleware/auth.middleware");
-const { requirePermission } = require("../../../shared/access/can");
+const { requireProjectAccess } = require("../../../shared/access/can");
 const { uploadCommentAttachments } = require("../../../shared/middleware/upload.middleware");
 
 // projectId omitted => cross-project view (role-scoped in the service).
 router.get(
   "/",
   authMiddleware,
-  requirePermission("ticket.read"),
+  requireProjectAccess("Customer tickets — decided by role in the project"),
   validate(fetchFeedbackSchema),
   FeedbackController.fetchAll
 );
@@ -29,7 +29,7 @@ router.get(
 router.patch(
   "/:id",
   authMiddleware,
-  requirePermission("ticket.update"),
+  requireProjectAccess("Customer tickets — decided by role in the project"),
   validate(manageFeedbackSchema),
   FeedbackController.manage
 );
@@ -37,7 +37,7 @@ router.patch(
 router.get(
   "/:id/history",
   authMiddleware,
-  requirePermission("ticket.read"),
+  requireProjectAccess("Customer tickets — decided by role in the project"),
   validate(feedbackIdParamSchema),
   FeedbackController.history
 );
@@ -47,7 +47,7 @@ router.get(
 router.delete(
   "/:id",
   authMiddleware,
-  requirePermission("ticket.delete"),
+  requireProjectAccess("Customer tickets — decided by role in the project"),
   validate(feedbackIdParamSchema),
   FeedbackController.remove
 );
@@ -58,14 +58,14 @@ router.delete(
 router.get(
   "/:id/comments",
   authMiddleware,
-  requirePermission("ticket.read"),
+  requireProjectAccess("Customer tickets — decided by role in the project"),
   validate(fetchFeedbackCommentsSchema),
   FeedbackCommentController.list
 );
 router.post(
   "/:id/comments",
   authMiddleware,
-  requirePermission("ticket.comment"),
+  requireProjectAccess("Customer tickets — decided by role in the project"),
   uploadCommentAttachments("attachments"),
   validate(addFeedbackCommentSchema),
   FeedbackCommentController.create
@@ -75,7 +75,7 @@ router.post(
 router.post(
   "/projects/:id/link",
   authMiddleware,
-  requirePermission("form.configure"),
+  requireProjectAccess("Customer tickets — decided by role in the project"),
   validate(feedbackLinkSchema),
   FeedbackController.setLink
 );

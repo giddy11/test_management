@@ -2,7 +2,7 @@
 const router = require("express").Router();
 const { validate } = require("../../../shared/middleware/validate.middleware");
 const { authMiddleware } = require("../../../shared/middleware/auth.middleware");
-const { requirePermission } = require("../../../shared/access/can");
+const { requireProjectAccess } = require("../../../shared/access/can");
 const {
   testCaseIdParamSchema,
   createNoteSchema,
@@ -14,7 +14,7 @@ const { TestCaseNoteController } = require("../controllers/testCaseNote.controll
 router.get(
   "/:id/notes",
   authMiddleware,
-  requirePermission("note.read"),
+  requireProjectAccess("Test authoring — decided by role in the project"),
   validate(testCaseIdParamSchema),
   TestCaseNoteController.list
 );
@@ -23,7 +23,7 @@ router.get(
 router.get(
   "/:id/run-notes",
   authMiddleware,
-  requirePermission("note.read"),
+  requireProjectAccess("Test authoring — decided by role in the project"),
   validate(testCaseIdParamSchema),
   TestCaseNoteController.listRunNotes
 );
@@ -32,7 +32,7 @@ router.get(
 router.post(
   "/:id/notes",
   authMiddleware,
-  requirePermission("note.manage"),
+  requireProjectAccess("Test authoring — decided by role in the project"),
   validate(createNoteSchema),
   TestCaseNoteController.create
 );
@@ -41,7 +41,7 @@ router.post(
 router.delete(
   "/:id/notes/:noteId",
   authMiddleware,
-  requirePermission("note.manage"),
+  requireProjectAccess("Test authoring — decided by role in the project"),
   validate(noteParamsSchema),
   TestCaseNoteController.remove
 );

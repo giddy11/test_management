@@ -111,7 +111,7 @@ export default function FeatureRequestDetailPage() {
 
       <Separator />
 
-      <CommentThread requestId={request.id} />
+      <CommentThread requestId={request.id} canModerate={canManage} />
 
       <StatusUpdateDialog open={statusOpen} onOpenChange={setStatusOpen} request={request} />
 

@@ -28,8 +28,9 @@ export default function ProjectDetailPage() {
     : "suites"
   const { user, can } = useAuth()
   const { data: project, isLoading } = useProject(projectId)
-  // Admins always manage; a regular user manages when they lead this project.
-  const isAdmin = can("project.update")
+  // Holders of project.manageall manage every project; anyone else manages when
+  // they lead this one.
+  const isAdmin = can("project.manageall")
   const canManage =
     isAdmin ||
     Boolean(project?.members?.some((m) => m.id === user?.id && m.role === "team_lead"))

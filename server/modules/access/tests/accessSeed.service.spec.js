@@ -44,6 +44,8 @@ function makeDb({ users = [] } = {}) {
       return [];
     }
     if (s.startsWith('INSERT INTO "permissions"')) {
+      // ON CONFLICT DO NOTHING must leave an existing row alone.
+      if (s.includes("DO NOTHING") && db.permissions.has(params[0])) return [];
       db.permissions.set(params[0], { code: params[0], category: params[1], label: params[2] });
       return [];
     }
@@ -51,6 +53,37 @@ function makeDb({ users = [] } = {}) {
       const keep = new Set(params[0]);
       for (const code of [...db.permissions.keys()]) {
         if (!keep.has(code)) db.permissions.delete(code);
+      }
+      // The foreign key is ON DELETE CASCADE: a dropped permission leaves every
+      // role that held it. Real Postgres does this; the migration relies on it.
+      db.rolePermissions = db.rolePermissions.filter((rp) => db.permissions.has(rp.code));
+      return [];
+    }
+    // Counting queries the migration uses to check its own grant landed.
+    if (s.startsWith('SELECT COUNT(DISTINCT "role_id")::int AS n')) {
+      const ids = new Set(
+        db.rolePermissions
+          .filter((rp) => ["project.configure", "project.create"].includes(rp.code))
+          .map((rp) => rp.roleId)
+      );
+      return [{ n: ids.size }];
+    }
+    if (s.startsWith('SELECT COUNT(*)::int AS n FROM "role_permissions"')) {
+      return [{ n: db.rolePermissions.filter((rp) => rp.code === "project.manageall").length }];
+    }
+    // Grant project.manageall to every role holding project.configure or
+    // project.create. Must precede the plain role_permissions insert below: the
+    // two share a prefix.
+    if (s.startsWith('INSERT INTO "role_permissions"') && s.includes("SELECT DISTINCT")) {
+      const holders = new Set(
+        db.rolePermissions
+          .filter((rp) => ["project.configure", "project.create"].includes(rp.code))
+          .map((rp) => rp.roleId)
+      );
+      for (const roleId of holders) {
+        if (!db.rolePermissions.some((rp) => rp.roleId === roleId && rp.code === "project.manageall")) {
+          db.rolePermissions.push({ roleId, code: "project.manageall" });
+        }
       }
       return [];
     }
@@ -216,7 +249,7 @@ describe("accessSeed — built-in roles", () => {
     db.rolePermissions = db.rolePermissions.filter((rp) => rp.roleId !== role.id);
 
     await seedOrganizationRoles(query, "org-1", { resetBuiltinPermissions: true });
-    expect(permsOf(ROLE_KEYS.TEST_LEAD)).toContain("testcase.approve");
+    expect(permsOf(ROLE_KEYS.TEST_LEAD)).toContain("analytics.read");
   });
 
   it("always restores the locked super role, which is never admin-editable", async () => {
@@ -409,5 +442,138 @@ describe("accessSeed — backfill", () => {
     const held = ctx.db.userRoles.filter((ur) => ur.userId === "u-user");
     expect(held).toHaveLength(1);
     expect(held[0].roleId).toBe(tester.id);
+  });
+});
+
+
+describe("accessSeed — moving permissions to the project level", () => {
+  const { migrateProjectLevelPermissions } = require("../services/accessSeed.service");
+
+  // The state a database is in BEFORE this migration: roles that carry the old
+  // project-level permissions, and no project.manageall at all.
+  function legacyState() {
+    const ctx = makeDb();
+    const { db } = ctx;
+    for (const code of [
+      "project.configure", "project.create", "project.update", "project.delete",
+      "bug.read", "bug.triage", "testcase.approve", "ticket.close", "livechat.send",
+      "project.read", "project.export", "role.manage",
+    ]) {
+      db.permissions.set(code, { code, category: "old" });
+    }
+    const mk = (id, name, organizationId, codes) => {
+      db.roles.push({ id, name, organizationId, key: null, isBuiltin: false, isLocked: false });
+      for (const code of codes) db.rolePermissions.push({ roleId: id, code });
+    };
+    // An admin: held both of the org-wide project permissions.
+    mk("r-admin", "Organisation administrator", "org-1", [
+      "project.configure", "project.create", "project.update", "project.delete",
+      "bug.read", "bug.triage", "project.read", "role.manage",
+    ]);
+    // A retired-then-custom "QA manager": held configure and create, and has members.
+    mk("r-qam", "QA manager", "org-1", [
+      "project.configure", "project.create", "testcase.approve", "project.read",
+    ]);
+    // A custom role that held ONLY the finer project permissions.
+    mk("r-editor", "Project editor", "org-1", ["project.update", "project.delete", "project.read"]);
+    // A custom role that held none of them.
+    mk("r-reader", "Reader", "org-1", ["bug.read", "project.read", "project.export"]);
+    // Another organisation's admin -- the migration is platform-wide.
+    mk("r-admin-2", "Organisation administrator", "org-2", ["project.configure", "project.create"]);
+    return ctx;
+  }
+
+  const held = (db, roleId) =>
+    db.rolePermissions.filter((rp) => rp.roleId === roleId).map((rp) => rp.code).sort();
+  const snapshot = (db) =>
+    JSON.stringify(
+      db.rolePermissions
+        .slice()
+        .sort((a, b) => (a.roleId + a.code).localeCompare(b.roleId + b.code))
+    );
+
+  it("grants project.manageall to every role that could create or manage projects", async () => {
+    const { db, query } = legacyState();
+    await migrateProjectLevelPermissions(query);
+    expect(held(db, "r-admin")).toContain("project.manageall");
+    expect(held(db, "r-qam")).toContain("project.manageall");
+    expect(held(db, "r-admin-2")).toContain("project.manageall");
+  });
+
+  it("does not hand it to roles that only held the finer project permissions", async () => {
+    // Editing or deleting a project is now the team lead's call; a role that had
+    // only those must not be promoted to control of every project.
+    const { db, query } = legacyState();
+    await migrateProjectLevelPermissions(query);
+    expect(held(db, "r-editor")).not.toContain("project.manageall");
+    expect(held(db, "r-reader")).not.toContain("project.manageall");
+  });
+
+  it("removes every permission the catalog no longer lists, from every role", async () => {
+    const { db, query } = legacyState();
+    await migrateProjectLevelPermissions(query);
+    const gone = [
+      "project.configure", "project.create", "project.update", "project.delete",
+      "bug.read", "bug.triage", "testcase.approve", "ticket.close", "livechat.send",
+    ];
+    for (const code of gone) expect(db.permissions.has(code)).toBe(false);
+    for (const rp of db.rolePermissions) expect(gone).not.toContain(rp.code);
+  });
+
+  it("keeps everything that is still a platform permission", async () => {
+    const { db, query } = legacyState();
+    await migrateProjectLevelPermissions(query);
+    expect(held(db, "r-admin")).toEqual(expect.arrayContaining(["project.read", "role.manage"]));
+    expect(held(db, "r-reader")).toEqual(
+      expect.arrayContaining(["project.read", "project.export"])
+    );
+  });
+
+  it("leaves roles and their members exactly as they were", async () => {
+    const { db, query } = legacyState();
+    const key = (r) => [r.id, r.name, r.organizationId].join(":");
+    const before = db.roles.map(key).sort();
+    await migrateProjectLevelPermissions(query);
+    expect(db.roles.map(key).sort()).toEqual(before);
+  });
+
+  it("is safe to run twice", async () => {
+    const { db, query } = legacyState();
+    await migrateProjectLevelPermissions(query);
+    const once = snapshot(db);
+    await migrateProjectLevelPermissions(query);
+    expect(snapshot(db)).toBe(once);
+  });
+
+  it("ends with exactly the catalog's permissions", async () => {
+    const { db, query } = legacyState();
+    await migrateProjectLevelPermissions(query);
+    expect(db.permissions.size).toBe(PERMISSIONS.length + 1); // + the wildcard row
+    expect(db.permissions.has("project.manageall")).toBe(true);
+  });
+
+  it("aborts BEFORE pruning if the grant does not land, so no access is lost", async () => {
+    // If the grant silently failed, the prune that follows would delete
+    // project.configure -- the only record of who could manage projects -- and
+    // every one of them would lose that ability with no error anywhere.
+    const { db, query } = legacyState();
+    const grantIsANoOp = async (sql, params) =>
+      sql.includes("SELECT DISTINCT rp") ? [] : query(sql, params);
+
+    await expect(migrateProjectLevelPermissions(grantIsANoOp)).rejects.toThrow(
+      /Aborting before the prune/
+    );
+
+    // Nothing was pruned: the old permissions, and who held them, are intact.
+    expect(db.permissions.has("project.configure")).toBe(true);
+    expect(held(db, "r-admin")).toContain("project.configure");
+    expect(held(db, "r-qam")).toContain("project.configure");
+  });
+
+  it("does not abort on a database where nobody ever held the old permissions", async () => {
+    // A fresh install: nothing to preserve, so nothing to fail to grant.
+    const { db, query } = makeDb();
+    await expect(migrateProjectLevelPermissions(query)).resolves.toBeUndefined();
+    expect(db.permissions.has("project.manageall")).toBe(true);
   });
 });

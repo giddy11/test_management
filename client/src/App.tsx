@@ -37,7 +37,7 @@ import SupportSlaPage from "@/pages/support/SupportSlaPage"
 // Route groups are gated on permissions, not role names. Each list is "any one
 // of these admits you" — the pages themselves hide the parts a viewer can not
 // use, and the API re-checks everything regardless.
-const INTERNAL_APP = ["dashboard.read", "project.read", "ticket.read"]
+const INTERNAL_APP = ["dashboard.read", "project.read"]
 
 export default function App() {
   return (

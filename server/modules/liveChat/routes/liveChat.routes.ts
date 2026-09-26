@@ -16,7 +16,7 @@ import {
 const router = require("express").Router();
 const { validate } = require("../../../shared/middleware/validate.middleware");
 const { authMiddleware } = require("../../../shared/middleware/auth.middleware");
-const { requirePermission } = require("../../../shared/access/can");
+const { requireProjectAccess } = require("../../../shared/access/can");
 const { uploadMany } = require("../../../shared/middleware/upload.middleware");
 
 // projectId is required (unlike feedback's cross-project mode) — the inbox is
@@ -24,21 +24,21 @@ const { uploadMany } = require("../../../shared/middleware/upload.middleware");
 router.get(
   "/conversations",
   authMiddleware,
-  requirePermission("livechat.read"),
+  requireProjectAccess("Live chat — decided by role in the project"),
   validate(fetchConversationsSchema),
   LiveChatController.listConversations
 );
 router.get(
   "/conversations/:id/messages",
   authMiddleware,
-  requirePermission("livechat.read"),
+  requireProjectAccess("Live chat — decided by role in the project"),
   validate(fetchMessagesSchema),
   LiveChatController.fetchMessages
 );
 router.post(
   "/conversations/:id/messages",
   authMiddleware,
-  requirePermission("livechat.send"),
+  requireProjectAccess("Live chat — decided by role in the project"),
   uploadMany("images", 5), // multipart image attachments (no-op for JSON requests)
   validate(sendAgentMessageSchema),
   LiveChatController.sendAgentMessage
@@ -46,21 +46,21 @@ router.post(
 router.post(
   "/conversations/:id/read",
   authMiddleware,
-  requirePermission("livechat.read"),
+  requireProjectAccess("Live chat — decided by role in the project"),
   validate(conversationIdParamSchema),
   LiveChatController.markReadByAgent
 );
 router.patch(
   "/conversations/:id/assign",
   authMiddleware,
-  requirePermission("livechat.assign"),
+  requireProjectAccess("Live chat — decided by role in the project"),
   validate(assignAgentSchema),
   LiveChatController.assignAgent
 );
 router.patch(
   "/conversations/:id",
   authMiddleware,
-  requirePermission("livechat.manage"),
+  requireProjectAccess("Live chat — decided by role in the project"),
   validate(setStatusSchema),
   LiveChatController.setStatus
 );
@@ -69,7 +69,7 @@ router.patch(
 router.get(
   "/visitors",
   authMiddleware,
-  requirePermission("livechat.read"),
+  requireProjectAccess("Live chat — decided by role in the project"),
   validate(listVisitorsSchema),
   LiveChatController.listVisitors
 );
@@ -78,14 +78,14 @@ router.get(
 router.get(
   "/projects/:id/settings",
   authMiddleware,
-  requirePermission("livechat.read"),
+  requireProjectAccess("Live chat — decided by role in the project"),
   validate(projectIdParamSchema),
   LiveChatController.getSettings
 );
 router.patch(
   "/projects/:id/settings",
   authMiddleware,
-  requirePermission("livechat.configure"),
+  requireProjectAccess("Live chat — decided by role in the project"),
   validate(updateSettingsSchema),
   LiveChatController.updateSettings
 );
@@ -95,7 +95,7 @@ router.patch(
 router.post(
   "/projects/:id/link",
   authMiddleware,
-  requirePermission("widget.configure"),
+  requireProjectAccess("Live chat — decided by role in the project"),
   validate(liveChatLinkSchema),
   LiveChatController.setLink
 );

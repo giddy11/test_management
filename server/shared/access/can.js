@@ -3,10 +3,10 @@
 // THE authorization helper. Every permission decision in the app goes through
 // `can` or one of the guards below — no application code compares role names.
 //
-//   can(actor, "result.enter")            -> boolean
-//   assertPermission(actor, "run.close")  -> throws AppError(403)
+//   can(actor, "role.manage")             -> boolean
+//   assertPermission(actor, "role.assign") -> throws AppError(403)
 //   requirePermission("role.manage")      -> Express middleware
-//   requireAny("bug.triage","bug.verify") -> Express middleware (union)
+//   requireAny("role.manage","role.assign") -> Express middleware (union)
 //   requireProjectAccess(reason)          -> Express middleware: project.read, then the
 //                                            service decides by role IN the project
 //   publicRoute()                         -> explicit opt-out of the default deny

@@ -39,8 +39,8 @@ const admin = {
     "role.manage",
     "role.assign",
     "project.read",
-    "project.update",
-    "result.enter",
+    "project.export",
+    "user.read",
   ]),
 };
 const superAdmin = { id: "super-1", organizationId: "org-1", permissions: new Set(["*"]) };
@@ -157,10 +157,10 @@ describe("AccessService", () => {
         service.updateRole(admin, "role-builtin", { name: "Renamed" })
       ).rejects.toMatchObject({ statusCode: 400 });
 
-      await service.updateRole(admin, "role-builtin", { permissions: ["project.read", "project.update"] });
+      await service.updateRole(admin, "role-builtin", { permissions: ["project.read", "project.export"] });
       expect(repo.setRolePermissions).toHaveBeenCalledWith("role-builtin", [
         "project.read",
-        "project.update",
+        "project.export",
       ]);
     });
 
@@ -289,28 +289,28 @@ describe("AccessService", () => {
       await expect(
         service.createRole(admin, {
           name: "Overreach",
-          permissions: ["project.read", "platform.read", "settings.manage"],
+          permissions: ["project.read", "platform.read", "announcement.manage"],
         })
       ).rejects.toMatchObject({
-        message: expect.stringContaining("platform.read, settings.manage"),
+        message: expect.stringContaining("platform.read, announcement.manage"),
       });
     });
 
     it("lets an administrator grant what they do hold", async () => {
       await service.createRole(admin, {
         name: "Reader",
-        permissions: ["project.read", "project.update"],
+        permissions: ["project.read", "project.export"],
       });
       expect(repo.setRolePermissions).toHaveBeenCalledWith("new-role", [
         "project.read",
-        "project.update",
+        "project.export",
       ]);
     });
 
     it("exempts a super administrator, who holds everything", async () => {
       await service.createRole(superAdmin, {
         name: "Anything",
-        permissions: ["platform.read", "settings.manage"],
+        permissions: ["platform.read", "announcement.manage"],
       });
       expect(repo.createRole).toHaveBeenCalled();
     });
@@ -410,11 +410,11 @@ describe("AccessService", () => {
       repo.roleIdsGranting.mockResolvedValue(["role-other"]);
 
       await service.updateRole(admin, "role-support", {
-        permissions: ["project.read", "project.update"],
+        permissions: ["project.read", "project.export"],
       });
       expect(repo.setRolePermissions).toHaveBeenCalledWith("role-support", [
         "project.read",
-        "project.update",
+        "project.export",
         "supportqueue.read",
         "supportqueue.send",
       ]);
@@ -506,7 +506,7 @@ describe("AccessService", () => {
       activity.log.mockClear();
 
       await service.updateRole(admin, "role-builtin", {
-        permissions: ["project.read", "project.update"],
+        permissions: ["project.read", "project.export"],
       });
 
       expect(activity.log).toHaveBeenCalledWith(
@@ -518,7 +518,7 @@ describe("AccessService", () => {
           metadata: expect.objectContaining({
             before: expect.objectContaining({ permissions: ["project.read"] }),
             after: expect.objectContaining({
-              permissions: ["project.read", "project.update"],
+              permissions: ["project.read", "project.export"],
             }),
           }),
         })

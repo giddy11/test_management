@@ -25,11 +25,17 @@ function typingLabel(names: string[]) {
   return `${names.slice(0, -1).join(", ")}, and ${names[names.length - 1]} are typing…`
 }
 
-export function CommentThread({ requestId }: { requestId: string }) {
-  const { user, can } = useAuth()
-  // Deleting anyone else's comment is the same permission the server checks
-  // on DELETE /feature-requests/:id/comments/:commentId.
-  const canModerate = can("featurerequest.comment")
+// canModerate: deleting anyone else's comment is the project's team lead's call,
+// which is what the server checks on DELETE .../comments/:commentId. The parent
+// already knows the project, so it says so.
+export function CommentThread({
+  requestId,
+  canModerate,
+}: {
+  requestId: string
+  canModerate: boolean
+}) {
+  const { user } = useAuth()
   const { data: comments, isLoading, isError } = useFeatureRequestComments(requestId)
   const addComment = useAddFeatureRequestComment(requestId)
   const deleteComment = useDeleteFeatureRequestComment(requestId)

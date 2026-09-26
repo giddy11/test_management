@@ -15,7 +15,7 @@
 
 1. **Permissions are the unit of enforcement.** Roles are named bundles of permissions and
    nothing more. No application code may branch on a role name; it branches on
-   `can(actor, 'result.enter')`.
+   `can(actor, 'role.manage')`.
 2. **Permission codes are `resource.action`**, lowercase, single dot.
 3. **Deny by default.** A route with no declared permission fails closed with 403. A route
    that is deliberately public declares that explicitly (`publicRoute(...)`), so the absence of a
@@ -33,20 +33,31 @@
    (notifications are side effects, never a request) and `settings.manage` (its only
    subject, the support-chat toggle, is a single global row and so belongs to
    `supportchat.manage`). `roleMatrix.spec.js` fails the build if a new one appears.
-7. **The vendor and its customers are different principals.** The platform owner runs
+   A further 53 permissions were removed because the *project* now decides them
+   (principle 7).
+7. **Working inside a project is decided by the person's role in that project.** The
+   platform catalog says who may see, export and create projects and manage people; it
+   says nothing about suites, runs, bugs, tickets or chat. Those follow `member` /
+   `team_lead` on the project, so there is one place to look for each question.
+8. **The vendor and its customers are different principals.** The platform owner runs
    the platform; an organisation administrator runs one workspace. Neither inherits the
    other's controls, and no assignable role carries a platform-only permission.
-8. **Organisation isolation is not a permission.** Every query is scoped to
+9. **Organisation isolation is not a permission.** Every query is scoped to
    `actor.organizationId` (or `clientCompanyId`) *before* permissions are considered. No
    permission can grant cross-organisation access; only the wildcard super role bypasses it.
 
 ---
 
-## 2. Permission catalog — 85 permissions in 10 categories
+## 2. Permission catalog — 33 permissions in 6 categories
 
 > Generated from `server/modules/access/catalog/permissions.catalog.js`, which is the
 > single source the seed, the resolver and the tests all read. If this table and the
 > code disagree, the code is right.
+
+**Only platform-level permissions live here.** Everything about working *inside* a
+project — suites, cases, runs, results, bugs, feature requests, tickets, live chat, and
+editing, deleting or staffing a project — is decided by the person's **role in that
+project** (`project_members.role`), not by anything in this catalog. See section 5.
 
 Legend: ⚠ = carries a warning note shown in the role editor.
 
@@ -71,87 +82,17 @@ Legend: ⚠ = carries a warning note shown in the role editor.
 | `user.update` | Edit team members | Edit a team member's details. |
 | `user.delete` ⚠ | Remove team members | Remove a team member from the organisation. **Warning: removes the person's access immediately.** |
 
-### 2.3 Projects — 7
-*The containers everything else hangs off.*
+### 2.3 Projects — 4
+*Who can see, export and create projects. What someone can DO inside a project is set by their role in that project.*
 
 | Code | Label | Description |
 |---|---|---|
 | `project.read` | View projects | See projects and their details. |
 | `project.readall` | View all projects | See every project in the organisation, not only your own. |
-| `project.create` | Create projects | Start a new project. |
-| `project.update` | Edit projects | Change a project's name, description and metadata. |
-| `project.delete` | Delete projects | Remove a project and everything in it. |
-| `project.configure` | Manage project membership | Add and remove members, and set team leads. |
+| `project.manageall` ⚠ | Manage all projects | Create projects, and act as team lead on every project in the organisation. **Warning: full control of every project, including deleting it.** |
 | `project.export` | Export projects | Download a project or suite as a spreadsheet. |
 
-### 2.4 Test authoring — 12
-*Suites, test cases, their notes, and bulk import.*
-
-| Code | Label | Description |
-|---|---|---|
-| `suite.read` | View test suites | See suites and their contents. |
-| `suite.manage` | Manage test suites | Create, edit and delete suites. |
-| `testcase.read` | View test cases | See test cases and their steps. |
-| `testcase.create` | Write test cases | Draft a new test case. |
-| `testcase.update` | Edit test cases | Change an existing test case. |
-| `testcase.delete` | Delete test cases | Remove a test case. |
-| `testcase.approve` | Activate test cases | Move a case from Draft to Active. |
-| `testcase.deprecate` | Retire test cases | Move an Active case to Deprecated. |
-| `testcase.assign` | Assign testers | Choose who runs a test case. |
-| `import.run` | Run bulk import | Import test cases from a spreadsheet. |
-| `note.read` | View case notes | Read notes on a test case and notes recorded during runs. |
-| `note.manage` | Write case notes | Add and delete notes. |
-
-### 2.5 Test execution — 9
-*Runs, and the results recorded against them.*
-
-| Code | Label | Description |
-|---|---|---|
-| `run.read` | View test runs | See runs and their progress. |
-| `run.create` | Start test runs | Open a new run. |
-| `run.update` | Edit test runs | Change a run's details while it is in progress. |
-| `run.delete` | Delete test runs | Remove a run and its results. |
-| `run.close` | Close test runs | Mark a run complete, freezing its results. |
-| `result.read` | View results | See recorded pass, fail, blocked and skipped outcomes. |
-| `result.enter` | Record results | Record the outcome of executing a test case. |
-| `result.amend` ⚠ | Amend closed results | Change a result after its run has been closed. **Warning: every change is audited.** |
-| `result.delete` | Delete results | Remove a recorded result. |
-
-### 2.6 Defects & feature requests — 14
-*Work raised against a project, from report through to closure.*
-
-| Code | Label | Description |
-|---|---|---|
-| `bug.read` | View bugs | See reported bugs. |
-| `bug.create` | Report bugs | Raise a new bug. |
-| `bug.update` | Edit bugs | Change a bug's description and details. |
-| `bug.delete` | Delete bugs | Remove a bug report. |
-| `bug.triage` | Triage bugs | Set severity, priority and assignee. |
-| `bug.verify` | Verify fixes | Move a Fixed bug to Verified. |
-| `bug.close` | Close bugs | Close a bug, or reopen a closed one. |
-| `featurerequest.read` | View feature requests | See feature requests. |
-| `featurerequest.create` | Raise feature requests | Submit a new feature request. |
-| `featurerequest.update` | Edit feature requests | Change a request's details. |
-| `featurerequest.delete` | Delete feature requests | Remove a feature request. |
-| `featurerequest.decide` | Decide feature requests | Move a request through review to Planned, Done or Rejected. |
-| `featurerequest.vote` | Vote on feature requests | Add or remove a vote. |
-| `featurerequest.comment` | Comment on feature requests | Post and delete thread comments. |
-
-### 2.7 Customer tickets — 8
-*Feedback submitted through a project's public form, and its triage.*
-
-| Code | Label | Description |
-|---|---|---|
-| `ticket.read` | View tickets | See submitted tickets and their history. |
-| `ticket.assign` | Assign tickets | Route a ticket to a team member. |
-| `ticket.update` | Update ticket status | Advance a ticket through its working stages. |
-| `ticket.resolve` | Resolve tickets | Mark a ticket resolved. |
-| `ticket.close` | Close tickets | Close a resolved ticket. |
-| `ticket.delete` | Delete tickets | Remove a ticket. |
-| `ticket.comment` | Reply to tickets | Post in a ticket's conversation thread. |
-| `form.configure` ⚠ | Configure the public form | Enable, rotate or disable a project's public form link. **Warning: rotating a link breaks every form already shared.** |
-
-### 2.8 Support desk — 10
+### 2.4 Support desk — 10
 *External client companies and the queue their IT supporters work.*
 
 | Code | Label | Description |
@@ -167,24 +108,18 @@ Legend: ⚠ = carries a warning note shown in the role editor.
 | `company.autoassign` | Configure auto-assign | Set how incoming queue items are routed within a client company. |
 | `supporter.manage` | Manage supporters | Add, remove and promote a company's IT supporters. |
 
-### 2.9 Conversations & broadcasts — 11
-*Live chat, in-app support chat, and messages sent to everyone.*
+### 2.5 Platform inbox & broadcasts — 5
+*The in-app support inbox and messages sent to every user — the platform owner's, not any one organisation's.*
 
 | Code | Label | Description |
 |---|---|---|
-| `livechat.read` | View live chat | Read the operator inbox and visitor list. |
-| `livechat.send` | Reply in live chat | Send a message to a visitor. |
-| `livechat.assign` | Assign conversations | Route a conversation to an operator. |
-| `livechat.manage` | Manage conversations | Change a conversation's status. |
-| `livechat.configure` | Configure the widget | Change a project's widget presentation settings. |
-| `widget.configure` ⚠ | Configure the widget link | Enable, rotate or disable a project's widget link. **Warning: rotating a link breaks every embedded widget.** |
 | `supportchat.read` | View support chat inbox | Read in-app conversations with the platform team. |
 | `supportchat.send` | Reply in support chat | Respond in an in-app support conversation. |
 | `supportchat.manage` | Manage support chat | Close conversations, and turn the platform-wide support chat on or off. |
 | `announcement.manage` | Manage announcements | Write, publish and delete product announcements. |
 | `banner.publish` ⚠ | Broadcast site banner | Show a banner to everyone on the platform. **Warning: shown to every user on the platform.** |
 
-### 2.10 Reporting & analytics — 5
+### 2.6 Reporting & analytics — 5
 *Management reporting.*
 
 | Code | Label | Description |
@@ -195,7 +130,7 @@ Legend: ⚠ = carries a warning note shown in the role editor.
 | `sla.read` | View SLA reports | See SLA attainment and ticket timings. |
 | `sla.configure` | Configure SLA targets | Change the SLA rules the whole organisation is measured against. |
 
-### 2.11 The wildcard
+### 2.7 The wildcard
 
 | Code | Label | Description |
 |---|---|---|
@@ -214,12 +149,12 @@ a **Built-in** badge and the note:
 | Role | Kind | Permissions | Replaces |
 |---|---|---:|---|
 | Super administrator | built-in, **locked** | `*` | `superadmin` |
-| Organisation administrator | built-in | 72 | `admin` |
-| Test lead | built-in | 41 | `user` who leads a project (`project_members.role = team_lead`) |
-| QA engineer | built-in | 30 | `user` |
-| Tester | built-in | 21 | — (new) |
+| Organisation administrator | built-in | 20 | `admin` |
+| Test lead | built-in | 6 | `user` who leads a project (`project_members.role = team_lead`) |
+| QA engineer | built-in | 4 | `user` |
+| Tester | built-in | 3 | — (new) |
 | Support lead | built-in | 11 | `it_support` + `is_support_lead` |
-| Viewer | built-in | 13 | — (new) |
+| Viewer | built-in | 5 | — (new) |
 
 **QA manager, Support manager and Support agent are not built-in.** They were in the first
 release and were dropped as unnecessary. An organisation that had them keeps them as ordinary
@@ -242,7 +177,7 @@ It is the vendor's role, not the customer's, so it is **hidden from everyone but
 administrator**: it is absent from an organisation administrator's role list, and fetching,
 cloning or assigning it by id returns 404, as for another organisation's role.
 
-### 3.2 Organisation administrator — 72
+### 3.2 Organisation administrator — 20
 Everything inside one customer's workspace, and nothing outside it.
 
 This is **not** "every permission in the catalog". TestMate is multi-tenant, so
@@ -255,71 +190,44 @@ This is **not** "every permission in the catalog". TestMate is multi-tenant, so
   administrator's wildcard and are held by no assignable role.
 - **Support-desk-only** — `supportqueue.*` and `company.autoassign`: an external client
   company's own queue. The product team sees one of their tickets only once it is
-  escalated, and then through `ticket.read` like any other ticket.
+  escalated, and then as an ordinary project ticket, by role in that project.
 
 Defining this role as "all permissions" put the vendor's controls into every customer
 admin's sidebar. `roleMatrix.spec.js` now fails the build if either boundary is crossed.
 
+It is the **only** role holding `project.manageall`, which makes its holders act as team
+lead on every project in the organisation (section 5).
+
 ```
 audit.read, role.read, role.manage, role.assign, user.read, user.create,
-user.update, user.delete, project.read, project.readall, project.create,
-project.update, project.delete, project.configure, project.export,
-suite.read, suite.manage, testcase.read, testcase.create, testcase.update,
-testcase.delete, testcase.approve, testcase.deprecate, testcase.assign,
-import.run, note.read, note.manage, run.read, run.create, run.update,
-run.delete, run.close, result.read, result.enter, result.amend,
-result.delete, bug.read, bug.create, bug.update, bug.delete, bug.triage,
-bug.verify, bug.close, featurerequest.read, featurerequest.create,
-featurerequest.update, featurerequest.delete, featurerequest.decide,
-featurerequest.vote, featurerequest.comment, ticket.read, ticket.assign,
-ticket.update, ticket.resolve, ticket.close, ticket.delete, ticket.comment,
-form.configure, company.read, company.manage, supporter.manage,
-livechat.read, livechat.send, livechat.assign, livechat.manage,
-livechat.configure, widget.configure, dashboard.read, analytics.read,
-analytics.team, sla.read, sla.configure
+user.update, user.delete, project.read, project.readall, project.manageall,
+project.export, company.read, company.manage, supporter.manage,
+dashboard.read, analytics.read, analytics.team, sla.read, sla.configure
 ```
 
-### 3.3 Test lead — 41
-Supervisor and approver inside their own projects. Enters data *and* approves it, but
-cannot close the loop on published outcomes or touch configuration.
+### 3.3 Test lead — 6
+Exports projects and sees analytics and SLA reporting. What they can do *inside* a
+project comes from their role in that project (section 5), not from this list.
 
 ```
-user.read, project.read, project.export, suite.read, suite.manage,
-testcase.read, testcase.create, testcase.update, testcase.approve,
-testcase.assign, import.run, note.read, note.manage, run.read, run.create,
-run.update, run.close, result.read, result.enter, bug.read, bug.create,
-bug.update, bug.triage, bug.verify, featurerequest.read,
-featurerequest.create, featurerequest.update, featurerequest.vote,
-featurerequest.comment, ticket.read, ticket.assign, ticket.update,
-ticket.resolve, ticket.comment, livechat.read, livechat.send,
-livechat.assign, livechat.manage, dashboard.read, analytics.read, sla.read
+user.read, project.read, project.export, dashboard.read, analytics.read,
+sla.read
 ```
 
-**Notably lacks:** `result.amend`, `testcase.deprecate`, `testcase.delete`, `bug.close`, `bug.delete`, `featurerequest.decide`, `featurerequest.delete`, `ticket.close`, `analytics.team`, `project.readall`.
-
-### 3.4 QA engineer — 30
-Authors test cases and executes them. **Cannot approve anything.**
-
-```
-user.read, project.read, project.export, suite.read, suite.manage,
-testcase.read, testcase.create, testcase.update, testcase.assign, import.run,
-note.read, note.manage, run.read, run.create, run.update, result.read,
-result.enter, bug.read, bug.create, bug.update, featurerequest.read,
-featurerequest.create, featurerequest.update, featurerequest.vote,
-featurerequest.comment, ticket.read, ticket.comment, livechat.read,
-livechat.send, dashboard.read
-```
-
-### 3.5 Tester — 21
-Executes the cases assigned to them and reports what they find. No authoring, no
-assignment, no bulk import.
+### 3.4 QA engineer — 4
+Works in the projects they belong to and can export them. What they can do in each
+comes from their role there.
 
 ```
-user.read, project.read, suite.read, testcase.read, note.read, note.manage,
-run.read, run.create, result.read, result.enter, bug.read, bug.create,
-bug.update, featurerequest.read, featurerequest.create, featurerequest.vote,
-featurerequest.comment, ticket.read, ticket.comment, livechat.read,
-dashboard.read
+user.read, project.read, project.export, dashboard.read
+```
+
+### 3.5 Tester — 3
+Works in the projects they belong to. What they can do in each comes from their role
+there. A QA engineer without the export permission.
+
+```
+user.read, project.read, dashboard.read
 ```
 
 ### 3.6 Support lead — 11
@@ -331,43 +239,53 @@ supportqueue.resolve, supportqueue.escalate, supportqueue.send, company.read,
 company.autoassign, supporter.manage, audit.read, sla.read
 ```
 
-### 3.7 Viewer — 13
-A stakeholder who needs to see quality status across the organisation without touching
-anything.
+### 3.7 Viewer — 5
+Sees quality status across every project in the organisation and changes nothing:
+**read-only in every project they are not a member of**, because `ProjectService`
+resolves them to the `viewer` tier (section 5).
 
 ```
-project.read, project.readall, suite.read, testcase.read, note.read,
-run.read, result.read, bug.read, featurerequest.read, ticket.read,
-dashboard.read, analytics.read, sla.read
+project.read, project.readall, dashboard.read, analytics.read, sla.read
 ```
+
+> **Test lead, QA engineer and Tester are now nearly the same role.** With the project-
+> level permissions gone, they differ only in project export and analytics / SLA
+> reporting (6, 4 and 3 permissions). The distinction that used to justify them now
+> lives on the project (`team_lead` vs `member`). Retiring two of them, as QA manager,
+> Support manager and Support agent were retired, is an open decision (section 10).
 
 ---
 
 ## 4. Separation of duties, spelled out
 
-| Workflow | Writes | Approves | Finalises |
-|---|---|---|---|
-| Test case lifecycle | `testcase.create` / `testcase.update` — QA engineer, Test lead | `testcase.approve` (Draft → Active) — Test lead | `testcase.deprecate` — Organisation administrator |
-| Test run | `result.enter` — Tester, QA engineer, Test lead | `run.close` — Test lead | `result.amend` (post-closure) — Organisation administrator only ⚠ |
-| Defect lifecycle | `bug.create` / `bug.update` — anyone testing | `bug.triage`, `bug.verify` — Test lead | `bug.close` — Organisation administrator |
-| Feature request | `featurerequest.create` / `.update` — QA engineer, Test lead | `featurerequest.decide` — Organisation administrator | — |
-| Customer ticket | `ticket.update`, `ticket.comment` — Test lead | `ticket.resolve` — Test lead | `ticket.close`, `ticket.delete` — Organisation administrator |
-| Support queue (external) | `supportqueue.update` — Support lead, or a custom supporter role | `supportqueue.assign` — Support lead only | `supportqueue.escalate` — either, hands over to the product team |
+These splits are **project-level**. A person is a `member` (takes part), a `team_lead`
+(manages) or, for someone who can see a project without being on it, a read-only `viewer`
+— see section 5. Holders of `project.manageall` are team lead everywhere.
 
-Two hard splits, both mirroring the reference model's finance/academic split:
+| Workflow | Takes part (member) | Decides (team lead) |
+|---|---|---|
+| Test cases | read; add notes and attachments | create, edit, delete, assign, activate, retire; manage suites; bulk import |
+| Test runs | start a run; record results on cases assigned to them; complete a run | reopen a completed run; delete a run or result; **amend a result on a closed run (audited)** |
+| Defects | report a bug; correct their own report | triage (severity, priority, assignee); verify; close or reopen; delete |
+| Feature requests | raise, vote, comment | edit, change status (planned / done / rejected), delete; delete other people's comments |
+| Customer tickets | work a ticket assigned to them, through to closed; comment | reassign; delete; rotate the project's public form link |
+| Live chat | reply in a conversation assigned to them | assign, close, change settings, rotate the widget link |
+| The project | — | edit it, delete it, change who is on it |
+| Support queue (external) | `supportqueue.update` — Support lead, or a custom supporter role | `supportqueue.assign` — Support lead only; `supportqueue.escalate` hands over to the product team |
 
-- **Configuration is confined to administrators.** `settings.manage`, `sla.configure`,
-  `form.configure`, `widget.configure`, `role.manage` are held by no
-  engineering role.
-- **The customer-facing surface is split from the engineering surface.** The engineering
-  roles (Test lead, QA engineer, Tester) have no `form.configure`, `company.manage` or
-  `sla.configure`, and the external support roles have no `testcase.*`, `run.*` or
-  `result.*`.
+Two hard splits remain:
 
-**A reporter cannot verify their own fix.** `bug.create` and `bug.verify` are never both
-needed by the same person for the same bug — Tester and QA engineer hold `bug.create` without
-`bug.verify`; Test lead and Organisation administrator hold `bug.verify`. This is the model's
-answer to gap G12.
+- **Configuration is confined to administrators.** `sla.configure`, `role.manage`,
+  `role.assign` and `project.manageall` are held by no engineering role.
+- **The customer-facing surface is split from the engineering surface.** External support
+  roles hold no `project.read`, which is what keeps them out of every project-level route.
+
+**What this gives up.** The old platform catalog could say "whoever reports a bug cannot
+verify it" (`bug.create` without `bug.verify`), "whoever writes a case cannot activate it"
+(`testcase.create` without `testcase.approve`), and separate closing a run from editing it.
+Two project tiers cannot express those: a team lead who also reports a bug can verify their
+own fix. A member still cannot, because verification is lead-only. If a finer split is wanted
+later, the place to add it is a richer set of *project* roles, not this catalog.
 
 ---
 
@@ -393,14 +311,48 @@ rather than a role name:
 These are never a substitute for a permission check: the route's `requirePermission` has
 already run by the time any of them is called.
 
+### Project-level roles
+
+What a person can do **inside a project** is decided by their role in that project, resolved
+by `ProjectService.getProjectRole`:
+
+| Tier | Who | May |
+|---|---|---|
+| `lead` | anyone recorded as `team_lead` on the project — **and every holder of `project.manageall`, on every project in the organisation** | everything a member may, plus manage: cases and suites, assignment, deleting, triage and decisions, ticket and live-chat management, public links, and the project itself |
+| `member` | a project member; or anyone assigned a test case in it (legacy access, kept) | take part: run tests, record results on their own cases, report bugs, raise / vote / comment on feature requests, add notes and attachments |
+| `viewer` | anyone with `project.readall` who is **not** on the project | read only |
+| *none* | everyone else | nothing — 403 |
+
+Two layers enforce it, on purpose:
+
+1. **The route** declares `requireProjectAccess(reason)`, which checks `project.read` and
+   nothing else. That is what keeps an external supporter (who holds no `project.read`)
+   out of the whole product surface now that routes no longer name a role.
+2. **The service** decides per project: `getProject` for access, `assertCanContribute` for
+   taking part, `assertCanManageProject` for managing. `roleMatrix.spec.js` pins the route
+   layer for every project-level route; the service layer is covered by the service specs,
+   including that a read-only viewer is turned away from every write path.
+
+**Why `project.manageall` exists at all.** Two things cannot be project-level: *creating* a
+project (there is no project yet to hold a role in) and *managing one you are not on* — a
+project whose lead has left would otherwise be unmanageable for ever. It is the platform
+counterpart of `project.readall`, and only the Organisation administrator holds it by default.
+
+**Gaps this closed.** `updateProject`, `deleteProject`, `setFeedbackLink` and
+`setWidgetLink` checked project *access* only and leaned entirely on the route guard, and the
+run-result attachment methods (list, upload, delete) looked the row up by id and stopped —
+no project check at all, so any authenticated internal user in any organisation could reach
+them. All now check the project.
+
+
 | Role | Scoping rule |
 |---|---|
 | **Super administrator** | None. The only principal that crosses organisation boundaries. |
 | **Organisation administrator** | Every row where `organization_id = actor.organizationId`. |
-| **Test lead** | Organisation, further narrowed to **projects the user is a member of**. Management actions (`suite.manage`, `testcase.*`, `run.close`, `bug.triage`, `ticket.assign`) additionally require `project_members.role = 'team_lead'` **for that project** — the existing `ProjectService.assertCanManageProject` bar, now layered under the permission rather than replacing it. |
-| **QA engineer** | Organisation, narrowed to projects the user is a member of. Read access also extends to any project containing a test case assigned to them (existing legacy behaviour in `ProjectService.assertAccess`, preserved). |
-| **Tester** | Organisation, narrowed to **test cases assigned to the user** and the suites/projects containing them. `result.enter` is additionally restricted to results for cases assigned to them — the existing check in `TestRunResultService`, preserved. |
-| **Viewer** | Organisation-wide read. **Assumption:** a Viewer is an internal stakeholder (engineering manager, product owner) who should see every project in the organisation, not just ones they belong to. If a narrower Viewer is wanted, it becomes a custom role with project membership applied. |
+| **Test lead** | Organisation, narrowed to **projects they are a member of**. What they may do in each is their *project* role: lead on the projects they lead, member on the rest. Nothing at the platform level lets them manage a project they do not lead. |
+| **QA engineer** | Organisation, narrowed to projects they are a member of, plus any project containing a test case assigned to them (legacy behaviour in `ProjectService`, preserved). |
+| **Tester** | Organisation, narrowed to projects they are on or assigned a case in; within one, they touch only **results for cases assigned to them** — the existing check in `TestRunResultService`, preserved. |
+| **Viewer** | Organisation-wide read, and **read-only everywhere**: `project.readall` lets them see every project, but they are on none, so `getProjectRole` resolves them to `viewer` and every write path turns them away. **Assumption:** a Viewer is an internal stakeholder (engineering manager, product owner). A narrower Viewer is a custom role with project membership applied. |
 | **Support lead** | Every query filtered to `client_company_id = actor.clientCompanyId`. `supportqueue.assign`, `company.autoassign` and `supporter.manage` additionally require `users.is_support_lead = true`, and `supporter.manage` cannot touch the **primary** lead — that stays `company.manage` (product team). |
 | **A supporter who is not a lead** (custom role) | Same `client_company_id` filter. Queue items are further narrowed to unassigned items plus those assigned to the actor. |
 
@@ -440,9 +392,9 @@ administrator in the seeded set.
 
 ```
 permissions
-  code           varchar(64) PK        -- 'result.amend'
-  category       varchar(40)           -- 'execution'
-  label          varchar(120)          -- 'Amend closed results'
+  code           varchar(64) PK        -- 'project.manageall'
+  category       varchar(40)           -- 'projects'
+  label          varchar(120)          -- 'Manage all projects'
   description    text
   warning        text NULL             -- 'Every change is audited'
   sort_order     int
@@ -524,6 +476,15 @@ ordering, but worth stating because the failure mode is total rather than partia
 After deploying, `npm run seed:access` is safe to run at any time and repairs an organisation
 whose roles were never provisioned.
 
+**`1783320000000-MovePermissionsToProjectLevel` must also run before the new code.** It adds
+`project.manageall` and grants it to every role that held `project.configure` or
+`project.create`, then removes the permissions the catalog no longer lists. That order matters:
+the seed never adds a new permission to an existing role, so without the grant every existing
+Organisation administrator would silently lose the ability to create projects or manage ones
+they are not on. The migration checks its own grant landed and aborts *before* pruning if not,
+because pruning deletes the only record of who held the old permissions. To check by hand
+afterwards, every built-in `org_admin` role should hold `project.manageall`.
+
 ### Migration of existing users
 
 `users.role` is retained (not dropped) for one release. A data migration grants:
@@ -556,9 +517,10 @@ them under the permission checks.
 
 ```js
 // shared/access/can.js
-can(actor, 'result.enter')            // boolean; true if any of the actor's roles grants it, or '*'
-requirePermission('result.enter')     // Express middleware -> 403 on failure
-requireAny('bug.triage','bug.verify') // Express middleware, union
+can(actor, 'project.manageall')       // boolean; true if any of the actor's roles grants it, or '*'
+requirePermission('role.manage')      // Express middleware -> 403 on failure
+requireAny('role.manage','role.assign') // Express middleware, union
+requireProjectAccess(reason)          // project.read at the route; the SERVICE decides by role in the project
 requireAuthenticatedOnly(reason)      // signed in, no permission needed (own profile etc.)
 publicRoute(reason)                   // explicit opt-out, satisfies deny-by-default
 assertPermission(actor, code)         // service-layer guard, throws AppError(403)
@@ -574,13 +536,17 @@ hasWildcard(actor)                    // super administrator only, for the escal
   nothing has a denying handler **spliced into the front of its stack**, so it fails closed at
   request time as well as being named loudly in the log. `routeCoverage.spec.js` asserts the
   list is empty, so it also fails the build. This is the fix for gap G8.
-- Some permissions are enforced below the route, because the action shares an endpoint with a
-  less-privileged one — a status transition on an update endpoint. `testcase.approve`,
-  `testcase.deprecate`, `run.close`, `bug.triage`, `bug.verify`, `bug.close`,
-  `featurerequest.decide`, `ticket.assign`, `ticket.resolve`, `ticket.close` and
-  `result.amend` are checked with `assertPermission` in the owning service.
-  `roleMatrix.spec.js` keeps that list honest: a catalog permission that is neither on a route
-  nor named there fails the build.
+- 80 routes are declared `requireProjectAccess(reason)`: the whole project-level surface
+  (suites, cases, runs, results, bugs, feature requests, tickets, live chat, and editing or
+  deleting a project). The route checks `project.read` only; the service then decides by the
+  caller's role in *that* project (section 5). A route declared this way is a promise the
+  service must keep, so each write path in those services calls `assertCanContribute` or
+  `assertCanManageProject`, and the service specs pin it.
+- Three catalog permissions are read inside services rather than on a route:
+  `project.readall` and `project.manageall` (they turn a project role into "everything in the
+  organisation") and the two analytics permissions (they decide what the dashboard computes).
+  `roleMatrix.spec.js` keeps that list honest: a catalog permission that is neither on a
+  route nor named there fails the build.
 
 ### Audit
 
@@ -590,8 +556,9 @@ Every role change, permission change and role assignment writes to the existing
 `role.created`, `role.updated`, `role.deleted`, `role.permissions_changed`,
 `role.assigned`, `role.unassigned`
 
-and `metadata` carrying `{ before, after }`. Sensitive domain actions — `result.amend` above
-all — write the same before/after shape. Reading the log requires `audit.read`.
+and `metadata` carrying `{ before, after }`. Sensitive domain actions — amending a result on a
+closed run above all (`result.amended`) — write the same before/after shape. Reading the log
+requires `audit.read`.
 
 ### Client
 
@@ -633,18 +600,18 @@ show impact before an edit.
 | Gap | Resolution |
 |---|---|
 | G1 unauthenticated `integrations/companies` | **Not fixed.** A permission model cannot secure a route with no principal, and the route is left as-is by decision. It is declared `publicRoute(...)` so it is visible rather than forgotten, and there is deliberately no `integration.manage` permission — a permission nothing checks would be a lie in the role editor. |
-| G2 long-lived public tokens | Unchanged. `form.configure` / `widget.configure` now gate rotation with a warning note. |
+| G2 long-lived public tokens | Unchanged. Rotating a project's form or widget link is the project's team lead's call, checked in `setFeedbackLink` / `setWidgetLink` — which previously checked access only. |
 | G3 site banner read is superadmin-only | Fixed: reading the current banner needs no permission (any authenticated user); `banner.publish` gates broadcasting. |
-| G4 widget settings open to `user` | Fixed: `livechat.configure`, held by administrators only. |
-| G5 import confirm open to any internal role | Fixed: `import.run`. |
-| G6 bulk assignee change | Fixed: `testcase.assign`. |
+| G4 widget settings open to `user` | Fixed: changing them, and rotating the widget link, needs the project's team lead. |
+| G5 import confirm open to any internal role | Fixed: upload and confirm both call `assertCanManageProject` in the service. |
+| G6 bulk assignee change | Fixed: single and bulk assignment both need the project's team lead. |
 | G7 undeclared notification routes | Fixed: declared explicitly; still self-scoped. |
 | G8 no deny-by-default | Fixed: boot-time assertion plus fail-closed default. |
 | G9/G10/G11 UI-only and drifting checks | Fixed: one catalog, one `can()`, shared shape on both sides. |
 | G12/G13 ~70 hard-coded role checks | Migrated to `can(actor, code)`. Checks are replaced, not layered. |
 | G14 implicit privilege granting | Fixed: `role.assign` + the no-escalation guard. |
 | G15 no lockout protection | Fixed: section 6. |
-| G16 `it_support` excluded by omission | Fixed: external roles hold only `supportqueue.*` / `company.*`; the internal surface is unreachable by construction. |
+| G16 `it_support` excluded by omission | Fixed: external roles hold no `project.read`, which every project-level route requires, so the internal surface is unreachable by construction. `roleMatrix.spec.js` asserts it for all 80 routes. |
 
 ---
 
@@ -662,12 +629,35 @@ show impact before an edit.
    the body, or an allowlist of partner IPs. **Whichever is chosen, existing partners must be
    issued credentials before it ships.**
 
+2. **Test lead, QA engineer and Tester are nearly the same role now.** With the project-level
+   permissions gone they differ only in project export and analytics / SLA reporting. They were
+   left seeded because retiring a built-in role is a data decision (members, and existing
+   organisations' copies). If they are retired, `RETIRED_ROLE_KEYS` and a migration do it the
+   way QA manager, Support manager and Support agent were.
+3. **A team lead can now delete their own project.** `project.delete` was administrator-only. The
+   review moved it to the project level, so `deleteProject` needs the team lead. That widens who
+   can destroy a project and its contents; if it should stay narrower, it needs its own check
+   (for example project owner or `project.manageall` only).
+4. **The UI does not yet hide write controls from a read-only Viewer.** The server refuses them
+   with a clear message ("You have read-only access to this project"), so nothing is exposed,
+   but the buttons are still shown. Likewise the Projects list only shows edit / delete to
+   `project.manageall` holders, although the server also lets a project's own lead do both from
+   the project page. Both need the client to know the viewer's role per project.
+
 ### Decided
 
-2. **Viewer scope — organisation-wide.** A Viewer is an internal stakeholder who should see
+5. **Viewer scope — organisation-wide.** A Viewer is an internal stakeholder who should see
    quality status across every project without being added to each one, so the role holds
    `project.readall`. A narrower Viewer is a custom role away.
-3. **Role granularity — 7 seeded.** The migration is lossless: a legacy `user` who leads
+6. **Working inside a project is decided at the project level.** *Decided by the review.* Roles,
+   people, `project.read` / `readall` / `export` and reporting stay platform-level; suites, cases,
+   runs, results, bugs, feature requests, tickets, live chat and project management follow the
+   person's role in the project (`member` / `team_lead`). Two things could not be literal:
+   creating a project (no project exists yet) and managing one you are not on (an abandoned
+   project would be unmanageable), so both became one platform permission,
+   `project.manageall`, held only by the Organisation administrator. A read-only `viewer` tier
+   was added so an org-wide Viewer cannot write.
+7. **Role granularity — 7 seeded.** The migration is lossless: a legacy `user` who leads
    a project becomes a Test lead and everyone else a QA engineer, so nobody loses a capability
    they have today. Promoting people into Tester or Viewer is a manual follow-up an admin can
    do from the Team screen whenever they like. QA manager, Support manager and Support agent

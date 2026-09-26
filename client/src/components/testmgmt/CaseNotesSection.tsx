@@ -21,10 +21,16 @@ import { ApiError } from "@/transport/http"
 const initials = (name: string) =>
   name.split(" ").map((p) => p[0]).slice(0, 2).join("").toUpperCase() || "?"
 
-// The running notes thread on the case itself.
-export function CaseNotesSection({ caseId }: { caseId: string }) {
-  const { user, can } = useAuth()
-  const canModerate = can("note.manage")
+// The running notes thread on the case itself. canModerate: removing someone
+// else's note is the project's team lead's call, which the parent already knows.
+export function CaseNotesSection({
+  caseId,
+  canModerate,
+}: {
+  caseId: string
+  canModerate: boolean
+}) {
+  const { user } = useAuth()
   const { data: notes = [], isLoading } = useCaseNotes(caseId)
   const addNote = useAddCaseNote(caseId)
   const deleteNote = useDeleteCaseNote(caseId)

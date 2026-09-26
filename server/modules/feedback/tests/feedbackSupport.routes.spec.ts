@@ -175,17 +175,23 @@ describe("feedback.routes — external supporters locked out of triage", () => {
     }
   });
 
-  it("keeps deleting a ticket away from engineers who may read it", () => {
-    const read = guardFor(feedbackRouter, "/", "get");
-    const destroy = guardFor(feedbackRouter, "/:id", "delete");
-    const engineer = permissionsOf(ROLE_KEYS.QA_ENGINEER);
-    expect(invoke(read, engineer).next).toHaveBeenCalled();
-    expect(invoke(destroy, engineer).status).toHaveBeenCalledWith(403);
-  });
-
-  it("keeps the public form link behind form.configure, not ticket.read", () => {
-    const handler = guardFor(feedbackRouter, "/projects/:id/link", "post");
-    expect(invoke(handler, permissionsOf(ROLE_KEYS.TEST_LEAD)).status).toHaveBeenCalledWith(403);
-    expect(invoke(handler, permissionsOf(ROLE_KEYS.ORG_ADMIN)).next).toHaveBeenCalled();
+  // Who may delete a ticket, or rotate a project's public form link, is no longer a
+  // platform permission: it is the caller's role IN that project (the team lead),
+  // enforced by FeedbackService (deleteFeedback / setFeedbackLink -- see
+  // feedback.service.spec.ts and feedbackLink.service.spec.js). The route's only
+  // job is to keep people who cannot use projects at all out, which is exactly
+  // what stops an external supporter above.
+  it("leaves deleting a ticket and rotating the form link to the project's own roles", () => {
+    for (const [path, method] of [
+      ["/:id", "delete"],
+      ["/projects/:id/link", "post"],
+    ] as [string, string][]) {
+      const handler = guardFor(feedbackRouter, path, method);
+      // Anyone who can use projects reaches the service, which then decides.
+      expect(invoke(handler, permissionsOf(ROLE_KEYS.QA_ENGINEER)).next).toHaveBeenCalled();
+      expect(invoke(handler, permissionsOf(ROLE_KEYS.TESTER)).next).toHaveBeenCalled();
+      // ...but never someone on the customer side.
+      expect(invoke(handler, permissionsOf(ROLE_KEYS.SUPPORT_LEAD)).status).toHaveBeenCalledWith(403);
+    }
   });
 });

@@ -2,7 +2,7 @@
 const router = require("express").Router();
 const { validate } = require("../../../shared/middleware/validate.middleware");
 const { authMiddleware } = require("../../../shared/middleware/auth.middleware");
-const { requirePermission } = require("../../../shared/access/can");
+const { requireProjectAccess } = require("../../../shared/access/can");
 const { uploadMany } = require("../../../shared/middleware/upload.middleware");
 const {
   testCaseIdParamSchema,
@@ -16,7 +16,7 @@ const {
 router.get(
   "/:id/attachments",
   authMiddleware,
-  requirePermission("testcase.read"),
+  requireProjectAccess("Test authoring — decided by role in the project"),
   validate(testCaseIdParamSchema),
   TestCaseAttachmentController.list
 );
@@ -25,7 +25,7 @@ router.get(
 router.post(
   "/:id/attachments",
   authMiddleware,
-  requirePermission("testcase.update"),
+  requireProjectAccess("Test authoring — decided by role in the project"),
   uploadMany("images", 10), // ① parse + validate files
   validate(testCaseIdParamSchema), // ② validate params
   TestCaseAttachmentController.upload
@@ -35,7 +35,7 @@ router.post(
 router.delete(
   "/:id/attachments/:attachmentId",
   authMiddleware,
-  requirePermission("testcase.update"),
+  requireProjectAccess("Test authoring — decided by role in the project"),
   validate(attachmentParamsSchema),
   TestCaseAttachmentController.remove
 );

@@ -2,7 +2,7 @@
 const router = require("express").Router();
 const { validate } = require("../../../shared/middleware/validate.middleware");
 const { authMiddleware } = require("../../../shared/middleware/auth.middleware");
-const { requirePermission } = require("../../../shared/access/can");
+const { requireProjectAccess } = require("../../../shared/access/can");
 const {
   createTestCaseSchema,
   updateTestCaseSchema,
@@ -13,26 +13,26 @@ const {
 } = require("../validators/testCase.schema");
 const { TestCaseController } = require("../controllers/testCase.controller");
 
-router.get("/", authMiddleware, requirePermission("testcase.read"), validate(fetchTestCasesSchema), TestCaseController.fetchAll);
-router.get("/:id", authMiddleware, requirePermission("testcase.read"), validate(idParamSchema), TestCaseController.fetchById);
+router.get("/", authMiddleware, requireProjectAccess("Test authoring — decided by role in the project"), validate(fetchTestCasesSchema), TestCaseController.fetchAll);
+router.get("/:id", authMiddleware, requireProjectAccess("Test authoring — decided by role in the project"), validate(idParamSchema), TestCaseController.fetchById);
 router.post(
   "/",
   authMiddleware,
-  requirePermission("testcase.create"),
+  requireProjectAccess("Test authoring — decided by role in the project"),
   validate(createTestCaseSchema),
   TestCaseController.create
 );
 router.patch(
   "/:id",
   authMiddleware,
-  requirePermission("testcase.update"),
+  requireProjectAccess("Test authoring — decided by role in the project"),
   validate(updateTestCaseSchema),
   TestCaseController.update
 );
 router.delete(
   "/:id",
   authMiddleware,
-  requirePermission("testcase.delete"),
+  requireProjectAccess("Test authoring — decided by role in the project"),
   validate(idParamSchema),
   TestCaseController.remove
 );
@@ -41,7 +41,7 @@ router.delete(
 router.patch(
   "/assignees/bulk",
   authMiddleware,
-  requirePermission("testcase.assign"),
+  requireProjectAccess("Test authoring — decided by role in the project"),
   validate(bulkAssignTestCaseSchema),
   TestCaseController.bulkAssign
 );
@@ -50,7 +50,7 @@ router.patch(
 router.patch(
   "/:id/assignees",
   authMiddleware,
-  requirePermission("testcase.assign"),
+  requireProjectAccess("Test authoring — decided by role in the project"),
   validate(assignTestCaseSchema),
   TestCaseController.assign
 );

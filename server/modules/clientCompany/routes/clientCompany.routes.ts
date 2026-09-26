@@ -33,7 +33,7 @@ router.get("/", authMiddleware, requirePermission("company.read"), validate(fetc
 router.post("/", authMiddleware, requirePermission("company.manage"), validate(createClientCompanySchema), ClientCompanyController.create);
 router.patch("/:id", authMiddleware, requirePermission("company.manage"), validate(updateClientCompanySchema), ClientCompanyController.update);
 router.delete("/:id", authMiddleware, requirePermission("company.manage"), validate(clientCompanyIdParamSchema), ClientCompanyController.remove);
-router.post("/:id/link", authMiddleware, requirePermission("form.configure"), validate(clientCompanyLinkSchema), ClientCompanyController.setLink);
+router.post("/:id/link", authMiddleware, requirePermission("company.manage"), validate(clientCompanyLinkSchema), ClientCompanyController.setLink);
 
 router.get(
   "/:id/supporters",

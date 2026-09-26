@@ -37,7 +37,7 @@ export interface NavItem {
 export const NAV_ITEMS: NavItem[] = [
   { title: "Dashboard", to: "/dashboard", icon: LayoutDashboard, permission: "dashboard.read", tourId: "nav-dashboard" },
   { title: "Projects", to: "/projects", icon: FolderKanban, permission: "project.read", tourId: "nav-projects" },
-  { title: "All tickets", to: "/all-feedback", icon: MessageSquareHeart, permission: "ticket.read" },
+  { title: "All tickets", to: "/all-feedback", icon: MessageSquareHeart, permission: "project.read" },
   { title: "Ticket queue", to: "/support", icon: Headset, permission: "supportqueue.read" },
   // Not sla.read: administrators hold that for the SLA tab on the dashboard.
   // This item is the supporter portal's own SLA page.

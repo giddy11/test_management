@@ -2,7 +2,7 @@
 const router = require("express").Router();
 const { validate } = require("../../../shared/middleware/validate.middleware");
 const { authMiddleware } = require("../../../shared/middleware/auth.middleware");
-const { requirePermission } = require("../../../shared/access/can");
+const { requireProjectAccess } = require("../../../shared/access/can");
 const {
   createTestRunSchema,
   updateTestRunSchema,
@@ -12,33 +12,33 @@ const {
 } = require("../validators/testRun.schema");
 const { TestRunController } = require("../controllers/testRun.controller");
 
-router.get("/", authMiddleware, requirePermission("run.read"), validate(fetchTestRunsSchema), TestRunController.fetchAll);
+router.get("/", authMiddleware, requireProjectAccess("Test execution — decided by role in the project"), validate(fetchTestRunsSchema), TestRunController.fetchAll);
 router.get(
   "/active-status",
   authMiddleware,
-  requirePermission("run.read"),
+  requireProjectAccess("Test execution — decided by role in the project"),
   validate(fetchActiveStatusSchema),
   TestRunController.fetchActiveStatus
 );
-router.get("/:id", authMiddleware, requirePermission("run.read"), validate(idParamSchema), TestRunController.fetchById);
+router.get("/:id", authMiddleware, requireProjectAccess("Test execution — decided by role in the project"), validate(idParamSchema), TestRunController.fetchById);
 router.post(
   "/",
   authMiddleware,
-  requirePermission("run.create"),
+  requireProjectAccess("Test execution — decided by role in the project"),
   validate(createTestRunSchema),
   TestRunController.create
 );
 router.patch(
   "/:id",
   authMiddleware,
-  requirePermission("run.update"),
+  requireProjectAccess("Test execution — decided by role in the project"),
   validate(updateTestRunSchema),
   TestRunController.update
 );
 router.delete(
   "/:id",
   authMiddleware,
-  requirePermission("run.delete"),
+  requireProjectAccess("Test execution — decided by role in the project"),
   validate(idParamSchema),
   TestRunController.remove
 );

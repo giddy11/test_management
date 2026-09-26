@@ -165,6 +165,70 @@ async function retireBuiltinRoles(query) {
   );
 }
 
+// One-off data move for "everything about working inside a project is decided by
+// the person's role in that project". Safe to re-run.
+//
+// Removing permissions from the catalog needs nothing special: seedCatalog drops
+// them and the foreign key clears them from every role. ADDING one is the risk.
+// The seed deliberately never grants a new permission to an existing role, so
+// without this every existing Organisation administrator would silently lose the
+// ability to create projects or to manage ones they are not on.
+//
+// project.manageall is what project.configure and project.create became, so it
+// goes to exactly the roles that held either. That has to happen BEFORE the prune
+// below: dropping project.configure cascades away the rows used to find them.
+//
+// Roles that held only the finer project permissions (project.update / .delete)
+// do not get it: those are now the project's team lead's call, which is the
+// point of the change.
+async function migrateProjectLevelPermissions(query) {
+  const def = PERMISSIONS.find((p) => p.code === "project.manageall");
+  if (!def) throw new Error("[access] project.manageall is missing from the catalog");
+
+  // The permission row must exist before a role can reference it. seedCatalog
+  // below refreshes its label and sort order.
+  await query(
+    `INSERT INTO "permissions" ("code", "category", "label", "description", "warning", "sort_order")
+     VALUES ($1, $2, $3, $4, $5, 0)
+     ON CONFLICT ("code") DO NOTHING`,
+    [def.code, def.category, def.label, def.description ?? null, def.warning ?? null]
+  );
+
+  // How many roles should end up with it? Counted first, because the prune
+  // below deletes project.configure and with it the only record of who held it.
+  const expected = await query(
+    `SELECT COUNT(DISTINCT "role_id")::int AS n
+       FROM "role_permissions"
+      WHERE "permission_code" IN ('project.configure', 'project.create')`
+  );
+  const mustHold = Number(expected[0]?.n ?? 0);
+
+  await query(
+    `INSERT INTO "role_permissions" ("role_id", "permission_code")
+     SELECT DISTINCT rp."role_id", 'project.manageall'
+       FROM "role_permissions" rp
+      WHERE rp."permission_code" IN ('project.configure', 'project.create')
+     ON CONFLICT DO NOTHING`
+  );
+
+  // Fail loudly rather than silently. If the grant did not land, pruning next
+  // would strip the last trace of who could manage projects, and every one of
+  // them would lose that ability with no error anywhere. Throwing here rolls the
+  // whole migration back, so the data is still intact to retry.
+  const granted = await query(
+    `SELECT COUNT(*)::int AS n FROM "role_permissions" WHERE "permission_code" = 'project.manageall'`
+  );
+  if (Number(granted[0]?.n ?? 0) < mustHold) {
+    throw new Error(
+      `[access] Expected at least ${mustHold} role(s) to hold project.manageall after the grant, ` +
+        `found ${granted[0]?.n ?? 0}. Aborting before the prune so no access is lost.`
+    );
+  }
+
+  // Now drop everything the catalog no longer lists.
+  await seedCatalog(query);
+}
+
 // Seeds built-in roles for every organisation that currently has users.
 async function seedAllOrganizations(query, options = {}) {
   const orgs = await query(
@@ -238,6 +302,7 @@ module.exports = {
   seedOrganizationRoles,
   seedAllOrganizations,
   retireBuiltinRoles,
+  migrateProjectLevelPermissions,
   backfillUserRoles,
   WILDCARD_ROW,
 };

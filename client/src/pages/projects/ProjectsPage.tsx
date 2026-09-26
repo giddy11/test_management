@@ -16,7 +16,7 @@ import type { Project } from "@/types/project.types"
 export default function ProjectsPage() {
   const { can } = useAuth()
   const navigate = useNavigate()
-  const canManage = can("project.create")
+  const canManage = can("project.manageall")
   const [search, setSearch] = useState("")
   const debouncedSearch = useDebounce(search, 300)
   const [page, setPage] = useState(1)

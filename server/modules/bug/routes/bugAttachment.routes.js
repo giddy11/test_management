@@ -2,7 +2,7 @@
 const router = require("express").Router();
 const { validate } = require("../../../shared/middleware/validate.middleware");
 const { authMiddleware } = require("../../../shared/middleware/auth.middleware");
-const { requirePermission } = require("../../../shared/access/can");
+const { requireProjectAccess } = require("../../../shared/access/can");
 const { uploadMany } = require("../../../shared/middleware/upload.middleware");
 const {
   bugIdParamSchema,
@@ -14,7 +14,7 @@ const { BugAttachmentController } = require("../controllers/bugAttachment.contro
 router.get(
   "/:id/attachments",
   authMiddleware,
-  requirePermission("bug.read"),
+  requireProjectAccess("Defects and feature requests — decided by role in the project"),
   validate(bugIdParamSchema),
   BugAttachmentController.list
 );
@@ -23,7 +23,7 @@ router.get(
 router.post(
   "/:id/attachments",
   authMiddleware,
-  requirePermission("bug.update"),
+  requireProjectAccess("Defects and feature requests — decided by role in the project"),
   uploadMany("images", 10), // ① parse + validate files
   validate(bugIdParamSchema), // ② validate params
   BugAttachmentController.upload
@@ -33,7 +33,7 @@ router.post(
 router.delete(
   "/:id/attachments/:attachmentId",
   authMiddleware,
-  requirePermission("bug.update"),
+  requireProjectAccess("Defects and feature requests — decided by role in the project"),
   validate(attachmentParamsSchema),
   BugAttachmentController.remove
 );

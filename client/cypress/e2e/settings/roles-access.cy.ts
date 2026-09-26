@@ -12,8 +12,8 @@ const PERMISSIONS = [
   { code: "role.manage", category: "access", label: "Manage roles", description: "Create, edit and delete roles.", warning: "Can grant any permission" },
   { code: "role.assign", category: "access", label: "Assign roles", description: "Give a user a role.", warning: "Can give any user any role" },
   { code: "project.read", category: "projects", label: "View projects", description: "See projects and their details.", warning: null },
-  { code: "project.create", category: "projects", label: "Create projects", description: "Start a new project.", warning: null },
-  { code: "project.delete", category: "projects", label: "Delete projects", description: "Remove a project and everything in it.", warning: null },
+  { code: "project.export", category: "projects", label: "Export projects", description: "Download a project or suite as a spreadsheet.", warning: null },
+  { code: "project.manageall", category: "projects", label: "Manage all projects", description: "Create projects, and act as team lead on every project in the organisation.", warning: "Full control of every project, including deleting it" },
 ]
 
 const ROLES = [
@@ -112,11 +112,11 @@ describe("Roles & access", () => {
     cy.dataCy("role-item-org_admin").click()
     cy.dataCy("save-role").should("be.disabled")
 
-    cy.dataCy("permission-project.delete").click()
+    cy.dataCy("permission-project.manageall").click()
     cy.dataCy("save-role").should("not.be.disabled")
 
     // Putting it back makes the form clean again.
-    cy.dataCy("permission-project.delete").click()
+    cy.dataCy("permission-project.manageall").click()
     cy.dataCy("save-role").should("be.disabled")
   })
 
