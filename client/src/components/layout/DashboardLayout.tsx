@@ -8,13 +8,20 @@ import { Separator } from "@/components/ui/separator"
 import { AppSidebar } from "@/components/layout/AppSidebar"
 import { ThemeToggle } from "@/components/shared/ThemeToggle"
 import { NotificationBell } from "@/components/layout/NotificationBell"
+import { GlobalSearch } from "@/components/layout/GlobalSearch"
 import { WhatsNewDialog } from "@/components/layout/WhatsNewDialog"
 import { SiteBannerBar } from "@/components/layout/SiteBannerBar"
 import { PreviewBanner } from "@/components/layout/PreviewBanner"
 import { PresenceProvider } from "@/contexts/PresenceContext"
+import { useAuth } from "@/contexts/AuthContext"
 import { SupportChatWidget } from "@/components/support-chat/SupportChatWidget"
 
 export function DashboardLayout() {
+  // Everything global search can return hangs off a project, so an account with
+  // no project surface at all (an external company's IT supporters) gets no
+  // search box — the API would refuse it anyway.
+  const { can } = useAuth()
+
   return (
     <PresenceProvider>
       <SidebarProvider>
@@ -25,8 +32,9 @@ export function DashboardLayout() {
           <header className="sticky top-0 z-10 flex h-14 shrink-0 items-center gap-2 border-b bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/60">
             <SidebarTrigger className="-ml-1" />
             <Separator orientation="vertical" className="mr-2 h-4" />
-            <span className="text-sm font-medium">TestMate</span>
+            <span className="hidden text-sm font-medium sm:inline">TestMate</span>
             <div className="ml-auto flex items-center gap-1">
+              {can("project.read") && <GlobalSearch />}
               <NotificationBell />
               <ThemeToggle />
             </div>

@@ -310,6 +310,19 @@ rather than a role name:
 These are never a substitute for a permission check: the route's `requirePermission` has
 already run by the time any of them is called.
 
+### Global search
+
+Global search (`GET /api/v1/search`) is the one read that crosses every record type at
+once, so it is also the one place where a scoping mistake leaks the *existence* of a
+record rather than its contents. It is gated on `project.read` at the route — which is
+what keeps an external supporter out, since no support role holds it — and every branch
+of its query is joined to a single `accessible` CTE: the projects the actor may open,
+using the same membership-or-assignment clause as `ProjectRepository.fetchPaginated`.
+Nothing in the result set can therefore come from a project the actor could not already
+open directly. Tickets additionally repeat `FeedbackService.assertVisibleToOrg`'s rule,
+so an item still sitting in a client company's own IT queue stays invisible to the
+product organisation here too.
+
 ### Project-level roles
 
 What a person can do **inside a project** is decided by their role in that project, resolved

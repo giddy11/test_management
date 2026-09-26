@@ -47,6 +47,7 @@ const liveChatRoutes = require("./modules/liveChat/routes/liveChat.routes");
 const publicLiveChatRoutes = require("./modules/liveChat/routes/publicLiveChat.routes");
 const slaRoutes = require("./modules/sla/routes/sla.routes");
 const accessRoutes = require("./modules/access/routes/access.routes");
+const searchRoutes = require("./modules/search/routes/search.routes");
 
 function createApp() {
   const app = express();
@@ -92,6 +93,7 @@ function createApp() {
   api.use("/auth", authRoutes);
   api.use("/access", accessRoutes); // Roles & access (settings)
   api.use("/users", userRoutes);
+  api.use("/search", searchRoutes); // global search across projects and their records
   api.use("/projects", projectRoutes);
   api.use("/test-suites", testSuiteRoutes);
   api.use("/test-cases", testCaseImportRoutes); // /template, /import — before /:id

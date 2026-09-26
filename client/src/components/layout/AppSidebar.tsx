@@ -37,6 +37,11 @@ export function AppSidebar() {
   const items = navFor(permissions)
   const bottomItems = navBottomFor(permissions)
   const initials = `${user.firstName?.[0] ?? ""}${user.lastName?.[0] ?? ""}`.toUpperCase()
+  // Assigned roles are what the server checks; the legacy account type is only
+  // the fallback. While previewing, `roles` is still the real user's, so the
+  // previewed role's label has to win or the sidebar would contradict the view.
+  const assignedRoleNames = isPreviewing ? [] : (user.roles ?? []).map((r) => r.name)
+  const roleLabel = assignedRoleNames.length ? assignedRoleNames.join(", ") : ROLE_LABEL[user.role]
   const closeOnMobile = () => {
     if (isMobile) setOpenMobile(false)
   }
@@ -124,8 +129,8 @@ export function AppSidebar() {
                   </Avatar>
                   <div className="grid flex-1 text-left text-sm leading-tight">
                     <span className="truncate font-semibold">{user.name}</span>
-                    <span className="truncate text-xs text-muted-foreground">
-                      {ROLE_LABEL[user.role]}
+                    <span className="truncate text-xs text-muted-foreground" title={roleLabel} data-cy="user-role">
+                      {roleLabel}
                     </span>
                   </div>
                   <ChevronsUpDown className="ml-auto size-4" />

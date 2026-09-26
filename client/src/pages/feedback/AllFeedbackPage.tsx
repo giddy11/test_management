@@ -2,7 +2,7 @@
 // the viewer can access (superadmin: all orgs, admin: own org, user: member
 // projects), in one filterable list — no per-project clicking. Items still in
 // a client company's IT queue are excluded by the backend until escalated.
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useSearchParams } from "react-router-dom"
 import { MessageSquareHeart, Search, Trash2 } from "lucide-react"
 import { toast } from "sonner"
@@ -75,6 +75,15 @@ export default function AllFeedbackPage() {
   const [page, setPage] = useState(1)
   const [managing, setManaging] = useState<Feedback | null>(null)
   const [deleting, setDeleting] = useState<Feedback | null>(null)
+
+  // A second deep link while already on this page changes the URL but not the
+  // state initialised from it — global search lands here repeatedly, so follow it.
+  const deepLinkedQuery = searchParams.get("q")
+  useEffect(() => {
+    if (deepLinkedQuery === null) return
+    setSearch(deepLinkedQuery)
+    setPage(1)
+  }, [deepLinkedQuery])
 
   const debouncedSearch = useDebounce(search, 300)
   const { data: projectsData } = useProjects({ limit: 100 })
