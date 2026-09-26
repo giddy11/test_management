@@ -10,11 +10,18 @@ const { ActivityService } = require("../../activity/services/activity.service");
 const { AppError } = require("../../../shared/errors/AppError");
 const { hasWildcard, can } = require("../../../shared/access/can");
 const cache = require("../../../shared/access/permissionCache");
-const { WILDCARD } = require("../catalog/permissions.catalog");
+const { WILDCARD, BUILTIN_ROLES, ROLE_KEYS } = require("../catalog/permissions.catalog");
 
 // The permission that can grant every other one. Losing the last holder of it
 // locks an organisation out of its own access control permanently.
 const GRANTING_PERMISSION = "role.manage";
+
+// What the built-in Organisation administrator is DESIGNED to hold. It excludes the
+// platform-only and support-desk permissions, so it is never a way to reach the
+// vendor's controls. See reachOf.
+const ORG_ADMIN_CEILING = new Set(
+  BUILTIN_ROLES.find((r) => r.key === ROLE_KEYS.ORG_ADMIN).permissions
+);
 
 class AccessService {
   static Instance = new AccessService();
@@ -26,14 +33,44 @@ class AccessService {
 
   // ── Reads ──────────────────────────────────────────────────────────────────
 
-  // Only the permissions the actor holds themselves. Offering one they cannot
-  // grant just sets them up for a 403 (see assertNoEscalation), so it isn't
-  // shown at all — and a category left with nothing to show goes with it.
+  // Which permissions this actor may see in the editor and grant, as a predicate.
+  //
+  // Ordinarily exactly the ones they hold: that is the no-escalation rule. The one
+  // exception is the built-in Organisation administrator, whose ceiling is the set
+  // that role is designed to hold. Without it, unticking a permission on your own
+  // role took it out of your own reach for good — it stopped being listed, and
+  // granting needs you to hold it — so one click could lock an administrator out of,
+  // say, the activity log, and only a super administrator could give it back.
+  //
+  // It stays bounded. The set excludes every platform-only and support-desk
+  // permission. A custom role holding role.manage keeps the old rule, because it is
+  // recognised by the seed key on a BUILT-IN role, which a custom role can never
+  // carry, in the actor's own organisation. And it costs nothing in the normal case:
+  // an administrator who holds the whole set is answered without a query.
+  async reachOf(actor) {
+    if (hasWildcard(actor)) return () => true;
+    const held = (code) => can(actor, code);
+    if ([...ORG_ADMIN_CEILING].every(held)) return held;
+
+    const roles = await this.repo.rolesForUser(actor.id);
+    const isOrgAdmin = roles.some(
+      (r) =>
+        r.isBuiltin &&
+        r.key === ROLE_KEYS.ORG_ADMIN &&
+        r.organizationId === actor.organizationId
+    );
+    return isOrgAdmin ? (code) => held(code) || ORG_ADMIN_CEILING.has(code) : held;
+  }
+
+  // Only the permissions the actor can reach. Offering one they cannot grant just
+  // sets them up for a 403 (see assertNoEscalation), so it isn't shown at all — and
+  // a category left with nothing to show goes with it.
   async fetchCatalog(actor) {
     const { categories, permissions } = await this.repo.fetchCatalog();
     if (hasWildcard(actor)) return { categories, permissions };
 
-    const held = permissions.filter((p) => can(actor, p.code));
+    const reach = await this.reachOf(actor);
+    const held = permissions.filter((p) => reach(p.code));
     const inUse = new Set(held.map((p) => p.category));
     return { categories: categories.filter((c) => inUse.has(c.key)), permissions: held };
   }
@@ -45,7 +82,8 @@ class AccessService {
     const roles = await this.repo.fetchRolesForOrg(actor.organizationId, {
       includePlatform: hasWildcard(actor),
     });
-    return roles.map((role) => this.scopeToActor(actor, role));
+    const reach = await this.reachOf(actor);
+    return roles.map((role) => this.scopeToActor(actor, role, reach));
   }
 
   async getRole(actor, id) {
@@ -59,7 +97,7 @@ class AccessService {
       permissions,
       permissionCount: permissions.length,
       memberCount,
-    });
+    }, await this.reachOf(actor));
   }
 
   // A role as this actor sees it: its permissions, and the count shown beside
@@ -67,9 +105,9 @@ class AccessService {
   // (Support lead has the client company's support queue, which no organisation
   // administrator holds); the rest is kept on the role but never shown, so the
   // list, the counts and the editor always agree. See mergeHiddenPermissions.
-  scopeToActor(actor, role) {
+  scopeToActor(actor, role, reach = (code) => can(actor, code)) {
     if (hasWildcard(actor)) return role;
-    const permissions = (role.permissions ?? []).filter((code) => can(actor, code));
+    const permissions = (role.permissions ?? []).filter((code) => reach(code));
     return { ...role, permissions, permissionCount: permissions.length };
   }
 
@@ -114,9 +152,9 @@ class AccessService {
 
   // Because role.manage can grant anything, a non-super administrator must not
   // be able to bootstrap themselves past their own ceiling by writing a role.
-  assertNoEscalation(actor, codes) {
+  assertNoEscalation(actor, codes, reach = (code) => can(actor, code)) {
     if (hasWildcard(actor)) return;
-    const beyond = codes.filter((code) => !can(actor, code));
+    const beyond = codes.filter((code) => !reach(code));
     if (beyond.length) {
       throw new AppError(
         `You cannot grant permissions you do not hold yourself: ${beyond.join(", ")}`,
@@ -151,6 +189,7 @@ class AccessService {
       throw new AppError("No organisation on this account", 403);
     }
 
+    const reach = await this.reachOf(actor);
     let codes = permissions;
     if (cloneFromId) {
       const source = await this.assertVisibleRole(actor, cloneFromId);
@@ -158,7 +197,7 @@ class AccessService {
       // Cloning the locked super role would mint a second wildcard holder. And
       // a copy carries only what the actor can see — and so may grant — of the
       // source, exactly what the editor showed them.
-      codes = sourceCodes.filter((c) => c !== WILDCARD && can(actor, c));
+      codes = sourceCodes.filter((c) => c !== WILDCARD && reach(c));
     }
 
     const trimmed = name.trim();
@@ -166,7 +205,7 @@ class AccessService {
     if (clash) throw new AppError("A role with that name already exists", 409);
 
     await this.assertKnownPermissions(codes);
-    this.assertNoEscalation(actor, codes);
+    this.assertNoEscalation(actor, codes, reach);
 
     const role = await this.repo.createRole({
       organizationId: actor.organizationId,
@@ -225,13 +264,20 @@ class AccessService {
     let nextPermissions;
     if (permissions !== undefined) {
       await this.assertKnownPermissions(permissions);
+      const reach = await this.reachOf(actor);
       // Only a permission being newly added is a grant — one the role already
       // carries is not the actor's to answer for.
       this.assertNoEscalation(
         actor,
-        permissions.filter((code) => !before.permissions.includes(code))
+        permissions.filter((code) => !before.permissions.includes(code)),
+        reach
       );
-      nextPermissions = this.mergeHiddenPermissions(actor, permissions, before.permissions);
+      nextPermissions = this.mergeHiddenPermissions(
+        actor,
+        permissions,
+        before.permissions,
+        reach
+      );
       await this.assertGrantingPermissionSurvives(actor, role.id, nextPermissions);
       // Removing role.manage from a role can orphan its members' ability to
       // manage access even when another role still grants it, so check holders too.
@@ -268,8 +314,8 @@ class AccessService {
   // back — without this, saving Support lead would quietly strip its queue
   // permissions. A super administrator holds everything, so nothing is hidden
   // from them and the request is taken as written.
-  mergeHiddenPermissions(actor, requested, current) {
-    const hidden = current.filter((code) => !can(actor, code));
+  mergeHiddenPermissions(actor, requested, current, reach = (code) => can(actor, code)) {
+    const hidden = current.filter((code) => !reach(code));
     return [...new Set([...requested, ...hidden])];
   }
 
@@ -347,7 +393,8 @@ class AccessService {
       }
     }
     if (!hasWildcard(actor)) {
-      this.assertNoEscalation(actor, [...granted].filter((c) => c !== WILDCARD));
+      const reach = await this.reachOf(actor);
+      this.assertNoEscalation(actor, [...granted].filter((c) => c !== WILDCARD), reach);
     }
 
     const beforeRoles = await this.repo.rolesForUser(userId);

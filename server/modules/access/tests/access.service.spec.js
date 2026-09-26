@@ -476,6 +476,113 @@ describe("AccessService", () => {
     });
   });
 
+  describe("an Organisation administrator's ceiling", () => {
+    // Regression: unticking a permission on your own role put it out of your own
+    // reach (the editor lists only what you can grant, and granting needed you to
+    // hold it), so one click could lock an administrator out of, say, the activity
+    // log, and only a super administrator could give it back.
+    const { BUILTIN_ROLES } = require("../catalog/permissions.catalog");
+    const orgAdminCodes = BUILTIN_ROLES.find((r) => r.key === "org_admin").permissions;
+    const orgAdminRole = {
+      ...builtinRole,
+      id: "role-org-admin",
+      key: "org_admin",
+      name: "Organisation administrator",
+    };
+    const asAdminWithout = (code) => ({
+      id: "admin-2",
+      organizationId: "org-1",
+      permissions: new Set(orgAdminCodes.filter((c) => c !== code)),
+    });
+
+    it("still offers a permission they unticked from their own role", async () => {
+      repo.rolesForUser.mockResolvedValue([orgAdminRole]);
+      repo.fetchCatalog.mockResolvedValue({
+        categories: [{ key: "organisation" }],
+        permissions: [{ code: "audit.read", category: "organisation" }],
+      });
+
+      const seen = await service.fetchCatalog(asAdminWithout("audit.read"));
+      expect(seen.permissions.map((p) => p.code)).toEqual(["audit.read"]);
+      expect(seen.categories.map((c) => c.key)).toEqual(["organisation"]);
+    });
+
+    it("lets them tick it back on the role", async () => {
+      repo.rolesForUser.mockResolvedValue([orgAdminRole]);
+      repo.findRoleById.mockResolvedValue(orgAdminRole);
+      repo.permissionsForRole.mockResolvedValue(orgAdminCodes.filter((c) => c !== "audit.read"));
+
+      await service.updateRole(asAdminWithout("audit.read"), "role-org-admin", {
+        permissions: [...orgAdminCodes],
+      });
+
+      expect(repo.setRolePermissions).toHaveBeenCalledWith(
+        "role-org-admin",
+        expect.arrayContaining(["audit.read"])
+      );
+    });
+
+    it("stops at what the role is designed to hold: never the vendor's permissions", async () => {
+      repo.rolesForUser.mockResolvedValue([orgAdminRole]);
+      repo.findRoleById.mockResolvedValue(orgAdminRole);
+      repo.permissionsForRole.mockResolvedValue(orgAdminCodes.filter((c) => c !== "audit.read"));
+
+      await expect(
+        service.updateRole(asAdminWithout("audit.read"), "role-org-admin", {
+          permissions: [...orgAdminCodes, "platform.read", "supportqueue.read"],
+        })
+      ).rejects.toMatchObject({
+        statusCode: 403,
+        message: expect.stringContaining("platform.read"),
+      });
+      expect(repo.setRolePermissions).not.toHaveBeenCalled();
+    });
+
+    it("does not extend to a custom role that merely holds role.manage", async () => {
+      // Same permissions, but the actor's role is custom: it has no seed key.
+      repo.rolesForUser.mockResolvedValue([{ ...customRole, key: null }]);
+      repo.findRoleById.mockResolvedValue(customRole);
+      repo.permissionsForRole.mockResolvedValue(["project.read"]);
+
+      await expect(
+        service.updateRole(asAdminWithout("audit.read"), "role-custom", {
+          permissions: ["project.read", "audit.read"],
+        })
+      ).rejects.toMatchObject({ statusCode: 403 });
+      expect(repo.setRolePermissions).not.toHaveBeenCalled();
+    });
+
+    it("is not fooled by a role that only claims the key, or one from another organisation", async () => {
+      repo.findRoleById.mockResolvedValue(customRole);
+      repo.permissionsForRole.mockResolvedValue(["project.read"]);
+
+      for (const claimed of [
+        { ...orgAdminRole, isBuiltin: false }, // custom role named like it
+        { ...orgAdminRole, organizationId: "org-2" }, // someone else's copy
+      ]) {
+        repo.rolesForUser.mockResolvedValue([claimed]);
+        await expect(
+          service.updateRole(asAdminWithout("audit.read"), "role-custom", {
+            permissions: ["project.read", "audit.read"],
+          })
+        ).rejects.toMatchObject({ statusCode: 403 });
+      }
+      expect(repo.setRolePermissions).not.toHaveBeenCalled();
+    });
+
+    it("costs no extra lookup when the administrator already holds the whole set", async () => {
+      repo.fetchCatalog.mockResolvedValue({
+        categories: [{ key: "organisation" }],
+        permissions: [{ code: "audit.read", category: "organisation" }],
+      });
+
+      const whole = { id: "admin-3", organizationId: "org-1", permissions: new Set(orgAdminCodes) };
+      await service.fetchCatalog(whole);
+
+      expect(repo.rolesForUser).not.toHaveBeenCalled();
+    });
+  });
+
   describe("catalog validation", () => {
     it("rejects a permission code that is not in the catalog", async () => {
       repo.validPermissionCodes.mockResolvedValue([]);
