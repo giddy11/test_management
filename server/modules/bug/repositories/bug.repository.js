@@ -2,6 +2,7 @@
 const { AppDataSource } = require("../../../infrastructure/database/dataSource");
 const { Bug } = require("../entities/bug.entity");
 const { buildMeta, getOffset } = require("../../../shared/pagination/paginate");
+const { andWhereUserNameMatches } = require("../../../shared/utils/nameSearch");
 
 class BugRepository {
   static Instance = new BugRepository();
@@ -19,6 +20,7 @@ class BugRepository {
     priority,
     assignedToId,
     search,
+    searchBy = "title",
   }) {
     const offset = getOffset(page, limit);
     const qb = this.repo
@@ -35,7 +37,21 @@ class BugRepository {
     if (severity) qb.andWhere("bug.severity = :severity", { severity });
     if (priority) qb.andWhere("bug.priority = :priority", { priority });
     if (assignedToId) qb.andWhere("bug.assigned_to_id = :assignedToId", { assignedToId });
-    if (search) qb.andWhere("bug.title ILIKE :search", { search: `%${search}%` });
+    if (search) {
+      if (searchBy === "reporter") {
+        andWhereUserNameMatches(qb, "reportedBy", search);
+      } else if (searchBy === "assignee") {
+        andWhereUserNameMatches(qb, "assignedTo", search);
+      } else if (searchBy === "suite") {
+        // A bug reaches its suite through the test case it was raised against;
+        // bugs with no linked test case have no suite and never match.
+        qb.innerJoin("bug.testCase", "testCase")
+          .innerJoin("testCase.suite", "suite")
+          .andWhere("suite.name ILIKE :search", { search: `%${search}%` });
+      } else {
+        qb.andWhere("bug.title ILIKE :search", { search: `%${search}%` });
+      }
+    }
 
     const total = page === 1 ? await qb.getCount() : 0;
     const data = await qb.getMany();

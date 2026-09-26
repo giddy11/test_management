@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react"
 import { Plus, Lightbulb } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
 import {
   Select,
@@ -11,17 +10,29 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { InlineLoader } from "@/components/shared/PageLoader"
+import { SearchByInput, type SearchByOption } from "@/components/shared/SearchByInput"
 import { FeatureRequestCard } from "@/components/featureRequests/FeatureRequestCard"
 import { FeatureRequestFormDialog } from "@/components/featureRequests/FeatureRequestFormDialog"
 import { useFeatureRequests } from "@/hooks/useFeatureRequests"
 import { useDebounce } from "@/hooks/useDebounce"
 import { usePersistedState } from "@/hooks/usePersistedState"
 import { FEATURE_REQUEST_STATUSES, FEATURE_REQUEST_STATUS_META, type FeatureRequestStatus } from "@/lib/enums"
+import type { FeatureRequestSearchField } from "@/types/featureRequest.types"
+
+// Requests have no suite or assignee, so only these two fields are searchable.
+const SEARCH_OPTIONS: SearchByOption<FeatureRequestSearchField>[] = [
+  { value: "title", label: "Title", placeholder: "Search by title…" },
+  { value: "reporter", label: "Reporter", placeholder: "Search by reporter name…" },
+]
 
 export function FeatureRequestsTab({ projectId }: { projectId: string }) {
   // Filters persist per project so they survive opening a request and coming back.
   const [searchInput, setSearchInput] = usePersistedState(`feature-requests:search:${projectId}`, "")
   const search = useDebounce(searchInput, 300)
+  const [searchBy, setSearchBy] = usePersistedState<FeatureRequestSearchField>(
+    `feature-requests:searchBy:${projectId}`,
+    "title"
+  )
   const [status, setStatus] = usePersistedState<FeatureRequestStatus | null>(
     `feature-requests:status:${projectId}`,
     null
@@ -30,7 +41,7 @@ export function FeatureRequestsTab({ projectId }: { projectId: string }) {
   const [page, setPage] = useState(1)
   const [formOpen, setFormOpen] = useState(false)
 
-  useEffect(() => setPage(1), [search])
+  useEffect(() => setPage(1), [search, searchBy])
 
   const { data, isLoading, isError, error } = useFeatureRequests(projectId, {
     page,
@@ -38,6 +49,9 @@ export function FeatureRequestsTab({ projectId }: { projectId: string }) {
     status: status ?? undefined,
     sort,
     search: search || undefined,
+    // Only meaningful alongside a search term — omitted otherwise so switching
+    // the picker on an empty box doesn't trigger a refetch.
+    searchBy: search ? searchBy : undefined,
   })
   const requests = data?.data ?? []
 
@@ -46,11 +60,13 @@ export function FeatureRequestsTab({ projectId }: { projectId: string }) {
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-        <Input
-          placeholder="Search requests…"
+        <SearchByInput
+          options={SEARCH_OPTIONS}
+          field={searchBy}
+          onFieldChange={setSearchBy}
           value={searchInput}
-          onChange={(e) => setSearchInput(e.target.value)}
-          className="sm:max-w-xs"
+          onValueChange={setSearchInput}
+          className="sm:w-80"
         />
         <Select
           value={status ?? "all"}

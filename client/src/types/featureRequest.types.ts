@@ -20,6 +20,9 @@ export interface FeatureRequest {
   createdAt: string
 }
 
+// Which field the request list's search box is matched against.
+export type FeatureRequestSearchField = "title" | "reporter"
+
 export interface FeatureRequestComment {
   id: string
   featureRequestId: string

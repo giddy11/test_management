@@ -2,6 +2,7 @@
 const { AppDataSource } = require("../../../infrastructure/database/dataSource");
 const { FeatureRequest } = require("../entities/featureRequest.entity");
 const { buildMeta, getOffset } = require("../../../shared/pagination/paginate");
+const { andWhereUserNameMatches } = require("../../../shared/utils/nameSearch");
 
 class FeatureRequestRepository {
   static Instance = new FeatureRequestRepository();
@@ -11,7 +12,16 @@ class FeatureRequestRepository {
   }
 
   // sort: "top" (default) | "newest".
-  async fetchPaginated({ projectId, page = 1, limit = 20, status, category, search, sort = "top" }) {
+  async fetchPaginated({
+    projectId,
+    page = 1,
+    limit = 20,
+    status,
+    category,
+    search,
+    searchBy = "title",
+    sort = "top",
+  }) {
     const offset = getOffset(page, limit);
     const qb = this.repo
       .createQueryBuilder("fr")
@@ -23,7 +33,13 @@ class FeatureRequestRepository {
 
     if (status) qb.andWhere("fr.status = :status", { status });
     if (category) qb.andWhere("fr.category = :category", { category });
-    if (search) qb.andWhere("fr.title ILIKE :search", { search: `%${search}%` });
+    if (search) {
+      if (searchBy === "reporter") {
+        andWhereUserNameMatches(qb, "submittedBy", search);
+      } else {
+        qb.andWhere("fr.title ILIKE :search", { search: `%${search}%` });
+      }
+    }
 
     if (sort === "newest") {
       qb.orderBy("fr.createdAt", "DESC");

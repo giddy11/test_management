@@ -1,6 +1,6 @@
 // endpoints/bug.endpoints.ts
 import { wrapCall, uploadCall } from "@/transport/http"
-import type { Bug, BugAttachment, CreateBugPayload, ManageBugPayload } from "@/types/bug.types"
+import type { Bug, BugAttachment, BugSearchField, CreateBugPayload, ManageBugPayload } from "@/types/bug.types"
 
 const obj = (p: unknown) => p as Record<string, unknown>
 
@@ -14,6 +14,7 @@ export const BugEndpoints = {
     priority?: string
     assignedToId?: string
     search?: string
+    searchBy?: BugSearchField
   }) => wrapCall<Bug[]>("GET", "/api/v1/bugs", obj(params)),
   fetchById: (id: string) => wrapCall<Bug>("GET", `/api/v1/bugs/${id}`),
   fetchByCode: (code: string) => wrapCall<Bug>("GET", `/api/v1/bugs/by-code/${code}`),

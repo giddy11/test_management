@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react"
 import { Plus, Bug as BugIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
 import {
   Select,
@@ -11,28 +10,41 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { InlineLoader } from "@/components/shared/PageLoader"
+import { SearchByInput, type SearchByOption } from "@/components/shared/SearchByInput"
 import { BugCard } from "@/components/bugs/BugCard"
 import { BugFormDialog } from "@/components/bugs/BugFormDialog"
 import { useBugs } from "@/hooks/useBugs"
 import { useDebounce } from "@/hooks/useDebounce"
 import { usePersistedState } from "@/hooks/usePersistedState"
 import { BUG_STATUSES, BUG_STATUS_META, type BugStatus } from "@/lib/enums"
+import type { BugSearchField } from "@/types/bug.types"
+
+const SEARCH_OPTIONS: SearchByOption<BugSearchField>[] = [
+  { value: "title", label: "Title", placeholder: "Search by title…" },
+  { value: "reporter", label: "Reporter", placeholder: "Search by reporter name…" },
+  { value: "suite", label: "Suite", placeholder: "Search by test suite…" },
+  { value: "assignee", label: "Assigned to", placeholder: "Search by assigned engineer…" },
+]
 
 export function BugsTab({ projectId }: { projectId: string }) {
   // Filters persist per project so they survive opening a bug and coming back.
   const [searchInput, setSearchInput] = usePersistedState(`bugs:search:${projectId}`, "")
   const search = useDebounce(searchInput, 300)
+  const [searchBy, setSearchBy] = usePersistedState<BugSearchField>(`bugs:searchBy:${projectId}`, "title")
   const [status, setStatus] = usePersistedState<BugStatus | null>(`bugs:status:${projectId}`, null)
   const [page, setPage] = useState(1)
   const [formOpen, setFormOpen] = useState(false)
 
-  useEffect(() => setPage(1), [search])
+  useEffect(() => setPage(1), [search, searchBy])
 
   const { data, isLoading, isError, error } = useBugs(projectId, {
     page,
     limit: 20,
     status: status ?? undefined,
     search: search || undefined,
+    // Only meaningful alongside a search term — omitted otherwise so switching
+    // the picker on an empty box doesn't trigger a refetch.
+    searchBy: search ? searchBy : undefined,
   })
   const bugs = data?.data ?? []
 
@@ -41,11 +53,13 @@ export function BugsTab({ projectId }: { projectId: string }) {
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-        <Input
-          placeholder="Search bugs…"
+        <SearchByInput
+          options={SEARCH_OPTIONS}
+          field={searchBy}
+          onFieldChange={setSearchBy}
           value={searchInput}
-          onChange={(e) => setSearchInput(e.target.value)}
-          className="sm:max-w-xs"
+          onValueChange={setSearchInput}
+          className="sm:w-96"
         />
         <Select
           value={status ?? "all"}

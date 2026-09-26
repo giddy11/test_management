@@ -39,6 +39,23 @@ describe("Bug reports", () => {
     cy.contains("No bugs reported yet.").should("be.visible")
   })
 
+  it("searches bugs by reporter, suite and assignee through the API", () => {
+    cy.interceptApi("GET", "/bugs", { body: ok([], listMeta(0)) }, "searchedBugs")
+
+    cy.dataCy("search-by").click()
+    cy.contains('[role="option"]', "Reporter").click()
+    cy.get('input[placeholder="Search by reporter name…"]').type("Uche")
+    cy.wait("@searchedBugs").its("request.url").should("include", "searchBy=reporter").and("include", "search=Uche")
+
+    cy.dataCy("search-by").click()
+    cy.contains('[role="option"]', "Suite").click()
+    cy.wait("@searchedBugs").its("request.url").should("include", "searchBy=suite").and("include", "search=Uche")
+
+    cy.dataCy("search-by").click()
+    cy.contains('[role="option"]', "Assigned to").click()
+    cy.wait("@searchedBugs").its("request.url").should("include", "searchBy=assignee").and("include", "search=Uche")
+  })
+
   it("reports a bug", () => {
     cy.fixture("bugs/list").then((bugs) => {
       cy.interceptApi("POST", "/bugs", { body: ok({ ...bugs[0], id: "e2e-bug-new" }) }, "createBug")

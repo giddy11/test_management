@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { BugEndpoints } from "@/endpoints/bug.endpoints"
 import { ApiError } from "@/transport/http"
-import type { CreateBugPayload, ManageBugPayload } from "@/types/bug.types"
+import type { BugSearchField, CreateBugPayload, ManageBugPayload } from "@/types/bug.types"
 import type { BugStatus, BugSeverity, BugPriority } from "@/lib/enums"
 
 export const BUGS_KEY = "bugs"
@@ -14,6 +14,7 @@ interface BugQuery {
   priority?: BugPriority
   assignedToId?: string
   search?: string
+  searchBy?: BugSearchField
 }
 
 export function useBugs(projectId: string, params: BugQuery = {}) {

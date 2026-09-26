@@ -5,6 +5,7 @@ import type {
   FeatureRequest,
   FeatureRequestAttachment,
   FeatureRequestComment,
+  FeatureRequestSearchField,
   UpdateFeatureRequestStatusPayload,
   VoteResult,
 } from "@/types/featureRequest.types"
@@ -12,7 +13,7 @@ import type {
 const obj = (p: unknown) => p as Record<string, unknown>
 
 export const FeatureRequestEndpoints = {
-  fetchAll: (params: { projectId: string; page?: number; limit?: number; status?: string; category?: string; search?: string; sort?: "top" | "newest" }) =>
+  fetchAll: (params: { projectId: string; page?: number; limit?: number; status?: string; category?: string; search?: string; searchBy?: FeatureRequestSearchField; sort?: "top" | "newest" }) =>
     wrapCall<FeatureRequest[]>("GET", "/api/v1/feature-requests", obj(params)),
   fetchById: (id: string) => wrapCall<FeatureRequest>("GET", `/api/v1/feature-requests/${id}`),
   fetchByCode: (code: string) =>

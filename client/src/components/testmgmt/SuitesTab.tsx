@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom"
 import { Plus, Pencil, Trash2, Layers, ChevronRight, ClipboardList, Download } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { SummaryBar } from "@/components/shared/SummaryBar"
 import { SuiteFormDialog } from "@/components/testmgmt/SuiteFormDialog"
@@ -10,6 +11,8 @@ import { ConfirmDialog } from "@/components/shared/ConfirmDialog"
 import { InlineLoader } from "@/components/shared/PageLoader"
 import { useSuites, useDeleteSuite } from "@/hooks/useSuites"
 import { useExportProject } from "@/hooks/useExport"
+import { useDebounce } from "@/hooks/useDebounce"
+import { usePersistedState } from "@/hooks/usePersistedState"
 import type { SuiteBreakdown, TestSuite } from "@/types/testMgmt.types"
 
 export function SuitesTab({
@@ -24,7 +27,10 @@ export function SuitesTab({
   breakdown?: Map<string, SuiteBreakdown>
 }) {
   const navigate = useNavigate()
-  const { data: suites = [], isLoading } = useSuites(projectId)
+  // Search persists per project so it survives opening a suite and coming back.
+  const [searchInput, setSearchInput] = usePersistedState(`suites:search:${projectId}`, "")
+  const search = useDebounce(searchInput, 300)
+  const { data: suites = [], isLoading } = useSuites(projectId, { search: search || undefined })
   const del = useDeleteSuite()
   const exportProject = useExportProject(projectId, projectName)
   const [formOpen, setFormOpen] = useState(false)
@@ -39,17 +45,26 @@ export function SuitesTab({
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-end gap-2">
-        {suites.length > 0 && (
-          <Button size="sm" variant="outline" onClick={handleExport} disabled={exportProject.isPending}>
-            <Download className="mr-1 size-4" /> {exportProject.isPending ? "Exporting…" : "Export all"}
-          </Button>
-        )}
-        {canManage && (
-          <Button size="sm" onClick={() => { setEditing(null); setFormOpen(true) }} data-tour="new-suite-btn" data-cy="new-suite">
-            <Plus className="mr-1 size-4" /> New suite
-          </Button>
-        )}
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+        <Input
+          placeholder="Search suites…"
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
+          className="sm:max-w-xs"
+          data-cy="suite-search"
+        />
+        <div className="flex gap-2 sm:ml-auto">
+          {(suites.length > 0 || search) && (
+            <Button size="sm" variant="outline" onClick={handleExport} disabled={exportProject.isPending}>
+              <Download className="mr-1 size-4" /> {exportProject.isPending ? "Exporting…" : "Export all"}
+            </Button>
+          )}
+          {canManage && (
+            <Button size="sm" onClick={() => { setEditing(null); setFormOpen(true) }} data-tour="new-suite-btn" data-cy="new-suite">
+              <Plus className="mr-1 size-4" /> New suite
+            </Button>
+          )}
+        </div>
       </div>
 
       {isLoading && <InlineLoader className="py-8" />}
@@ -57,8 +72,14 @@ export function SuitesTab({
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center gap-2 py-10 text-center">
             <Layers className="size-7 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">No test suites yet.</p>
-            {canManage && <Button size="sm" onClick={() => { setEditing(null); setFormOpen(true) }}>Create a suite</Button>}
+            {search ? (
+              <p className="text-sm text-muted-foreground">No suites match “{search}”.</p>
+            ) : (
+              <>
+                <p className="text-sm text-muted-foreground">No test suites yet.</p>
+                {canManage && <Button size="sm" onClick={() => { setEditing(null); setFormOpen(true) }}>Create a suite</Button>}
+              </>
+            )}
           </CardContent>
         </Card>
       )}

@@ -24,6 +24,9 @@ export interface Bug {
   createdAt: string
 }
 
+// Which field the bug list's search box is matched against.
+export type BugSearchField = "title" | "reporter" | "assignee" | "suite"
+
 export interface BugAttachment {
   id: string
   bugId: string

@@ -1,7 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { FeatureRequestEndpoints } from "@/endpoints/featureRequest.endpoints"
 import { ApiError } from "@/transport/http"
-import type { CreateFeatureRequestPayload, UpdateFeatureRequestStatusPayload } from "@/types/featureRequest.types"
+import type {
+  CreateFeatureRequestPayload,
+  FeatureRequestSearchField,
+  UpdateFeatureRequestStatusPayload,
+} from "@/types/featureRequest.types"
 import type { FeatureRequestStatus } from "@/lib/enums"
 
 export const FEATURE_REQUESTS_KEY = "featureRequests"
@@ -12,6 +16,7 @@ interface FeatureRequestQuery {
   status?: FeatureRequestStatus
   category?: string
   search?: string
+  searchBy?: FeatureRequestSearchField
   sort?: "top" | "newest"
 }
 

@@ -37,6 +37,15 @@ describe("Project detail — suites", () => {
     cy.contains('[data-cy="suite-card"]', "Checkout").should("contain", "No test cases yet")
   })
 
+  it("searches suites by name through the API", () => {
+    cy.interceptApi("GET", "/test-suites", { body: ok([], listMeta(0)) }, "searchedSuites")
+
+    cy.dataCy("suite-search").type("Pay")
+
+    cy.wait("@searchedSuites").its("request.url").should("include", "search=Pay")
+    cy.contains("No suites match “Pay”.").should("be.visible")
+  })
+
   it("creates a suite", () => {
     cy.fixture("testmgmt/suites").then((suites) => {
       cy.interceptApi(

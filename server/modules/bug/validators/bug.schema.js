@@ -48,7 +48,8 @@ const idParamSchema = z.object({
 });
 
 const codeParamSchema = z.object({
-  params: z.object({ code: z.string().regex(/^BF-\d+$/i, "Invalid reference code") }),
+  // "BF-20260714-009", or the older dateless "BF-009" (see shared/utils/referenceCode).
+  params: z.object({ code: z.string().regex(/^BF-(?:\d{8}-)?\d+$/i, "Invalid reference code") }),
 });
 
 const fetchBugsSchema = z.object({
@@ -61,6 +62,8 @@ const fetchBugsSchema = z.object({
     priority: z.enum(enums.bugPriority).optional(),
     assignedToId: z.string().uuid().optional(),
     search: z.string().optional(),
+    // Which field `search` is matched against.
+    searchBy: z.enum(["title", "reporter", "assignee", "suite"]).default("title"),
   }),
 });
 

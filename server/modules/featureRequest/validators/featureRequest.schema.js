@@ -30,7 +30,8 @@ const idParamSchema = z.object({
 });
 
 const codeParamSchema = z.object({
-  params: z.object({ code: z.string().regex(/^FR-\d+$/i, "Invalid reference code") }),
+  // "FR-20260714-009", or the older dateless "FR-009" (see shared/utils/referenceCode).
+  params: z.object({ code: z.string().regex(/^FR-(?:\d{8}-)?\d+$/i, "Invalid reference code") }),
 });
 
 const fetchFeatureRequestsSchema = z.object({
@@ -41,6 +42,8 @@ const fetchFeatureRequestsSchema = z.object({
     status: z.enum(enums.featureRequestStatus).optional(),
     category: z.string().max(50).optional(),
     search: z.string().optional(),
+    // Which field `search` is matched against. Requests have no suite or assignee.
+    searchBy: z.enum(["title", "reporter"]).default("title"),
     sort: z.enum(["top", "newest"]).default("top"),
   }),
 });
