@@ -6,6 +6,7 @@ import type {
   FeatureRequestAttachment,
   FeatureRequestComment,
   FeatureRequestSearchField,
+  FeatureRequestStatusHistoryEntry,
   UpdateFeatureRequestStatusPayload,
   VoteResult,
 } from "@/types/featureRequest.types"
@@ -13,7 +14,7 @@ import type {
 const obj = (p: unknown) => p as Record<string, unknown>
 
 export const FeatureRequestEndpoints = {
-  fetchAll: (params: { projectId: string; page?: number; limit?: number; status?: string; category?: string; search?: string; searchBy?: FeatureRequestSearchField; sort?: "top" | "newest" }) =>
+  fetchAll: (params: { projectId: string; page?: number; limit?: number; status?: string; category?: string; search?: string; searchBy?: FeatureRequestSearchField; from?: string; to?: string; sort?: "top" | "newest" }) =>
     wrapCall<FeatureRequest[]>("GET", "/api/v1/feature-requests", obj(params)),
   fetchById: (id: string) => wrapCall<FeatureRequest>("GET", `/api/v1/feature-requests/${id}`),
   fetchByCode: (code: string) =>
@@ -22,6 +23,8 @@ export const FeatureRequestEndpoints = {
     wrapCall<FeatureRequest>("POST", "/api/v1/feature-requests", obj(payload)),
   updateStatus: (id: string, payload: UpdateFeatureRequestStatusPayload) =>
     wrapCall<FeatureRequest>("PATCH", `/api/v1/feature-requests/${id}`, obj(payload)),
+  history: (id: string) =>
+    wrapCall<FeatureRequestStatusHistoryEntry[]>("GET", `/api/v1/feature-requests/${id}/history`),
   remove: (id: string) => wrapCall<null>("DELETE", `/api/v1/feature-requests/${id}`),
   vote: (id: string) => wrapCall<VoteResult>("POST", `/api/v1/feature-requests/${id}/vote`),
 }

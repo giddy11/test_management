@@ -17,6 +17,8 @@ interface FeatureRequestQuery {
   category?: string
   search?: string
   searchBy?: FeatureRequestSearchField
+  from?: string
+  to?: string
   sort?: "top" | "newest"
 }
 
@@ -39,6 +41,20 @@ export function useFeatureRequest(id: string) {
       const res = await FeatureRequestEndpoints.fetchById(id)
       if (!res.success || !res.data) throw new ApiError(res.message, res.statusCode)
       return res.data
+    },
+    enabled: Boolean(id),
+  })
+}
+
+// Every status the request has entered, oldest first. Status changes invalidate
+// FEATURE_REQUESTS_KEY as a whole, so this refreshes with them.
+export function useFeatureRequestHistory(id: string) {
+  return useQuery({
+    queryKey: [FEATURE_REQUESTS_KEY, "history", id],
+    queryFn: async () => {
+      const res = await FeatureRequestEndpoints.history(id)
+      if (!res.success) throw new ApiError(res.message, res.statusCode)
+      return res.data ?? []
     },
     enabled: Boolean(id),
   })

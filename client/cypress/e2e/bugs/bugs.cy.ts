@@ -23,6 +23,7 @@ describe("Bug reports", () => {
 
   it("lists bugs with severity and status", () => {
     cy.dataCy("bug-card").should("have.length", 1)
+    cy.dataCy("bugs-tab-count").should("have.text", "1")
     cy.contains('[data-cy="bug-card"]', "Login button unresponsive on Safari").within(() => {
       cy.contains("Open").should("be.visible")
       cy.contains("Major").should("be.visible")
@@ -54,6 +55,19 @@ describe("Bug reports", () => {
     cy.dataCy("search-by").click()
     cy.contains('[role="option"]', "Assigned to").click()
     cy.wait("@searchedBugs").its("request.url").should("include", "searchBy=assignee").and("include", "search=Uche")
+  })
+
+  it("filters bugs by report date range through the API", () => {
+    cy.interceptApi("GET", "/bugs", { body: ok([], listMeta(0)) }, "datedBugs")
+
+    cy.dataCy("date-from").type("2026-07-01")
+    cy.wait("@datedBugs").its("request.url").should("include", "from=2026-07-01").and("not.include", "to=")
+
+    cy.dataCy("date-to").type("2026-07-31")
+    cy.wait("@datedBugs").its("request.url").should("include", "from=2026-07-01").and("include", "to=2026-07-31")
+
+    cy.dataCy("date-clear").click()
+    cy.wait("@datedBugs").its("request.url").should("not.include", "from=").and("not.include", "to=")
   })
 
   it("reports a bug", () => {

@@ -19,7 +19,13 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { useUpdateFeatureRequestStatus } from "@/hooks/useFeatureRequests"
-import { FEATURE_REQUEST_STATUSES, FEATURE_REQUEST_STATUS_META, type FeatureRequestStatus } from "@/lib/enums"
+import {
+  FEATURE_REQUEST_STATUSES,
+  FEATURE_REQUEST_STATUS_META,
+  isFeatureRequestFinal,
+  isFeatureRequestStatusSelectable,
+  type FeatureRequestStatus,
+} from "@/lib/enums"
 import { ApiError } from "@/transport/http"
 import type { FeatureRequest } from "@/types/featureRequest.types"
 
@@ -69,10 +75,21 @@ export function StatusUpdateDialog({ open, onOpenChange, request }: Props) {
               <SelectTrigger data-cy="fr-status"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {FEATURE_REQUEST_STATUSES.map((s) => (
-                  <SelectItem key={s} value={s}>{FEATURE_REQUEST_STATUS_META[s].label}</SelectItem>
+                  <SelectItem
+                    key={s}
+                    value={s}
+                    disabled={Boolean(request) && !isFeatureRequestStatusSelectable(request!.status, s)}
+                  >
+                    {FEATURE_REQUEST_STATUS_META[s].label}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
+            <p className="text-xs text-muted-foreground">
+              {request && isFeatureRequestFinal(request.status)
+                ? `${FEATURE_REQUEST_STATUS_META[request.status].label} is final — the status can't change any more.`
+                : "Status can only move forward — earlier stages can't be selected."}
+            </p>
           </div>
           <div className="grid gap-1.5">
             <Label htmlFor="adminResponse">Response (optional)</Label>

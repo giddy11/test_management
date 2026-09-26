@@ -10,6 +10,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { InlineLoader } from "@/components/shared/PageLoader"
+import { DateRangeFilter } from "@/components/shared/DateRangeFilter"
 import { SearchByInput, type SearchByOption } from "@/components/shared/SearchByInput"
 import { BugCard } from "@/components/bugs/BugCard"
 import { BugFormDialog } from "@/components/bugs/BugFormDialog"
@@ -32,10 +33,13 @@ export function BugsTab({ projectId }: { projectId: string }) {
   const search = useDebounce(searchInput, 300)
   const [searchBy, setSearchBy] = usePersistedState<BugSearchField>(`bugs:searchBy:${projectId}`, "title")
   const [status, setStatus] = usePersistedState<BugStatus | null>(`bugs:status:${projectId}`, null)
+  // Report-date range, YYYY-MM-DD; "" = no bound.
+  const [from, setFrom] = usePersistedState(`bugs:from:${projectId}`, "")
+  const [to, setTo] = usePersistedState(`bugs:to:${projectId}`, "")
   const [page, setPage] = useState(1)
   const [formOpen, setFormOpen] = useState(false)
 
-  useEffect(() => setPage(1), [search, searchBy])
+  useEffect(() => setPage(1), [search, searchBy, from, to])
 
   const { data, isLoading, isError, error } = useBugs(projectId, {
     page,
@@ -45,6 +49,8 @@ export function BugsTab({ projectId }: { projectId: string }) {
     // Only meaningful alongside a search term — omitted otherwise so switching
     // the picker on an empty box doesn't trigger a refetch.
     searchBy: search ? searchBy : undefined,
+    from: from || undefined,
+    to: to || undefined,
   })
   const bugs = data?.data ?? []
 
@@ -52,7 +58,7 @@ export function BugsTab({ projectId }: { projectId: string }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
         <SearchByInput
           options={SEARCH_OPTIONS}
           field={searchBy}
@@ -73,6 +79,7 @@ export function BugsTab({ projectId }: { projectId: string }) {
             ))}
           </SelectContent>
         </Select>
+        <DateRangeFilter from={from} to={to} onFromChange={setFrom} onToChange={setTo} />
         <Button size="sm" onClick={() => setFormOpen(true)} className="sm:ml-auto" data-cy="report-bug">
           <Plus className="mr-1 size-4" /> Report bug
         </Button>

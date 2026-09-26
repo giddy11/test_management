@@ -18,6 +18,17 @@ function stubProjectDetail() {
   cy.fixture("testmgmt/suites").then((suites) => {
     cy.interceptApi("GET", "/test-suites", { body: ok(suites, listMeta(suites.length)) }, "suites")
   })
+  // The tab labels show project-wide totals, so every list is requested on load.
+  cy.fixture("testmgmt/run").then((run) => {
+    cy.interceptApi("GET", "/test-runs", { body: ok([run], listMeta(1)) }, "runTotal")
+  })
+  cy.interceptApi("GET", "/feedback", { body: ok([], listMeta(0)) }, "ticketTotal")
+  cy.fixture("bugs/list").then((bugs) => {
+    cy.interceptApi("GET", "/bugs", { body: ok(bugs, listMeta(bugs.length)) }, "bugs")
+  })
+  cy.fixture("featureRequests/list").then((requests) => {
+    cy.interceptApi("GET", "/feature-requests", { body: ok(requests, listMeta(requests.length)) }, "featureRequests")
+  })
 }
 
 describe("Project detail — suites", () => {
@@ -35,6 +46,18 @@ describe("Project detail — suites", () => {
     cy.dataCy("suite-card").should("have.length", 2)
     cy.contains('[data-cy="suite-card"]', "Authentication").should("contain", "2 test cases")
     cy.contains('[data-cy="suite-card"]', "Checkout").should("contain", "No test cases yet")
+  })
+
+  it("shows a total beside each tab label", () => {
+    cy.interceptApi("GET", "/feedback", { body: ok([], listMeta(3)) }, "tickets")
+    cy.visit(`/projects/${PROJECT_ID}`)
+    cy.wait("@tickets")
+
+    cy.dataCy("suites-tab-count").should("have.text", "2")
+    cy.dataCy("runs-tab-count").should("have.text", "1")
+    cy.dataCy("feature-requests-tab-count").should("have.text", "2")
+    cy.dataCy("bugs-tab-count").should("have.text", "1")
+    cy.dataCy("tickets-tab-count").should("have.text", "3")
   })
 
   it("searches suites by name through the API", () => {

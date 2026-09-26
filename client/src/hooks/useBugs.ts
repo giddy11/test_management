@@ -15,6 +15,8 @@ interface BugQuery {
   assignedToId?: string
   search?: string
   searchBy?: BugSearchField
+  from?: string
+  to?: string
 }
 
 export function useBugs(projectId: string, params: BugQuery = {}) {
@@ -36,6 +38,20 @@ export function useBug(id: string) {
       const res = await BugEndpoints.fetchById(id)
       if (!res.success || !res.data) throw new ApiError(res.message, res.statusCode)
       return res.data
+    },
+    enabled: Boolean(id),
+  })
+}
+
+// Every status the bug has entered, oldest first. Status changes invalidate
+// BUGS_KEY as a whole, so this refreshes with them.
+export function useBugHistory(id: string) {
+  return useQuery({
+    queryKey: [BUGS_KEY, "history", id],
+    queryFn: async () => {
+      const res = await BugEndpoints.history(id)
+      if (!res.success) throw new ApiError(res.message, res.statusCode)
+      return res.data ?? []
     },
     enabled: Boolean(id),
   })

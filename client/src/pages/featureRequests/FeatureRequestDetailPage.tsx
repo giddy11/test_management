@@ -12,9 +12,19 @@ import { VoteButton } from "@/components/featureRequests/VoteButton"
 import { StatusUpdateDialog } from "@/components/featureRequests/StatusUpdateDialog"
 import { CommentThread } from "@/components/featureRequests/CommentThread"
 import { FeatureRequestAttachmentsSection } from "@/components/featureRequests/FeatureRequestAttachmentsSection"
-import { useFeatureRequest, useFeatureRequestByCode, useDeleteFeatureRequest } from "@/hooks/useFeatureRequests"
+import { StatusTimeline } from "@/components/shared/StatusTimeline"
+import {
+  useFeatureRequest,
+  useFeatureRequestByCode,
+  useFeatureRequestHistory,
+  useDeleteFeatureRequest,
+} from "@/hooks/useFeatureRequests"
 import { useCanManageProject } from "@/hooks/useProjects"
+import { FEATURE_REQUEST_STATUS_META, type FeatureRequestStatus } from "@/lib/enums"
 import { ApiError } from "@/transport/http"
+
+// Done and rejected are final, so their timeline row shows no running clock.
+const FINAL_STATUSES = ["done", "rejected"]
 
 export default function FeatureRequestDetailPage() {
   const { projectId = "", id, code } = useParams()
@@ -24,6 +34,7 @@ export default function FeatureRequestDetailPage() {
   const byId = useFeatureRequest(id ?? "")
   const byCode = useFeatureRequestByCode(code ?? "")
   const { data: request, isLoading } = code ? byCode : byId
+  const { data: history = [] } = useFeatureRequestHistory(request?.id ?? "")
   const del = useDeleteFeatureRequest()
   const [statusOpen, setStatusOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
@@ -104,6 +115,17 @@ export default function FeatureRequestDetailPage() {
         <div className="rounded-lg border-l-2 border-primary bg-muted/30 p-4">
           <p className="mb-1 text-xs font-medium text-muted-foreground">Team response</p>
           <p className="whitespace-pre-wrap break-words text-sm">{request.adminResponse}</p>
+        </div>
+      )}
+
+      {history.length > 0 && (
+        <div className="space-y-3">
+          <h3 className="text-sm font-medium">Status timeline</h3>
+          <StatusTimeline
+            history={history}
+            labelFor={(s) => FEATURE_REQUEST_STATUS_META[s as FeatureRequestStatus]?.label ?? s}
+            finalStatuses={FINAL_STATUSES}
+          />
         </div>
       )}
 

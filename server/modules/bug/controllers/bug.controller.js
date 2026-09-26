@@ -1,9 +1,18 @@
 // modules/bug/controllers/bug.controller.js
 const { BugService } = require("../services/bug.service");
 const { ApiResponse } = require("../../../shared/response/apiResponse");
-const { toBugResponse } = require("../dto/bug.dto");
+const { toBugResponse, toBugTimelineResponse } = require("../dto/bug.dto");
 
 class BugController {
+  static async history(req, res, next) {
+    try {
+      const rows = await BugService.Instance.getStatusTimeline(req.user, req.validated.params.id);
+      res.status(200).json(ApiResponse.ok("Bug timeline fetched", toBugTimelineResponse(rows)));
+    } catch (err) {
+      next(err);
+    }
+  }
+
   static async fetchAll(req, res, next) {
     try {
       const result = await BugService.Instance.fetchBugs(req.user, req.validated.query);

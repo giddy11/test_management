@@ -361,6 +361,68 @@ describe("BugService", () => {
       );
     });
 
+    describe("status only moves forward", () => {
+      it.each([
+        ["In Progress", "Open"],
+        ["Fixed", "In Progress"],
+        ["Verified", "Fixed"],
+        ["Closed", "Verified"],
+        ["Closed", "Open"],
+        ["Reopened", "Open"],
+      ])("rejects going back from %s to %s", async (current, next) => {
+        bugRepo.findById.mockResolvedValue({ ...bug, status: current });
+        await expect(service.manageBug(admin, "bug-1", { status: next })).rejects.toMatchObject({
+          statusCode: 422,
+        });
+        expect(bugRepo.update).not.toHaveBeenCalled();
+      });
+
+      it.each([
+        ["Open", "In Progress"],
+        ["Open", "Closed"],
+        ["In Progress", "Verified"],
+        ["Fixed", "Closed"],
+      ])("allows moving forward from %s to %s, skipping stages if needed", async (current, next) => {
+        bugRepo.findById.mockResolvedValue({ ...bug, status: current });
+        bugRepo.update.mockResolvedValue({ ...bug, status: next });
+        await service.manageBug(admin, "bug-1", { status: next });
+        expect(bugRepo.update).toHaveBeenCalledWith("bug-1", expect.objectContaining({ status: next }));
+      });
+
+      it.each(["Fixed", "Verified", "Closed"])("allows reopening a bug that is %s", async (current) => {
+        bugRepo.findById.mockResolvedValue({ ...bug, status: current, resolvedAt: new Date() });
+        bugRepo.update.mockResolvedValue({ ...bug, status: "Reopened" });
+        await service.manageBug(admin, "bug-1", { status: "Reopened" });
+        expect(bugRepo.update).toHaveBeenCalledWith("bug-1", expect.objectContaining({ status: "Reopened" }));
+      });
+
+      it.each(["Open", "In Progress"])("rejects reopening a bug that is only %s", async (current) => {
+        bugRepo.findById.mockResolvedValue({ ...bug, status: current });
+        await expect(service.manageBug(admin, "bug-1", { status: "Reopened" })).rejects.toMatchObject({
+          statusCode: 422,
+        });
+        expect(bugRepo.update).not.toHaveBeenCalled();
+      });
+
+      it.each(["In Progress", "Fixed", "Verified", "Closed"])(
+        "lets a reopened bug work forward again to %s",
+        async (next) => {
+          bugRepo.findById.mockResolvedValue({ ...bug, status: "Reopened" });
+          bugRepo.update.mockResolvedValue({ ...bug, status: next });
+          await service.manageBug(admin, "bug-1", { status: next });
+          expect(bugRepo.update).toHaveBeenCalledWith("bug-1", expect.objectContaining({ status: next }));
+        }
+      );
+
+      it("still lets other triage fields change while the status stays put", async () => {
+        const closed = { ...bug, status: "Closed" };
+        bugRepo.findById.mockResolvedValue(closed);
+        bugRepo.update.mockResolvedValue({ ...closed, priority: "High" });
+        await service.manageBug(admin, "bug-1", { status: "Closed", priority: "High" });
+        expect(bugRepo.update).toHaveBeenCalledWith("bug-1", expect.objectContaining({ priority: "High" }));
+      });
+    });
+
     it("notifies the reporter on status change", async () => {
       bugRepo.findById.mockResolvedValue(bug);
       bugRepo.update.mockResolvedValue({ ...bug, status: "In Progress" });

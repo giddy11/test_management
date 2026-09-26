@@ -1,6 +1,7 @@
 // modules/featureRequest/validators/featureRequest.schema.js
 const { z } = require("zod");
 const { enums } = require("../../../config/constants");
+const { dateRangeQuery } = require("../../../shared/utils/dateRange");
 
 const createFeatureRequestSchema = z.object({
   body: z.object({
@@ -35,7 +36,7 @@ const codeParamSchema = z.object({
 });
 
 const fetchFeatureRequestsSchema = z.object({
-  query: z.object({
+  query: dateRangeQuery({
     projectId: z.string().uuid(),
     page: z.coerce.number().int().min(1).default(1),
     limit: z.coerce.number().int().min(1).max(100).default(20),

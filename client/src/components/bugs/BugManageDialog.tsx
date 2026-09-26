@@ -24,6 +24,7 @@ import {
   BUG_STATUS_META,
   BUG_SEVERITIES,
   BUG_PRIORITIES,
+  isBugStatusSelectable,
   type BugStatus,
   type BugSeverity,
   type BugPriority,
@@ -92,10 +93,19 @@ export function BugManageDialog({ open, onOpenChange, bug }: Props) {
               <SelectTrigger data-cy="bug-status"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {BUG_STATUSES.map((s) => (
-                  <SelectItem key={s} value={s}>{BUG_STATUS_META[s].label}</SelectItem>
+                  <SelectItem
+                    key={s}
+                    value={s}
+                    disabled={Boolean(bug) && !isBugStatusSelectable(bug!.status, s)}
+                  >
+                    {BUG_STATUS_META[s].label}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
+            <p className="text-xs text-muted-foreground">
+              Status can only move forward. A fixed bug can be Reopened if it resurfaces.
+            </p>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-1.5">

@@ -41,4 +41,10 @@ function toCommentResponse(c) {
   };
 }
 
-module.exports = { toFeatureRequestResponse, toCommentResponse };
+// Ordered oldest → newest. The client derives time-in-status from consecutive
+// `enteredAt` timestamps (the last entry's is still running).
+function toStatusTimelineResponse(rows) {
+  return rows.map((r) => ({ status: r.status, enteredAt: r.enteredAt }));
+}
+
+module.exports = { toFeatureRequestResponse, toCommentResponse, toStatusTimelineResponse };

@@ -23,6 +23,7 @@ describe("Feature requests", () => {
 
   it("lists requests with status, votes, and comment counts", () => {
     cy.dataCy("feature-request-card").should("have.length", 2)
+    cy.dataCy("feature-requests-tab-count").should("have.text", "2")
     cy.contains('[data-cy="feature-request-card"]', "Dark mode for reports").within(() => {
       cy.contains("Under Review").should("be.visible")
       cy.contains("UI/UX").should("be.visible")
@@ -42,6 +43,19 @@ describe("Feature requests", () => {
     cy.get('input[placeholder="Search by reporter name…"]').type("Uche")
 
     cy.wait("@searchedRequests").its("request.url").should("include", "searchBy=reporter").and("include", "search=Uche")
+  })
+
+  it("filters requests by submission date range through the API", () => {
+    cy.interceptApi("GET", "/feature-requests", { body: ok([], listMeta(0)) }, "datedRequests")
+
+    cy.dataCy("date-from").type("2026-07-01")
+    cy.wait("@datedRequests").its("request.url").should("include", "from=2026-07-01").and("not.include", "to=")
+
+    cy.dataCy("date-to").type("2026-07-31")
+    cy.wait("@datedRequests").its("request.url").should("include", "from=2026-07-01").and("include", "to=2026-07-31")
+
+    cy.dataCy("date-clear").click()
+    cy.wait("@datedRequests").its("request.url").should("not.include", "from=").and("not.include", "to=")
   })
 
   it("upvotes a request", () => {

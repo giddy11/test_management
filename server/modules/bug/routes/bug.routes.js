@@ -21,6 +21,13 @@ router.get(
   BugController.fetchByCode
 );
 router.get("/:id", authMiddleware, requireProjectAccess("Defects and feature requests — decided by role in the project"), validate(idParamSchema), BugController.fetchById);
+router.get(
+  "/:id/history",
+  authMiddleware,
+  requireProjectAccess("Defects and feature requests — decided by role in the project"),
+  validate(idParamSchema),
+  BugController.history
+);
 router.post("/", authMiddleware, requireProjectAccess("Defects and feature requests — decided by role in the project"), validate(createBugSchema), BugController.create);
 router.patch(
   "/:id",

@@ -27,6 +27,12 @@ export interface Bug {
 // Which field the bug list's search box is matched against.
 export type BugSearchField = "title" | "reporter" | "assignee" | "suite"
 
+// One status the bug has entered, oldest first (a reopened bug repeats stages).
+export interface BugStatusHistoryEntry {
+  status: BugStatus
+  enteredAt: string
+}
+
 export interface BugAttachment {
   id: string
   bugId: string

@@ -18,6 +18,20 @@ export function useRuns(projectId: string) {
   })
 }
 
+// Number of runs the caller can see in the project — for the tab label. The list
+// hook above returns bare rows with no total.
+export function useRunTotal(projectId: string) {
+  return useQuery({
+    queryKey: [RUNS, "total", projectId],
+    queryFn: async () => {
+      const res = await RunEndpoints.fetchAll({ projectId, limit: 1 })
+      if (!res.success) throw new ApiError(res.message, res.statusCode)
+      return res.meta?.total ?? 0
+    },
+    enabled: Boolean(projectId),
+  })
+}
+
 export function useActiveRunStatus(projectId: string) {
   return useQuery({
     queryKey: [RUNS, "active-status", projectId],

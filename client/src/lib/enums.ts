@@ -56,6 +56,21 @@ export const FEATURE_REQUEST_STATUS_META: Record<FeatureRequestStatus, { label: 
   rejected: { label: "Rejected", badge: "bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400 line-through" },
 }
 
+// Feature requests only move forward through these stages. "rejected" is an exit
+// from any open stage rather than a step in the sequence, and done/rejected are
+// final. Mirrors assertValidStatusTransition in the API's featureRequest.service.js.
+const FEATURE_REQUEST_STAGES: readonly FeatureRequestStatus[] = ["new", "under_review", "planned", "in_progress", "done"]
+
+export const isFeatureRequestFinal = (s: FeatureRequestStatus) => s === "done" || s === "rejected"
+
+// Whether `candidate` may be chosen for a request currently at `current`.
+export function isFeatureRequestStatusSelectable(current: FeatureRequestStatus, candidate: FeatureRequestStatus): boolean {
+  if (candidate === current) return true
+  if (isFeatureRequestFinal(current)) return false
+  if (candidate === "rejected") return true
+  return FEATURE_REQUEST_STAGES.indexOf(candidate) > FEATURE_REQUEST_STAGES.indexOf(current)
+}
+
 export const BUG_SEVERITIES = ["Trivial", "Minor", "Major", "Critical"] as const
 export type BugSeverity = (typeof BUG_SEVERITIES)[number]
 
@@ -86,4 +101,17 @@ export const BUG_STATUS_META: Record<BugStatus, { label: string; badge: string }
   Verified: { label: "Verified", badge: "bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-300" },
   Closed: { label: "Closed", badge: "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300" },
   Reopened: { label: "Reopened", badge: "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300" },
+}
+
+// Bugs only move forward through these stages. "Reopened" is the one way back —
+// a fixed bug resurfaces — and re-enters the sequence just before In Progress.
+// Mirrors assertValidStatusTransition in the API's bug.service.js.
+const BUG_STAGES: readonly BugStatus[] = ["Open", "In Progress", "Fixed", "Verified", "Closed"]
+const bugRank = (s: BugStatus) => (s === "Reopened" ? 0.5 : BUG_STAGES.indexOf(s))
+
+// Whether `candidate` may be chosen for a bug currently at `current`.
+export function isBugStatusSelectable(current: BugStatus, candidate: BugStatus): boolean {
+  if (candidate === current) return true
+  if (candidate === "Reopened") return current === "Fixed" || current === "Verified" || current === "Closed"
+  return bugRank(candidate) > bugRank(current)
 }

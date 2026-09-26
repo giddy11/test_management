@@ -23,6 +23,12 @@ export interface FeatureRequest {
 // Which field the request list's search box is matched against.
 export type FeatureRequestSearchField = "title" | "reporter"
 
+// One status the request has entered, oldest first.
+export interface FeatureRequestStatusHistoryEntry {
+  status: FeatureRequestStatus
+  enteredAt: string
+}
+
 export interface FeatureRequestComment {
   id: string
   featureRequestId: string

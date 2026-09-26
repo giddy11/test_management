@@ -32,4 +32,10 @@ function toBugResponse(bug) {
   };
 }
 
-module.exports = { toBugResponse };
+// Ordered oldest → newest. The client derives time-in-status from consecutive
+// `enteredAt` timestamps (the last entry's is still running).
+function toBugTimelineResponse(rows) {
+  return rows.map((r) => ({ status: r.status, enteredAt: r.enteredAt }));
+}
+
+module.exports = { toBugResponse, toBugTimelineResponse };

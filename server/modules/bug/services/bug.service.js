@@ -27,6 +27,39 @@ const CONTENT_FIELDS = [
   "testCaseId",
 ];
 
+// The lifecycle's stages in order. "Reopened" isn't one of them: it's how a bug
+// that had been fixed re-enters the sequence, so it sits just before In Progress.
+const BUG_STAGES = [
+  BugStatus.OPEN,
+  BugStatus.IN_PROGRESS,
+  BugStatus.FIXED,
+  BugStatus.VERIFIED,
+  BugStatus.CLOSED,
+];
+const bugRank = (status) => (status === BugStatus.REOPENED ? 0.5 : BUG_STAGES.indexOf(status));
+// A bug can only be reopened once it has been declared fixed.
+const REOPENABLE_BUG_STATUSES = new Set([BugStatus.FIXED, BugStatus.VERIFIED, BugStatus.CLOSED]);
+
+// A bug only moves forward — it can't return to an earlier status. The one way
+// back is Reopened (a fixed bug resurfaces), after which it works forward again
+// from In Progress. Skipping ahead is allowed, and keeping the current status is
+// always fine. Mirrored on the client in isBugStatusSelectable (lib/enums.ts).
+function assertValidStatusTransition(current, next) {
+  if (current === next) return;
+  if (next === BugStatus.REOPENED) {
+    if (!REOPENABLE_BUG_STATUSES.has(current)) {
+      throw new AppError("Only a bug that has been fixed can be reopened.", 422);
+    }
+    return;
+  }
+  if (bugRank(next) < bugRank(current)) {
+    throw new AppError(
+      `A bug can't go back to an earlier status — it is already "${current}".`,
+      422
+    );
+  }
+}
+
 class BugService {
   static Instance = new BugService();
 
@@ -80,6 +113,13 @@ class BugService {
     if (!bug || bug.deletedAt) throw new AppError("Bug not found", 404);
     await this.projectService.getProject(actor, bug.projectId);
     return bug;
+  }
+
+  // Every status the bug has entered, oldest first (a reopened bug appears
+  // more than once per stage).
+  async getStatusTimeline(actor, id) {
+    await this.getAccessible(actor, id);
+    return this.historyRepo.findByBug(id);
   }
 
   // Confirms an optional testCaseId/testRunId actually belongs to the same
@@ -193,6 +233,8 @@ class BugService {
     if (data.testCaseId) {
       await this._assertLinksBelongToProject(bug.projectId, { testCaseId: data.testCaseId });
     }
+
+    if (data.status !== undefined) assertValidStatusTransition(bug.status, data.status);
 
     const patch = {};
     if (data.severity !== undefined) patch.severity = data.severity;

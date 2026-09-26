@@ -24,6 +24,46 @@ const TERMINAL_FEATURE_REQUEST_STATUSES = new Set([
   FeatureRequestStatus.REJECTED,
 ]);
 
+// The workflow's stages in order. "rejected" isn't one of them: a request can be
+// rejected from any open stage, so it has no place in the sequence.
+const FEATURE_REQUEST_STAGES = [
+  FeatureRequestStatus.NEW,
+  FeatureRequestStatus.UNDER_REVIEW,
+  FeatureRequestStatus.PLANNED,
+  FeatureRequestStatus.IN_PROGRESS,
+  FeatureRequestStatus.DONE,
+];
+
+const FEATURE_REQUEST_STATUS_LABELS = {
+  [FeatureRequestStatus.NEW]: "New",
+  [FeatureRequestStatus.UNDER_REVIEW]: "Under Review",
+  [FeatureRequestStatus.PLANNED]: "Planned",
+  [FeatureRequestStatus.IN_PROGRESS]: "In Progress",
+  [FeatureRequestStatus.DONE]: "Done",
+  [FeatureRequestStatus.REJECTED]: "Rejected",
+};
+
+// A request only moves forward — it can't return to an earlier stage, and done
+// and rejected are final. Skipping ahead is allowed, and so is rejecting from any
+// open stage. Keeping the current status is always fine (e.g. to edit the response).
+// Mirrored on the client in isFeatureRequestStatusSelectable (lib/enums.ts).
+function assertValidStatusTransition(current, next) {
+  if (current === next) return;
+  if (TERMINAL_FEATURE_REQUEST_STATUSES.has(current)) {
+    throw new AppError(
+      `This request is already ${FEATURE_REQUEST_STATUS_LABELS[current]} — its status can't change any more.`,
+      422
+    );
+  }
+  if (next === FeatureRequestStatus.REJECTED) return;
+  if (FEATURE_REQUEST_STAGES.indexOf(next) < FEATURE_REQUEST_STAGES.indexOf(current)) {
+    throw new AppError(
+      `A feature request can't go back to an earlier status — it is already "${FEATURE_REQUEST_STATUS_LABELS[current]}".`,
+      422
+    );
+  }
+}
+
 class FeatureRequestService {
   static Instance = new FeatureRequestService();
 
@@ -95,6 +135,12 @@ class FeatureRequestService {
     await this.projectService.getProject(actor, fr.projectId);
     const [{ extra }] = await this.annotate(actor, [fr]);
     return { request: fr, extra };
+  }
+
+  // Every status the request has entered, oldest first.
+  async getStatusTimeline(actor, id) {
+    await this.getAccessible(actor, id);
+    return this.historyRepo.findByFeatureRequest(id);
   }
 
   async createFeatureRequest(actor, data) {
@@ -171,21 +217,18 @@ class FeatureRequestService {
 
     const patch = {};
     if (data.status !== undefined) {
+      assertValidStatusTransition(fr.status, data.status);
       patch.status = data.status;
       patch.statusUpdatedAt = new Date();
       if (!fr.firstResponseAt) {
         patch.firstResponseAt = patch.statusUpdatedAt;
       }
       // done/rejected are both terminal — there's no separate "closed" step,
-      // so resolvedAt and closedAt are set (and cleared) together.
-      if (TERMINAL_FEATURE_REQUEST_STATUSES.has(data.status)) {
-        if (!fr.resolvedAt) {
-          patch.resolvedAt = patch.statusUpdatedAt;
-          patch.closedAt = patch.statusUpdatedAt;
-        }
-      } else if (TERMINAL_FEATURE_REQUEST_STATUSES.has(fr.status)) {
-        patch.resolvedAt = null;
-        patch.closedAt = null;
+      // so resolvedAt and closedAt are set together. Terminal is final (see
+      // assertValidStatusTransition), so they're never cleared again.
+      if (TERMINAL_FEATURE_REQUEST_STATUSES.has(data.status) && !fr.resolvedAt) {
+        patch.resolvedAt = patch.statusUpdatedAt;
+        patch.closedAt = patch.statusUpdatedAt;
       }
     }
     if (data.adminResponse !== undefined) patch.adminResponse = data.adminResponse;

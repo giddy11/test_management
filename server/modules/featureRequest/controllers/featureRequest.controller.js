@@ -1,9 +1,27 @@
 // modules/featureRequest/controllers/featureRequest.controller.js
 const { FeatureRequestService } = require("../services/featureRequest.service");
 const { ApiResponse } = require("../../../shared/response/apiResponse");
-const { toFeatureRequestResponse, toCommentResponse } = require("../dto/featureRequest.dto");
+const {
+  toFeatureRequestResponse,
+  toCommentResponse,
+  toStatusTimelineResponse,
+} = require("../dto/featureRequest.dto");
 
 class FeatureRequestController {
+  static async history(req, res, next) {
+    try {
+      const rows = await FeatureRequestService.Instance.getStatusTimeline(
+        req.user,
+        req.validated.params.id
+      );
+      res
+        .status(200)
+        .json(ApiResponse.ok("Feature request timeline fetched", toStatusTimelineResponse(rows)));
+    } catch (err) {
+      next(err);
+    }
+  }
+
   static async fetchAll(req, res, next) {
     try {
       const result = await FeatureRequestService.Instance.fetchFeatureRequests(

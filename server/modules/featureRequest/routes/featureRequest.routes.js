@@ -51,6 +51,13 @@ router.delete(
   validate(idParamSchema),
   FeatureRequestController.remove
 );
+router.get(
+  "/:id/history",
+  authMiddleware,
+  requireProjectAccess("Defects and feature requests — decided by role in the project"),
+  validate(idParamSchema),
+  FeatureRequestController.history
+);
 router.post("/:id/vote", authMiddleware, requireProjectAccess("Defects and feature requests — decided by role in the project"), validate(idParamSchema), FeatureRequestController.vote);
 
 router.get(

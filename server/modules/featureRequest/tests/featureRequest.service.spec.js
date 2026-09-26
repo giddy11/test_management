@@ -234,15 +234,64 @@ describe("FeatureRequestService", () => {
       );
     });
 
-    it("clears resolvedAt/closedAt when moved back out of a terminal status", async () => {
-      const done = { ...fr, status: "done", resolvedAt: new Date(), closedAt: new Date() };
-      frRepo.findById.mockResolvedValue(done);
-      frRepo.update.mockResolvedValue({ ...done, status: "in_progress" });
-      await service.updateStatus(admin, "fr-1", { status: "in_progress" });
-      expect(frRepo.update).toHaveBeenCalledWith(
-        "fr-1",
-        expect.objectContaining({ status: "in_progress", resolvedAt: null, closedAt: null })
-      );
+    describe("status only moves forward", () => {
+      it.each([
+        ["under_review", "new"],
+        ["planned", "under_review"],
+        ["in_progress", "new"],
+      ])("rejects going back from %s to %s", async (current, next) => {
+        frRepo.findById.mockResolvedValue({ ...fr, status: current });
+        await expect(service.updateStatus(admin, "fr-1", { status: next })).rejects.toMatchObject({
+          statusCode: 422,
+        });
+        expect(frRepo.update).not.toHaveBeenCalled();
+      });
+
+      it.each([
+        ["done", "in_progress"],
+        ["done", "rejected"],
+        ["rejected", "new"],
+        ["rejected", "done"],
+      ])("treats %s as final — rejects moving to %s", async (current, next) => {
+        frRepo.findById.mockResolvedValue({ ...fr, status: current, resolvedAt: new Date(), closedAt: new Date() });
+        await expect(service.updateStatus(admin, "fr-1", { status: next })).rejects.toMatchObject({
+          statusCode: 422,
+        });
+        expect(frRepo.update).not.toHaveBeenCalled();
+      });
+
+      it.each([
+        ["new", "under_review"],
+        ["under_review", "in_progress"],
+        ["in_progress", "done"],
+      ])("allows moving forward from %s to %s, skipping stages if needed", async (current, next) => {
+        frRepo.findById.mockResolvedValue({ ...fr, status: current });
+        frRepo.update.mockResolvedValue({ ...fr, status: next });
+        await service.updateStatus(admin, "fr-1", { status: next });
+        expect(frRepo.update).toHaveBeenCalledWith("fr-1", expect.objectContaining({ status: next }));
+      });
+
+      it.each(["new", "under_review", "planned", "in_progress"])("allows rejecting from %s", async (current) => {
+        frRepo.findById.mockResolvedValue({ ...fr, status: current });
+        frRepo.update.mockResolvedValue({ ...fr, status: "rejected" });
+        await service.updateStatus(admin, "fr-1", { status: "rejected" });
+        expect(frRepo.update).toHaveBeenCalledWith("fr-1", expect.objectContaining({ status: "rejected" }));
+      });
+
+      it("still lets the response be edited without changing the status, even once done", async () => {
+        const done = { ...fr, status: "done", resolvedAt: new Date(), closedAt: new Date() };
+        frRepo.findById.mockResolvedValue(done);
+        frRepo.update.mockResolvedValue({ ...done, adminResponse: "Shipped in 2.4" });
+
+        await service.updateStatus(admin, "fr-1", { status: "done", adminResponse: "Shipped in 2.4" });
+        await service.updateStatus(admin, "fr-1", { adminResponse: "Shipped in 2.4" });
+
+        expect(frRepo.update).toHaveBeenCalledTimes(2);
+        expect(frRepo.update).toHaveBeenCalledWith(
+          "fr-1",
+          expect.not.objectContaining({ resolvedAt: null, closedAt: null })
+        );
+      });
     });
 
     it("records a feature_request_status_history row when the status changes", async () => {

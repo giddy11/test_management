@@ -3,6 +3,7 @@ const { AppDataSource } = require("../../../infrastructure/database/dataSource")
 const { FeatureRequest } = require("../entities/featureRequest.entity");
 const { buildMeta, getOffset } = require("../../../shared/pagination/paginate");
 const { andWhereUserNameMatches } = require("../../../shared/utils/nameSearch");
+const { andWhereDateRange } = require("../../../shared/utils/dateRange");
 
 class FeatureRequestRepository {
   static Instance = new FeatureRequestRepository();
@@ -20,6 +21,8 @@ class FeatureRequestRepository {
     category,
     search,
     searchBy = "title",
+    from,
+    to,
     sort = "top",
   }) {
     const offset = getOffset(page, limit);
@@ -41,13 +44,17 @@ class FeatureRequestRepository {
       }
     }
 
+    andWhereDateRange(qb, "fr.created_at", { from, to });
+
     if (sort === "newest") {
       qb.orderBy("fr.createdAt", "DESC");
     } else {
       qb.orderBy("fr.upvoteCount", "DESC").addOrderBy("fr.createdAt", "DESC");
     }
 
-    const total = page === 1 ? await qb.getCount() : 0;
+    // Counted on every page, unlike most lists: the tab's pager needs totalPages
+    // beyond page 1.
+    const total = await qb.getCount();
     const data = await qb.getMany();
     return { data, meta: buildMeta(page, limit, total, data.length) };
   }

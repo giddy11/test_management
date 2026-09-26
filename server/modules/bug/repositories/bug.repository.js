@@ -3,6 +3,7 @@ const { AppDataSource } = require("../../../infrastructure/database/dataSource")
 const { Bug } = require("../entities/bug.entity");
 const { buildMeta, getOffset } = require("../../../shared/pagination/paginate");
 const { andWhereUserNameMatches } = require("../../../shared/utils/nameSearch");
+const { andWhereDateRange } = require("../../../shared/utils/dateRange");
 
 class BugRepository {
   static Instance = new BugRepository();
@@ -21,6 +22,8 @@ class BugRepository {
     assignedToId,
     search,
     searchBy = "title",
+    from,
+    to,
   }) {
     const offset = getOffset(page, limit);
     const qb = this.repo
@@ -53,7 +56,11 @@ class BugRepository {
       }
     }
 
-    const total = page === 1 ? await qb.getCount() : 0;
+    andWhereDateRange(qb, "bug.created_at", { from, to });
+
+    // Counted on every page, unlike most lists: the tab's pager needs totalPages
+    // beyond page 1.
+    const total = await qb.getCount();
     const data = await qb.getMany();
     return { data, meta: buildMeta(page, limit, total, data.length) };
   }

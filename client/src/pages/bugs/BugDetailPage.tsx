@@ -10,11 +10,16 @@ import { BugSeverityBadge, BugPriorityBadge, BugStatusBadge } from "@/components
 import { BugManageDialog } from "@/components/bugs/BugManageDialog"
 import { BugFormDialog } from "@/components/bugs/BugFormDialog"
 import { BugAttachmentsSection } from "@/components/bugs/BugAttachmentsSection"
-import { useBug, useBugByCode, useDeleteBug } from "@/hooks/useBugs"
+import { StatusTimeline } from "@/components/shared/StatusTimeline"
+import { useBug, useBugByCode, useBugHistory, useDeleteBug } from "@/hooks/useBugs"
 import { useCase } from "@/hooks/useCases"
 import { useCanManageProject } from "@/hooks/useProjects"
 import { useAuth } from "@/contexts/AuthContext"
+import { BUG_STATUS_META, type BugStatus } from "@/lib/enums"
 import { ApiError } from "@/transport/http"
+
+// A closed bug can still be reopened, but at rest it shows no running clock.
+const FINAL_STATUSES = ["Closed"]
 
 function LinkedTestCase({ projectId, testCaseId }: { projectId: string; testCaseId: string }) {
   const { data: testCase } = useCase(testCaseId)
@@ -38,6 +43,7 @@ export default function BugDetailPage() {
   const byId = useBug(id ?? "")
   const byCode = useBugByCode(code ?? "")
   const { data: bug, isLoading } = code ? byCode : byId
+  const { data: history = [] } = useBugHistory(bug?.id ?? "")
   const del = useDeleteBug()
   const [editOpen, setEditOpen] = useState(false)
   const [manageOpen, setManageOpen] = useState(false)
@@ -149,6 +155,17 @@ export default function BugDetailPage() {
               </Link>
             )}
           </div>
+        </div>
+      )}
+
+      {history.length > 0 && (
+        <div className="space-y-3">
+          <h3 className="text-sm font-medium">Status timeline</h3>
+          <StatusTimeline
+            history={history}
+            labelFor={(s) => BUG_STATUS_META[s as BugStatus]?.label ?? s}
+            finalStatuses={FINAL_STATUSES}
+          />
         </div>
       )}
 

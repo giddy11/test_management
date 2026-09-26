@@ -15,6 +15,20 @@ function openBug(role: "admin" | "user", userOverrides?: Record<string, unknown>
     cy.interceptApi("GET", `/bugs/${BUG_ID}`, { body: ok(bugs[0]) }, "bug")
   })
   cy.interceptApi("GET", `/bugs/${BUG_ID}/attachments`, { body: ok([]) }, "attachments")
+  cy.interceptApi(
+    "GET",
+    `/bugs/${BUG_ID}/history`,
+    {
+      body: ok([
+        { status: "Open", enteredAt: "2026-07-14T09:00:00.000Z" },
+        { status: "In Progress", enteredAt: "2026-07-14T11:00:00.000Z" },
+        { status: "Fixed", enteredAt: "2026-07-15T09:00:00.000Z" },
+        { status: "Reopened", enteredAt: "2026-07-16T09:00:00.000Z" },
+        { status: "In Progress", enteredAt: "2026-07-16T10:00:00.000Z" },
+      ]),
+    },
+    "history"
+  )
   // The manage dialog's assignee picker loads users; the edit dialog's test-case picker loads suites.
   cy.fixture("team/users").then((users) => {
     cy.interceptApi("GET", "/users", { body: ok(users, listMeta(users.length)) }, "users")
@@ -40,6 +54,14 @@ describe("Bug detail (admin)", () => {
     cy.contains("Safari 17 / macOS").should("be.visible")
   })
 
+  it("shows the status timeline, including a status entered twice after a reopen", () => {
+    cy.contains("Status timeline").should("be.visible")
+    cy.dataCy("timeline-entry").should("have.length", 5)
+    cy.dataCy("timeline-entry").eq(0).should("contain", "Open").and("contain", "2h")
+    cy.dataCy("timeline-entry").eq(3).should("contain", "Reopened").and("contain", "1h")
+    cy.dataCy("timeline-entry").eq(4).should("contain", "In Progress").and("contain", "so far")
+  })
+
   it("transitions the bug status and assigns a user", () => {
     cy.fixture("bugs/list").then((bugs) => {
       cy.interceptApi(
@@ -62,6 +84,32 @@ describe("Bug detail (admin)", () => {
       assignedToId: null,
     })
     cy.contains("Bug updated").should("be.visible")
+  })
+
+  it("blocks going back — an open bug can't be reopened, later stages are open", () => {
+    // The fixture bug is Open.
+    cy.dataCy("bug-manage").click()
+    cy.dataCy("bug-status").click()
+
+    cy.contains('[role="option"]', "Reopened").should("have.attr", "aria-disabled", "true")
+    cy.contains('[role="option"]', "Open").should("not.have.attr", "aria-disabled", "true")
+    cy.contains('[role="option"]', "In Progress").should("not.have.attr", "aria-disabled", "true")
+    cy.contains('[role="option"]', "Closed").should("not.have.attr", "aria-disabled", "true")
+  })
+
+  it("lets a closed bug be reopened but not moved to an earlier stage", () => {
+    cy.fixture("bugs/list").then((bugs) => {
+      cy.interceptApi("GET", `/bugs/${BUG_ID}`, { body: ok({ ...bugs[0], status: "Closed" }) }, "closedBug")
+    })
+    cy.visit(BUG_URL)
+    cy.wait("@closedBug")
+
+    cy.dataCy("bug-manage").click()
+    cy.dataCy("bug-status").click()
+    cy.contains('[role="option"]', "Open").should("have.attr", "aria-disabled", "true")
+    cy.contains('[role="option"]', "Verified").should("have.attr", "aria-disabled", "true")
+    cy.contains('[role="option"]', "Closed").should("not.have.attr", "aria-disabled", "true")
+    cy.contains('[role="option"]', "Reopened").should("not.have.attr", "aria-disabled", "true")
   })
 
   it("edits the report and sends only the content fields", () => {

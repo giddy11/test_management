@@ -10,6 +10,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { InlineLoader } from "@/components/shared/PageLoader"
+import { DateRangeFilter } from "@/components/shared/DateRangeFilter"
 import { SearchByInput, type SearchByOption } from "@/components/shared/SearchByInput"
 import { FeatureRequestCard } from "@/components/featureRequests/FeatureRequestCard"
 import { FeatureRequestFormDialog } from "@/components/featureRequests/FeatureRequestFormDialog"
@@ -38,10 +39,13 @@ export function FeatureRequestsTab({ projectId }: { projectId: string }) {
     null
   )
   const [sort, setSort] = usePersistedState<"top" | "newest">(`feature-requests:sort:${projectId}`, "top")
+  // Submission-date range, YYYY-MM-DD; "" = no bound.
+  const [from, setFrom] = usePersistedState(`feature-requests:from:${projectId}`, "")
+  const [to, setTo] = usePersistedState(`feature-requests:to:${projectId}`, "")
   const [page, setPage] = useState(1)
   const [formOpen, setFormOpen] = useState(false)
 
-  useEffect(() => setPage(1), [search, searchBy])
+  useEffect(() => setPage(1), [search, searchBy, from, to])
 
   const { data, isLoading, isError, error } = useFeatureRequests(projectId, {
     page,
@@ -52,6 +56,8 @@ export function FeatureRequestsTab({ projectId }: { projectId: string }) {
     // Only meaningful alongside a search term — omitted otherwise so switching
     // the picker on an empty box doesn't trigger a refetch.
     searchBy: search ? searchBy : undefined,
+    from: from || undefined,
+    to: to || undefined,
   })
   const requests = data?.data ?? []
 
@@ -59,7 +65,7 @@ export function FeatureRequestsTab({ projectId }: { projectId: string }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
         <SearchByInput
           options={SEARCH_OPTIONS}
           field={searchBy}
@@ -87,6 +93,7 @@ export function FeatureRequestsTab({ projectId }: { projectId: string }) {
             <SelectItem value="newest">Newest</SelectItem>
           </SelectContent>
         </Select>
+        <DateRangeFilter from={from} to={to} onFromChange={setFrom} onToChange={setTo} />
         <Button size="sm" onClick={() => setFormOpen(true)} className="sm:ml-auto" data-cy="new-feature-request">
           <Plus className="mr-1 size-4" /> New request
         </Button>

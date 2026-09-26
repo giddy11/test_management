@@ -13,11 +13,26 @@ import { FeedbackTab } from "@/components/feedback/FeedbackTab"
 import { LiveChatTab } from "@/components/live-chat/LiveChatTab"
 import { useProject } from "@/hooks/useProjects"
 import { useDashboard } from "@/hooks/useDashboard"
+import { useFeatureRequests } from "@/hooks/useFeatureRequests"
+import { useBugs } from "@/hooks/useBugs"
+import { useFeedback } from "@/hooks/useFeedback"
+import { useRunTotal } from "@/hooks/useRuns"
+import { useSuiteTotal } from "@/hooks/useSuites"
 import { useAuth } from "@/contexts/AuthContext"
 import { PageLoader } from "@/components/shared/PageLoader"
 import type { SuiteBreakdown } from "@/types/testMgmt.types"
 
 const PROJECT_TABS = ["suites", "runs", "feature-requests", "bugs", "feedback", "live-chat"] as const
+
+// Small count pill beside a tab label. Hidden until loaded and when there's nothing to count.
+function TabCount({ count, ...props }: { count?: number } & React.ComponentProps<"span">) {
+  if (!count) return null
+  return (
+    <span className="rounded-full bg-foreground/10 px-1.5 text-xs tabular-nums" {...props}>
+      {count}
+    </span>
+  )
+}
 
 export default function ProjectDetailPage() {
   const { projectId = "" } = useParams()
@@ -35,6 +50,17 @@ export default function ProjectDetailPage() {
     isAdmin ||
     Boolean(project?.members?.some((m) => m.id === user?.id && m.role === "team_lead"))
   const { data: stats } = useDashboard(projectId)
+  // Project-wide totals for the tab labels, independent of each tab's own
+  // filters. limit 1 because only meta.total is read; creating or deleting an
+  // item invalidates these along with the lists.
+  const { data: suiteTotal } = useSuiteTotal(projectId)
+  const { data: runTotal } = useRunTotal(projectId)
+  const { data: featureRequests } = useFeatureRequests(projectId, { limit: 1 })
+  const { data: bugs } = useBugs(projectId, { limit: 1 })
+  const { data: tickets } = useFeedback({ projectId, limit: 1 })
+  const featureRequestTotal = featureRequests?.meta?.total
+  const bugTotal = bugs?.meta?.total
+  const ticketTotal = tickets?.meta?.total
 
   const breakdownMap = useMemo<Map<string, SuiteBreakdown>>(() => {
     if (!stats?.suitesBreakdown) return new Map()
@@ -95,11 +121,21 @@ export default function ProjectDetailPage() {
         }, { replace: true })}
       >
         <TabsList>
-          <TabsTrigger value="suites">Test Suites</TabsTrigger>
-          <TabsTrigger value="runs" data-tour="runs-tab-trigger">Test Runs</TabsTrigger>
-          <TabsTrigger value="feature-requests">Feature Requests</TabsTrigger>
-          <TabsTrigger value="bugs">Bug Fixes</TabsTrigger>
-          <TabsTrigger value="feedback" data-tour="feedback-tab-trigger">Tickets</TabsTrigger>
+          <TabsTrigger value="suites">
+            Test Suites <TabCount count={suiteTotal} data-cy="suites-tab-count" />
+          </TabsTrigger>
+          <TabsTrigger value="runs" data-tour="runs-tab-trigger">
+            Test Runs <TabCount count={runTotal} data-cy="runs-tab-count" />
+          </TabsTrigger>
+          <TabsTrigger value="feature-requests">
+            Feature Requests <TabCount count={featureRequestTotal} data-cy="feature-requests-tab-count" />
+          </TabsTrigger>
+          <TabsTrigger value="bugs">
+            Bug Fixes <TabCount count={bugTotal} data-cy="bugs-tab-count" />
+          </TabsTrigger>
+          <TabsTrigger value="feedback" data-tour="feedback-tab-trigger">
+            Tickets <TabCount count={ticketTotal} data-cy="tickets-tab-count" />
+          </TabsTrigger>
           <TabsTrigger value="live-chat">Live Chat</TabsTrigger>
         </TabsList>
         <TabsContent value="suites" className="mt-4">

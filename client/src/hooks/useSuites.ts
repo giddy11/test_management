@@ -17,6 +17,20 @@ export function useSuites(projectId: string, params: { search?: string } = {}) {
   })
 }
 
+// Number of suites the caller can see in the project, regardless of any search —
+// for the tab label. The list hook above returns bare rows with no total.
+export function useSuiteTotal(projectId: string) {
+  return useQuery({
+    queryKey: [KEY, "total", projectId],
+    queryFn: async () => {
+      const res = await SuiteEndpoints.fetchAll({ projectId, limit: 1 })
+      if (!res.success) throw new ApiError(res.message, res.statusCode)
+      return res.meta?.total ?? 0
+    },
+    enabled: Boolean(projectId),
+  })
+}
+
 export function useSuite(id: string) {
   return useQuery({
     queryKey: [KEY, "detail", id],
