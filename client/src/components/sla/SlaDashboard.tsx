@@ -275,6 +275,7 @@ export function SlaDashboard() {
             <SelectItem value="day">Daily</SelectItem>
             <SelectItem value="week">Weekly</SelectItem>
             <SelectItem value="month">Monthly</SelectItem>
+            <SelectItem value="year">Yearly</SelectItem>
           </SelectContent>
         </Select>
 

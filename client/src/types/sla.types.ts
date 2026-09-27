@@ -51,7 +51,7 @@ export type SlaStage = string
 
 export type SlaSeverityFilter = FeedbackSeverity | "unset"
 
-export type SlaInterval = "day" | "week" | "month"
+export type SlaInterval = "day" | "week" | "month" | "year"
 
 // Top-level kind an SLA row comes from. Distinct from FeedbackType (`type`),
 // which is a sub-category that only exists on ticket rows.

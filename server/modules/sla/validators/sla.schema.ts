@@ -55,7 +55,7 @@ export const slaFiltersSchema = z.object({
   query: z
     .object({
       ...filterFields,
-      interval: z.enum(["day", "week", "month"]).optional(),
+      interval: z.enum(["day", "week", "month", "year"]).optional(),
     })
     .refine((q) => !q.from || !q.to || q.from <= q.to, {
       message: "'from' must be on or before 'to'",

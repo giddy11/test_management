@@ -291,10 +291,11 @@ describe("SlaService.tickets — drill-down", () => {
 });
 
 describe("pickInterval", () => {
-  it("buckets by day for short ranges, week for medium, month otherwise", () => {
+  it("buckets by day for short ranges, week for medium, month for up to ~2 years, year beyond that", () => {
     expect(pickInterval("2026-01-01", "2026-01-20")).toBe("day");
     expect(pickInterval("2026-01-01", "2026-05-01")).toBe("week");
     expect(pickInterval("2025-01-01", "2026-01-01")).toBe("month");
+    expect(pickInterval("2020-01-01", "2026-01-01")).toBe("year");
     expect(pickInterval(undefined, undefined)).toBe("month");
   });
 });

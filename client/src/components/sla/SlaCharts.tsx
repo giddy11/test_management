@@ -47,6 +47,7 @@ function EmptyChart({ label, height = 240 }: { label: string; height?: number })
 
 function periodLabel(period: string, interval: SlaInterval): string {
   const d = new Date(`${period}T00:00:00`)
+  if (interval === "year") return d.toLocaleDateString(undefined, { year: "numeric" })
   if (interval === "month") return d.toLocaleDateString(undefined, { month: "short", year: "2-digit" })
   return d.toLocaleDateString(undefined, { day: "numeric", month: "short" })
 }

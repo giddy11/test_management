@@ -264,13 +264,15 @@ function orderSeverity<T extends { severity: string }>(rows: T[]): T[] {
   return [...rows].sort((a, b) => SEVERITY_ORDER.indexOf(a.severity) - SEVERITY_ORDER.indexOf(b.severity));
 }
 
-// Daily buckets for short ranges, weekly for a few months, monthly beyond.
-export function pickInterval(from?: string, to?: string): "day" | "week" | "month" {
+// Daily buckets for short ranges, weekly for a few months, monthly for up to
+// a couple of years, yearly beyond that.
+export function pickInterval(from?: string, to?: string): "day" | "week" | "month" | "year" {
   if (!from) return "month";
   const start = new Date(from).getTime();
   const end = to ? new Date(to).getTime() : Date.now();
   const days = (end - start) / 86_400_000;
   if (days <= 45) return "day";
   if (days <= 200) return "week";
-  return "month";
+  if (days <= 730) return "month";
+  return "year";
 }
