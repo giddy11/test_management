@@ -41,8 +41,13 @@ export function toClientCompanyResponse(
     projectId: company.projectId,
     name: company.name,
     contactEmail: company.contactEmail ?? null,
-    feedbackToken: company.feedbackToken ?? null,
-    feedbackUrl: company.feedbackToken ? `${env.appUrl}/feedback/${company.feedbackToken}` : null,
+    // The underlying token is permanent once minted — only surface it (and
+    // the URL built from it) while the form is actually enabled.
+    feedbackToken: company.feedbackEnabled ? (company.feedbackToken ?? null) : null,
+    feedbackUrl:
+      company.feedbackEnabled && company.feedbackToken
+        ? `${env.appUrl}/feedback/${company.feedbackToken}`
+        : null,
     autoAssignEnabled: company.autoAssignEnabled ?? false,
     supporterCount,
     createdAt: company.createdAt,

@@ -518,15 +518,24 @@ export class LiveChatService {
     return this.settingsRepo.update(projectId, { ...patch, updatedBy: actor.id });
   }
 
-  // Enabling/rotating/disabling a project's widget link — mirrors
+  // Enabling/disabling a project's widget link — mirrors
   // FeedbackService.setFeedbackLink exactly (route-level restricts this to
   // admins, so no extra service-level role check here).
+  //
+  // The token itself is minted once and kept forever after: toggling only
+  // flips liveChatEnabled (which findByLiveChatToken checks), so a disable
+  // followed by a re-enable brings back the exact same embed instead of
+  // orphaning whatever's already pasted with the old token. Deciding to
+  // hand out a genuinely new token is a separate, explicit action — this
+  // toggle was never meant to be that.
   async setWidgetLink(actor: Actor, projectId: string, enabled: boolean) {
     const project = await this.projectService.getProject(actor, projectId);
-    // Rotating the widget link breaks every embedded copy: the team lead's call.
     await this.projectService.assertCanManageProject(actor, projectId);
-    project.liveChatToken = enabled ? randomUUID() : null;
+    if (enabled && !project.liveChatToken) {
+      project.liveChatToken = randomUUID();
+    }
+    project.liveChatEnabled = enabled;
     await this.projectRepo.save(project);
-    return { liveChatToken: project.liveChatToken };
+    return { liveChatToken: enabled ? project.liveChatToken : null };
   }
 }

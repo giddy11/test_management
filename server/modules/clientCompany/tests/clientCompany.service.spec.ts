@@ -212,19 +212,32 @@ describe("ClientCompanyService", () => {
   });
 
   describe("setFeedbackLink", () => {
-    it("rotates a fresh token when enabling", async () => {
+    it("mints a fresh token the first time it's enabled", async () => {
       companyRepo.findById.mockResolvedValue({ ...company });
       const { feedbackToken } = await service.setFeedbackLink(admin, "cc-1", true);
       expect(feedbackToken).toEqual(expect.any(String));
       expect(companyRepo.save).toHaveBeenCalledWith(
-        expect.objectContaining({ feedbackToken })
+        expect.objectContaining({ feedbackToken, feedbackEnabled: true })
       );
     });
 
-    it("clears the token when disabling", async () => {
+    it("hides the token (without clearing it) when disabling", async () => {
       companyRepo.findById.mockResolvedValue({ ...company, feedbackToken: "tok-1" });
       const { feedbackToken } = await service.setFeedbackLink(admin, "cc-1", false);
       expect(feedbackToken).toBeNull();
+      expect(companyRepo.save).toHaveBeenCalledWith(
+        expect.objectContaining({ feedbackToken: "tok-1", feedbackEnabled: false })
+      );
+    });
+
+    it("keeps the same token across a disable and re-enable", async () => {
+      const mutableCompany = { ...company };
+      companyRepo.findById.mockResolvedValue(mutableCompany);
+      const first = await service.setFeedbackLink(admin, "cc-1", true);
+      const disabled = await service.setFeedbackLink(admin, "cc-1", false);
+      const second = await service.setFeedbackLink(admin, "cc-1", true);
+      expect(disabled.feedbackToken).toBeNull();
+      expect(second.feedbackToken).toBe(first.feedbackToken);
     });
   });
 

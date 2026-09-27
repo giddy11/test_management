@@ -25,8 +25,10 @@ export class ClientCompanyRepository {
     return this.repo.findOne({ where: { id } });
   }
 
+  // The token is permanent once minted (see ClientCompanyService.setFeedbackLink),
+  // so feedbackEnabled is what actually gates a disabled form from resolving.
   async findByFeedbackToken(feedbackToken: string): Promise<ClientCompany | null> {
-    return this.repo.findOne({ where: { feedbackToken } }); // indexed
+    return this.repo.findOne({ where: { feedbackToken, feedbackEnabled: true } }); // indexed
   }
 
   // Case-insensitive match across the whole application — used to reject

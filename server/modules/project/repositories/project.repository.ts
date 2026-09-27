@@ -90,13 +90,15 @@ export class ProjectRepository {
   }
 
   // Public feedback form lookup — token is the only credential, so no org scope.
+  // The token is permanent once minted (see FeedbackService.setFeedbackLink),
+  // so `enabled` is what actually gates a disabled form from resolving.
   async findByFeedbackToken(token: string): Promise<Project | null> {
-    return this.repo.findOne({ where: { feedbackToken: token } });
+    return this.repo.findOne({ where: { feedbackToken: token, feedbackEnabled: true } });
   }
 
   // Embeddable live-chat widget lookup — same trust model as findByFeedbackToken.
   async findByLiveChatToken(token: string): Promise<Project | null> {
-    return this.repo.findOne({ where: { liveChatToken: token } });
+    return this.repo.findOne({ where: { liveChatToken: token, liveChatEnabled: true } });
   }
 
   async create(data: Partial<Project>): Promise<Project> {

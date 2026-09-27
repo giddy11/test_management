@@ -10,8 +10,10 @@ export interface ClientCompany {
   projectId: string;
   name: string;
   contactEmail: string | null;
-  // Token for this company's public feedback form — null = form disabled.
+  // Permanent once minted — feedbackEnabled decides whether the form
+  // actually resolves (see ClientCompanyService.setFeedbackLink).
   feedbackToken: string | null;
+  feedbackEnabled: boolean;
   // Opt-in, set by the company's own IT support lead: route each incoming
   // ticket to their least-busy supporter instead of alerting the whole queue.
   autoAssignEnabled: boolean;
@@ -47,6 +49,11 @@ const ClientCompany = new EntitySchema<ClientCompany>({
       name: "feedback_token",
       type: "uuid",
       nullable: true,
+    },
+    feedbackEnabled: {
+      name: "feedback_enabled",
+      type: "boolean",
+      default: false,
     },
     autoAssignEnabled: {
       name: "auto_assign_enabled",

@@ -32,8 +32,11 @@ export function toProjectResponse(project: Project | null) {
         }, [])
       : undefined,
     suiteCount: project.suiteCount ?? 0,
-    feedbackToken: project.feedbackToken ?? null,
-    liveChatToken: project.liveChatToken ?? null,
+    // The underlying token is permanent once minted (see setFeedbackLink /
+    // setWidgetLink) — only surface it while its feature is actually enabled,
+    // so the UI's enabled/disabled state still reads straight off this field.
+    feedbackToken: project.feedbackEnabled ? (project.feedbackToken ?? null) : null,
+    liveChatToken: project.liveChatEnabled ? (project.liveChatToken ?? null) : null,
     createdAt: project.createdAt,
   };
 }

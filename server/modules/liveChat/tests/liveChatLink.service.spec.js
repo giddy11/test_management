@@ -1,8 +1,10 @@
 // modules/liveChat/tests/liveChatLink.service.spec.js
 //
-// Rotating a project's widget link breaks every embedded copy of the widget, so
-// it is the project's team lead's call — decided by role in the project, not by
-// a platform permission. setWidgetLink used to check project access only.
+// Enabling/disabling a project's widget link is the project's team lead's
+// call — decided by role in the project, not by a platform permission.
+// setWidgetLink used to check project access only. The token itself is
+// permanent once minted (see setWidgetLink's own comment): toggling only
+// flips liveChatEnabled, so re-enabling never orphans an embedded copy.
 const { LiveChatService } = require("../services/liveChat.service");
 
 function build({ canManage }) {
@@ -35,11 +37,20 @@ describe("LiveChatService.setWidgetLink", () => {
     expect(projectRepo.save).toHaveBeenCalled();
   });
 
-  it("stops an ordinary project member rotating it", async () => {
+  it("stops an ordinary project member enabling it", async () => {
     const { service, projectRepo } = build({ canManage: false });
     await expect(service.setWidgetLink(actor, "proj-1", true)).rejects.toMatchObject({
       statusCode: 403,
     });
     expect(projectRepo.save).not.toHaveBeenCalled();
+  });
+
+  it("keeps the same token across a disable and re-enable", async () => {
+    const { service } = build({ canManage: true });
+    const first = await service.setWidgetLink(actor, "proj-1", true);
+    const disabled = await service.setWidgetLink(actor, "proj-1", false);
+    const second = await service.setWidgetLink(actor, "proj-1", true);
+    expect(disabled.liveChatToken).toBeNull();
+    expect(second.liveChatToken).toBe(first.liveChatToken);
   });
 });

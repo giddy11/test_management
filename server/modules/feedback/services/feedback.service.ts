@@ -608,14 +608,19 @@ export class FeedbackService {
 
   // ── Feedback-form link management (admin) ───────────────────────────────────
 
+  // The token is minted once and kept forever after: toggling only flips
+  // feedbackEnabled (which findByFeedbackToken checks), so a disable followed
+  // by a re-enable brings back the exact same form link instead of orphaning
+  // whatever's already shared. Enabling/disabling is still the project's team
+  // lead's call — this used to lean on the route guard alone.
   async setFeedbackLink(actor: Actor, projectId: string, enabled: boolean) {
     const project = await this.projectService.getProject(actor, projectId);
-    // Enabling or rotating the public form link breaks every copy already
-    // shared, so it is the project's team lead's call. This used to lean on the
-    // route guard alone.
     await this.projectService.assertCanManageProject(actor, projectId);
-    project.feedbackToken = enabled ? randomUUID() : null;
+    if (enabled && !project.feedbackToken) {
+      project.feedbackToken = randomUUID();
+    }
+    project.feedbackEnabled = enabled;
     await this.projectRepo.save(project);
-    return { feedbackToken: project.feedbackToken };
+    return { feedbackToken: enabled ? project.feedbackToken : null };
   }
 }

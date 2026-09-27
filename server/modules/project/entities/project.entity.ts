@@ -8,11 +8,14 @@ export interface Project {
   description: string | null;
   ownerId: string;
   organizationId: string | null;
-  // When set, the public feedback form at /feedback/<token> is enabled.
+  // The public feedback form's secret — minted once on first enable and kept
+  // forever after (so disabling/re-enabling never orphans an embedded copy).
+  // Whether the form actually resolves is feedbackEnabled, not this being set.
   feedbackToken: string | null;
-  // When set, the embeddable live-chat widget is enabled for this project —
-  // same on/off + credential model as feedbackToken above.
+  feedbackEnabled: boolean;
+  // Same pair, for the embeddable live-chat widget.
   liveChatToken: string | null;
+  liveChatEnabled: boolean;
   createdAt: Date;
   deletedAt: Date | null;
   owner?: unknown;
@@ -48,17 +51,27 @@ const Project = new EntitySchema<Project>({
       type: "uuid",
       nullable: true,
     },
-    // Secret token enabling the public feedback form; null = disabled.
+    // Permanent once minted; feedbackEnabled decides whether it resolves.
     feedbackToken: {
       name: "feedback_token",
       type: "uuid",
       nullable: true,
     },
-    // Secret token enabling the embeddable live-chat widget; null = disabled.
+    feedbackEnabled: {
+      name: "feedback_enabled",
+      type: "boolean",
+      default: false,
+    },
+    // Permanent once minted; liveChatEnabled decides whether it resolves.
     liveChatToken: {
       name: "live_chat_token",
       type: "uuid",
       nullable: true,
+    },
+    liveChatEnabled: {
+      name: "live_chat_enabled",
+      type: "boolean",
+      default: false,
     },
     createdAt: {
       name: "created_at",

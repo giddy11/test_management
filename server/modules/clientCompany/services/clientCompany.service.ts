@@ -146,6 +146,7 @@ export class ClientCompanyService {
       // Ticket form is on from the start — no reason to make an admin take a
       // second step to enable it right after creating the company.
       feedbackToken: randomUUID(),
+      feedbackEnabled: true,
     });
 
     // The company's very first supporter is automatically its primary lead —
@@ -213,13 +214,19 @@ export class ClientCompanyService {
     });
   }
 
-  // Enable (rotate) or disable the company's public feedback form link —
-  // mirrors FeedbackService.setFeedbackLink for the project-level token.
+  // Enable or disable the company's public feedback form link — mirrors
+  // FeedbackService.setFeedbackLink for the project-level token. The token is
+  // minted once and kept forever after: toggling only flips feedbackEnabled,
+  // so re-enabling brings back the exact same link instead of orphaning a
+  // copy already shared with the company's contacts.
   async setFeedbackLink(actor: Actor, id: string, enabled: boolean) {
     const company = await this.getManageable(actor, id);
-    company.feedbackToken = enabled ? randomUUID() : null;
+    if (enabled && !company.feedbackToken) {
+      company.feedbackToken = randomUUID();
+    }
+    company.feedbackEnabled = enabled;
     await this.companyRepo.save(company);
-    return { feedbackToken: company.feedbackToken };
+    return { feedbackToken: enabled ? company.feedbackToken : null };
   }
 
   // Auto-assignment is the company's own operational call, not the product
@@ -286,6 +293,7 @@ export class ClientCompanyService {
       name: data.name,
       contactEmail: data.contactEmail ?? null,
       feedbackToken: randomUUID(),
+      feedbackEnabled: true,
     });
 
     // Mirrors createCompany's rollback: a failed supporter insert must not

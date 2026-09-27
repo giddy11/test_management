@@ -1,10 +1,11 @@
 // modules/feedback/tests/feedbackLink.service.spec.js
 //
-// Enabling, rotating or disabling a project's public form link breaks every copy
-// already shared, so it is the project's team lead's call. setFeedbackLink used
-// to check project ACCESS only and lean on a route guard for the rest; with
-// authorisation now decided by role in the project, the service must hold the
-// line itself.
+// Enabling or disabling a project's public form link is the project's team
+// lead's call. setFeedbackLink used to check project ACCESS only and lean on
+// a route guard for the rest; with authorisation now decided by role in the
+// project, the service must hold the line itself. The token itself is
+// permanent once minted (see setFeedbackLink's own comment): toggling only
+// flips feedbackEnabled, so re-enabling never orphans a copy already shared.
 const { FeedbackService } = require("../services/feedback.service");
 
 function build({ canManage }) {
@@ -46,12 +47,21 @@ describe("FeedbackService.setFeedbackLink", () => {
     });
   });
 
-  it("stops an ordinary project member rotating the link", async () => {
+  it("stops an ordinary project member enabling the link", async () => {
     const { service, projectRepo } = build({ canManage: false });
     await expect(service.setFeedbackLink(actor, "proj-1", true)).rejects.toMatchObject({
       statusCode: 403,
     });
     expect(projectRepo.save).not.toHaveBeenCalled();
+  });
+
+  it("keeps the same token across a disable and re-enable", async () => {
+    const { service } = build({ canManage: true });
+    const first = await service.setFeedbackLink(actor, "proj-1", true);
+    const disabled = await service.setFeedbackLink(actor, "proj-1", false);
+    const second = await service.setFeedbackLink(actor, "proj-1", true);
+    expect(disabled.feedbackToken).toBeNull();
+    expect(second.feedbackToken).toBe(first.feedbackToken);
   });
 
   it("checks access to the project before checking authority to manage it", async () => {
