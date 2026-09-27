@@ -91,6 +91,16 @@ class BugRepository {
   async softDelete(id) {
     await this.repo.softDelete(id);
   }
+
+  // Denormalized — comments live in Firestore, so there's no local table to COUNT.
+  // Called by the service after each successful Firestore comment write/soft-delete.
+  async incrementCommentCount(id) {
+    await this.repo.increment({ id }, "commentCount", 1);
+  }
+
+  async decrementCommentCount(id) {
+    await this.repo.decrement({ id }, "commentCount", 1);
+  }
 }
 
 module.exports = { BugRepository };

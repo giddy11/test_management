@@ -18,6 +18,7 @@ const {
   sendNewBugEmail,
   sendBugStatusEmail,
   sendBugAssignedEmail,
+  sendBugCommentEmail,
 } = require("../../../shared/utils/mailer");
 const {
   sendSupportQueueAlertEmail,
@@ -496,6 +497,23 @@ class NotificationService {
   }
 
   // ctx: { bugId, projectId, title }
+  // ctx: { bugId, projectId, title, commenterName }
+  async notifyBugComment(user, ctx) {
+    const url = `${env.appUrl}/projects/${ctx.projectId}/bugs/${ctx.bugId}`;
+    await this.repo.createMany([
+      {
+        userId: user.id,
+        type: NotificationType.BUG_COMMENT,
+        title: `New comment on: ${ctx.title}`,
+        body: `${ctx.commenterName} commented on the bug`,
+        data: { bugId: ctx.bugId, projectId: ctx.projectId },
+      },
+    ]);
+    sendBugCommentEmail(user.email, user.firstName, ctx.title, ctx.commenterName, url, user.organizationId).catch((e) =>
+      console.error("[notify] bug-comment email failed:", e.message)
+    );
+  }
+
   async notifyBugAssigned(user, ctx) {
     const url = `${env.appUrl}/projects/${ctx.projectId}/bugs/${ctx.bugId}`;
     await this.repo.createMany([

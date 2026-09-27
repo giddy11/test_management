@@ -116,6 +116,8 @@ const NotificationType = Object.freeze({
   BUG_REPORTED: "bug_reported",
   BUG_ASSIGNED: "bug_assigned",
   BUG_STATUS_CHANGED: "bug_status_changed",
+  // A new message landed in a bug's conversation thread.
+  BUG_COMMENT: "bug_comment",
   // In-app support chat: a user messaged the super admins, or a super admin replied.
   SUPPORT_CHAT_MESSAGE: "support_chat_message",
   SUPPORT_CHAT_REPLY: "support_chat_reply",

@@ -28,6 +28,7 @@ function toBugResponse(bug) {
     resolvedAt: bug.resolvedAt ?? null,
     closedAt: bug.closedAt ?? null,
     statusUpdatedAt: bug.statusUpdatedAt ?? null,
+    commentCount: bug.commentCount ?? 0,
     createdAt: bug.createdAt,
   };
 }
@@ -38,4 +39,16 @@ function toBugTimelineResponse(rows) {
   return rows.map((r) => ({ status: r.status, enteredAt: r.enteredAt }));
 }
 
-module.exports = { toBugResponse, toBugTimelineResponse };
+// Firestore has no join — authorId/authorName are denormalized directly onto the doc.
+function toCommentResponse(c) {
+  if (!c) return null;
+  return {
+    id: c.id,
+    bugId: c.bugId,
+    author: c.authorId ? { id: c.authorId, name: c.authorName || "Deleted user" } : null,
+    body: c.body,
+    createdAt: c.createdAt,
+  };
+}
+
+module.exports = { toBugResponse, toBugTimelineResponse, toCommentResponse };

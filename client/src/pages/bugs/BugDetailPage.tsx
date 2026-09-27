@@ -10,6 +10,7 @@ import { BugSeverityBadge, BugPriorityBadge, BugStatusBadge } from "@/components
 import { BugManageDialog } from "@/components/bugs/BugManageDialog"
 import { BugFormDialog } from "@/components/bugs/BugFormDialog"
 import { BugAttachmentsSection } from "@/components/bugs/BugAttachmentsSection"
+import { CommentThread } from "@/components/bugs/CommentThread"
 import { StatusTimeline } from "@/components/shared/StatusTimeline"
 import { useBug, useBugByCode, useBugHistory, useDeleteBug } from "@/hooks/useBugs"
 import { useCase } from "@/hooks/useCases"
@@ -172,6 +173,8 @@ export default function BugDetailPage() {
       <BugAttachmentsSection bugId={bug.id} />
 
       <Separator />
+
+      <CommentThread bugId={bug.id} canModerate={canManage} />
 
       <BugFormDialog open={editOpen} onOpenChange={setEditOpen} projectId={projectId} bug={bug} />
       <BugManageDialog open={manageOpen} onOpenChange={setManageOpen} bug={bug} />

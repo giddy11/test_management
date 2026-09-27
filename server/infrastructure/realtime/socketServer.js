@@ -17,7 +17,10 @@ let io = null;
 const presence = new Map();
 
 const orgRoom = (organizationId) => `org:${organizationId}`;
-const featureRequestRoom = (featureRequestId) => `feature-request:${featureRequestId}`;
+// Typing/comment rooms are opaque, caller-namespaced keys (e.g.
+// "feature-request:<id>", "bug:<id>") — this channel doesn't need to know
+// what kind of thread it's scoping, only that both sides agree on the key.
+const commentRoom = (roomId) => `comments:${roomId}`;
 
 // Rooms that should be told about a presence change for `entry` — its own org
 // (so org-mates see it) plus superadmins (who see every org, same as
@@ -86,29 +89,30 @@ function initSocketServer(httpServer) {
     }
     socket.emit("presence:snapshot", { userIds: onlineUserIds });
 
-    // ── Typing (scoped to whichever feature-request room the client joins) ──────
-    socket.on("room:join", ({ featureRequestId } = {}) => {
-      if (featureRequestId) socket.join(featureRequestRoom(featureRequestId));
+    // ── Typing (scoped to whichever comment room the client joins — a feature
+    // request, a bug, etc.) ─────────────────────────────────────────────────
+    socket.on("room:join", ({ roomId } = {}) => {
+      if (roomId) socket.join(commentRoom(roomId));
     });
-    socket.on("room:leave", ({ featureRequestId } = {}) => {
-      if (featureRequestId) socket.leave(featureRequestRoom(featureRequestId));
+    socket.on("room:leave", ({ roomId } = {}) => {
+      if (roomId) socket.leave(commentRoom(roomId));
     });
 
     // userName is client-supplied (cosmetic only) — identity (userId) is already
     // properly bound by the JWT handshake above, so there's nothing to spoof that
     // matters; this just saves a DB lookup on every keystroke.
-    socket.on("typing:start", ({ featureRequestId, userName } = {}) => {
-      if (!featureRequestId) return;
-      socket.to(featureRequestRoom(featureRequestId)).emit("typing:start", {
-        featureRequestId,
+    socket.on("typing:start", ({ roomId, userName } = {}) => {
+      if (!roomId) return;
+      socket.to(commentRoom(roomId)).emit("typing:start", {
+        roomId,
         userId: actor.id,
         userName: userName || "Someone",
       });
     });
-    socket.on("typing:stop", ({ featureRequestId } = {}) => {
-      if (!featureRequestId) return;
-      socket.to(featureRequestRoom(featureRequestId)).emit("typing:stop", {
-        featureRequestId,
+    socket.on("typing:stop", ({ roomId } = {}) => {
+      if (!roomId) return;
+      socket.to(commentRoom(roomId)).emit("typing:stop", {
+        roomId,
         userId: actor.id,
       });
     });

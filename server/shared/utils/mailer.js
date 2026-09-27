@@ -446,6 +446,19 @@ async function sendBugStatusEmail(to, firstName, title, status, url, isOwner = t
   });
 }
 
+async function sendBugCommentEmail(to, firstName, title, commenterName, url, organizationId) {
+  const body = `
+    <h1 style="margin:0 0 12px;font-size:20px;font-weight:700;color:#0f172a">New comment on your bug report</h1>
+    <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.65">Hi ${firstName}, ${commenterName} commented on the bug <strong>${title}</strong>.</p>
+    ${ctaButton(url, "View comment")}`;
+  return send({
+    to,
+    subject: `New comment — ${title} — TestMate`,
+    html: emailLayout(body, await resolveFooterEmail(organizationId)),
+    text: `${commenterName} commented on the bug "${title}".`,
+  });
+}
+
 async function sendBugAssignedEmail(to, firstName, title, url, organizationId) {
   const body = `
     <h1 style="margin:0 0 12px;font-size:20px;font-weight:700;color:#0f172a">You've been assigned a bug</h1>
@@ -485,5 +498,6 @@ module.exports = {
   sendFeatureRequestCommentEmail,
   sendNewBugEmail,
   sendBugStatusEmail,
+  sendBugCommentEmail,
   sendBugAssignedEmail,
 };

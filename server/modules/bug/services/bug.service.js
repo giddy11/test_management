@@ -1,5 +1,6 @@
 // modules/bug/services/bug.service.js
 const { BugRepository } = require("../repositories/bug.repository");
+const { BugCommentRepository } = require("../repositories/bugComment.repository");
 const { BugStatusHistoryRepository } = require("../repositories/bugStatusHistory.repository");
 const { ProjectService } = require("../../project/services/project.service");
 const { AuthRepository } = require("../../auth/repositories/auth.repository");
@@ -74,7 +75,8 @@ class BugService {
     testRunRepo = TestRunRepository.Instance,
     notificationService = NotificationService.Instance,
     memberRepo = ProjectMemberRepository.Instance,
-    historyRepo = BugStatusHistoryRepository.Instance
+    historyRepo = BugStatusHistoryRepository.Instance,
+    commentRepo = BugCommentRepository.Instance
   ) {
     this.bugRepo = bugRepo;
     this.projectService = projectService;
@@ -85,6 +87,7 @@ class BugService {
     this.notificationService = notificationService;
     this.memberRepo = memberRepo;
     this.historyRepo = historyRepo;
+    this.commentRepo = commentRepo;
   }
 
   // Fetches the bug, 404s if missing/deleted, then checks project access —
@@ -351,6 +354,68 @@ class BugService {
       entityId: bug.id,
       metadata: { projectId: bug.projectId },
     });
+  }
+
+  async fetchComments(actor, id, params) {
+    await this.getAccessible(actor, id);
+    return this.commentRepo.fetchPaginated(id, params);
+  }
+
+  async addComment(actor, id, body) {
+    const bug = await this.getAccessible(actor, id);
+    await this.projectService.assertCanContribute(actor, bug.projectId);
+
+    // Firestore has no join — the author's display name is denormalized onto the doc.
+    const commenter = await this.authRepo.findUserById(actor.id);
+    const commenterName = commenter
+      ? [commenter.firstName, commenter.lastName].filter(Boolean).join(" ")
+      : null;
+
+    const comment = await this.commentRepo.create({
+      bugId: id,
+      authorId: actor.id,
+      authorName: commenterName,
+      body,
+    });
+
+    // Firestore write and Postgres counter update aren't in one transaction (different
+    // databases) — accepted eventual-consistency tradeoff, same as the notify call below.
+    await this.bugRepo.incrementCommentCount(id);
+
+    if (bug.reportedById && bug.reportedById !== actor.id) {
+      this.authRepo
+        .findUserById(bug.reportedById)
+        .then((reporter) => {
+          if (reporter) {
+            this.notificationService.notifyBugComment(reporter, {
+              bugId: bug.id,
+              projectId: bug.projectId,
+              title: bug.title,
+              commenterName: commenterName || "Someone",
+            });
+          }
+        })
+        .catch((e) => console.error("[bug] comment notify failed:", e.message));
+    }
+
+    return comment;
+  }
+
+  async deleteComment(actor, id, commentId) {
+    const bug = await this.getAccessible(actor, id);
+
+    const comment = await this.commentRepo.findById(commentId);
+    if (!comment || comment.deletedAt || comment.bugId !== id) {
+      throw new AppError("Comment not found", 404);
+    }
+    if (
+      comment.authorId !== actor.id &&
+      !(await this.projectService.canManageProject(actor, bug.projectId))
+    ) {
+      throw new AppError("You can only delete your own comments", 403);
+    }
+    await this.commentRepo.softDelete(commentId);
+    await this.bugRepo.decrementCommentCount(id);
   }
 }
 

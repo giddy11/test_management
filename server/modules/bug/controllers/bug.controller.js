@@ -1,7 +1,7 @@
 // modules/bug/controllers/bug.controller.js
 const { BugService } = require("../services/bug.service");
 const { ApiResponse } = require("../../../shared/response/apiResponse");
-const { toBugResponse, toBugTimelineResponse } = require("../dto/bug.dto");
+const { toBugResponse, toBugTimelineResponse, toCommentResponse } = require("../dto/bug.dto");
 
 class BugController {
   static async history(req, res, next) {
@@ -68,6 +68,47 @@ class BugController {
     try {
       await BugService.Instance.deleteBug(req.user, req.validated.params.id);
       res.status(200).json(ApiResponse.ok("Bug deleted", null));
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  static async fetchComments(req, res, next) {
+    try {
+      const result = await BugService.Instance.fetchComments(
+        req.user,
+        req.validated.params.id,
+        req.validated.query
+      );
+      res
+        .status(200)
+        .json(ApiResponse.ok("Comments fetched", result.data.map(toCommentResponse), result.meta));
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  static async addComment(req, res, next) {
+    try {
+      const comment = await BugService.Instance.addComment(
+        req.user,
+        req.validated.params.id,
+        req.validated.body.body
+      );
+      res.status(201).json(ApiResponse.created("Comment added", toCommentResponse(comment)));
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  static async removeComment(req, res, next) {
+    try {
+      await BugService.Instance.deleteComment(
+        req.user,
+        req.validated.params.id,
+        req.validated.params.commentId
+      );
+      res.status(200).json(ApiResponse.ok("Comment deleted", null));
     } catch (err) {
       next(err);
     }

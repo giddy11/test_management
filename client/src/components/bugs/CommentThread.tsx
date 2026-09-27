@@ -7,11 +7,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { InlineLoader } from "@/components/shared/PageLoader"
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog"
 import { PresenceDot } from "@/components/shared/PresenceDot"
-import {
-  useFeatureRequestComments,
-  useAddFeatureRequestComment,
-  useDeleteFeatureRequestComment,
-} from "@/hooks/useFeatureRequestComments"
+import { useBugComments, useAddBugComment, useDeleteBugComment } from "@/hooks/useBugComments"
 import { useTypingIndicator } from "@/hooks/useTypingIndicator"
 import { useAuth } from "@/contexts/AuthContext"
 import { ApiError } from "@/transport/http"
@@ -29,17 +25,17 @@ function typingLabel(names: string[]) {
 // which is what the server checks on DELETE .../comments/:commentId. The parent
 // already knows the project, so it says so.
 export function CommentThread({
-  requestId,
+  bugId,
   canModerate,
 }: {
-  requestId: string
+  bugId: string
   canModerate: boolean
 }) {
   const { user } = useAuth()
-  const { data: comments, isLoading, isError } = useFeatureRequestComments(requestId)
-  const addComment = useAddFeatureRequestComment(requestId)
-  const deleteComment = useDeleteFeatureRequestComment(requestId)
-  const { typingUsers, notifyTyping } = useTypingIndicator(`feature-request:${requestId}`)
+  const { data: comments, isLoading, isError } = useBugComments(bugId)
+  const addComment = useAddBugComment(bugId)
+  const deleteComment = useDeleteBugComment(bugId)
+  const { typingUsers, notifyTyping } = useTypingIndicator(`bug:${bugId}`)
   const [body, setBody] = useState("")
   const [deleting, setDeleting] = useState<string | null>(null)
 
@@ -53,7 +49,7 @@ export function CommentThread({
 
   return (
     <div className="space-y-4">
-      <h3 className="text-sm font-medium">Comments ({comments.length})</h3>
+      <h3 className="text-sm font-medium">Conversation ({comments.length})</h3>
 
       {isLoading && <InlineLoader className="py-6" />}
 

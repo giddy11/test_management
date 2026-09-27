@@ -21,6 +21,7 @@ export interface Bug {
   resolvedAt: string | null
   closedAt: string | null
   statusUpdatedAt: string | null
+  commentCount: number
   createdAt: string
 }
 
@@ -31,6 +32,14 @@ export type BugSearchField = "title" | "reporter" | "assignee" | "suite"
 export interface BugStatusHistoryEntry {
   status: BugStatus
   enteredAt: string
+}
+
+export interface BugComment {
+  id: string
+  bugId: string
+  author: { id: string; name: string } | null
+  body: string
+  createdAt: string
 }
 
 export interface BugAttachment {

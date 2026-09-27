@@ -68,10 +68,33 @@ const fetchBugsSchema = z.object({
   }),
 });
 
+const commentSchema = z.object({
+  params: z.object({ id: z.string().uuid() }),
+  body: z.object({
+    body: z.string().min(1).max(1000),
+  }),
+});
+
+const fetchCommentsSchema = z.object({
+  params: z.object({ id: z.string().uuid() }),
+  query: z.object({
+    page: z.coerce.number().int().min(1).default(1),
+    limit: z.coerce.number().int().min(1).max(100).default(20),
+  }),
+});
+
+// commentId is a Firestore document id, not a uuid — plain non-empty string.
+const commentIdParamSchema = z.object({
+  params: z.object({ id: z.string().uuid(), commentId: z.string().min(1) }),
+});
+
 module.exports = {
   createBugSchema,
   manageBugSchema,
   idParamSchema,
   codeParamSchema,
   fetchBugsSchema,
+  commentSchema,
+  fetchCommentsSchema,
+  commentIdParamSchema,
 };

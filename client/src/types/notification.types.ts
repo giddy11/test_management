@@ -8,6 +8,7 @@ export type NotificationType =
   | "bug_reported"
   | "bug_assigned"
   | "bug_status_changed"
+  | "bug_comment"
   | "feedback_new"
   | "feedback_assigned"
   | "feedback_confirmed"

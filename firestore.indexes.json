@@ -34,6 +34,15 @@
         { "fieldPath": "feedbackId", "order": "ASCENDING" },
         { "fieldPath": "createdAt", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "bugComments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "bugId", "order": "ASCENDING" },
+        { "fieldPath": "deletedAt", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

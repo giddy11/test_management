@@ -3,6 +3,7 @@ import { wrapCall, uploadCall } from "@/transport/http"
 import type {
   Bug,
   BugAttachment,
+  BugComment,
   BugSearchField,
   BugStatusHistoryEntry,
   CreateBugPayload,
@@ -41,4 +42,13 @@ export const BugAttachmentEndpoints = {
     uploadCall<BugAttachment[]>(`/api/v1/bugs/${bugId}/attachments`, files, "images"),
   remove: (bugId: string, attachmentId: string) =>
     wrapCall<null>("DELETE", `/api/v1/bugs/${bugId}/attachments/${attachmentId}`),
+}
+
+export const BugCommentEndpoints = {
+  fetchAll: (bugId: string, params: { page?: number; limit?: number } = {}) =>
+    wrapCall<BugComment[]>("GET", `/api/v1/bugs/${bugId}/comments`, obj(params)),
+  create: (bugId: string, body: string) =>
+    wrapCall<BugComment>("POST", `/api/v1/bugs/${bugId}/comments`, { body }),
+  remove: (bugId: string, commentId: string) =>
+    wrapCall<null>("DELETE", `/api/v1/bugs/${bugId}/comments/${commentId}`),
 }

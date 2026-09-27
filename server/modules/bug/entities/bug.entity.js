@@ -109,6 +109,13 @@ const Bug = new EntitySchema({
       type: "timestamptz",
       nullable: true,
     },
+    // Denormalized — comments live in Firestore, so there's no local table to
+    // COUNT (see bugComment.repository.js).
+    commentCount: {
+      name: "comment_count",
+      type: "int",
+      default: 0,
+    },
     createdAt: {
       name: "created_at",
       type: "timestamptz",
