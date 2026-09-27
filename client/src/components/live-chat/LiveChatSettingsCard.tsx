@@ -18,6 +18,27 @@ interface Props {
   projectId: string
 }
 
+const HEX_COLOR_RE = /^#[0-9a-f]{6}$/i
+const DEFAULT_BRAND_COLOR = "#4f46e5"
+
+// A small, distinct set of preset brand colors so users can pick one visually
+// instead of hunting for a hex code — the native color input (below) still
+// covers picking any custom color.
+const BRAND_COLOR_PRESETS = [
+  "#4f46e5", // indigo
+  "#2563eb", // blue
+  "#0891b2", // cyan
+  "#059669", // emerald
+  "#65a30d", // lime
+  "#ca8a04", // amber
+  "#ea580c", // orange
+  "#dc2626", // red
+  "#db2777", // pink
+  "#9333ea", // purple
+  "#475569", // slate
+  "#171717", // near-black
+]
+
 export function LiveChatSettingsCard({ projectId }: Props) {
   const { data: project } = useProject(projectId)
   const { data: settings } = useLiveChatSettings(projectId)
@@ -153,12 +174,43 @@ export function LiveChatSettingsCard({ projectId }: Props) {
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="lc-brand-color">Brand color</Label>
-              <Input
-                id="lc-brand-color"
-                value={brandColor}
-                onChange={(e) => setBrandColor(e.target.value)}
-                placeholder="#4f46e5"
-              />
+              <div className="flex items-center gap-2">
+                <label
+                  className="relative size-9 shrink-0 overflow-hidden rounded-md border border-input"
+                  style={{ backgroundColor: HEX_COLOR_RE.test(brandColor) ? brandColor : DEFAULT_BRAND_COLOR }}
+                  title="Pick a custom color"
+                >
+                  <input
+                    type="color"
+                    value={HEX_COLOR_RE.test(brandColor) ? brandColor : DEFAULT_BRAND_COLOR}
+                    onChange={(e) => setBrandColor(e.target.value)}
+                    className="absolute -inset-2 cursor-pointer opacity-0"
+                    aria-label="Pick a custom brand color"
+                  />
+                </label>
+                <Input
+                  id="lc-brand-color"
+                  value={brandColor}
+                  onChange={(e) => setBrandColor(e.target.value)}
+                  placeholder={DEFAULT_BRAND_COLOR}
+                  className="flex-1"
+                />
+              </div>
+              <div className="flex flex-wrap gap-1.5 pt-1">
+                {BRAND_COLOR_PRESETS.map((color) => (
+                  <button
+                    key={color}
+                    type="button"
+                    onClick={() => setBrandColor(color)}
+                    className={`size-6 rounded-full border transition-transform hover:scale-110 ${
+                      brandColor.toLowerCase() === color ? "ring-2 ring-ring ring-offset-2 ring-offset-background" : "border-input"
+                    }`}
+                    style={{ backgroundColor: color }}
+                    aria-label={`Use brand color ${color}`}
+                    title={color}
+                  />
+                ))}
+              </div>
             </div>
             <div className="space-y-1.5 sm:col-span-2">
               <Label htmlFor="lc-greeting">Greeting message</Label>

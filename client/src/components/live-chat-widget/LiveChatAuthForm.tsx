@@ -7,6 +7,7 @@ import { useState, type FormEvent } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { PasswordField } from "@/components/shared/PasswordField"
 import { PhoneInput } from "@/components/shared/PhoneInput"
 
 interface Props {
@@ -22,10 +23,16 @@ export function LiveChatAuthForm({ pending, error, onLogin, onRegister }: Props)
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [phone, setPhone] = useState<string | undefined>(undefined)
+  // Once a login/signup attempt fails, the error stays visible until the
+  // visitor edits email or password — editing means they're taking another
+  // shot at it, so the stale "Invalid email or password" shouldn't still be
+  // sitting there under a field they haven't touched yet.
+  const [errorDismissed, setErrorDismissed] = useState(false)
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault()
     if (pending) return
+    setErrorDismissed(false)
     if (mode === "login") {
       onLogin({ email: email.trim(), password })
     } else {
@@ -64,18 +71,23 @@ export function LiveChatAuthForm({ pending, error, onLogin, onRegister }: Props)
             id="lcaf-email"
             type="email"
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={(e) => {
+              setEmail(e.target.value)
+              setErrorDismissed(true)
+            }}
             placeholder="you@example.com"
             required
           />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="lcaf-password">Password</Label>
-          <Input
+          <PasswordField
             id="lcaf-password"
-            type="password"
+            label="Password"
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            onChange={(e) => {
+              setPassword(e.target.value)
+              setErrorDismissed(true)
+            }}
             placeholder="••••••••"
             required
             minLength={mode === "signup" ? 8 : undefined}
@@ -93,7 +105,7 @@ export function LiveChatAuthForm({ pending, error, onLogin, onRegister }: Props)
           </div>
         )}
 
-        {error && <p className="text-xs text-destructive">{error}</p>}
+        {error && !errorDismissed && <p className="text-xs text-destructive">{error}</p>}
 
         <Button type="submit" className="w-full" disabled={pending}>
           {mode === "login" ? "Log in" : "Sign up"}
