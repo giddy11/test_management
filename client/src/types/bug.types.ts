@@ -1,6 +1,6 @@
 // types/bug.types.ts
 import type { BugSeverity, BugPriority, BugStatus } from "@/lib/enums"
-import type { CommentReactionSummary } from "@/lib/commentThreads"
+import type { CommentMention, CommentReactionSummary } from "@/lib/commentThreads"
 
 export interface Bug {
   id: string
@@ -45,6 +45,7 @@ export interface BugComment {
   body: string
   editedAt: string | null
   reactions: CommentReactionSummary
+  mentions: CommentMention[]
   createdAt: string
 }
 

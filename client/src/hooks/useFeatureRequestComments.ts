@@ -30,6 +30,9 @@ function toComment(
     body: data.body,
     editedAt: data.editedAt ? data.editedAt.toDate().toISOString() : null,
     reactions: summarizeReactions(data.reactions, viewerId),
+    mentions: Array.isArray(data.mentions)
+      ? data.mentions.map((m: { userId: string; name: string }) => ({ id: m.userId, name: m.name }))
+      : [],
     createdAt: data.createdAt ? data.createdAt.toDate().toISOString() : new Date().toISOString(),
   }
 }
@@ -86,8 +89,16 @@ export function useFeatureRequestComments(requestId: string) {
 export function useAddFeatureRequestComment(requestId: string) {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async ({ body, parentId }: { body: string; parentId?: string }) => {
-      const res = await FeatureRequestCommentEndpoints.create(requestId, body, parentId)
+    mutationFn: async ({
+      body,
+      parentId,
+      mentionedUserIds,
+    }: {
+      body: string
+      parentId?: string
+      mentionedUserIds?: string[]
+    }) => {
+      const res = await FeatureRequestCommentEndpoints.create(requestId, body, parentId, mentionedUserIds)
       if (!res.success || !res.data) throw new ApiError(res.message, res.statusCode, res.errors)
       return res.data
     },

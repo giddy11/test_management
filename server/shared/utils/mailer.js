@@ -292,6 +292,20 @@ async function sendFeedbackCommentEmail(to, name, title, commenterName, url, org
   });
 }
 
+// Staff-to-staff only — the submitter has no account and can't be mentioned.
+async function sendFeedbackMentionEmail(to, firstName, title, mentionerName, url, organizationId) {
+  const body = `
+    <h1 style="margin:0 0 12px;font-size:20px;font-weight:700;color:#0f172a">You were mentioned</h1>
+    <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.65">Hi ${firstName}, ${mentionerName} mentioned you in a comment on ticket <strong>${title}</strong>.</p>
+    ${ctaButton(url, "View comment")}`;
+  return send({
+    to,
+    subject: `You were mentioned — ${title} — TestMate`,
+    html: emailLayout(body, await resolveFooterEmail(organizationId)),
+    text: `${mentionerName} mentioned you in a comment on ticket "${title}".`,
+  });
+}
+
 // Internal alert to admins/members when external feedback arrives.
 async function sendNewFeedbackAlertEmail(to, firstName, title, typeLabel, projectName, submitterName, url, organizationId) {
   const body = `
@@ -418,6 +432,19 @@ async function sendFeatureRequestCommentEmail(to, firstName, title, commenterNam
   });
 }
 
+async function sendFeatureRequestMentionEmail(to, firstName, title, mentionerName, url, organizationId) {
+  const body = `
+    <h1 style="margin:0 0 12px;font-size:20px;font-weight:700;color:#0f172a">You were mentioned</h1>
+    <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.65">Hi ${firstName}, ${mentionerName} mentioned you in a comment on the feature request <strong>${title}</strong>.</p>
+    ${ctaButton(url, "View comment")}`;
+  return send({
+    to,
+    subject: `You were mentioned — ${title} — TestMate`,
+    html: emailLayout(body, await resolveFooterEmail(organizationId)),
+    text: `${mentionerName} mentioned you in a comment on the feature request "${title}".`,
+  });
+}
+
 // ── Bugs ─────────────────────────────────────────────────────────────────────
 async function sendNewBugEmail(to, firstName, title, reportedByName, url, organizationId) {
   const body = `
@@ -459,6 +486,19 @@ async function sendBugCommentEmail(to, firstName, title, commenterName, url, org
   });
 }
 
+async function sendBugMentionEmail(to, firstName, title, mentionerName, url, organizationId) {
+  const body = `
+    <h1 style="margin:0 0 12px;font-size:20px;font-weight:700;color:#0f172a">You were mentioned</h1>
+    <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.65">Hi ${firstName}, ${mentionerName} mentioned you in a comment on the bug <strong>${title}</strong>.</p>
+    ${ctaButton(url, "View comment")}`;
+  return send({
+    to,
+    subject: `You were mentioned — ${title} — TestMate`,
+    html: emailLayout(body, await resolveFooterEmail(organizationId)),
+    text: `${mentionerName} mentioned you in a comment on the bug "${title}".`,
+  });
+}
+
 async function sendBugAssignedEmail(to, firstName, title, url, organizationId) {
   const body = `
     <h1 style="margin:0 0 12px;font-size:20px;font-weight:700;color:#0f172a">You've been assigned a bug</h1>
@@ -492,12 +532,15 @@ module.exports = {
   sendNewFeedbackAlertEmail,
   sendFeedbackAssignedEmail,
   sendFeedbackCommentEmail,
+  sendFeedbackMentionEmail,
   sendRunCompletedEmail,
   sendNewFeatureRequestEmail,
   sendFeatureRequestStatusEmail,
   sendFeatureRequestCommentEmail,
+  sendFeatureRequestMentionEmail,
   sendNewBugEmail,
   sendBugStatusEmail,
   sendBugCommentEmail,
+  sendBugMentionEmail,
   sendBugAssignedEmail,
 };

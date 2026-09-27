@@ -20,6 +20,11 @@ export interface FeedbackCommentAttachment {
   bytes: number;
 }
 
+export interface FeedbackCommentMention {
+  userId: string;
+  name: string;
+}
+
 export interface FeedbackComment {
   id: string;
   feedbackId: string;
@@ -36,6 +41,10 @@ export interface FeedbackComment {
   authorRole: string | null;
   body: string;
   attachments: FeedbackCommentAttachment[];
+  // Staff-to-staff only — the submitter has no account and can't be
+  // mentioned. Validated against actual staff access to this ticket at write
+  // time (see FeedbackCommentService.resolveMentions).
+  mentions: FeedbackCommentMention[];
   createdAt: Date | null;
 }
 
@@ -51,6 +60,7 @@ function toComment(snap: any): FeedbackComment {
     authorRole: data.authorRole ?? null,
     body: data.body,
     attachments: Array.isArray(data.attachments) ? data.attachments : [],
+    mentions: Array.isArray(data.mentions) ? data.mentions : [],
     createdAt: data.createdAt ? data.createdAt.toDate() : null,
   };
 }
@@ -89,7 +99,7 @@ export class FeedbackCommentRepository {
     }
   }
 
-  // data: { feedbackId, parentId?, authorType, authorId, authorName, authorRole?, body, attachments? }
+  // data: { feedbackId, parentId?, authorType, authorId, authorName, authorRole?, body, attachments?, mentions? }
   async create(data: {
     feedbackId: string;
     parentId?: string | null;
@@ -99,6 +109,7 @@ export class FeedbackCommentRepository {
     authorRole?: string | null;
     body: string;
     attachments?: FeedbackCommentAttachment[];
+    mentions?: FeedbackCommentMention[];
   }): Promise<FeedbackComment> {
     try {
       const ref = await getFirestore()
@@ -112,6 +123,7 @@ export class FeedbackCommentRepository {
           authorRole: data.authorRole ?? null,
           body: data.body,
           attachments: data.attachments ?? [],
+          mentions: data.mentions ?? [],
           createdAt: FieldValue.serverTimestamp(),
         });
       const snap = await ref.get();

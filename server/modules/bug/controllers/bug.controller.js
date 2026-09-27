@@ -100,7 +100,8 @@ class BugController {
         req.user,
         req.validated.params.id,
         req.validated.body.body,
-        req.validated.body.parentId
+        req.validated.body.parentId,
+        req.validated.body.mentionedUserIds
       );
       res.status(201).json(ApiResponse.created("Comment added", toCommentResponse(comment, req.user.id)));
     } catch (err) {

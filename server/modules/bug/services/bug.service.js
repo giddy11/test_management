@@ -372,10 +372,29 @@ class BugService {
     return parent.parentId ?? parent.id;
   }
 
-  async addComment(actor, id, body, parentId) {
+  // Only an actual project member can be @mentioned (matches who could
+  // plausibly see/act on the thread), and mentioning yourself is a no-op —
+  // filtered out rather than rejected, since the client can't always know in
+  // advance who's a member.
+  async _resolveMentions(projectId, actorId, mentionedUserIds) {
+    if (!mentionedUserIds || mentionedUserIds.length === 0) return [];
+    const uniqueIds = [...new Set(mentionedUserIds)].filter((uid) => uid !== actorId);
+    if (uniqueIds.length === 0) return [];
+    const members = await this.memberRepo.findMemberUsers(projectId);
+    const memberById = new Map(members.map((u) => [u.id, u]));
+    return uniqueIds
+      .filter((uid) => memberById.has(uid))
+      .map((uid) => {
+        const u = memberById.get(uid);
+        return { userId: u.id, name: [u.firstName, u.lastName].filter(Boolean).join(" ") };
+      });
+  }
+
+  async addComment(actor, id, body, parentId, mentionedUserIds) {
     const bug = await this.getAccessible(actor, id);
     await this.projectService.assertCanContribute(actor, bug.projectId);
     const resolvedParentId = await this._resolveParentId(id, parentId);
+    const mentions = await this._resolveMentions(bug.projectId, actor.id, mentionedUserIds);
 
     // Firestore has no join — the author's display name is denormalized onto the doc.
     const commenter = await this.authRepo.findUserById(actor.id);
@@ -389,11 +408,28 @@ class BugService {
       authorId: actor.id,
       authorName: commenterName,
       body,
+      mentions,
     });
 
     // Firestore write and Postgres counter update aren't in one transaction (different
     // databases) — accepted eventual-consistency tradeoff, same as the notify call below.
     await this.bugRepo.incrementCommentCount(id);
+
+    if (mentions.length) {
+      Promise.all(mentions.map((m) => this.authRepo.findUserById(m.userId)))
+        .then((users) => {
+          for (const u of users) {
+            if (!u) continue;
+            this.notificationService.notifyBugMention(u, {
+              bugId: bug.id,
+              projectId: bug.projectId,
+              title: bug.title,
+              mentionerName: commenterName || "Someone",
+            });
+          }
+        })
+        .catch((e) => console.error("[bug] mention notify failed:", e.message));
+    }
 
     if (bug.reportedById && bug.reportedById !== actor.id) {
       this.authRepo

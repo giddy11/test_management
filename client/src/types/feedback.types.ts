@@ -1,3 +1,5 @@
+import type { CommentMention } from "@/lib/commentThreads"
+
 export type FeedbackType = "feature_request" | "bug" | "complaint"
 
 // No submitter-confirmation gate — the ticket's comment thread is how they
@@ -95,6 +97,8 @@ export interface FeedbackComment {
   authorName: string
   body: string
   attachments: FeedbackCommentAttachment[]
+  // Staff-to-staff only — the submitter has no account and can't be mentioned.
+  mentions: CommentMention[]
   createdAt: string
 }
 

@@ -1,6 +1,6 @@
 // types/featureRequest.types.ts
 import type { FeatureRequestStatus } from "@/lib/enums"
-import type { CommentReactionSummary } from "@/lib/commentThreads"
+import type { CommentMention, CommentReactionSummary } from "@/lib/commentThreads"
 
 export interface FeatureRequest {
   id: string
@@ -38,6 +38,7 @@ export interface FeatureRequestComment {
   body: string
   editedAt: string | null
   reactions: CommentReactionSummary
+  mentions: CommentMention[]
   createdAt: string
 }
 

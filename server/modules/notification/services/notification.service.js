@@ -14,11 +14,14 @@ const {
   sendNewFeatureRequestEmail,
   sendFeatureRequestStatusEmail,
   sendFeatureRequestCommentEmail,
+  sendFeatureRequestMentionEmail,
   sendFeedbackCommentEmail,
+  sendFeedbackMentionEmail,
   sendNewBugEmail,
   sendBugStatusEmail,
   sendBugAssignedEmail,
   sendBugCommentEmail,
+  sendBugMentionEmail,
 } = require("../../../shared/utils/mailer");
 const {
   sendSupportQueueAlertEmail,
@@ -288,6 +291,24 @@ class NotificationService {
     }
   }
 
+  // Staff-to-staff only — the submitter has no account and can't be mentioned.
+  // ctx: { feedbackId, projectId, title, mentionerName, support, organizationId }
+  async notifyFeedbackMention(user, ctx) {
+    const url = ctx.support ? `${env.appUrl}/support` : `${env.appUrl}/projects/${ctx.projectId}?tab=feedback`;
+    await this.repo.createMany([
+      {
+        userId: user.id,
+        type: NotificationType.FEEDBACK_MENTION,
+        title: `You were mentioned in: ${ctx.title}`,
+        body: `${ctx.mentionerName} mentioned you in a comment`,
+        data: { feedbackId: ctx.feedbackId, projectId: ctx.projectId, support: ctx.support || undefined },
+      },
+    ]);
+    sendFeedbackMentionEmail(user.email, user.firstName, ctx.title, ctx.mentionerName, url, ctx.organizationId).catch(
+      (e) => console.error("[notify] feedback-mention email failed:", e.message)
+    );
+  }
+
   // An IT support lead routed a queue item to a teammate within their company.
   // ctx: { feedbackId, projectId, projectName, companyName, title, assignedByName, organizationId }
   async notifySupportItemAssigned(supporter, ctx) {
@@ -382,6 +403,28 @@ class NotificationService {
     sendFeatureRequestCommentEmail(user.email, user.firstName, ctx.title, ctx.commenterName, url, user.organizationId).catch((e) =>
       console.error("[notify] feature-request-comment email failed:", e.message)
     );
+  }
+
+  // ctx: { requestId, projectId, title, mentionerName }
+  async notifyFeatureRequestMention(user, ctx) {
+    const url = `${env.appUrl}/projects/${ctx.projectId}/feature-requests/${ctx.requestId}`;
+    await this.repo.createMany([
+      {
+        userId: user.id,
+        type: NotificationType.FEATURE_REQUEST_MENTION,
+        title: `You were mentioned in: ${ctx.title}`,
+        body: `${ctx.mentionerName} mentioned you in a comment`,
+        data: { requestId: ctx.requestId, projectId: ctx.projectId },
+      },
+    ]);
+    sendFeatureRequestMentionEmail(
+      user.email,
+      user.firstName,
+      ctx.title,
+      ctx.mentionerName,
+      url,
+      user.organizationId
+    ).catch((e) => console.error("[notify] feature-request-mention email failed:", e.message));
   }
 
   // ctx: { bugId, projectId, title, reportedByName }
@@ -511,6 +554,23 @@ class NotificationService {
     ]);
     sendBugCommentEmail(user.email, user.firstName, ctx.title, ctx.commenterName, url, user.organizationId).catch((e) =>
       console.error("[notify] bug-comment email failed:", e.message)
+    );
+  }
+
+  // ctx: { bugId, projectId, title, mentionerName }
+  async notifyBugMention(user, ctx) {
+    const url = `${env.appUrl}/projects/${ctx.projectId}/bugs/${ctx.bugId}`;
+    await this.repo.createMany([
+      {
+        userId: user.id,
+        type: NotificationType.BUG_MENTION,
+        title: `You were mentioned in: ${ctx.title}`,
+        body: `${ctx.mentionerName} mentioned you in a comment`,
+        data: { bugId: ctx.bugId, projectId: ctx.projectId },
+      },
+    ]);
+    sendBugMentionEmail(user.email, user.firstName, ctx.title, ctx.mentionerName, url, user.organizationId).catch((e) =>
+      console.error("[notify] bug-mention email failed:", e.message)
     );
   }
 

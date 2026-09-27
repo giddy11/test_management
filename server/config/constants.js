@@ -108,6 +108,9 @@ const NotificationType = Object.freeze({
   // A new message landed in a ticket's comment thread — staff notified when
   // the submitter writes, the submitter emailed (no in-app inbox) when staff writes.
   FEEDBACK_COMMENT: "feedback_comment",
+  // A staff member @mentioned another staff member in a ticket's thread —
+  // the submitter has no account and can't mention or be mentioned.
+  FEEDBACK_MENTION: "feedback_mention",
   TEST_ASSIGNED: "test_assigned",
   RUN_COMPLETED: "run_completed",
   FEATURE_REQUEST_STATUS_CHANGED: "feature_request_status_changed",
@@ -118,6 +121,10 @@ const NotificationType = Object.freeze({
   BUG_STATUS_CHANGED: "bug_status_changed",
   // A new message landed in a bug's conversation thread.
   BUG_COMMENT: "bug_comment",
+  // Someone @mentioned this user in a bug's conversation thread.
+  BUG_MENTION: "bug_mention",
+  // Someone @mentioned this user in a feature request's conversation thread.
+  FEATURE_REQUEST_MENTION: "feature_request_mention",
   // In-app support chat: a user messaged the super admins, or a super admin replied.
   SUPPORT_CHAT_MESSAGE: "support_chat_message",
   SUPPORT_CHAT_REPLY: "support_chat_reply",

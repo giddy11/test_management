@@ -47,8 +47,8 @@ export const BugAttachmentEndpoints = {
 export const BugCommentEndpoints = {
   fetchAll: (bugId: string, params: { page?: number; limit?: number } = {}) =>
     wrapCall<BugComment[]>("GET", `/api/v1/bugs/${bugId}/comments`, obj(params)),
-  create: (bugId: string, body: string, parentId?: string) =>
-    wrapCall<BugComment>("POST", `/api/v1/bugs/${bugId}/comments`, obj({ body, parentId })),
+  create: (bugId: string, body: string, parentId?: string, mentionedUserIds?: string[]) =>
+    wrapCall<BugComment>("POST", `/api/v1/bugs/${bugId}/comments`, obj({ body, parentId, mentionedUserIds })),
   edit: (bugId: string, commentId: string, body: string) =>
     wrapCall<BugComment>("PATCH", `/api/v1/bugs/${bugId}/comments/${commentId}`, { body }),
   remove: (bugId: string, commentId: string) =>

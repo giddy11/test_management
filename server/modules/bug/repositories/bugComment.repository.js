@@ -24,6 +24,9 @@ function toComment(snap) {
     // participants), so counts are derived from it rather than kept as a
     // separate denormalized counter.
     reactions: data.reactions ?? {},
+    // [{ userId, name }] — denormalized (Firestore has no join), validated at
+    // write time against project membership (see BugService.addComment).
+    mentions: data.mentions ?? [],
     createdAt: data.createdAt ? data.createdAt.toDate() : null,
     deletedAt: data.deletedAt ? data.deletedAt.toDate() : null,
   };
@@ -73,7 +76,7 @@ class BugCommentRepository {
     }
   }
 
-  // data: { bugId, parentId?, authorId, authorName, body }
+  // data: { bugId, parentId?, authorId, authorName, body, mentions? }
   async create(data) {
     try {
       const col = getFirestore().collection(COLLECTION);
@@ -85,6 +88,7 @@ class BugCommentRepository {
         body: data.body,
         editedAt: null,
         reactions: {},
+        mentions: data.mentions ?? [],
         createdAt: FieldValue.serverTimestamp(),
         deletedAt: null,
       });

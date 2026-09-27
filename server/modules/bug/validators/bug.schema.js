@@ -75,6 +75,9 @@ const commentSchema = z.object({
     // Firestore doc id of the comment being replied to — omitted/undefined for
     // a top-level comment.
     parentId: z.string().min(1).optional(),
+    // @mentioned users, picked from the composer's autocomplete — validated
+    // against project membership server-side (see BugService._resolveMentions).
+    mentionedUserIds: z.array(z.string().uuid()).max(20).optional(),
   }),
 });
 

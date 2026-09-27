@@ -60,6 +60,7 @@ function toCommentResponse(c, actorId) {
     body: c.body,
     editedAt: c.editedAt ?? null,
     reactions: { likeCount, dislikeCount, myReaction },
+    mentions: (c.mentions ?? []).map((m) => ({ id: m.userId, name: m.name })),
     createdAt: c.createdAt,
   };
 }

@@ -29,6 +29,9 @@ function toComment(doc: QueryDocumentSnapshot<DocumentData>): FeedbackComment {
     authorName: data.authorName || "Deleted user",
     body: data.body,
     attachments: Array.isArray(data.attachments) ? data.attachments : [],
+    mentions: Array.isArray(data.mentions)
+      ? data.mentions.map((m: { userId: string; name: string }) => ({ id: m.userId, name: m.name }))
+      : [],
     createdAt: data.createdAt ? data.createdAt.toDate().toISOString() : new Date().toISOString(),
   }
 }

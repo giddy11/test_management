@@ -7,6 +7,11 @@ export interface ThreadableComment {
   parentId: string | null
 }
 
+export interface CommentMention {
+  id: string
+  name: string
+}
+
 export interface CommentReactionSummary {
   likeCount: number
   dislikeCount: number

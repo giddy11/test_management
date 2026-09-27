@@ -8,6 +8,8 @@ import { InlineLoader } from "@/components/shared/PageLoader"
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog"
 import { PresenceDot } from "@/components/shared/PresenceDot"
 import { CollapsibleReplies } from "@/components/shared/CollapsibleReplies"
+import { MentionTextarea } from "@/components/shared/MentionTextarea"
+import { MentionText } from "@/components/shared/MentionText"
 import {
   useFeatureRequestComments,
   useAddFeatureRequestComment,
@@ -16,6 +18,7 @@ import {
   useSetFeatureRequestCommentReaction,
 } from "@/hooks/useFeatureRequestComments"
 import { useTypingIndicator } from "@/hooks/useTypingIndicator"
+import { useUsers } from "@/hooks/useUsers"
 import { useAuth } from "@/contexts/AuthContext"
 import { ApiError } from "@/transport/http"
 import { groupIntoThreads } from "@/lib/commentThreads"
@@ -106,7 +109,7 @@ function CommentRow({ comment, canModerate, onReply, onReact }: RowProps) {
           </div>
         ) : (
           <p className="whitespace-pre-wrap text-sm text-muted-foreground">
-            {comment.body}
+            <MentionText body={comment.body} mentions={comment.mentions} />
             {comment.editedAt && <span className="ml-1.5 text-xs italic text-muted-foreground/70">(edited)</span>}
           </p>
         )}
@@ -164,12 +167,20 @@ export function CommentThread({
   requestId: string
   canModerate: boolean
 }) {
+  const { user } = useAuth()
   const { data: comments, isLoading, isError } = useFeatureRequestComments(requestId)
   const addComment = useAddFeatureRequestComment(requestId)
   const setReaction = useSetFeatureRequestCommentReaction(requestId)
   const { typingUsers, notifyTyping } = useTypingIndicator(`feature-request:${requestId}`)
+  const { data: usersData } = useUsers({ limit: 100 })
+  // Mentioning yourself is a no-op (server drops it) — leave yourself out of
+  // the picker entirely rather than let it look like it silently failed.
+  const mentionableUsers = (usersData?.data ?? [])
+    .filter((u) => u.id !== user?.id)
+    .map((u) => ({ id: u.id, name: u.name }))
   const [body, setBody] = useState("")
   const [replyTo, setReplyTo] = useState<FeatureRequestComment | null>(null)
+  const [mentionedIds, setMentionedIds] = useState<string[]>([])
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   // Replying to a comment further up a long thread shouldn't leave the user
@@ -184,12 +195,13 @@ export function CommentThread({
   const submit = () => {
     if (!body.trim()) return
     addComment.mutate(
-      { body: body.trim(), parentId: replyTo?.id },
+      { body: body.trim(), parentId: replyTo?.id, mentionedUserIds: mentionedIds },
       {
         onError: (e) => toast.error(e instanceof ApiError ? e.message : "Failed to add comment"),
         onSuccess: () => {
           setBody("")
           setReplyTo(null)
+          setMentionedIds([])
         },
       }
     )
@@ -257,15 +269,15 @@ export function CommentThread({
         <div className="h-4 text-xs text-muted-foreground">
           {typingUsers.length > 0 && typingLabel(typingUsers.map((u) => u.userName))}
         </div>
-        <Textarea
-          ref={textareaRef}
+        <MentionTextarea
+          textareaRef={textareaRef}
           rows={3}
-          placeholder="Add a comment…"
+          placeholder="Add a comment… use @ to mention someone"
           value={body}
-          onChange={(e) => {
-            setBody(e.target.value)
-            notifyTyping()
-          }}
+          onValueChange={setBody}
+          onInput={notifyTyping}
+          onMention={(u) => setMentionedIds((prev) => (prev.includes(u.id) ? prev : [...prev, u.id]))}
+          users={mentionableUsers}
         />
         <div className="flex justify-end">
           <Button size="sm" onClick={submit} disabled={addComment.isPending || !body.trim()}>

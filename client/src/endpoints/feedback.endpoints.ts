@@ -14,6 +14,18 @@ import type {
 } from "@/types/feedback.types"
 import type { Supporter } from "@/types/clientCompany.types"
 
+// Comment posting is multipart/form-data (attachments), so every field must
+// be a string — mentionedUserIds is JSON-encoded rather than sent as a real
+// array (parsed back server-side, see feedbackComment.controller.ts).
+function commentFields(body: string, parentId?: string, mentionedUserIds?: string[]) {
+  const fields: Record<string, string> = { body }
+  if (parentId) fields.parentId = parentId
+  if (mentionedUserIds && mentionedUserIds.length > 0) {
+    fields.mentionedUserIds = JSON.stringify(mentionedUserIds)
+  }
+  return fields
+}
+
 export const FeedbackEndpoints = {
   fetchAll: (params: FetchFeedbackParams) =>
     wrapCall<Feedback[]>("GET", "/api/v1/feedback", params as unknown as Record<string, unknown>),
@@ -31,11 +43,17 @@ export const FeedbackEndpoints = {
   // listener instead (see hooks/useFeedbackComments.ts). Same shape reused
   // for the IT-support portal and public routes below (the server resolves
   // which tier owns the ticket / verifies the submitter's credential).
-  addComment: (id: string, body: string, files: File[] = [], parentId?: string) =>
+  addComment: (
+    id: string,
+    body: string,
+    files: File[] = [],
+    parentId?: string,
+    mentionedUserIds?: string[]
+  ) =>
     uploadFilesWithFields<FeedbackComment>(
       `/api/v1/feedback/${id}/comments`,
       files,
-      parentId ? { body, parentId } : { body },
+      commentFields(body, parentId, mentionedUserIds),
       "attachments"
     ),
 
@@ -78,11 +96,17 @@ export const FeedbackEndpoints = {
   supportNotifySubmitter: (id: string, note: string) =>
     wrapCall<Feedback>("POST", `/api/v1/support/feedback/${id}/notify-submitter`, { note }),
 
-  supportAddComment: (id: string, body: string, files: File[] = [], parentId?: string) =>
+  supportAddComment: (
+    id: string,
+    body: string,
+    files: File[] = [],
+    parentId?: string,
+    mentionedUserIds?: string[]
+  ) =>
     uploadFilesWithFields<FeedbackComment>(
       `/api/v1/support/feedback/${id}/comments`,
       files,
-      parentId ? { body, parentId } : { body },
+      commentFields(body, parentId, mentionedUserIds),
       "attachments"
     ),
 

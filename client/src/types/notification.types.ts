@@ -9,6 +9,8 @@ export type NotificationType =
   | "bug_assigned"
   | "bug_status_changed"
   | "bug_comment"
+  | "bug_mention"
+  | "feature_request_mention"
   | "feedback_new"
   | "feedback_assigned"
   | "feedback_confirmed"

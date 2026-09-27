@@ -157,6 +157,11 @@ export const addFeedbackCommentSchema = z.object({
     // Firestore doc id of the message being replied to — omitted for a
     // top-level message. Multipart form field, so a plain optional string.
     parentId: z.string().min(1).optional(),
+    // Staff-to-staff @mentions, picked from the composer's autocomplete —
+    // a multipart form field can only be a string, so the client sends a
+    // JSON-encoded array of user ids (parsed in FeedbackCommentController.create,
+    // then validated against actual staff access in FeedbackCommentService).
+    mentionedUserIds: z.string().max(2000).optional(),
   }),
 });
 

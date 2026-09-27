@@ -41,11 +41,11 @@ export const FeatureRequestAttachmentEndpoints = {
 export const FeatureRequestCommentEndpoints = {
   fetchAll: (requestId: string, params: { page?: number; limit?: number } = {}) =>
     wrapCall<FeatureRequestComment[]>("GET", `/api/v1/feature-requests/${requestId}/comments`, obj(params)),
-  create: (requestId: string, body: string, parentId?: string) =>
+  create: (requestId: string, body: string, parentId?: string, mentionedUserIds?: string[]) =>
     wrapCall<FeatureRequestComment>(
       "POST",
       `/api/v1/feature-requests/${requestId}/comments`,
-      obj({ body, parentId })
+      obj({ body, parentId, mentionedUserIds })
     ),
   edit: (requestId: string, commentId: string, body: string) =>
     wrapCall<FeatureRequestComment>(

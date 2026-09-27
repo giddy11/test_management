@@ -103,6 +103,44 @@ export class FeedbackCommentService {
     return parent.parentId ?? parent.id;
   }
 
+  // Staff-to-staff only — the submitter has no account and can't be
+  // mentioned. A pick is only honored if that user could actually load this
+  // exact ticket as staff (same three-way access rules as loadForStaff),
+  // not just "any org member" — the client's candidate list is broader than
+  // that and this is the real gate.
+  private async resolveMentions(
+    feedbackId: string,
+    actorId: string,
+    mentionedUserIds?: string[]
+  ): Promise<{ userId: string; name: string }[]> {
+    if (!mentionedUserIds || mentionedUserIds.length === 0) return [];
+    const uniqueIds = [...new Set(mentionedUserIds)].filter((uid) => uid !== actorId);
+    const resolved: { userId: string; name: string }[] = [];
+    for (const uid of uniqueIds) {
+      let user;
+      try {
+        user = await this.authRepo.findUserById(uid);
+      } catch {
+        continue; // malformed id — not a real uuid
+      }
+      if (!user) continue;
+      const pseudoActor = {
+        id: user.id,
+        role: user.role,
+        organizationId: user.organizationId,
+        clientCompanyId: user.clientCompanyId,
+        isSupportLead: user.isSupportLead,
+      };
+      try {
+        await this.loadForStaff(pseudoActor, feedbackId, { forWrite: false });
+      } catch {
+        continue; // can't actually see this ticket as staff
+      }
+      resolved.push({ userId: user.id, name: [user.firstName, user.lastName].filter(Boolean).join(" ") });
+    }
+    return resolved;
+  }
+
   // ── Staff access ─────────────────────────────────────────────────────────
   // Reading matches who can already see the ticket at all; writing is
   // restricted to whoever can actually act on it — same bar
@@ -237,11 +275,13 @@ export class FeedbackCommentService {
     feedbackId: string,
     body: string,
     files?: UploadedFile[],
-    parentId?: string | null
+    parentId?: string | null,
+    mentionedUserIds?: string[]
   ) {
     const fb = await this.loadForStaff(actor, feedbackId, { forWrite: true });
     this.assertAttachmentCount(files);
     const resolvedParentId = await this.resolveParentId(feedbackId, parentId);
+    const mentions = await this.resolveMentions(feedbackId, actor.id, mentionedUserIds);
 
     const author = await this.authRepo.findUserById(actor.id);
     const authorName = author
@@ -258,6 +298,7 @@ export class FeedbackCommentService {
       authorRole: actor.role,
       body,
       attachments,
+      mentions,
     });
     await this.feedbackRepo.incrementCommentCount(feedbackId);
     // SLA: a staff reply is the first response when it lands before any stage
@@ -270,6 +311,24 @@ export class FeedbackCommentService {
       this.projectRepo.findById(fb.projectId),
       fb.clientCompanyId ? this.companyRepo.findById(fb.clientCompanyId) : Promise.resolve(null),
     ]);
+
+    if (mentions.length) {
+      Promise.all(mentions.map((m) => this.authRepo.findUserById(m.userId)))
+        .then((users) => {
+          for (const u of users) {
+            if (!u) continue;
+            this.notificationService.notifyFeedbackMention(u, {
+              feedbackId: fb.id,
+              projectId: fb.projectId,
+              title: ticketLabel(fb),
+              mentionerName: authorName,
+              support: u.role === UserRole.IT_SUPPORT,
+              organizationId: project?.organizationId ?? null,
+            });
+          }
+        })
+        .catch((e: Error) => console.error("[feedback] mention notify failed:", e.message));
+    }
 
     if (this.isEscalated(fb)) {
       // Both staff sides of an escalated ticket now share this thread —

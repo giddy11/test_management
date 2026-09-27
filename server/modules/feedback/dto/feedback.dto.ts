@@ -110,6 +110,7 @@ export function toFeedbackCommentResponse(c: FeedbackComment) {
       mimeType: a.mimeType,
       bytes: a.bytes,
     })),
+    mentions: (c.mentions ?? []).map((m) => ({ id: m.userId, name: m.name })),
     createdAt: c.createdAt,
   };
 }

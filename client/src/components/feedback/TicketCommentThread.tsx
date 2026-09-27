@@ -8,12 +8,14 @@ import { FileText, Paperclip, Reply, Send, X } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Textarea } from "@/components/ui/textarea"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { InlineLoader } from "@/components/shared/PageLoader"
 import { CollapsibleReplies } from "@/components/shared/CollapsibleReplies"
+import { MentionTextarea } from "@/components/shared/MentionTextarea"
+import { MentionText } from "@/components/shared/MentionText"
 import { useAddFeedbackComment, useAddSupportComment } from "@/hooks/useFeedback"
 import { useFeedbackCommentThread } from "@/hooks/useFeedbackComments"
+import { useUsers } from "@/hooks/useUsers"
 import { useAuth } from "@/contexts/AuthContext"
 import { ApiError } from "@/transport/http"
 import { groupIntoThreads } from "@/lib/commentThreads"
@@ -96,7 +98,9 @@ function CommentRow({
             {new Date(comment.createdAt).toLocaleString()}
           </span>
         </div>
-        <p className="mt-1 whitespace-pre-wrap break-words text-sm text-muted-foreground">{comment.body}</p>
+        <p className="mt-1 whitespace-pre-wrap break-words text-sm text-muted-foreground">
+          <MentionText body={comment.body} mentions={comment.mentions} />
+        </p>
         {comment.attachments.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-2">
             {comment.attachments.map((a, i) => (
@@ -123,9 +127,20 @@ export function TicketCommentThread({ feedbackId, support = false }: { feedbackI
   const addSupportComment = useAddSupportComment(feedbackId)
   const addComment = support ? addSupportComment : addProductComment
 
+  // Staff-to-staff mentions only — the org-wide user list, same as the
+  // Bug/Feature Request composers; the server is the real gate, checking that
+  // whoever's picked can actually see this specific ticket as staff.
+  // Mentioning yourself is a no-op (server drops it) — leave yourself out of
+  // the picker entirely rather than let it look like it silently failed.
+  const { data: usersData } = useUsers({ limit: 100 })
+  const mentionableUsers = (usersData?.data ?? [])
+    .filter((u) => u.id !== user?.id)
+    .map((u) => ({ id: u.id, name: u.name }))
+
   const [body, setBody] = useState("")
   const [files, setFiles] = useState<File[]>([])
   const [replyTo, setReplyTo] = useState<FeedbackComment | null>(null)
+  const [mentionedIds, setMentionedIds] = useState<string[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
@@ -159,13 +174,14 @@ export function TicketCommentThread({ feedbackId, support = false }: { feedbackI
   const submit = () => {
     if (!body.trim()) return
     addComment.mutate(
-      { body: body.trim(), files, parentId: replyTo?.id },
+      { body: body.trim(), files, parentId: replyTo?.id, mentionedUserIds: mentionedIds },
       {
         onError: (e) => toast.error(e instanceof ApiError ? e.message : "Failed to post message"),
         onSuccess: () => {
           setBody("")
           setFiles([])
           setReplyTo(null)
+          setMentionedIds([])
         },
       }
     )
@@ -221,12 +237,14 @@ export function TicketCommentThread({ feedbackId, support = false }: { feedbackI
             </button>
           </div>
         )}
-        <Textarea
-          ref={textareaRef}
+        <MentionTextarea
+          textareaRef={textareaRef}
           rows={3}
-          placeholder="Ask for more information, or let the submitter know what's needed…"
+          placeholder="Ask for more information, or let the submitter know what's needed… use @ to mention a teammate"
           value={body}
-          onChange={(e) => setBody(e.target.value)}
+          onValueChange={setBody}
+          onMention={(u) => setMentionedIds((prev) => (prev.includes(u.id) ? prev : [...prev, u.id]))}
+          users={mentionableUsers}
         />
         {files.length > 0 && (
           <div className="flex flex-wrap gap-2">

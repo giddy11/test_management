@@ -8,6 +8,19 @@ import { toFeedbackCommentResponse } from "../dto/feedback.dto";
 
 const { ApiResponse } = require("../../../shared/response/apiResponse");
 
+// Multipart form fields are strings only — the client JSON-encodes the
+// mention id array. A malformed value is treated as "no mentions" rather
+// than failing the whole comment post.
+function parseMentionedUserIds(raw: unknown): string[] | undefined {
+  if (typeof raw !== "string" || !raw) return undefined;
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter((v) => typeof v === "string") : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export class FeedbackCommentController {
   // ── Staff ────────────────────────────────────────────────────────────────
   static async list(req: any, res: any, next: any) {
@@ -30,7 +43,8 @@ export class FeedbackCommentController {
         req.validated.params.id,
         req.validated.body.body,
         files,
-        req.validated.body.parentId
+        req.validated.body.parentId,
+        parseMentionedUserIds(req.validated.body.mentionedUserIds)
       );
       res.status(201).json(ApiResponse.created("Comment posted", toFeedbackCommentResponse(comment)));
     } catch (err) {
