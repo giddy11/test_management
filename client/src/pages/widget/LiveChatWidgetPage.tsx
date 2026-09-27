@@ -216,7 +216,12 @@ export default function LiveChatWidgetPage() {
   if (configErrorMessage) return null
 
   return (
-    <div className="flex h-screen w-screen flex-col items-end justify-end p-2">
+    // dvh/dvw (dynamic viewport units), not vh/vw — vh is the LARGEST
+    // possible mobile viewport (address bar hidden), so on a device where
+    // it's showing, or once the on-screen keyboard opens, 100vh overshoots
+    // the actually-visible area and pushes the composer off the bottom of
+    // the screen. dvh tracks the real visible viewport as it changes.
+    <div className="flex h-dvh w-dvw flex-col items-end justify-end p-2">
       {open ? (
         <div className="flex h-full w-full flex-col overflow-hidden rounded-xl border bg-background shadow-2xl">
           <header
@@ -316,7 +321,10 @@ export default function LiveChatWidgetPage() {
                 )}
               </div>
 
-              <div className="border-t p-3">
+              {/* pb-3 as the floor, but never less than the device's safe area
+                  (iPhone home indicator etc.) — otherwise the composer sits
+                  flush under it on a device with one. */}
+              <div className="border-t p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
                 <WidgetComposer pending={sendMessage.isPending} onSend={handleSend} />
                 <p className="mt-1.5 text-right text-[0.65rem] text-muted-foreground">
                   Live chat by TestMate

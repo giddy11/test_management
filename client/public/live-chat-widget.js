@@ -58,13 +58,27 @@
     iframe.style.height = toCssSize(size.height);
   }
 
+  // The *visual* viewport, not window.innerWidth/innerHeight — on mobile
+  // those (and CSS 100vh/100vw) report the layout viewport, which stays at
+  // its largest possible size and ignores the on-screen keyboard and a
+  // showing address bar. Sizing the iframe off that overshoots the actually
+  // visible area, pushing the composer at the bottom off-screen. visualViewport
+  // tracks the real visible box and fires resize as it changes (keyboard
+  // open/close, address bar show/hide, orientation change) — see the
+  // listener below setFullscreen.
+  function viewportSize() {
+    var vv = window.visualViewport;
+    return vv ? { width: vv.width, height: vv.height } : { width: window.innerWidth, height: window.innerHeight };
+  }
+
   function setFullscreen() {
     iframe.style.top = "0";
     iframe.style.left = "0";
-    iframe.style.right = "0";
-    iframe.style.bottom = "0";
-    iframe.style.width = "100vw";
-    iframe.style.height = "100vh";
+    iframe.style.right = "";
+    iframe.style.bottom = "";
+    var size = viewportSize();
+    iframe.style.width = size.width + "px";
+    iframe.style.height = size.height + "px";
   }
 
   // Start with no footprint at all — revealed only once the page inside
@@ -107,6 +121,19 @@
         height: Math.min(OPEN_SIZE.height, window.innerHeight - EDGE_OFFSET * 2),
       });
     }
+  }
+
+  // Keeps the fullscreen panel matched to the real visible area as it
+  // changes — most importantly, the on-screen keyboard opening to type a
+  // message, which would otherwise leave the iframe sized for a viewport
+  // that no longer exists and the composer hidden underneath the keyboard.
+  function handleViewportChange() {
+    if (isFullscreen) setFullscreen();
+  }
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener("resize", handleViewportChange);
+  } else {
+    window.addEventListener("resize", handleViewportChange); // older browsers with no visualViewport support
   }
 
   // Dragging the open panel's header — the page tracks its own pointer

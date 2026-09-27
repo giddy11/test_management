@@ -3,7 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- viewport-fit=cover: lets pages opt into env(safe-area-inset-*) so
+         fixed-to-the-edge UI (e.g. the live-chat widget's composer) can clear
+         a device's notch/home-indicator instead of sitting under it. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>TestMate</title>
     <!-- Apply the saved/system theme before paint to avoid a flash of the wrong theme. -->
     <script>
