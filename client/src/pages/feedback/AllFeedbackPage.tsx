@@ -4,7 +4,7 @@
 // a client company's IT queue are excluded by the backend until escalated.
 import { useEffect, useMemo, useState } from "react"
 import { useSearchParams } from "react-router-dom"
-import { MessageSquareHeart, Search, Trash2 } from "lucide-react"
+import { MessageSquareHeart, MoreHorizontal, Search, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -17,6 +17,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import {
   Select,
   SelectContent,
@@ -180,105 +186,102 @@ export default function AllFeedbackPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-40">Ticket</TableHead>
-              <TableHead>Title</TableHead>
-              <TableHead>Product</TableHead>
-              <TableHead>Type</TableHead>
-              <TableHead>Severity</TableHead>
+              <TableHead className="w-28">Ref</TableHead>
+              <TableHead>Ticket</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>From</TableHead>
-              <TableHead>Assigned to</TableHead>
-              <TableHead>Received</TableHead>
-              <TableHead className="w-32 text-right">Actions</TableHead>
+              <TableHead className="w-36">Assigned to</TableHead>
+              <TableHead className="w-24">Received</TableHead>
+              <TableHead className="w-10" />
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading && (
               <TableRow>
-                <TableCell colSpan={10} className="h-24 text-center text-sm text-muted-foreground">
+                <TableCell colSpan={7} className="h-24 text-center text-sm text-muted-foreground">
                   Loading tickets…
                 </TableCell>
               </TableRow>
             )}
             {!isLoading && items.length === 0 && (
               <TableRow>
-                <TableCell colSpan={10} className="h-24 text-center text-sm text-muted-foreground">
+                <TableCell colSpan={7} className="h-24 text-center text-sm text-muted-foreground">
                   No tickets found{hasFilters ? " for these filters" : ""}.
                 </TableCell>
               </TableRow>
             )}
-            {items.map((fb) => (
-              <TableRow key={fb.id} data-cy="ticket-row">
-                <TableCell className="font-mono text-xs text-muted-foreground">{fb.ticketCode}</TableCell>
-                <TableCell className="max-w-sm whitespace-normal">
-                  <div className="flex items-center gap-1.5">
-                    <p className="font-medium leading-snug">{fb.title}</p>
-                    {fb.attachments.length > 0 && (
-                      <span
-                        className="shrink-0 rounded bg-muted px-1 py-0.5 text-[10px] text-muted-foreground"
-                        title={`${fb.attachments.length} attachment${fb.attachments.length === 1 ? "" : "s"}`}
-                      >
-                        {fb.attachments.length} 📎
-                      </span>
+            {items.map((fb) => {
+              const canManageItem = isAdmin || fb.assignees.some((a) => a.id === user?.id)
+              return (
+                <TableRow key={fb.id} data-cy="ticket-row">
+                  <TableCell className="font-mono text-xs text-muted-foreground">{fb.ticketCode}</TableCell>
+                  <TableCell className="max-w-xs whitespace-normal">
+                    <div className="flex items-center gap-1.5">
+                      <p className="font-medium leading-snug">{fb.title}</p>
+                      {fb.attachments.length > 0 && (
+                        <span
+                          className="shrink-0 rounded bg-muted px-1 py-0.5 text-[10px] text-muted-foreground"
+                          title={`${fb.attachments.length} attachment${fb.attachments.length === 1 ? "" : "s"}`}
+                        >
+                          {fb.attachments.length} 📎
+                        </span>
+                      )}
+                    </div>
+                    <p className="line-clamp-1 text-xs text-muted-foreground">{fb.description}</p>
+                    <div className="mt-1 flex flex-wrap items-center gap-1">
+                      {projectName(fb) && (
+                        <Badge variant="outline" className="border-primary/40 text-[10px]">{projectName(fb)}</Badge>
+                      )}
+                      <Badge variant="outline" className="text-[10px]">{FEEDBACK_TYPE_LABELS[fb.type]}</Badge>
+                      {fb.severity && (
+                        <Badge variant={SEVERITY_VARIANT[fb.severity]} className="text-[10px]">
+                          {FEEDBACK_SEVERITY_LABELS[fb.severity]}
+                        </Badge>
+                      )}
+                      {fb.clientCompanyName && (
+                        <Badge variant="secondary" className="text-[10px]">via {fb.clientCompanyName} IT</Badge>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={STATUS_VARIANT[fb.status]}>{FEEDBACK_STATUS_LABELS[fb.status]}</Badge>
+                  </TableCell>
+                  <TableCell className="max-w-40 text-sm">
+                    <p className="truncate">{fb.submitterName}</p>
+                    <p className="truncate text-xs text-muted-foreground" title={fb.submitterEmail}>
+                      {fb.submitterEmail}
+                    </p>
+                  </TableCell>
+                  <TableCell className="max-w-36 truncate text-sm text-muted-foreground">
+                    {fb.assignees.length > 0 ? fb.assignees.map((a) => a.name).join(", ") : "—"}
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {new Date(fb.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                  </TableCell>
+                  <TableCell>
+                    {canManageItem && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon-sm" aria-label="Ticket actions">
+                            <MoreHorizontal className="size-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          {canManageItem && (
+                            <DropdownMenuItem onClick={() => setManaging(fb)}>Manage</DropdownMenuItem>
+                          )}
+                          {isAdmin && (
+                            <DropdownMenuItem variant="destructive" onClick={() => setDeleting(fb)}>
+                              <Trash2 className="size-3.5" /> Delete
+                            </DropdownMenuItem>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     )}
-                  </div>
-                  <p className="line-clamp-1 text-xs text-muted-foreground">{fb.description}</p>
-                  {fb.clientCompanyName && (
-                    <Badge variant="secondary" className="mt-1">via {fb.clientCompanyName} IT</Badge>
-                  )}
-                </TableCell>
-                <TableCell>
-                  {projectName(fb) ? (
-                    <Badge variant="outline" className="border-primary/40">{projectName(fb)}</Badge>
-                  ) : (
-                    <span className="text-muted-foreground">—</span>
-                  )}
-                </TableCell>
-                <TableCell><Badge variant="outline">{FEEDBACK_TYPE_LABELS[fb.type]}</Badge></TableCell>
-                <TableCell>
-                  {fb.severity ? (
-                    <Badge variant={SEVERITY_VARIANT[fb.severity]}>{FEEDBACK_SEVERITY_LABELS[fb.severity]}</Badge>
-                  ) : (
-                    <span className="text-muted-foreground">—</span>
-                  )}
-                </TableCell>
-                <TableCell>
-                  <Badge variant={STATUS_VARIANT[fb.status]}>{FEEDBACK_STATUS_LABELS[fb.status]}</Badge>
-                </TableCell>
-                <TableCell className="text-sm">
-                  <p>{fb.submitterName}</p>
-                  <p className="max-w-50 truncate text-xs text-muted-foreground" title={fb.submitterEmail}>
-                    {fb.submitterEmail}
-                  </p>
-                </TableCell>
-                <TableCell className="max-w-50 truncate text-sm text-muted-foreground">
-                  {fb.assignees.length > 0 ? fb.assignees.map((a) => a.name).join(", ") : "—"}
-                </TableCell>
-                <TableCell className="text-sm text-muted-foreground">
-                  {new Date(fb.createdAt).toLocaleDateString()}
-                </TableCell>
-                <TableCell className="text-right">
-                  <div className="flex items-center justify-end gap-1">
-                    {(isAdmin || fb.assignees.some((a) => a.id === user?.id)) && (
-                      <Button size="sm" variant="outline" onClick={() => setManaging(fb)}>
-                        Manage
-                      </Button>
-                    )}
-                    {isAdmin && (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        aria-label="Delete ticket"
-                        className="text-destructive hover:text-destructive"
-                        onClick={() => setDeleting(fb)}
-                      >
-                        <Trash2 className="size-3.5" />
-                      </Button>
-                    )}
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
+                  </TableCell>
+                </TableRow>
+              )
+            })}
           </TableBody>
         </Table>
       </div>
