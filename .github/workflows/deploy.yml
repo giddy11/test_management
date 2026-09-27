@@ -48,4 +48,5 @@ jobs:
             --image $IMAGE:${{ github.sha }} \
             --platform managed \
             --region $REGION \
-            --allow-unauthenticated
+            --allow-unauthenticated \
+            --min-instances=1
