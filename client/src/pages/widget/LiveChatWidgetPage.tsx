@@ -80,6 +80,13 @@ export default function LiveChatWidgetPage() {
     postToParent({ type: "resize", open })
   }, [open])
 
+  // Disabled/misconfigured token — nothing will ever render here for this
+  // page load. Tell the loader script so it can collapse the iframe on the
+  // host page entirely, instead of leaving a dead launcher pill behind.
+  useEffect(() => {
+    if (configError) postToParent({ type: "unavailable" })
+  }, [configError])
+
   // Dragging the header (open) or the launcher pill (closed) — this page
   // can't move itself (it's just the iframe's content), so it only tracks
   // the pointer and relays deltas; the loader script is what actually
@@ -198,6 +205,11 @@ export default function LiveChatWidgetPage() {
   // the chat thread — same flow as JivoChat's "Send us a message" widget.
   const needsContactInfo = configLoaded && !config.requireAccount && !visitor?.email
 
+  // Disabled/invalid token: nothing to show, ever, for this page load — the
+  // loader script hides the iframe entirely on the "unavailable" message
+  // posted above, so there's no launcher pill left dangling on the host page.
+  if (configErrorMessage) return null
+
   return (
     <div className="flex h-screen w-screen flex-col items-end justify-end p-2">
       {open ? (
@@ -242,11 +254,7 @@ export default function LiveChatWidgetPage() {
             </Button>
           </header>
 
-          {configErrorMessage ? (
-            <div className="flex flex-1 items-center justify-center p-4 text-center">
-              <p className="text-xs text-muted-foreground">{configErrorMessage}</p>
-            </div>
-          ) : !configLoaded ? (
+          {!configLoaded ? (
             <div className="flex flex-1 items-center justify-center">
               <p className="text-xs text-muted-foreground">Loading…</p>
             </div>

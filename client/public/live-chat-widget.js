@@ -75,6 +75,10 @@
   // applied relative to this, not to the iframe's live position, so a fast
   // drag never drifts from the pointer.
   var dragOrigin = null;
+  // Set once the page tells us the token is disabled/invalid — permanent for
+  // this page load, so every later message (a stray resize, etc.) is ignored
+  // instead of bringing the pill back.
+  var unavailable = false;
 
   // The loader alone knows the real host-page viewport, so it (not the page
   // inside the iframe) decides desktop-panel vs. mobile-fullscreen sizing.
@@ -118,10 +122,21 @@
     iframe.style.top = top + "px";
   }
 
+  // Collapses the iframe to nothing and stops it from ever taking space or
+  // clicks again — there's no launcher pill for a widget that isn't there.
+  function hide() {
+    unavailable = true;
+    iframe.style.width = "0px";
+    iframe.style.height = "0px";
+    iframe.style.pointerEvents = "none";
+  }
+
   window.addEventListener("message", function (event) {
     if (event.origin !== origin) return;
     var data = event.data;
     if (!data || data.source !== MESSAGE_SOURCE) return;
+    if (data.type === "unavailable") return hide();
+    if (unavailable) return; // disabled/invalid token — ignore everything else
     if (data.type === "resize") applyOpenState(Boolean(data.open));
     else if (data.type === "dragStart") handleDragStart();
     else if (data.type === "drag") handleDrag(Number(data.dx) || 0, Number(data.dy) || 0);
