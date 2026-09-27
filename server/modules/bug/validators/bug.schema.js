@@ -72,6 +72,24 @@ const commentSchema = z.object({
   params: z.object({ id: z.string().uuid() }),
   body: z.object({
     body: z.string().min(1).max(1000),
+    // Firestore doc id of the comment being replied to — omitted/undefined for
+    // a top-level comment.
+    parentId: z.string().min(1).optional(),
+  }),
+});
+
+const editCommentSchema = z.object({
+  params: z.object({ id: z.string().uuid(), commentId: z.string().min(1) }),
+  body: z.object({
+    body: z.string().min(1).max(1000),
+  }),
+});
+
+const reactionSchema = z.object({
+  params: z.object({ id: z.string().uuid(), commentId: z.string().min(1) }),
+  body: z.object({
+    // null clears the caller's own reaction.
+    reaction: z.enum(["like", "dislike"]).nullable(),
   }),
 });
 
@@ -95,6 +113,8 @@ module.exports = {
   codeParamSchema,
   fetchBugsSchema,
   commentSchema,
+  editCommentSchema,
+  reactionSchema,
   fetchCommentsSchema,
   commentIdParamSchema,
 };

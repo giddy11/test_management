@@ -314,9 +314,21 @@ class FeatureRequestService {
     return this.commentRepo.fetchPaginated(id, params);
   }
 
-  async addComment(actor, id, body) {
+  // A reply always threads under a root comment: replying to a reply resolves
+  // to that reply's own parent, so there's never a third level to render.
+  async _resolveParentId(featureRequestId, parentId) {
+    if (!parentId) return null;
+    const parent = await this.commentRepo.findById(parentId);
+    if (!parent || parent.featureRequestId !== featureRequestId) {
+      throw new AppError("Comment not found", 404);
+    }
+    return parent.parentId ?? parent.id;
+  }
+
+  async addComment(actor, id, body, parentId) {
     const fr = await this.getAccessible(actor, id);
     await this.projectService.assertCanContribute(actor, fr.projectId);
+    const resolvedParentId = await this._resolveParentId(id, parentId);
 
     // Firestore has no join — the author's display name is denormalized onto the doc.
     const commenter = await this.authRepo.findUserById(actor.id);
@@ -326,6 +338,7 @@ class FeatureRequestService {
 
     const comment = await this.commentRepo.create({
       featureRequestId: id,
+      parentId: resolvedParentId,
       authorId: actor.id,
       authorName: commenterName,
       body,
@@ -367,8 +380,38 @@ class FeatureRequestService {
     ) {
       throw new AppError("You can only delete your own comments", 403);
     }
+    if (await this.commentRepo.hasReplies(commentId)) {
+      throw new AppError("This comment has replies — delete those first", 422);
+    }
     await this.commentRepo.softDelete(commentId);
     await this.frRepo.decrementCommentCount(id);
+  }
+
+  // Editing is author-only — unlike delete, a moderator silently rewriting
+  // someone else's words isn't the same kind of override as removing them.
+  async editComment(actor, id, commentId, body) {
+    await this.getAccessible(actor, id);
+    const comment = await this.commentRepo.findById(commentId);
+    if (!comment || comment.deletedAt || comment.featureRequestId !== id) {
+      throw new AppError("Comment not found", 404);
+    }
+    if (comment.authorId !== actor.id) {
+      throw new AppError("You can only edit your own comments", 403);
+    }
+    await this.commentRepo.updateBody(commentId, body);
+    return this.commentRepo.findById(commentId);
+  }
+
+  // reaction: "like" | "dislike" | null. Same access bar as posting a comment.
+  async setCommentReaction(actor, id, commentId, reaction) {
+    const fr = await this.getAccessible(actor, id);
+    await this.projectService.assertCanContribute(actor, fr.projectId);
+    const comment = await this.commentRepo.findById(commentId);
+    if (!comment || comment.deletedAt || comment.featureRequestId !== id) {
+      throw new AppError("Comment not found", 404);
+    }
+    await this.commentRepo.setReaction(commentId, actor.id, reaction);
+    return this.commentRepo.findById(commentId);
   }
 }
 

@@ -30,13 +30,26 @@ function toFeatureRequestResponse(fr, extra = {}) {
 }
 
 // Firestore has no join — authorId/authorName are denormalized directly onto the doc.
-function toCommentResponse(c) {
+// actorId picks the viewer's own reaction (if any) out of the sparse reactions map.
+function toCommentResponse(c, actorId) {
   if (!c) return null;
+  const reactions = c.reactions || {};
+  let likeCount = 0;
+  let dislikeCount = 0;
+  let myReaction = null;
+  for (const [userId, r] of Object.entries(reactions)) {
+    if (r === "like") likeCount++;
+    else if (r === "dislike") dislikeCount++;
+    if (userId === actorId) myReaction = r;
+  }
   return {
     id: c.id,
     featureRequestId: c.featureRequestId,
+    parentId: c.parentId ?? null,
     author: c.authorId ? { id: c.authorId, name: c.authorName || "Deleted user" } : null,
     body: c.body,
+    editedAt: c.editedAt ?? null,
+    reactions: { likeCount, dislikeCount, myReaction },
     createdAt: c.createdAt,
   };
 }

@@ -31,11 +31,11 @@ export const FeedbackEndpoints = {
   // listener instead (see hooks/useFeedbackComments.ts). Same shape reused
   // for the IT-support portal and public routes below (the server resolves
   // which tier owns the ticket / verifies the submitter's credential).
-  addComment: (id: string, body: string, files: File[] = []) =>
+  addComment: (id: string, body: string, files: File[] = [], parentId?: string) =>
     uploadFilesWithFields<FeedbackComment>(
       `/api/v1/feedback/${id}/comments`,
       files,
-      { body },
+      parentId ? { body, parentId } : { body },
       "attachments"
     ),
 
@@ -78,11 +78,11 @@ export const FeedbackEndpoints = {
   supportNotifySubmitter: (id: string, note: string) =>
     wrapCall<Feedback>("POST", `/api/v1/support/feedback/${id}/notify-submitter`, { note }),
 
-  supportAddComment: (id: string, body: string, files: File[] = []) =>
+  supportAddComment: (id: string, body: string, files: File[] = [], parentId?: string) =>
     uploadFilesWithFields<FeedbackComment>(
       `/api/v1/support/feedback/${id}/comments`,
       files,
-      { body },
+      parentId ? { body, parentId } : { body },
       "attachments"
     ),
 

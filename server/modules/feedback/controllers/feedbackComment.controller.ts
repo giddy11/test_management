@@ -29,7 +29,8 @@ export class FeedbackCommentController {
         req.user,
         req.validated.params.id,
         req.validated.body.body,
-        files
+        files,
+        req.validated.body.parentId
       );
       res.status(201).json(ApiResponse.created("Comment posted", toFeedbackCommentResponse(comment)));
     } catch (err) {
@@ -59,7 +60,8 @@ export class FeedbackCommentController {
         req.validated.body.email,
         req.validated.body.code,
         req.validated.body.body,
-        files
+        files,
+        req.validated.body.parentId
       );
       res.status(201).json(ApiResponse.created("Comment posted", toFeedbackCommentResponse(comment)));
     } catch (err) {

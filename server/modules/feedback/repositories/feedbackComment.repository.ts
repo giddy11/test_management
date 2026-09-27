@@ -23,6 +23,9 @@ export interface FeedbackCommentAttachment {
 export interface FeedbackComment {
   id: string;
   feedbackId: string;
+  // Flat, one-level threading — null for a root message, otherwise the id of
+  // the root message it replies to (see FeedbackCommentService.resolveParentId).
+  parentId: string | null;
   authorType: string;
   authorId: string | null;
   authorName: string;
@@ -41,6 +44,7 @@ function toComment(snap: any): FeedbackComment {
   return {
     id: snap.id,
     feedbackId: data.feedbackId,
+    parentId: data.parentId ?? null,
     authorType: data.authorType,
     authorId: data.authorId ?? null,
     authorName: data.authorName ?? null,
@@ -76,9 +80,19 @@ export class FeedbackCommentRepository {
     }
   }
 
-  // data: { feedbackId, authorType, authorId, authorName, authorRole?, body, attachments? }
+  async findById(id: string): Promise<FeedbackComment | null> {
+    try {
+      const snap = await getFirestore().collection(COLLECTION).doc(id).get();
+      return snap.exists ? toComment(snap) : null;
+    } catch (err) {
+      throw unavailable(err as Error);
+    }
+  }
+
+  // data: { feedbackId, parentId?, authorType, authorId, authorName, authorRole?, body, attachments? }
   async create(data: {
     feedbackId: string;
+    parentId?: string | null;
     authorType: string;
     authorId: string | null;
     authorName: string;
@@ -91,6 +105,7 @@ export class FeedbackCommentRepository {
         .collection(COLLECTION)
         .add({
           feedbackId: data.feedbackId,
+          parentId: data.parentId ?? null,
           authorType: data.authorType,
           authorId: data.authorId ?? null,
           authorName: data.authorName ?? null,

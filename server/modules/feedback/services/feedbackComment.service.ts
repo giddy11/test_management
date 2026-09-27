@@ -92,6 +92,17 @@ export class FeedbackCommentService {
     return Boolean(fb.clientCompanyId) && fb.supportStatus === SupportStatus.ESCALATED;
   }
 
+  // A reply always threads under a root message: replying to a reply resolves
+  // to that reply's own parent, so there's never a third level to render.
+  private async resolveParentId(feedbackId: string, parentId?: string | null): Promise<string | null> {
+    if (!parentId) return null;
+    const parent = await this.commentRepo.findById(parentId);
+    if (!parent || parent.feedbackId !== feedbackId) {
+      throw new AppError("Message not found", 404);
+    }
+    return parent.parentId ?? parent.id;
+  }
+
   // ── Staff access ─────────────────────────────────────────────────────────
   // Reading matches who can already see the ticket at all; writing is
   // restricted to whoever can actually act on it — same bar
@@ -221,9 +232,16 @@ export class FeedbackCommentService {
     return this.commentRepo.findByFeedback(feedbackId);
   }
 
-  async addForStaff(actor: Actor, feedbackId: string, body: string, files?: UploadedFile[]) {
+  async addForStaff(
+    actor: Actor,
+    feedbackId: string,
+    body: string,
+    files?: UploadedFile[],
+    parentId?: string | null
+  ) {
     const fb = await this.loadForStaff(actor, feedbackId, { forWrite: true });
     this.assertAttachmentCount(files);
+    const resolvedParentId = await this.resolveParentId(feedbackId, parentId);
 
     const author = await this.authRepo.findUserById(actor.id);
     const authorName = author
@@ -233,6 +251,7 @@ export class FeedbackCommentService {
     const attachments = await this.uploadAttachments(files);
     const comment = await this.commentRepo.create({
       feedbackId,
+      parentId: resolvedParentId,
       authorType: "staff",
       authorId: actor.id,
       authorName,
@@ -312,22 +331,26 @@ export class FeedbackCommentService {
     email: string,
     code: string,
     body: string,
-    files?: UploadedFile[]
+    files?: UploadedFile[],
+    parentId?: string | null
   ): Promise<FeedbackComment> {
     const fb = await this.loadForSubmitterByCode(feedbackId, email, code);
-    return this.createSubmitterComment(fb, body, files);
+    return this.createSubmitterComment(fb, body, files, parentId);
   }
 
   private async createSubmitterComment(
     fb: Feedback,
     body: string,
-    files?: UploadedFile[]
+    files?: UploadedFile[],
+    parentId?: string | null
   ): Promise<FeedbackComment> {
     this.assertAttachmentCount(files);
+    const resolvedParentId = await this.resolveParentId(fb.id, parentId);
 
     const attachments = await this.uploadAttachments(files);
     const comment = await this.commentRepo.create({
       feedbackId: fb.id,
+      parentId: resolvedParentId,
       authorType: "submitter",
       authorId: null,
       authorName: fb.submitterName,

@@ -1,5 +1,6 @@
 // types/bug.types.ts
 import type { BugSeverity, BugPriority, BugStatus } from "@/lib/enums"
+import type { CommentReactionSummary } from "@/lib/commentThreads"
 
 export interface Bug {
   id: string
@@ -37,8 +38,13 @@ export interface BugStatusHistoryEntry {
 export interface BugComment {
   id: string
   bugId: string
+  // Flat, one-level threading — null for a root comment, otherwise the id of
+  // the root comment it replies to.
+  parentId: string | null
   author: { id: string; name: string } | null
   body: string
+  editedAt: string | null
+  reactions: CommentReactionSummary
   createdAt: string
 }
 

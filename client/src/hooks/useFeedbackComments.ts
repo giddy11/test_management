@@ -22,6 +22,7 @@ function toComment(doc: QueryDocumentSnapshot<DocumentData>): FeedbackComment {
   return {
     id: doc.id,
     feedbackId: data.feedbackId,
+    parentId: data.parentId ?? null,
     authorType: data.authorType,
     authorId: data.authorId ?? null,
     authorRole: data.authorRole ?? null,

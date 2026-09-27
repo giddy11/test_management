@@ -98,6 +98,7 @@ export function toFeedbackCommentResponse(c: FeedbackComment) {
   return {
     id: c.id,
     feedbackId: c.feedbackId,
+    parentId: c.parentId ?? null,
     authorType: c.authorType,
     authorId: c.authorId ?? null,
     authorName: c.authorName,

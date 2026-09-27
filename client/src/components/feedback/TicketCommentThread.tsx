@@ -3,18 +3,20 @@
 // submitter side reads too — see TicketThreadDialog.tsx); writes stay REST
 // so the server can enforce staff/tier access rules and the submitter's
 // email+code credential before anything is ever written.
-import { useRef, useState } from "react"
-import { FileText, Paperclip, Send, X } from "lucide-react"
+import { useEffect, useRef, useState } from "react"
+import { FileText, Paperclip, Reply, Send, X } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { InlineLoader } from "@/components/shared/PageLoader"
+import { CollapsibleReplies } from "@/components/shared/CollapsibleReplies"
 import { useAddFeedbackComment, useAddSupportComment } from "@/hooks/useFeedback"
 import { useFeedbackCommentThread } from "@/hooks/useFeedbackComments"
 import { useAuth } from "@/contexts/AuthContext"
 import { ApiError } from "@/transport/http"
+import { groupIntoThreads } from "@/lib/commentThreads"
 import type { FeedbackComment, FeedbackCommentAttachment } from "@/types/feedback.types"
 
 const MAX_ATTACHMENTS = 5
@@ -66,7 +68,15 @@ function staffLabel(authorRole: string | null): string {
   return "Staff"
 }
 
-function CommentRow({ comment, isMine }: { comment: FeedbackComment; isMine: boolean }) {
+function CommentRow({
+  comment,
+  isMine,
+  onReply,
+}: {
+  comment: FeedbackComment
+  isMine: boolean
+  onReply: () => void
+}) {
   return (
     <div className="flex items-start gap-3">
       <Avatar className="size-8 shrink-0">
@@ -94,6 +104,9 @@ function CommentRow({ comment, isMine }: { comment: FeedbackComment; isMine: boo
             ))}
           </div>
         )}
+        <Button variant="ghost" size="sm" className="mt-1 h-6 px-1.5 text-xs text-muted-foreground" onClick={onReply}>
+          <Reply className="mr-1 size-3" /> Reply
+        </Button>
       </div>
     </div>
   )
@@ -112,7 +125,18 @@ export function TicketCommentThread({ feedbackId, support = false }: { feedbackI
 
   const [body, setBody] = useState("")
   const [files, setFiles] = useState<File[]>([])
+  const [replyTo, setReplyTo] = useState<FeedbackComment | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  // Replying to a message further up a long thread shouldn't leave the user
+  // hunting for the composer at the bottom — bring it to them instead.
+  useEffect(() => {
+    if (replyTo) {
+      textareaRef.current?.scrollIntoView({ behavior: "smooth", block: "center" })
+      textareaRef.current?.focus()
+    }
+  }, [replyTo])
 
   const addFiles = (list: FileList | null) => {
     if (!list) return
@@ -135,16 +159,19 @@ export function TicketCommentThread({ feedbackId, support = false }: { feedbackI
   const submit = () => {
     if (!body.trim()) return
     addComment.mutate(
-      { body: body.trim(), files },
+      { body: body.trim(), files, parentId: replyTo?.id },
       {
         onError: (e) => toast.error(e instanceof ApiError ? e.message : "Failed to post message"),
         onSuccess: () => {
           setBody("")
           setFiles([])
+          setReplyTo(null)
         },
       }
     )
   }
+
+  const threads = groupIntoThreads(comments)
 
   return (
     <div className="space-y-4">
@@ -163,13 +190,39 @@ export function TicketCommentThread({ feedbackId, support = false }: { feedbackI
       )}
 
       <div className="space-y-3">
-        {comments.map((c) => (
-          <CommentRow key={c.id} comment={c} isMine={c.authorType === "staff" && c.authorId === user?.id} />
+        {threads.map(({ root, replies }) => (
+          <div key={root.id} className="space-y-3">
+            <CommentRow
+              comment={root}
+              isMine={root.authorType === "staff" && root.authorId === user?.id}
+              onReply={() => setReplyTo(root)}
+            />
+            <CollapsibleReplies
+              replies={replies}
+              renderReply={(r) => (
+                <CommentRow
+                  key={r.id}
+                  comment={r}
+                  isMine={r.authorType === "staff" && r.authorId === user?.id}
+                  onReply={() => setReplyTo(r)}
+                />
+              )}
+            />
+          </div>
         ))}
       </div>
 
       <div className="space-y-2">
+        {replyTo && (
+          <div className="flex items-center justify-between rounded-md border bg-muted/30 px-3 py-1.5 text-xs text-muted-foreground">
+            <span className="truncate">Replying to {replyTo.authorName}: "{replyTo.body.slice(0, 60)}"</span>
+            <button type="button" aria-label="Cancel reply" onClick={() => setReplyTo(null)}>
+              <X className="size-3.5" />
+            </button>
+          </div>
+        )}
         <Textarea
+          ref={textareaRef}
           rows={3}
           placeholder="Ask for more information, or let the submitter know what's needed…"
           value={body}

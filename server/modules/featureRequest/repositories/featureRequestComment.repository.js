@@ -13,9 +13,17 @@ function toComment(snap) {
   return {
     id: snap.id,
     featureRequestId: data.featureRequestId,
+    // Flat, one-level threading — null for a root comment, otherwise the id
+    // of the root comment it replies to (see FeatureRequestService.addComment).
+    parentId: data.parentId ?? null,
     authorId: data.authorId ?? null,
     authorName: data.authorName ?? null,
     body: data.body,
+    editedAt: data.editedAt ? data.editedAt.toDate() : null,
+    // Sparse map of userId -> "like" | "dislike". Small (bounded by thread
+    // participants), so counts are derived from it rather than kept as a
+    // separate denormalized counter.
+    reactions: data.reactions ?? {},
     createdAt: data.createdAt ? data.createdAt.toDate() : null,
     deletedAt: data.deletedAt ? data.deletedAt.toDate() : null,
   };
@@ -65,15 +73,18 @@ class FeatureRequestCommentRepository {
     }
   }
 
-  // data: { featureRequestId, authorId, authorName, body }
+  // data: { featureRequestId, parentId?, authorId, authorName, body }
   async create(data) {
     try {
       const col = getFirestore().collection(COLLECTION);
       const ref = await col.add({
         featureRequestId: data.featureRequestId,
+        parentId: data.parentId ?? null,
         authorId: data.authorId ?? null,
         authorName: data.authorName ?? null,
         body: data.body,
+        editedAt: null,
+        reactions: {},
         createdAt: FieldValue.serverTimestamp(),
         deletedAt: null,
       });
@@ -89,6 +100,47 @@ class FeatureRequestCommentRepository {
       await getFirestore().collection(COLLECTION).doc(id).update({
         deletedAt: FieldValue.serverTimestamp(),
       });
+    } catch (err) {
+      throw unavailable(err);
+    }
+  }
+
+  // Deleting a root comment would otherwise orphan its replies from view — the
+  // realtime query filters out deletedAt comments entirely, so a deleted root
+  // simply vanishes along with anything threaded under it.
+  async hasReplies(id) {
+    try {
+      const snap = await getFirestore()
+        .collection(COLLECTION)
+        .where("parentId", "==", id)
+        .where("deletedAt", "==", null)
+        .limit(1)
+        .get();
+      return !snap.empty;
+    } catch (err) {
+      throw unavailable(err);
+    }
+  }
+
+  async updateBody(id, body) {
+    try {
+      await getFirestore().collection(COLLECTION).doc(id).update({
+        body,
+        editedAt: FieldValue.serverTimestamp(),
+      });
+    } catch (err) {
+      throw unavailable(err);
+    }
+  }
+
+  // reaction: "like" | "dislike" | null (null clears the caller's reaction).
+  async setReaction(id, userId, reaction) {
+    try {
+      const field = `reactions.${userId}`;
+      await getFirestore()
+        .collection(COLLECTION)
+        .doc(id)
+        .update({ [field]: reaction === null ? FieldValue.delete() : reaction });
     } catch (err) {
       throw unavailable(err);
     }

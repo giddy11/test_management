@@ -125,7 +125,13 @@ class FeatureRequestController {
       );
       res
         .status(200)
-        .json(ApiResponse.ok("Comments fetched", result.data.map(toCommentResponse), result.meta));
+        .json(
+          ApiResponse.ok(
+            "Comments fetched",
+            result.data.map((c) => toCommentResponse(c, req.user.id)),
+            result.meta
+          )
+        );
     } catch (err) {
       next(err);
     }
@@ -136,9 +142,24 @@ class FeatureRequestController {
       const comment = await FeatureRequestService.Instance.addComment(
         req.user,
         req.validated.params.id,
+        req.validated.body.body,
+        req.validated.body.parentId
+      );
+      res.status(201).json(ApiResponse.created("Comment added", toCommentResponse(comment, req.user.id)));
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  static async editComment(req, res, next) {
+    try {
+      const comment = await FeatureRequestService.Instance.editComment(
+        req.user,
+        req.validated.params.id,
+        req.validated.params.commentId,
         req.validated.body.body
       );
-      res.status(201).json(ApiResponse.created("Comment added", toCommentResponse(comment)));
+      res.status(200).json(ApiResponse.ok("Comment updated", toCommentResponse(comment, req.user.id)));
     } catch (err) {
       next(err);
     }
@@ -152,6 +173,22 @@ class FeatureRequestController {
         req.validated.params.commentId
       );
       res.status(200).json(ApiResponse.ok("Comment deleted", null));
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  static async setCommentReaction(req, res, next) {
+    try {
+      const comment = await FeatureRequestService.Instance.setCommentReaction(
+        req.user,
+        req.validated.params.id,
+        req.validated.params.commentId,
+        req.validated.body.reaction
+      );
+      res
+        .status(200)
+        .json(ApiResponse.ok("Reaction updated", toCommentResponse(comment, req.user.id)));
     } catch (err) {
       next(err);
     }

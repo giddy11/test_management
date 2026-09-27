@@ -13,21 +13,27 @@ import { db, ensureFirebaseAuth } from "@/lib/firestore"
 import { BugCommentEndpoints } from "@/endpoints/bug.endpoints"
 import { ApiError } from "@/transport/http"
 import { BUGS_KEY } from "@/hooks/useBugs"
+import { useAuth } from "@/contexts/AuthContext"
+import { summarizeReactions } from "@/lib/commentThreads"
 import type { BugComment } from "@/types/bug.types"
 
-function toComment(doc: QueryDocumentSnapshot<DocumentData>): BugComment {
+function toComment(doc: QueryDocumentSnapshot<DocumentData>, viewerId: string | undefined): BugComment {
   const data = doc.data()
   return {
     id: doc.id,
     bugId: data.bugId,
+    parentId: data.parentId ?? null,
     author: data.authorId ? { id: data.authorId, name: data.authorName || "Deleted user" } : null,
     body: data.body,
+    editedAt: data.editedAt ? data.editedAt.toDate().toISOString() : null,
+    reactions: summarizeReactions(data.reactions, viewerId),
     createdAt: data.createdAt ? data.createdAt.toDate().toISOString() : new Date().toISOString(),
   }
 }
 
 // Realtime — the server (Admin SDK) is the only writer; this just listens.
 export function useBugComments(bugId: string) {
+  const { user } = useAuth()
   const [data, setData] = useState<BugComment[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isError, setIsError] = useState(false)
@@ -51,7 +57,7 @@ export function useBugComments(bugId: string) {
         unsubscribe = onSnapshot(
           q,
           (snap) => {
-            setData(snap.docs.map(toComment))
+            setData(snap.docs.map((d) => toComment(d, user?.id)))
             setIsLoading(false)
           },
           () => {
@@ -69,7 +75,7 @@ export function useBugComments(bugId: string) {
       cancelled = true
       unsubscribe?.()
     }
-  }, [bugId])
+  }, [bugId, user?.id])
 
   return { data, isLoading, isError }
 }
@@ -77,14 +83,24 @@ export function useBugComments(bugId: string) {
 export function useAddBugComment(bugId: string) {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (body: string) => {
-      const res = await BugCommentEndpoints.create(bugId, body)
+    mutationFn: async ({ body, parentId }: { body: string; parentId?: string }) => {
+      const res = await BugCommentEndpoints.create(bugId, body, parentId)
       if (!res.success || !res.data) throw new ApiError(res.message, res.statusCode, res.errors)
       return res.data
     },
     // The comment list updates on its own via the realtime listener — only the
     // card's denormalized commentCount needs a refetch.
     onSuccess: () => qc.invalidateQueries({ queryKey: [BUGS_KEY] }),
+  })
+}
+
+export function useEditBugComment(bugId: string) {
+  return useMutation({
+    mutationFn: async ({ commentId, body }: { commentId: string; body: string }) => {
+      const res = await BugCommentEndpoints.edit(bugId, commentId, body)
+      if (!res.success || !res.data) throw new ApiError(res.message, res.statusCode, res.errors)
+      return res.data
+    },
   })
 }
 
@@ -97,5 +113,15 @@ export function useDeleteBugComment(bugId: string) {
       return res
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: [BUGS_KEY] }),
+  })
+}
+
+export function useSetBugCommentReaction(bugId: string) {
+  return useMutation({
+    mutationFn: async ({ commentId, reaction }: { commentId: string; reaction: "like" | "dislike" | null }) => {
+      const res = await BugCommentEndpoints.setReaction(bugId, commentId, reaction)
+      if (!res.success || !res.data) throw new ApiError(res.message, res.statusCode, res.errors)
+      return res.data
+    },
   })
 }

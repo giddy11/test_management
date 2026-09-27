@@ -64,8 +64,8 @@ export function useFeedbackHistory(feedbackId: string, enabled: boolean) {
 export function useAddFeedbackComment(feedbackId: string) {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async ({ body, files }: { body: string; files?: File[] }) => {
-      const res = await FeedbackEndpoints.addComment(feedbackId, body, files)
+    mutationFn: async ({ body, files, parentId }: { body: string; files?: File[]; parentId?: string }) => {
+      const res = await FeedbackEndpoints.addComment(feedbackId, body, files, parentId)
       if (!res.success || !res.data) throw new ApiError(res.message, res.statusCode, res.errors)
       return res.data
     },
@@ -180,8 +180,8 @@ export function useNotifySubmitterFixed() {
 export function useAddSupportComment(feedbackId: string) {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async ({ body, files }: { body: string; files?: File[] }) => {
-      const res = await FeedbackEndpoints.supportAddComment(feedbackId, body, files)
+    mutationFn: async ({ body, files, parentId }: { body: string; files?: File[]; parentId?: string }) => {
+      const res = await FeedbackEndpoints.supportAddComment(feedbackId, body, files, parentId)
       if (!res.success || !res.data) throw new ApiError(res.message, res.statusCode, res.errors)
       return res.data
     },

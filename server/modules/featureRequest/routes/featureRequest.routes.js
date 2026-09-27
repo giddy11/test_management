@@ -10,6 +10,8 @@ const {
   codeParamSchema,
   fetchFeatureRequestsSchema,
   commentSchema,
+  editCommentSchema,
+  reactionSchema,
   fetchCommentsSchema,
   commentIdParamSchema,
 } = require("../validators/featureRequest.schema");
@@ -80,6 +82,20 @@ router.delete(
   requireProjectAccess("Defects and feature requests — decided by role in the project"),
   validate(commentIdParamSchema),
   FeatureRequestController.removeComment
+);
+router.patch(
+  "/:id/comments/:commentId",
+  authMiddleware,
+  requireProjectAccess("Defects and feature requests — decided by role in the project"),
+  validate(editCommentSchema),
+  FeatureRequestController.editComment
+);
+router.post(
+  "/:id/comments/:commentId/reactions",
+  authMiddleware,
+  requireProjectAccess("Defects and feature requests — decided by role in the project"),
+  validate(reactionSchema),
+  FeatureRequestController.setCommentReaction
 );
 
 module.exports = router;

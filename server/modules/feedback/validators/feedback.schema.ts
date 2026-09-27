@@ -152,7 +152,12 @@ export const fetchFeedbackCommentsSchema = z.object({
 
 export const addFeedbackCommentSchema = z.object({
   params: z.object({ id: z.string().uuid() }),
-  body: z.object({ body: z.string().min(1).max(3000) }),
+  body: z.object({
+    body: z.string().min(1).max(3000),
+    // Firestore doc id of the message being replied to — omitted for a
+    // top-level message. Multipart form field, so a plain optional string.
+    parentId: z.string().min(1).optional(),
+  }),
 });
 
 // ── Ticket comment thread (public — the submitter proves ownership the same
@@ -172,6 +177,7 @@ export const publicAddCommentSchema = z.object({
     email: z.string().email().max(255),
     code: z.string().length(6),
     body: z.string().min(1).max(3000),
+    parentId: z.string().min(1).optional(),
   }),
 });
 

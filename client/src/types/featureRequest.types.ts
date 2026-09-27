@@ -1,5 +1,6 @@
 // types/featureRequest.types.ts
 import type { FeatureRequestStatus } from "@/lib/enums"
+import type { CommentReactionSummary } from "@/lib/commentThreads"
 
 export interface FeatureRequest {
   id: string
@@ -32,8 +33,11 @@ export interface FeatureRequestStatusHistoryEntry {
 export interface FeatureRequestComment {
   id: string
   featureRequestId: string
+  parentId: string | null
   author: { id: string; name: string } | null
   body: string
+  editedAt: string | null
+  reactions: CommentReactionSummary
   createdAt: string
 }
 

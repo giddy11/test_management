@@ -82,7 +82,13 @@ class BugController {
       );
       res
         .status(200)
-        .json(ApiResponse.ok("Comments fetched", result.data.map(toCommentResponse), result.meta));
+        .json(
+          ApiResponse.ok(
+            "Comments fetched",
+            result.data.map((c) => toCommentResponse(c, req.user.id)),
+            result.meta
+          )
+        );
     } catch (err) {
       next(err);
     }
@@ -93,9 +99,24 @@ class BugController {
       const comment = await BugService.Instance.addComment(
         req.user,
         req.validated.params.id,
+        req.validated.body.body,
+        req.validated.body.parentId
+      );
+      res.status(201).json(ApiResponse.created("Comment added", toCommentResponse(comment, req.user.id)));
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  static async editComment(req, res, next) {
+    try {
+      const comment = await BugService.Instance.editComment(
+        req.user,
+        req.validated.params.id,
+        req.validated.params.commentId,
         req.validated.body.body
       );
-      res.status(201).json(ApiResponse.created("Comment added", toCommentResponse(comment)));
+      res.status(200).json(ApiResponse.ok("Comment updated", toCommentResponse(comment, req.user.id)));
     } catch (err) {
       next(err);
     }
@@ -109,6 +130,22 @@ class BugController {
         req.validated.params.commentId
       );
       res.status(200).json(ApiResponse.ok("Comment deleted", null));
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  static async setCommentReaction(req, res, next) {
+    try {
+      const comment = await BugService.Instance.setCommentReaction(
+        req.user,
+        req.validated.params.id,
+        req.validated.params.commentId,
+        req.validated.body.reaction
+      );
+      res
+        .status(200)
+        .json(ApiResponse.ok("Reaction updated", toCommentResponse(comment, req.user.id)));
     } catch (err) {
       next(err);
     }

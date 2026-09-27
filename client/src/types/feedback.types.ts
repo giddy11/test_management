@@ -86,6 +86,9 @@ export interface FeedbackCommentAttachment {
 export interface FeedbackComment {
   id: string
   feedbackId: string
+  // Flat, one-level threading — null for a root message, otherwise the id of
+  // the root message it replies to.
+  parentId: string | null
   authorType: "staff" | "submitter"
   authorId: string | null
   authorRole: string | null

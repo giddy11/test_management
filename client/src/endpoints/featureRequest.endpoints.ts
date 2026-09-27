@@ -41,8 +41,24 @@ export const FeatureRequestAttachmentEndpoints = {
 export const FeatureRequestCommentEndpoints = {
   fetchAll: (requestId: string, params: { page?: number; limit?: number } = {}) =>
     wrapCall<FeatureRequestComment[]>("GET", `/api/v1/feature-requests/${requestId}/comments`, obj(params)),
-  create: (requestId: string, body: string) =>
-    wrapCall<FeatureRequestComment>("POST", `/api/v1/feature-requests/${requestId}/comments`, { body }),
+  create: (requestId: string, body: string, parentId?: string) =>
+    wrapCall<FeatureRequestComment>(
+      "POST",
+      `/api/v1/feature-requests/${requestId}/comments`,
+      obj({ body, parentId })
+    ),
+  edit: (requestId: string, commentId: string, body: string) =>
+    wrapCall<FeatureRequestComment>(
+      "PATCH",
+      `/api/v1/feature-requests/${requestId}/comments/${commentId}`,
+      { body }
+    ),
   remove: (requestId: string, commentId: string) =>
     wrapCall<null>("DELETE", `/api/v1/feature-requests/${requestId}/comments/${commentId}`),
+  setReaction: (requestId: string, commentId: string, reaction: "like" | "dislike" | null) =>
+    wrapCall<FeatureRequestComment>(
+      "POST",
+      `/api/v1/feature-requests/${requestId}/comments/${commentId}/reactions`,
+      { reaction }
+    ),
 }
