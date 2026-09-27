@@ -56,7 +56,7 @@ export default function LiveChatWidgetPage() {
     document.body.style.background = "transparent"
   }, [])
 
-  const { data: config } = useLiveChatWidgetConfig(token)
+  const { data: config, isError: configError, error: configErrorObj } = useLiveChatWidgetConfig(token)
   const { data: visitor } = useLiveChatVisitor(token, config?.requireAccount)
   const { data: conversation } = useLiveChatConversation(token, visitor?.id)
   const conversationId = conversation?.id
@@ -185,6 +185,11 @@ export default function LiveChatWidgetPage() {
   const displayName = config?.displayName ?? "Chat"
   const greeting = config?.greetingMessage ?? "Hi! How can we help?"
   const configLoaded = config !== undefined
+  const configErrorMessage = configError
+    ? configErrorObj instanceof ApiError
+      ? configErrorObj.message
+      : "This live chat widget is not available"
+    : null
   // Account-required projects gate on a real login/signup instead of the
   // free-form contact form — useLiveChatVisitor resolves to null (not
   // undefined) once it's confirmed there's no logged-in session yet.
@@ -237,7 +242,11 @@ export default function LiveChatWidgetPage() {
             </Button>
           </header>
 
-          {!configLoaded ? (
+          {configErrorMessage ? (
+            <div className="flex flex-1 items-center justify-center p-4 text-center">
+              <p className="text-xs text-muted-foreground">{configErrorMessage}</p>
+            </div>
+          ) : !configLoaded ? (
             <div className="flex flex-1 items-center justify-center">
               <p className="text-xs text-muted-foreground">Loading…</p>
             </div>
