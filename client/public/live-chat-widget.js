@@ -67,7 +67,14 @@
     iframe.style.height = "100vh";
   }
 
-  setBottomRight(CLOSED_SIZE);
+  // Start with no footprint at all — revealed only once the page inside
+  // confirms the token actually resolves ("ready", below). Showing the pill
+  // immediately and hiding it later (the old behavior) meant a disabled
+  // widget flashed on-screen for however long the iframe took to boot and
+  // fetch its config before disappearing.
+  iframe.style.width = "0px";
+  iframe.style.height = "0px";
+  iframe.style.pointerEvents = "none";
 
   var isFullscreen = false;
   // Snapshot of the iframe's own position when a drag starts — deltas from
@@ -75,6 +82,9 @@
   // applied relative to this, not to the iframe's live position, so a fast
   // drag never drifts from the pointer.
   var dragOrigin = null;
+  // Becomes true once the page confirms the token resolves — nothing is
+  // shown or acted on before that.
+  var ready = false;
   // Set once the page tells us the token is disabled/invalid — permanent for
   // this page load, so every later message (a stray resize, etc.) is ignored
   // instead of bringing the pill back.
@@ -137,6 +147,16 @@
     if (!data || data.source !== MESSAGE_SOURCE) return;
     if (data.type === "unavailable") return hide();
     if (unavailable) return; // disabled/invalid token — ignore everything else
+
+    if (data.type === "ready") {
+      if (ready) return;
+      ready = true;
+      iframe.style.pointerEvents = "";
+      applyOpenState(false); // reveal at the default closed (pill) size
+      return;
+    }
+    if (!ready) return; // config hasn't resolved yet — nothing to show or act on
+
     if (data.type === "resize") applyOpenState(Boolean(data.open));
     else if (data.type === "dragStart") handleDragStart();
     else if (data.type === "drag") handleDrag(Number(data.dx) || 0, Number(data.dy) || 0);

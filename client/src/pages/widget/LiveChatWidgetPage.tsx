@@ -80,9 +80,14 @@ export default function LiveChatWidgetPage() {
     postToParent({ type: "resize", open })
   }, [open])
 
-  // Disabled/misconfigured token — nothing will ever render here for this
-  // page load. Tell the loader script so it can collapse the iframe on the
-  // host page entirely, instead of leaving a dead launcher pill behind.
+  // The loader script starts the iframe fully hidden and waits for one of
+  // these two before ever showing anything — "ready" once the token is
+  // confirmed to resolve (config loaded), "unavailable" if it 404s. That
+  // avoids the alternative of showing the pill immediately and hiding it
+  // again once a disabled widget's config request comes back.
+  useEffect(() => {
+    if (config !== undefined) postToParent({ type: "ready" })
+  }, [config])
   useEffect(() => {
     if (configError) postToParent({ type: "unavailable" })
   }, [configError])
