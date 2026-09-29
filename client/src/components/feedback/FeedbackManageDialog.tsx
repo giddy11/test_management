@@ -27,6 +27,7 @@ import {
 import { useFeedbackHistory, useManageFeedback } from "@/hooks/useFeedback"
 import { FeedbackTimeline } from "@/components/feedback/FeedbackTimeline"
 import { TicketCommentThread } from "@/components/feedback/TicketCommentThread"
+import { RelatedTickets } from "@/components/tickets/RelatedTickets"
 import { ApiError } from "@/transport/http"
 import type { ProjectMember } from "@/types/project.types"
 import {
@@ -179,6 +180,14 @@ export function FeedbackManageDialog({
                 <p className="mt-0.5 whitespace-pre-line break-words text-sm">{feedback.reopenReason}</p>
               </div>
             )}
+
+            <RelatedTickets
+              type="feedback"
+              ticketId={feedback.id}
+              projectId={feedback.projectId}
+              title={feedback.title}
+              onNavigate={() => onOpenChange(false)}
+            />
 
             {history.length > 0 && (
               <div className="grid gap-1.5">

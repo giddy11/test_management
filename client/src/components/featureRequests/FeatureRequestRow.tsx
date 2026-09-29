@@ -5,9 +5,17 @@ import { TableCell, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { FeatureRequestStatusBadge } from "@/components/shared/StatusBadge"
 import { VoteButton } from "@/components/featureRequests/VoteButton"
+import { RepeatBadges } from "@/components/tickets/RepeatBadges"
 import type { FeatureRequest } from "@/types/featureRequest.types"
+import type { TicketLinkSummary } from "@/types/ticketLink.types"
 
-export const FeatureRequestRow = memo(function FeatureRequestRow({ request }: { request: FeatureRequest }) {
+export const FeatureRequestRow = memo(function FeatureRequestRow({
+  request,
+  links,
+}: {
+  request: FeatureRequest
+  links?: TicketLinkSummary
+}) {
   const navigate = useNavigate()
 
   return (
@@ -24,6 +32,9 @@ export const FeatureRequestRow = memo(function FeatureRequestRow({ request }: { 
       <TableCell className="max-w-sm whitespace-normal">
         <p className="font-medium leading-snug">{request.title}</p>
         <p className="line-clamp-1 text-xs text-muted-foreground">{request.description}</p>
+        <div className="mt-1 flex flex-wrap items-center gap-1 empty:hidden">
+          <RepeatBadges summary={links} />
+        </div>
       </TableCell>
       <TableCell><FeatureRequestStatusBadge value={request.status} /></TableCell>
       <TableCell>

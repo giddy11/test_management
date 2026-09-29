@@ -1,0 +1,79 @@
+{
+  "ticket": {
+    "type": "bug",
+    "id": "e2e-bug-1",
+    "projectId": "e2e-proj-1",
+    "referenceCode": "BF-20260625-001",
+    "title": "Login button unresponsive on Safari",
+    "status": "Open",
+    "feedbackType": null,
+    "createdAt": "2026-06-25T09:00:00.000Z"
+  },
+  "occurrenceCount": 3,
+  "duplicateOf": null,
+  "occurrences": [
+    {
+      "ticket": {
+        "type": "bug",
+        "id": "e2e-bug-1",
+        "projectId": "e2e-proj-1",
+        "referenceCode": "BF-20260625-001",
+        "title": "Login button unresponsive on Safari",
+        "status": "Open",
+        "feedbackType": null,
+        "createdAt": "2026-06-25T09:00:00.000Z"
+      },
+      "linkId": null,
+      "isOriginal": true,
+      "isCurrent": true
+    },
+    {
+      "ticket": {
+        "type": "bug",
+        "id": "e2e-bug-7",
+        "projectId": "e2e-proj-1",
+        "referenceCode": "BF-20260801-007",
+        "title": "Login button not responding again",
+        "status": "Fixed",
+        "feedbackType": null,
+        "createdAt": "2026-08-01T09:00:00.000Z"
+      },
+      "linkId": "e2e-link-1",
+      "isOriginal": false,
+      "isCurrent": false
+    },
+    {
+      "ticket": {
+        "type": "feedback",
+        "id": "e2e-fb-1",
+        "projectId": "e2e-proj-1",
+        "referenceCode": "TKT-20260920-009",
+        "title": "Cannot log in from my iPhone",
+        "status": "acknowledged",
+        "feedbackType": "bug",
+        "createdAt": "2026-09-20T09:00:00.000Z"
+      },
+      "linkId": "e2e-link-2",
+      "isOriginal": false,
+      "isCurrent": false
+    }
+  ],
+  "related": [
+    {
+      "linkId": "e2e-link-3",
+      "linkType": "related",
+      "ticket": {
+        "type": "feature_request",
+        "id": "e2e-fr-1",
+        "projectId": "e2e-proj-1",
+        "referenceCode": "FR-20260601-001",
+        "title": "Dark mode for reports",
+        "status": "under_review",
+        "feedbackType": null,
+        "createdAt": "2026-06-01T09:00:00.000Z"
+      },
+      "linkedAt": "2026-09-21T09:00:00.000Z",
+      "linkedBy": "Uche Tester"
+    }
+  ]
+}

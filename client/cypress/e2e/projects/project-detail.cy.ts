@@ -73,6 +73,21 @@ describe("Project detail — suites", () => {
     cy.contains("No suites match “Pay”.").should("be.visible")
   })
 
+  it("clears the suite search filter", () => {
+    cy.interceptApi("GET", "/test-suites", { body: ok([], listMeta(0)) }, "searchedSuites")
+    cy.dataCy("clear-filters").should("not.exist")
+
+    cy.dataCy("suite-search").type("Pay")
+    cy.wait("@searchedSuites")
+
+    // Clearing goes back to the unfiltered query, which is still cached and
+    // fresh (staleTime 1m), so it is served without another request.
+    cy.dataCy("clear-filters").click()
+    cy.dataCy("suite-search").should("have.value", "")
+    cy.dataCy("clear-filters").should("not.exist")
+    cy.dataCy("suite-card").should("have.length", 2)
+  })
+
   it("creates a suite", () => {
     cy.fixture("testmgmt/suites").then((suites) => {
       cy.interceptApi(

@@ -28,6 +28,8 @@ declare global {
       login(role?: AppRole, overrides?: Record<string, unknown>): Chainable<void>
       /** Stub the calls the authenticated layout always makes (notifications, banner, what's-new). */
       stubLayout(): Chainable<void>
+      /** Stub the ticket-link calls with "nothing linked, nothing similar" (aliases @ticketLinks, @ticketLinkSummary, @similarTickets, @ticketCandidates). */
+      stubTicketLinks(): Chainable<void>
       /** Stub the dashboard page data (aliases @overview, @recentRuns, @projects). */
       stubDashboard(): Chainable<void>
       /** Stub the SLA & support tab (overview, drill-down tickets, filter options, rules). */
@@ -67,6 +69,22 @@ Cypress.Commands.add("stubLayout", () => {
   cy.interceptApi("POST", "/auth/logout", { body: ok(null) }, "logoutApi")
 })
 
+// Bug, feature request and ticket pages all ask what they are linked to, and the
+// create dialogs ask what looks similar. Answer "nothing" by default so specs that
+// are not about links stay unaffected; a spec that is overrides these with its own
+// intercepts (the last one defined wins).
+Cypress.Commands.add("stubTicketLinks", () => {
+  cy.interceptApi(
+    "GET",
+    "/ticket-links",
+    { body: ok({ ticket: null, occurrenceCount: 1, duplicateOf: null, occurrences: [], related: [] }) },
+    "ticketLinks"
+  )
+  cy.interceptApi("GET", "/ticket-links/summary", { body: ok({}) }, "ticketLinkSummary")
+  cy.interceptApi("GET", "/ticket-links/similar", { body: ok([]) }, "similarTickets")
+  cy.interceptApi("GET", "/ticket-links/candidates", { body: ok([]) }, "ticketCandidates")
+})
+
 Cypress.Commands.add("login", (role: AppRole = "user", overrides: Record<string, unknown> = {}) => {
   cy.fixture(`users/${role}`).then((user) => {
     const current = { ...user, ...overrides }
@@ -74,6 +92,7 @@ Cypress.Commands.add("login", (role: AppRole = "user", overrides: Record<string,
     cy.wrap(current, { log: false }).as("currentUser")
   })
   cy.stubLayout()
+  cy.stubTicketLinks()
   // Seed tokens before the app boots — the spec frame shares the baseUrl
   // origin, so this storage is what the app reads on cy.visit().
   cy.then(() => {

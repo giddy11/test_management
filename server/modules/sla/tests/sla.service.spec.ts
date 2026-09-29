@@ -95,6 +95,48 @@ describe("SlaService.overview — scope per role", () => {
   });
 });
 
+describe("SlaService.overview — recurring issues", () => {
+  it("returns the ranked groups with pg's numeric strings turned into numbers", async () => {
+    const repo = makeRepo();
+    repo.recurring.mockResolvedValue([
+      {
+        groupKey: "bug:b-1",
+        source: "bug",
+        title: "Sign up button not working",
+        count: 3,
+        afterFix: 2,
+        votes: null,
+        // bigint aggregates arrive from pg as strings.
+        avgResolutionMs: "7200000",
+        linked: true,
+      },
+      { groupKey: "feature_request:f-1", source: "feature_request", title: "Dark mode", count: 4, votes: "23", linked: true },
+    ]);
+
+    const { recurring } = await new SlaService(repo as any).overview(admin, {});
+
+    expect(recurring[0]).toMatchObject({ groupKey: "bug:b-1", avgResolutionMs: 7200000, afterFix: 2, votes: null });
+    expect(recurring[1]).toMatchObject({ source: "feature_request", votes: 23 });
+  });
+
+  it("asks for the groups within the caller's own scope and filters", async () => {
+    const repo = makeRepo();
+    await new SlaService(repo as any).overview(user, { projectId: "p-1" });
+    // The plain user's scope is what keeps groups to projects they belong to.
+    expect(repo.recurring).toHaveBeenCalledWith(
+      { organizationId: "org-1", memberUserId: "user-1" },
+      { projectId: "p-1" },
+      expect.anything()
+    );
+  });
+
+  it("hands an IT supporter the company scope, which is what withholds link-based groups", async () => {
+    const repo = makeRepo();
+    await new SlaService(repo as any).overview(supporter, {});
+    expect(repo.recurring.mock.calls[0][0]).toEqual({ clientCompanyId: "cc-1" });
+  });
+});
+
 describe("SlaService — rules", () => {
   it("uses the code defaults when the org has no saved rules", async () => {
     const repo = makeRepo();
@@ -276,6 +318,19 @@ describe("SlaService.tickets — drill-down", () => {
     const { data } = await new SlaService(repo as any).tickets(admin, { metric: "all", sort: "newest", page: 1, limit: 20 } as any);
     expect(data.map((t: { visibleInTriage: boolean }) => t.visibleInTriage)).toEqual([true, false, true]);
     expect(data[0].assignees).toEqual([]);
+  });
+
+  it("keeps the group key, so a row of 'Most recurring issues' opens exactly its own reports", async () => {
+    const repo = makeRepo();
+    await new SlaService(repo as any).tickets(admin, {
+      metric: "all", sort: "newest", page: 1, limit: 20, recurringKey: "bug:b-1", projectId: "p-1",
+    } as any);
+    expect(repo.tickets).toHaveBeenCalledWith(
+      { organizationId: "org-1" },
+      { projectId: "p-1", recurringKey: "bug:b-1" },
+      expect.anything(),
+      expect.anything()
+    );
   });
 
   it("forwards metric/sort/paging to the repository", async () => {

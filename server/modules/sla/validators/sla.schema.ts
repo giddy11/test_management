@@ -71,6 +71,9 @@ export const slaTicketsSchema = z.object({
       sort: z.enum(["newest", "oldest", "longest_waiting"]).default("newest"),
       page: z.coerce.number().int().min(1).default(1),
       limit: z.coerce.number().int().min(1).max(100).default(20),
+      // A row of "Most recurring issues": only the reports in that group. The key
+      // is opaque to the client — it is handed back exactly as the overview gave it.
+      recurringKey: z.string().min(1).max(400).optional(),
     })
     .refine((q) => !q.from || !q.to || q.from <= q.to, {
       message: "'from' must be on or before 'to'",

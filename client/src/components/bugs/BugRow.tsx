@@ -4,12 +4,14 @@ import { TableCell, TableRow } from "@/components/ui/table"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { PresenceDot } from "@/components/shared/PresenceDot"
 import { BugSeverityBadge, BugPriorityBadge, BugStatusBadge } from "@/components/shared/StatusBadge"
+import { RepeatBadges } from "@/components/tickets/RepeatBadges"
 import type { Bug } from "@/types/bug.types"
+import type { TicketLinkSummary } from "@/types/ticketLink.types"
 
 const initials = (name: string) =>
   name.split(" ").map((p) => p[0]).join("").slice(0, 2).toUpperCase()
 
-export const BugRow = memo(function BugRow({ bug }: { bug: Bug }) {
+export const BugRow = memo(function BugRow({ bug, links }: { bug: Bug; links?: TicketLinkSummary }) {
   const navigate = useNavigate()
 
   return (
@@ -22,6 +24,9 @@ export const BugRow = memo(function BugRow({ bug }: { bug: Bug }) {
       <TableCell className="max-w-sm whitespace-normal">
         <p className="font-medium leading-snug">{bug.title}</p>
         <p className="line-clamp-1 text-xs text-muted-foreground">{bug.description}</p>
+        <div className="mt-1 flex flex-wrap items-center gap-1 empty:hidden">
+          <RepeatBadges summary={links} />
+        </div>
       </TableCell>
       <TableCell><BugStatusBadge value={bug.status} /></TableCell>
       <TableCell><BugSeverityBadge value={bug.severity} /></TableCell>

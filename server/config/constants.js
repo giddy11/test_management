@@ -186,6 +186,20 @@ const BugStatus = Object.freeze({
   REOPENED: "Reopened",
 });
 
+// The three kinds of ticket that can be linked to one another (see modules/ticketLink).
+const TicketType = Object.freeze({
+  BUG: "bug",
+  FEATURE_REQUEST: "feature_request",
+  FEEDBACK: "feedback",
+});
+
+// How two tickets relate. `related` is symmetric ("these touch the same thing");
+// `duplicate` is directional — the source is a repeat of the target (the original).
+const TicketLinkType = Object.freeze({
+  RELATED: "related",
+  DUPLICATE: "duplicate",
+});
+
 module.exports = {
   UserRole,
   ProjectMemberRole,
@@ -206,6 +220,8 @@ module.exports = {
   BugSeverity,
   BugPriority,
   BugStatus,
+  TicketType,
+  TicketLinkType,
   enums: {
     userRole: Object.values(UserRole),
     projectMemberRole: Object.values(ProjectMemberRole),
@@ -226,5 +242,7 @@ module.exports = {
     bugSeverity: Object.values(BugSeverity),
     bugPriority: Object.values(BugPriority),
     bugStatus: Object.values(BugStatus),
+    ticketType: Object.values(TicketType),
+    ticketLinkType: Object.values(TicketLinkType),
   },
 };

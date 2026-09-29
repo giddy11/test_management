@@ -15,7 +15,6 @@ import {
   Clock,
   Hourglass,
   Lightbulb,
-  Repeat,
   Search,
   Settings2,
   ShieldCheck,
@@ -63,6 +62,7 @@ import {
 import { ComplianceDonut, SeverityChart, SourceChart, StatusChart, TicketsOverTimeChart } from "./SlaCharts"
 import { SlaTicketsDialog, type DrillDown } from "./SlaTicketsDialog"
 import { SlaRulesDialog } from "./SlaRulesDialog"
+import { RecurringIssues } from "./RecurringIssues"
 import { daysAgo, fmtMs, fmtPct, rateTone } from "./slaFormat"
 
 type RangePreset = "7d" | "30d" | "90d" | "365d" | "all" | "custom"
@@ -556,65 +556,22 @@ export function SlaDashboard() {
             </Card>
           </div>
 
-          {/* ── Recurring issues + by product ─────────────────────────────── */}
-          <div className="grid gap-4 lg:grid-cols-2">
-            <Card>
-              <CardHeader className="flex flex-row items-center gap-2">
-                <Repeat className="size-4 text-primary" />
-                <div>
-                  <CardTitle className="text-base">Recurring issues</CardTitle>
-                  <CardDescription>The same issue reported more than once for a product</CardDescription>
-                </div>
-              </CardHeader>
-              <CardContent className="p-0">
-                {data.recurring.length === 0 ? (
-                  <p className="px-6 py-4 text-sm text-muted-foreground">No repeat reports in this range.</p>
-                ) : (
-                  <div className="max-h-80 overflow-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Issue</TableHead>
-                          <TableHead className="text-right">Reports</TableHead>
-                          <TableHead className="text-right">Open</TableHead>
-                          <TableHead className="text-right">Last seen</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {data.recurring.map((r, i) => (
-                          <TableRow
-                            key={`${r.projectId}-${r.source}-${i}`}
-                            className="cursor-pointer"
-                            onClick={() =>
-                              setDrill({
-                                metric: "all",
-                                extra: { search: r.title, projectId: r.projectId, source: r.source },
-                                title: `"${r.title}" reports`,
-                              })
-                            }
-                          >
-                            <TableCell className="max-w-[280px]">
-                              <div className="truncate font-medium" title={r.title}>{r.title}</div>
-                              <div className="text-xs text-muted-foreground">
-                                {r.projectName} · {SLA_SOURCE_LABELS[r.source]}
-                              </div>
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <Badge variant="secondary">{r.count}</Badge>
-                            </TableCell>
-                            <TableCell className="text-right tabular-nums">{r.open}</TableCell>
-                            <TableCell className="text-right text-xs text-muted-foreground">
-                              {new Date(r.lastSeenAt).toLocaleDateString()}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+          {/* ── Most recurring issues ─────────────────────────────────────── */}
+          <RecurringIssues
+            rows={data.recurring}
+            canOpen={!isSupporter}
+            onSelect={(r) =>
+              setDrill({
+                metric: "all",
+                // The key alone identifies the group; the page's own filters still apply.
+                extra: { recurringKey: r.groupKey },
+                title: `"${r.title}" — ${r.count} ${r.source === "feature_request" ? "requests" : "reports"}`,
+              })
+            }
+          />
 
+          {/* ── By product ────────────────────────────────────────────────── */}
+          <div className="grid gap-4">
             <Card>
               <CardHeader className="flex flex-row items-center gap-2">
                 <Star className="size-4 text-yellow-500" />

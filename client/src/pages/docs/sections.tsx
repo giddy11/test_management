@@ -13,6 +13,7 @@ import {
   Image,
   LayoutDashboard,
   Lightbulb,
+  Link2,
   Megaphone,
   MessageCircle,
   MessageSquare,
@@ -339,8 +340,13 @@ const ALL_SECTIONS: DocSection[] = [
             appear automatically as targets pass.
           </li>
           <li>
-            <Strong>Issues by severity, status, product, team member and support engineer</Strong>,
-            plus <Strong>recurring issues</Strong> — the same problem reported more than once.
+            <Strong>Issues by severity, status, product, team member and support engineer</Strong>.
+          </li>
+          <li>
+            <Strong>Most recurring issues</Strong> — the bug, ticket and feature request that keep
+            being raised, each ranked with how many times, how many are still open, and whether it
+            came back after being fixed. See{" "}
+            <a href="#linked-tickets" className="text-primary hover:underline">Repeats &amp; related tickets</a>.
           </li>
         </UL>
         <P>
@@ -646,6 +652,112 @@ const ALL_SECTIONS: DocSection[] = [
           <Code>/projects/…/feature-requests/ref/FR-20260728-014</Code>) — readable enough to paste
           into a roadmap doc or a chat message. Bugs use the same scheme with a <Code>BF-</Code>{" "}
           prefix.
+        </P>
+      </div>
+    ),
+  },
+  {
+    id: "linked-tickets",
+    title: "Repeats & related tickets",
+    icon: Link2,
+    summary: "Spotting a problem that has been raised before, and counting how often it comes back.",
+    body: (
+      <div className="space-y-4">
+        <P>
+          A bug that was fixed months ago can come back, and a customer can report the same problem
+          your tester logged last week. Instead of losing track, link the reports together — bugs,
+          feature requests and tickets can all be linked to one another, as long as they belong to
+          the same project.
+        </P>
+        <H3>Has this been raised before?</H3>
+        <P>
+          As you type the title of a new bug or feature request, TestMate looks through the
+          project’s earlier bugs, feature requests and tickets — including ones that are already
+          fixed or closed — for titles that read alike. Anything close appears under the title as{" "}
+          <Strong>This may have been raised before</Strong>, with its status and date. Nothing is
+          blocked: your report is saved either way, so a match that turns out to be a different
+          problem costs you nothing.
+        </P>
+        <UL>
+          <li>
+            <Strong>Same problem</Strong> — record your new report as a <Strong>repeat</Strong> of
+            the earlier one. Once you submit, the two are linked.
+          </li>
+          <li>
+            <Strong>Related</Strong> — the two are connected (same area, a likely cause, a
+            workaround) but not the same problem. Related links don’t count as repeats.
+          </li>
+        </UL>
+        <P>
+          The match is by wording, so it catches “Sign up button broken” against “Sign up button
+          not working”, but not a report worded completely differently (“can’t create an
+          account”). That’s why a ticket’s page also lets you <Strong>search and link by hand</Strong>{" "}
+          — type a title or paste a reference code like <Code>BF-20260728-014</Code>.
+        </P>
+        <H3>Counting how many times</H3>
+        <P>
+          The earlier report is the <Strong>original</Strong>; every later report of the same
+          problem is a <Strong>repeat</Strong> of it. The original shows{" "}
+          <Chip className={chipAmber}>Reported 3 times</Chip> in its header and in the project list,
+          and its <Strong>Related tickets</Strong> section lists every report — oldest first, with
+          each one’s status — so you can see when it came back and whether it was fixed the same way.
+          A repeat shows a small <Strong>Repeat</Strong> badge and the same list.
+        </P>
+        <H3>Planning from the SLA dashboard</H3>
+        <P>
+          The <Strong>Most recurring issues</Strong> card on the SLA dashboard pulls these counts
+          together so you can see what deserves planning time. It headlines the most-reported bug,
+          the most-reported ticket and the most-requested feature, and lists the top offenders of
+          each kind. Every row shows:
+        </P>
+        <UL>
+          <li>
+            <Strong>Reports</Strong> and how many are still <Strong>open</Strong>.
+          </li>
+          <li>
+            <Strong>After a fix</Strong> — reports filed after the problem had already been fixed
+            once. This is the strongest signal: the fix may not have reached the root cause. Rows
+            like this are marked <Chip className={chipRed}>Came back after a fix</Chip>.
+          </li>
+          <li>
+            <Strong>Votes</Strong> for feature requests, and the <Strong>average fix time</Strong>.
+          </li>
+        </UL>
+        <P>
+          Each row ends with one line of plain advice — for example <em>“2 of 5 reports are still
+          open — a strong candidate to prioritise”</em>. Click a row to list every report behind it.
+          Reports you linked as repeats count together however they were worded; unlinked reports
+          are grouped only when their titles are identical, so linking is what keeps the counts
+          honest. The card follows the dashboard’s filters, so narrow it by product or date range to
+          plan for one area.
+        </P>
+        <H3>Linking from a ticket’s page</H3>
+        <P>
+          Open a bug, feature request or ticket and click <Strong>Link ticket</Strong> in its{" "}
+          <Strong>Related tickets</Strong> section. Pick a ticket, then say how they relate: this
+          ticket is a repeat of the one you picked, the one you picked is a repeat of this one, or
+          they’re simply related. Tickets with a similar title that aren’t linked yet are suggested
+          underneath as <Strong>Possible repeats</Strong>, each with a one-click{" "}
+          <Strong>Same problem</Strong> button.
+        </P>
+        <UL>
+          <li>
+            A ticket is a repeat of <Strong>one</Strong> original. If you pick a ticket that is
+            itself a repeat, the link goes to the original instead, so the count stays in one place.
+          </li>
+          <li>
+            An original that already has repeats can’t itself be marked as a repeat of something
+            else — remove its repeats’ links first.
+          </li>
+          <li>
+            Anyone who can report bugs on the project can add a link. Whoever added a link can
+            remove it, and so can admins and the project’s team lead. Removing a link never deletes
+            either ticket.
+          </li>
+        </UL>
+        <P>
+          Tickets that are still in a client company’s own IT queue aren’t visible to your team, so
+          they can’t be linked until they are escalated.
         </P>
       </div>
     ),
@@ -1682,7 +1794,7 @@ const group = (label: string, ids: string[]): DocGroup => ({
 export const DOC_GROUPS: DocGroup[] = [
   group("Getting started", ["introduction", "getting-started", "roles"]),
   group("Core testing workflow", ["dashboard", "projects", "suites-and-cases", "test-runs"]),
-  group("Tracking & tickets", ["bugs", "feature-requests", "feedback-portal"]),
+  group("Tracking & tickets", ["bugs", "feature-requests", "linked-tickets", "feedback-portal"]),
   group("Support & live chat", [
     "client-companies",
     "live-chat",

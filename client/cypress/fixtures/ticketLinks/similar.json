@@ -1,0 +1,14 @@
+[
+  {
+    "type": "bug",
+    "id": "e2e-bug-old",
+    "projectId": "e2e-proj-1",
+    "referenceCode": "BF-20260301-014",
+    "title": "Sign up button not working",
+    "status": "Fixed",
+    "feedbackType": null,
+    "createdAt": "2026-03-01T09:00:00.000Z",
+    "score": 0.92,
+    "occurrenceCount": 1
+  }
+]

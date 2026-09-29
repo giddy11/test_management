@@ -17,11 +17,13 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { InlineLoader } from "@/components/shared/PageLoader"
+import { ClearFiltersButton } from "@/components/shared/ClearFiltersButton"
 import { DateRangeFilter } from "@/components/shared/DateRangeFilter"
 import { SearchByInput, type SearchByOption } from "@/components/shared/SearchByInput"
 import { BugRow } from "@/components/bugs/BugRow"
 import { BugFormDialog } from "@/components/bugs/BugFormDialog"
 import { useBugs } from "@/hooks/useBugs"
+import { useTicketLinkSummary } from "@/hooks/useTicketLinks"
 import { useDebounce } from "@/hooks/useDebounce"
 import { usePersistedState } from "@/hooks/usePersistedState"
 import { BUG_STATUSES, BUG_STATUS_META, type BugStatus } from "@/lib/enums"
@@ -60,8 +62,19 @@ export function BugsTab({ projectId }: { projectId: string }) {
     to: to || undefined,
   })
   const bugs = data?.data ?? []
+  // "Reported 3×" / "Repeat" badges for the bugs on this page.
+  const { data: linkSummary } = useTicketLinkSummary(projectId, "bug", bugs.map((b) => b.id))
 
   const filterValue = (v: string) => (v === "all" ? null : v)
+  const filtersActive = Boolean(searchInput || status || from || to)
+  const clearFilters = () => {
+    setSearchInput("")
+    setSearchBy("title")
+    setStatus(null)
+    setFrom("")
+    setTo("")
+    setPage(1)
+  }
 
   return (
     <div className="space-y-4">
@@ -87,6 +100,7 @@ export function BugsTab({ projectId }: { projectId: string }) {
           </SelectContent>
         </Select>
         <DateRangeFilter from={from} to={to} onFromChange={setFrom} onToChange={setTo} />
+        <ClearFiltersButton active={filtersActive} onClick={clearFilters} />
         <Button size="sm" onClick={() => setFormOpen(true)} className="sm:ml-auto" data-cy="report-bug">
           <Plus className="mr-1 size-4" /> Report bug
         </Button>
@@ -128,7 +142,7 @@ export function BugsTab({ projectId }: { projectId: string }) {
                   </TableCell>
                 </TableRow>
               )}
-              {bugs.map((b) => <BugRow key={b.id} bug={b} />)}
+              {bugs.map((b) => <BugRow key={b.id} bug={b} links={linkSummary?.[b.id]} />)}
             </TableBody>
           </Table>
         </div>

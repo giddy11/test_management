@@ -12,6 +12,8 @@ import { VoteButton } from "@/components/featureRequests/VoteButton"
 import { StatusUpdateDialog } from "@/components/featureRequests/StatusUpdateDialog"
 import { CommentThread } from "@/components/featureRequests/CommentThread"
 import { FeatureRequestAttachmentsSection } from "@/components/featureRequests/FeatureRequestAttachmentsSection"
+import { RelatedTickets } from "@/components/tickets/RelatedTickets"
+import { OccurrenceBadge } from "@/components/tickets/RepeatBadges"
 import { StatusTimeline } from "@/components/shared/StatusTimeline"
 import {
   useFeatureRequest,
@@ -64,6 +66,7 @@ export default function FeatureRequestDetailPage() {
               <FeatureRequestStatusBadge value={request.status} />
               {request.category && <Badge variant="outline">{request.category}</Badge>}
               {request.module && <Badge variant="outline" className="text-muted-foreground">{request.module}</Badge>}
+              <OccurrenceBadge type="feature_request" id={request.id} />
             </div>
             <p className="mt-1 text-sm text-muted-foreground">
               {request.submittedBy ? `Submitted by ${request.submittedBy.name}` : "Submitted"}
@@ -130,6 +133,13 @@ export default function FeatureRequestDetailPage() {
       )}
 
       <FeatureRequestAttachmentsSection requestId={request.id} />
+
+      <RelatedTickets
+        type="feature_request"
+        ticketId={request.id}
+        projectId={request.projectId}
+        title={request.title}
+      />
 
       <Separator />
 

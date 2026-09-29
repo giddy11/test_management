@@ -17,11 +17,13 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { InlineLoader } from "@/components/shared/PageLoader"
+import { ClearFiltersButton } from "@/components/shared/ClearFiltersButton"
 import { DateRangeFilter } from "@/components/shared/DateRangeFilter"
 import { SearchByInput, type SearchByOption } from "@/components/shared/SearchByInput"
 import { FeatureRequestRow } from "@/components/featureRequests/FeatureRequestRow"
 import { FeatureRequestFormDialog } from "@/components/featureRequests/FeatureRequestFormDialog"
 import { useFeatureRequests } from "@/hooks/useFeatureRequests"
+import { useTicketLinkSummary } from "@/hooks/useTicketLinks"
 import { useDebounce } from "@/hooks/useDebounce"
 import { usePersistedState } from "@/hooks/usePersistedState"
 import { FEATURE_REQUEST_STATUSES, FEATURE_REQUEST_STATUS_META, type FeatureRequestStatus } from "@/lib/enums"
@@ -67,8 +69,20 @@ export function FeatureRequestsTab({ projectId }: { projectId: string }) {
     to: to || undefined,
   })
   const requests = data?.data ?? []
+  // "Reported 3×" / "Repeat" badges for the requests on this page.
+  const { data: linkSummary } = useTicketLinkSummary(projectId, "feature_request", requests.map((r) => r.id))
 
   const filterValue = (v: string) => (v === "all" ? null : v)
+  // Sort isn't a filter (it doesn't narrow the list), so clearing leaves it alone.
+  const filtersActive = Boolean(searchInput || status || from || to)
+  const clearFilters = () => {
+    setSearchInput("")
+    setSearchBy("title")
+    setStatus(null)
+    setFrom("")
+    setTo("")
+    setPage(1)
+  }
 
   return (
     <div className="space-y-4">
@@ -101,6 +115,7 @@ export function FeatureRequestsTab({ projectId }: { projectId: string }) {
           </SelectContent>
         </Select>
         <DateRangeFilter from={from} to={to} onFromChange={setFrom} onToChange={setTo} />
+        <ClearFiltersButton active={filtersActive} onClick={clearFilters} />
         <Button size="sm" onClick={() => setFormOpen(true)} className="sm:ml-auto" data-cy="new-feature-request">
           <Plus className="mr-1 size-4" /> New request
         </Button>
@@ -142,7 +157,7 @@ export function FeatureRequestsTab({ projectId }: { projectId: string }) {
                   </TableCell>
                 </TableRow>
               )}
-              {requests.map((r) => <FeatureRequestRow key={r.id} request={r} />)}
+              {requests.map((r) => <FeatureRequestRow key={r.id} request={r} links={linkSummary?.[r.id]} />)}
             </TableBody>
           </Table>
         </div>

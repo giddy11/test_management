@@ -22,11 +22,14 @@ import {
 } from "@/components/ui/select"
 import { FormField } from "@/components/shared/FormField"
 import { PendingAttachmentsField } from "@/components/shared/PendingAttachmentsField"
+import { SimilarTicketsPanel } from "@/components/tickets/SimilarTicketsPanel"
 import { useCreateFeatureRequest } from "@/hooks/useFeatureRequests"
+import { useLinkPendingTickets } from "@/hooks/useTicketLinks"
 import { useSuites } from "@/hooks/useSuites"
 import { featureRequestSchema, linesToArray, type FeatureRequestForm } from "@/lib/testMgmtValidation"
 import { ApiError } from "@/transport/http"
 import { FeatureRequestAttachmentEndpoints } from "@/endpoints/featureRequest.endpoints"
+import type { PendingTicketLink } from "@/types/ticketLink.types"
 
 interface Props {
   open: boolean
@@ -39,6 +42,10 @@ export function FeatureRequestFormDialog({ open, onOpenChange, projectId }: Prop
   const { data: suites = [] } = useSuites(projectId)
   const [files, setFiles] = useState<File[]>([])
   const [uploading, setUploading] = useState(false)
+  // Earlier tickets marked as "same problem" / "related" while writing this one —
+  // linked once the request exists.
+  const [pendingLinks, setPendingLinks] = useState<PendingTicketLink[]>([])
+  const linkPending = useLinkPendingTickets()
 
   const {
     register,
@@ -50,11 +57,13 @@ export function FeatureRequestFormDialog({ open, onOpenChange, projectId }: Prop
   } = useForm<FeatureRequestForm>({ resolver: zodResolver(featureRequestSchema) })
 
   const moduleValue = watch("module")
+  const title = watch("title")
 
   useEffect(() => {
     if (open) {
       reset({ title: "", description: "", category: "", module: "", referenceLinksText: "" })
       setFiles([])
+      setPendingLinks([])
     }
   }, [open, reset])
 
@@ -76,6 +85,18 @@ export function FeatureRequestFormDialog({ open, onOpenChange, projectId }: Prop
         if (!res.success) toast.error(res.message || "Request submitted, but attachments failed to upload")
       }
 
+      if (pendingLinks.length > 0) {
+        const { failed } = await linkPending.mutateAsync({
+          source: { type: "feature_request", id: request.id },
+          pending: pendingLinks,
+        })
+        if (failed > 0) {
+          toast.error(
+            `Request submitted, but ${failed} link${failed === 1 ? "" : "s"} couldn't be made — add ${failed === 1 ? "it" : "them"} from the request page`
+          )
+        }
+      }
+
       toast.success("Feature request submitted")
       onOpenChange(false)
     } catch (e) {
@@ -87,13 +108,22 @@ export function FeatureRequestFormDialog({ open, onOpenChange, projectId }: Prop
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Suggest a feature</DialogTitle>
           <DialogDescription>Tell us what you'd like to see in TestMate.</DialogDescription>
         </DialogHeader>
-        <form className="grid gap-4" onSubmit={handleSubmit(onSubmit)}>
+        <form className="grid min-w-0 gap-4" onSubmit={handleSubmit(onSubmit)}>
           <FormField id="title" label="Title" error={errors.title?.message} {...register("title")} />
+
+          {/* Has this been suggested before? */}
+          <SimilarTicketsPanel
+            projectId={projectId}
+            title={title ?? ""}
+            pending={pendingLinks}
+            onChange={setPendingLinks}
+            noun="request"
+          />
 
           <div className="grid gap-1.5">
             <Label htmlFor="description">Description</Label>
@@ -141,7 +171,7 @@ export function FeatureRequestFormDialog({ open, onOpenChange, projectId }: Prop
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={create.isPending || uploading} data-cy="feature-request-submit">
+            <Button type="submit" disabled={create.isPending || uploading || linkPending.isPending} data-cy="feature-request-submit">
               {uploading ? "Uploading…" : create.isPending ? "Submitting…" : "Submit request"}
             </Button>
           </DialogFooter>

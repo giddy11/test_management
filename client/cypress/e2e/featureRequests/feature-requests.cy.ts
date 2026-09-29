@@ -67,6 +67,39 @@ describe("Feature requests", () => {
     cy.dataCy("feature-request-card").should("have.length", 2)
   })
 
+  it("clears all filters at once, leaving sort untouched", () => {
+    cy.interceptApi("GET", "/feature-requests", { body: ok([], listMeta(0)) }, "filteredRequests")
+    cy.dataCy("clear-filters").should("not.exist")
+
+    cy.contains("All statuses").click()
+    cy.contains('[role="option"]', "Planned").click()
+    cy.wait("@filteredRequests")
+
+    cy.contains("Top").click()
+    cy.contains('[role="option"]', "Newest").click()
+
+    cy.selectDropdown('[data-cy="search-by"]', "Reporter")
+    cy.get('input[placeholder="Search by reporter name…"]').type("Uche")
+    cy.wait("@filteredRequests")
+
+    cy.dataCy("date-from").type("2026-07-01")
+    cy.wait("@filteredRequests")
+
+    // Clearing goes back to the unfiltered query, which is still cached and
+    // fresh (staleTime 1m), so it is served without another request.
+    cy.dataCy("clear-filters").click()
+
+    cy.contains("All statuses").should("be.visible")
+    cy.contains("Search by title…").should("be.visible")
+    cy.get('input[placeholder="Search by reporter name…"]').should("not.exist")
+    cy.dataCy("date-from").should("have.value", "")
+    cy.dataCy("date-to").should("have.value", "")
+    cy.dataCy("clear-filters").should("not.exist")
+    // Sort isn't a filter — clearing leaves the earlier "Newest" choice as is.
+    cy.contains("Newest").should("be.visible")
+    cy.dataCy("feature-request-card").should("have.length", 2)
+  })
+
   it("upvotes a request", () => {
     cy.interceptApi(
       "POST",

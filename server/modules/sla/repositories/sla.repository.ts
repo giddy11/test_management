@@ -52,6 +52,9 @@ export interface SlaQueryFilters {
   assigneeId?: string;
   supporterId?: string;
   search?: string;
+  // Drill-down only: keep the reports that share this occurrence key (a row of
+  // "Most recurring issues") — see occurrenceKeySql. Not applied by buildBase.
+  recurringKey?: string;
 }
 
 export interface SlaRules {
@@ -95,6 +98,35 @@ const BUG_RESOLVED_AT = `
 const BUG_CLOSED_AT = `
   CASE WHEN b.status = 'Closed'
        THEN COALESCE(b.closed_at, b.status_updated_at, b.created_at) END`;
+
+// What decides that two reports are "the same problem", as a SQL expression over
+// an issue row aliased `alias` (any relation exposing id, source, project_id and
+// title — the `t` CTE). Two reports share a key when:
+//
+//   1. the team linked one as a REPEAT of the other (ticket_links) — both get the
+//      original's key, "bug:<uuid>" / "feature_request:<uuid>" / "feedback:<uuid>".
+//      This is what catches "Sign up button broken" against "Can't create an
+//      account": a person said so, wording no longer matters. The original keeps
+//      its own key only if something has been marked a repeat of it.
+//   2. otherwise, they have the same title (case/whitespace-insensitive) in the
+//      same project and source — "title:<project>:<source>:<title>". This is the
+//      automatic fallback for reports nobody has linked yet.
+//
+// `useLinks` is false for an IT supporter. A link can join a customer ticket to an
+// internal bug, and the bug's id (and, once hydrated, its title) must never reach
+// someone outside the product organisation, so they only ever see the title rule.
+export function occurrenceKeySql(alias: string, useLinks: boolean): string {
+  const titleKey = `('title:' || ${alias}.project_id || ':' || ${alias}.source || ':' || lower(regexp_replace(trim(${alias}.title), '\\s+', ' ', 'g')))`;
+  if (!useLinks) return titleKey;
+  // ticket_links names a feedback ticket "feedback"; the SLA base calls it "ticket".
+  const linkType = `(CASE ${alias}.source WHEN 'ticket' THEN 'feedback' ELSE ${alias}.source END)`;
+  return `COALESCE(
+    (SELECT l.target_type || ':' || l.target_id FROM ticket_links l
+      WHERE l.link_type = 'duplicate' AND l.source_type = ${linkType} AND l.source_id = ${alias}.id LIMIT 1),
+    (SELECT ${linkType} || ':' || ${alias}.id FROM ticket_links l
+      WHERE l.link_type = 'duplicate' AND l.target_type = ${linkType} AND l.target_id = ${alias}.id LIMIT 1),
+    ${titleKey})`;
+}
 
 // Every SQL predicate that narrows the issue set lives here — the service
 // never composes SQL. Builds a UNION ALL of up to three normalized
@@ -666,30 +698,155 @@ export class SlaRepository {
     );
   }
 
-  // Recurring issues: the same title (case/whitespace-insensitive) reported
-  // more than once for the same project and source (grouping by `source`
-  // rather than `type` — the latter is null for every bug/feature-request
-  // row, which would otherwise merge unrelated bugs and feature requests
-  // that happen to share a title).
-  async recurring(scope: SlaScope, filters: SlaQueryFilters, rules: SlaRules, limit = 10) {
+  // Recurring issues — the problems that keep coming back, ranked per kind
+  // (bugs, tickets, feature requests) so each can be planned for on its own.
+  //
+  // Reports are grouped by occurrenceKeySql: the team's own "repeat of" links
+  // first, identical titles as the fallback. A group's kind is its ORIGINAL's, so
+  // a customer ticket the team linked to a known bug counts toward that bug. Only
+  // groups reported at least twice are returned.
+  //
+  // Alongside the count, each group carries what a planner needs to decide:
+  //   afterFix   reports filed AFTER the problem had already been resolved once —
+  //              the ones that say "the fix didn't hold" or "it's back"
+  //   open       reports still unresolved
+  //   votes      feature requests only: upvotes across the group
+  //   avgResolutionMs  how long it usually takes to fix
+  // The date range applies to when reports were raised, so the counts are "in
+  // this range"; the group's original is shown even if it was raised before it.
+  async recurring(scope: SlaScope, filters: SlaQueryFilters, rules: SlaRules, limitPerSource = 10) {
+    const useLinks = !scope.clientCompanyId;
     const { sql, params } = buildBase(scope, filters, rules);
-    params.push(limit);
-    return this.ds.query(
-      `${sql}
-       SELECT min(title) AS title, source,
-         project_id AS "projectId", project_name AS "projectName",
-         count(*)::int AS count,
-         count(*) FILTER (WHERE NOT is_resolved)::int AS open,
-         count(*) FILTER (WHERE compliance = 'breached')::int AS breached,
-         max(created_at) AS "lastSeenAt",
-         min(created_at) AS "firstSeenAt"
-       FROM t
-       GROUP BY lower(regexp_replace(trim(title), '\\s+', ' ', 'g')), source, project_id, project_name
-       HAVING count(*) >= 2
-       ORDER BY count DESC, "lastSeenAt" DESC
-       LIMIT $${params.length}`,
+    params.push(limitPerSource);
+    const rows = await this.ds.query(
+      `${sql},
+       occ AS (
+         SELECT t.*, ${occurrenceKeySql("t", useLinks)} AS occurrence_key FROM t
+       ),
+       occ2 AS (
+         SELECT o.*,
+           min(o.resolved_at) OVER (PARTITION BY o.occurrence_key) AS group_first_resolved_at,
+           frv.upvote_count AS upvotes
+         FROM occ o
+         LEFT JOIN feature_requests frv ON o.source = 'feature_request' AND frv.id = o.id
+       ),
+       grp AS (
+         SELECT occurrence_key AS "groupKey",
+           CASE WHEN starts_with(occurrence_key, 'bug:') THEN 'bug'
+                WHEN starts_with(occurrence_key, 'feature_request:') THEN 'feature_request'
+                WHEN starts_with(occurrence_key, 'feedback:') THEN 'ticket'
+                ELSE min(source) END AS source,
+           (array_agg(title ORDER BY created_at))[1] AS title,
+           (array_agg(id ORDER BY created_at))[1] AS "firstId",
+           (array_agg(source ORDER BY created_at))[1] AS "firstSource",
+           (array_agg(reference_number ORDER BY created_at))[1] AS "firstNumber",
+           (array_agg(project_id ORDER BY created_at))[1] AS "projectId",
+           (array_agg(project_name ORDER BY created_at))[1] AS "projectName",
+           count(*)::int AS count,
+           count(*) FILTER (WHERE NOT is_resolved)::int AS open,
+           count(*) FILTER (WHERE is_resolved)::int AS resolved,
+           count(*) FILTER (WHERE compliance = 'breached')::int AS breached,
+           count(*) FILTER (WHERE group_first_resolved_at IS NOT NULL AND created_at > group_first_resolved_at)::int AS "afterFix",
+           sum(upvotes)::int AS votes,
+           avg(resolution_ms)::bigint AS "avgResolutionMs",
+           min(created_at) AS "firstSeenAt",
+           max(created_at) AS "lastSeenAt"
+         FROM occ2
+         GROUP BY occurrence_key
+         HAVING count(*) >= 2
+       ),
+       ranked AS (
+         SELECT g.*, row_number() OVER (
+           PARTITION BY g.source ORDER BY g.count DESC, g."afterFix" DESC, g."lastSeenAt" DESC
+         ) AS rn
+         FROM grp g
+       )
+       SELECT "groupKey", source, title, "firstId", "firstSource", "firstNumber", "projectId", "projectName",
+         count, open, resolved, breached, "afterFix", votes, "avgResolutionMs", "firstSeenAt", "lastSeenAt"
+       FROM ranked
+       WHERE rn <= $${params.length}
+       ORDER BY source, rn`,
       params
     );
+
+    // A linked group is named after its original — which may sit outside the
+    // date range, so it is read straight from its own table.
+    const originals = await this.originalsFor(
+      rows.filter((r: { groupKey: string }) => !r.groupKey.startsWith("title:")).map((r: { groupKey: string }) => r.groupKey)
+    );
+
+    return rows.map((r: Record<string, any>) => {
+      const original = originals.get(r.groupKey);
+      const firstSource = r.firstSource as SlaSource;
+      return {
+        groupKey: r.groupKey,
+        source: r.source,
+        title: original?.title ?? r.title,
+        // What to open: the original, or (identical titles / original gone) the earliest report.
+        referenceCode:
+          original?.referenceCode ??
+          formatReferenceCode(REFERENCE_PREFIX[firstSource], r.firstNumber, r.firstSeenAt),
+        ticketId: original?.id ?? r.firstId,
+        ticketSource: original?.source ?? firstSource,
+        projectId: original?.projectId ?? r.projectId,
+        projectName: original?.projectName ?? r.projectName,
+        count: r.count,
+        open: r.open,
+        resolved: r.resolved,
+        breached: r.breached,
+        afterFix: r.afterFix,
+        votes: r.votes,
+        avgResolutionMs: r.avgResolutionMs,
+        firstSeenAt: r.firstSeenAt,
+        lastSeenAt: r.lastSeenAt,
+        // Whether the team confirmed this group with links, or it is identical titles.
+        linked: !r.groupKey.startsWith("title:"),
+      };
+    });
+  }
+
+  // The originals behind a set of link keys ("bug:<uuid>", …) — title, code and
+  // project — keyed the same way. An original that has since been deleted is
+  // simply absent; the caller falls back to the group's earliest report.
+  private async originalsFor(keys: string[]) {
+    const ids: Record<string, string[]> = { bug: [], feature_request: [], feedback: [] };
+    for (const key of keys) {
+      const i = key.indexOf(":");
+      const type = key.slice(0, i);
+      if (ids[type]) ids[type].push(key.slice(i + 1));
+    }
+
+    const found = new Map<
+      string,
+      { id: string; source: SlaSource; title: string; referenceCode: string; projectId: string; projectName: string }
+    >();
+    const load = async (type: string, source: SlaSource, table: string, alias: string, numberColumn: string) => {
+      if (ids[type].length === 0) return;
+      const rows = await this.ds.query(
+        `SELECT ${alias}.id, ${alias}.title, ${alias}.${numberColumn} AS number, ${alias}.created_at AS "createdAt",
+           ${alias}.project_id AS "projectId", p.name AS "projectName"
+         FROM ${table} ${alias}
+         JOIN projects p ON p.id = ${alias}.project_id
+         WHERE ${alias}.id = ANY($1::uuid[]) AND ${alias}.deleted_at IS NULL`,
+        [ids[type]]
+      );
+      for (const r of rows) {
+        found.set(`${type}:${r.id}`, {
+          id: r.id,
+          source,
+          title: r.title,
+          referenceCode: formatReferenceCode(REFERENCE_PREFIX[source], r.number, r.createdAt),
+          projectId: r.projectId,
+          projectName: r.projectName,
+        });
+      }
+    };
+    await Promise.all([
+      load("bug", "bug", "bugs", "b", "bug_number"),
+      load("feature_request", "feature_request", "feature_requests", "f", "request_number"),
+      load("feedback", "ticket", "feedback", "fb", "ticket_number"),
+    ]);
+    return found;
   }
 
   // Drill-down: the actual issues behind a figure, with their SLA readings.
@@ -700,7 +857,14 @@ export class SlaRepository {
     { metric = "all", sort = "newest", page = 1, limit = 20 }: { metric?: string; sort?: string; page?: number; limit?: number }
   ) {
     const { sql, params } = buildBase(scope, filters, rules);
-    const predicate = METRIC_PREDICATES[metric] ?? "TRUE";
+    let predicate = METRIC_PREDICATES[metric] ?? "TRUE";
+    // Opened from a row of "Most recurring issues": only that group's reports.
+    // Evaluated with the same expression that formed the group, so the list and
+    // the count on the row can't disagree.
+    if (filters.recurringKey) {
+      params.push(filters.recurringKey);
+      predicate = `(${predicate}) AND ${occurrenceKeySql("t", !scope.clientCompanyId)} = $${params.length}::text`;
+    }
     const order = SORTS[sort] ?? SORTS.newest;
 
     let total = 0;

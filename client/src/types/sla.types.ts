@@ -76,6 +76,9 @@ export interface SlaFilters {
   supporterId?: string
   search?: string
   interval?: SlaInterval
+  // Drill-down only: the reports of one row of "Most recurring issues". Opaque —
+  // handed back exactly as the overview gave it (SlaRecurringRow.groupKey).
+  recurringKey?: string
 }
 
 export type SlaMetric =
@@ -198,19 +201,37 @@ export interface SlaSourceRow {
   avgResolutionMs: number | null
 }
 
+// One problem that has been raised more than once — a bug, a ticket or a feature
+// request, together with every repeat of it (see the server's occurrenceKeySql).
 export interface SlaRecurringRow {
-  title: string
-  // Grouped by source rather than feedback's `type` sub-category — the
-  // latter is null for bug/feature-request rows, which would otherwise
-  // merge unrelated bugs and feature requests sharing a title.
+  // Opaque id of the group; pass it back as SlaFilters.recurringKey to list its reports.
+  groupKey: string
+  // The group's kind is its original's, so a customer ticket linked to a known bug
+  // counts toward that bug.
   source: SlaSource
+  // The original's title (or, for identical titles, the earliest report's).
+  title: string
+  referenceCode: string
+  // The ticket to open, and which kind it is (may differ from `source` when the
+  // original has since been deleted and the earliest report stands in).
+  ticketId: string
+  ticketSource: SlaSource
   projectId: string
   projectName: string
+  // Reports in the selected range, counting the original.
   count: number
   open: number
+  resolved: number
   breached: number
+  // Reports filed AFTER the problem had already been resolved once — "it came back".
+  afterFix: number
+  // Feature requests: upvotes across the group. Null for the other kinds.
+  votes: number | null
+  avgResolutionMs: number | null
   firstSeenAt: string
   lastSeenAt: string
+  // true = grouped by links the team made; false = grouped because titles are identical.
+  linked: boolean
 }
 
 export interface SlaOverview {

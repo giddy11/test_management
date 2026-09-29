@@ -22,7 +22,9 @@ import {
 } from "@/components/ui/select"
 import { FormField } from "@/components/shared/FormField"
 import { PendingAttachmentsField } from "@/components/shared/PendingAttachmentsField"
+import { SimilarTicketsPanel } from "@/components/tickets/SimilarTicketsPanel"
 import { useCreateBug, useManageBug } from "@/hooks/useBugs"
+import { useLinkPendingTickets } from "@/hooks/useTicketLinks"
 import { useSuites } from "@/hooks/useSuites"
 import { useCase, useCases } from "@/hooks/useCases"
 // import { useRuns } from "@/hooks/useRuns" // related-test-run picker removed
@@ -31,6 +33,7 @@ import { BUG_SEVERITIES, BUG_PRIORITIES } from "@/lib/enums"
 import { ApiError } from "@/transport/http"
 import { BugAttachmentEndpoints } from "@/endpoints/bug.endpoints"
 import type { Bug } from "@/types/bug.types"
+import type { PendingTicketLink } from "@/types/ticketLink.types"
 
 interface Props {
   open: boolean
@@ -49,6 +52,10 @@ export function BugFormDialog({ open, onOpenChange, projectId, bug }: Props) {
   const { data: suites = [] } = useSuites(projectId)
   const [files, setFiles] = useState<File[]>([])
   const [uploading, setUploading] = useState(false)
+  // Earlier tickets marked as "same problem" / "related" while writing this one —
+  // linked once the bug exists.
+  const [pendingLinks, setPendingLinks] = useState<PendingTicketLink[]>([])
+  const linkPending = useLinkPendingTickets()
   // Related-test-run picker removed from the form (kept commented below in case
   // it comes back) — so the runs query is disabled too.
   // const { data: runs = [] } = useRuns(projectId)
@@ -80,6 +87,7 @@ export function BugFormDialog({ open, onOpenChange, projectId, bug }: Props) {
         testCaseId: bug?.testCaseId ?? "",
       })
       setFiles([])
+      setPendingLinks([])
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, reset])
@@ -93,6 +101,7 @@ export function BugFormDialog({ open, onOpenChange, projectId, bug }: Props) {
     if (open && linkedSuiteId) setValue("suiteId", linkedSuiteId)
   }, [open, linkedSuiteId, setValue])
 
+  const title = watch("title")
   const severity = watch("severity")
   const priority = watch("priority")
   const suiteId = watch("suiteId")
@@ -149,6 +158,18 @@ export function BugFormDialog({ open, onOpenChange, projectId, bug }: Props) {
         if (!res.success) toast.error(res.message || "Bug reported, but attachments failed to upload")
       }
 
+      if (pendingLinks.length > 0) {
+        const { failed } = await linkPending.mutateAsync({
+          source: { type: "bug", id: bug.id },
+          pending: pendingLinks,
+        })
+        if (failed > 0) {
+          toast.error(
+            `Bug reported, but ${failed} link${failed === 1 ? "" : "s"} couldn't be made — add ${failed === 1 ? "it" : "them"} from the bug page`
+          )
+        }
+      }
+
       toast.success("Bug reported")
       onOpenChange(false)
     } catch (e) {
@@ -160,7 +181,7 @@ export function BugFormDialog({ open, onOpenChange, projectId, bug }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>{isEdit ? "Edit bug" : "Report a bug"}</DialogTitle>
           <DialogDescription>
@@ -169,7 +190,7 @@ export function BugFormDialog({ open, onOpenChange, projectId, bug }: Props) {
               : "Describe the defect so it can be triaged and fixed."}
           </DialogDescription>
         </DialogHeader>
-        <form className="grid gap-4" onSubmit={handleSubmit(onSubmit)}>
+        <form className="grid min-w-0 gap-4" onSubmit={handleSubmit(onSubmit)}>
           {/* Related test case first — optional, but the most valuable triage context. */}
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="grid gap-1.5">
@@ -203,6 +224,17 @@ export function BugFormDialog({ open, onOpenChange, projectId, bug }: Props) {
           </div>
 
           <FormField id="title" label="Title" error={errors.title?.message} {...register("title")} />
+
+          {/* Only when filing a new bug: has this been reported before? */}
+          {!isEdit && (
+            <SimilarTicketsPanel
+              projectId={projectId}
+              title={title ?? ""}
+              pending={pendingLinks}
+              onChange={setPendingLinks}
+              noun="bug"
+            />
+          )}
 
           <div className="grid gap-1.5">
             <Label htmlFor="description">Description</Label>
@@ -287,7 +319,7 @@ export function BugFormDialog({ open, onOpenChange, projectId, bug }: Props) {
             </Button>
             <Button
               type="submit"
-              disabled={create.isPending || update.isPending || uploading}
+              disabled={create.isPending || update.isPending || uploading || linkPending.isPending}
               data-cy="bug-submit"
             >
               {isEdit

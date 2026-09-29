@@ -58,6 +58,33 @@
     { "userId": "e2e-sup-1", "name": "Sam Support", "clientCompanyName": "Client Co", "total": 3, "open": 1, "resolved": 2, "met": 2, "breached": 0, "avgFirstResponseMs": 1800000, "avgResolutionMs": 60000000 }
   ],
   "recurring": [
-    { "title": "Export button does nothing", "source": "bug", "projectId": "e2e-proj-1", "projectName": "Apollo", "count": 3, "open": 1, "breached": 1, "firstSeenAt": "2026-08-04T10:00:00.000Z", "lastSeenAt": "2026-08-20T10:00:00.000Z" }
+    {
+      "groupKey": "bug:e2e-bug-1", "source": "bug", "title": "Export button does nothing",
+      "referenceCode": "BF-20260804-003", "ticketId": "e2e-bug-1", "ticketSource": "bug",
+      "projectId": "e2e-proj-1", "projectName": "Apollo",
+      "count": 3, "open": 1, "resolved": 2, "breached": 1, "afterFix": 1, "votes": null, "avgResolutionMs": 7200000,
+      "firstSeenAt": "2026-08-04T10:00:00.000Z", "lastSeenAt": "2026-08-20T10:00:00.000Z", "linked": true
+    },
+    {
+      "groupKey": "title:e2e-proj-1:bug:login times out on slow networks", "source": "bug", "title": "Login times out on slow networks",
+      "referenceCode": "BF-20260710-002", "ticketId": "e2e-bug-2", "ticketSource": "bug",
+      "projectId": "e2e-proj-1", "projectName": "Apollo",
+      "count": 2, "open": 0, "resolved": 2, "breached": 0, "afterFix": 0, "votes": null, "avgResolutionMs": 3600000,
+      "firstSeenAt": "2026-07-10T10:00:00.000Z", "lastSeenAt": "2026-07-22T10:00:00.000Z", "linked": false
+    },
+    {
+      "groupKey": "feedback:e2e-fb-1", "source": "ticket", "title": "Cannot log in from my iPhone",
+      "referenceCode": "TKT-20260820-042", "ticketId": "e2e-fb-1", "ticketSource": "ticket",
+      "projectId": "e2e-proj-1", "projectName": "Apollo",
+      "count": 2, "open": 2, "resolved": 0, "breached": 0, "afterFix": 0, "votes": null, "avgResolutionMs": null,
+      "firstSeenAt": "2026-08-20T10:00:00.000Z", "lastSeenAt": "2026-09-02T10:00:00.000Z", "linked": true
+    },
+    {
+      "groupKey": "feature_request:e2e-fr-1", "source": "feature_request", "title": "Dark mode for reports",
+      "referenceCode": "FR-20260601-001", "ticketId": "e2e-fr-1", "ticketSource": "feature_request",
+      "projectId": "e2e-proj-1", "projectName": "Apollo",
+      "count": 4, "open": 4, "resolved": 0, "breached": 0, "afterFix": 0, "votes": 23, "avgResolutionMs": null,
+      "firstSeenAt": "2026-06-01T10:00:00.000Z", "lastSeenAt": "2026-09-10T10:00:00.000Z", "linked": true
+    }
   ]
 }

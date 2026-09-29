@@ -16,6 +16,7 @@ import { SummaryBar } from "@/components/shared/SummaryBar"
 import { SuiteFormDialog } from "@/components/testmgmt/SuiteFormDialog"
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog"
 import { InlineLoader } from "@/components/shared/PageLoader"
+import { ClearFiltersButton } from "@/components/shared/ClearFiltersButton"
 import { useSuites, useDeleteSuite } from "@/hooks/useSuites"
 import { useExportProject } from "@/hooks/useExport"
 import { useDebounce } from "@/hooks/useDebounce"
@@ -60,6 +61,7 @@ export function SuitesTab({
           className="sm:max-w-xs"
           data-cy="suite-search"
         />
+        <ClearFiltersButton active={Boolean(search)} onClick={() => setSearchInput("")} />
         <div className="flex gap-2 sm:ml-auto">
           {(suites.length > 0 || search) && (
             <Button size="sm" variant="outline" onClick={handleExport} disabled={exportProject.isPending}>

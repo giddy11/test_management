@@ -4,7 +4,8 @@
 // admins, team leads, and each item's assignee(s) can move feedback through
 // the workflow (the external contact is emailed on every stage change) — only
 // admins/team leads can reassign who's on it.
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
+import { useSearchParams } from "react-router-dom"
 import { Copy, Link2, Link2Off, MessageSquareHeart, MoreHorizontal, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
@@ -38,10 +39,13 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog"
+import { ClearFiltersButton } from "@/components/shared/ClearFiltersButton"
 import { FeedbackManageDialog } from "@/components/feedback/FeedbackManageDialog"
 import { ClientCompaniesCard } from "@/components/feedback/ClientCompaniesCard"
+import { RepeatBadges } from "@/components/tickets/RepeatBadges"
 import { useDeleteFeedback, useFeedback, useSetFeedbackLink } from "@/hooks/useFeedback"
 import { useProject } from "@/hooks/useProjects"
+import { useTicketLinkSummary } from "@/hooks/useTicketLinks"
 import { useAuth } from "@/contexts/AuthContext"
 import { ApiError } from "@/transport/http"
 import {
@@ -100,6 +104,36 @@ export function FeedbackTab({ projectId, canManage }: Props) {
 
   const items = data?.data ?? []
   const meta = data?.meta
+  // "Reported 3×" / "Repeat" badges for the tickets on this page.
+  const { data: linkSummary } = useTicketLinkSummary(projectId, "feedback", items.map((i) => i.id))
+
+  // A link from another ticket arrives as ?ticket=TKT-… — tickets have no page of
+  // their own, so open the one it names in its manage dialog, then drop the param.
+  const [searchParams, setSearchParams] = useSearchParams()
+  const ticketParam = searchParams.get("ticket")
+  const { data: linked } = useFeedback(
+    { projectId, search: ticketParam ?? undefined, limit: 1 },
+    Boolean(ticketParam)
+  )
+  useEffect(() => {
+    if (!ticketParam || !linked) return
+    const target = linked.data[0]
+    if (!target) {
+      toast.error("That ticket could not be found")
+    } else if (canManage || target.assignees.some((a) => a.id === user?.id)) {
+      setManaging(target)
+    } else {
+      toast.info("Only the ticket's assignee or the project's team lead can open it")
+    }
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        next.delete("ticket")
+        return next
+      },
+      { replace: true }
+    )
+  }, [ticketParam, linked, canManage, user?.id, setSearchParams])
 
   const publicUrl = useMemo(
     () =>
@@ -162,7 +196,7 @@ export function FeedbackTab({ projectId, canManage }: Props) {
 
       {canManageCompanies && <ClientCompaniesCard projectId={projectId} />}
 
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex items-center gap-2">
         <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1) }}>
           <SelectTrigger className="w-56"><SelectValue /></SelectTrigger>
           <SelectContent>
@@ -172,6 +206,10 @@ export function FeedbackTab({ projectId, canManage }: Props) {
             ))}
           </SelectContent>
         </Select>
+        <ClearFiltersButton
+          active={statusFilter !== "all"}
+          onClick={() => { setStatusFilter("all"); setPage(1) }}
+        />
       </div>
 
       <div className="rounded-lg border">
@@ -233,6 +271,7 @@ export function FeedbackTab({ projectId, canManage }: Props) {
                       {fb.clientCompanyName && (
                         <Badge variant="secondary" className="text-[10px]">via {fb.clientCompanyName} IT</Badge>
                       )}
+                      <RepeatBadges summary={linkSummary?.[fb.id]} />
                     </div>
                   </TableCell>
                   <TableCell>

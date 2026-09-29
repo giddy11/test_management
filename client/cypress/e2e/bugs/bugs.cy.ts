@@ -76,6 +76,34 @@ describe("Bug reports", () => {
     cy.dataCy("bug-card").should("have.length", 1)
   })
 
+  it("clears all filters at once", () => {
+    cy.interceptApi("GET", "/bugs", { body: ok([], listMeta(0)) }, "filteredBugs")
+    cy.dataCy("clear-filters").should("not.exist")
+
+    cy.contains("All statuses").click()
+    cy.contains('[role="option"]', "Fixed").click()
+    cy.wait("@filteredBugs")
+
+    cy.selectDropdown('[data-cy="search-by"]', "Reporter")
+    cy.get('input[placeholder="Search by reporter name…"]').type("Uche")
+    cy.wait("@filteredBugs")
+
+    cy.dataCy("date-from").type("2026-07-01")
+    cy.wait("@filteredBugs")
+
+    // Clearing goes back to the unfiltered query, which is still cached and
+    // fresh (staleTime 1m), so it is served without another request.
+    cy.dataCy("clear-filters").click()
+
+    cy.contains("All statuses").should("be.visible")
+    cy.contains("Search by title…").should("be.visible")
+    cy.get('input[placeholder="Search by reporter name…"]').should("not.exist")
+    cy.dataCy("date-from").should("have.value", "")
+    cy.dataCy("date-to").should("have.value", "")
+    cy.dataCy("clear-filters").should("not.exist")
+    cy.dataCy("bug-card").should("have.length", 1)
+  })
+
   it("reports a bug", () => {
     cy.fixture("bugs/list").then((bugs) => {
       cy.interceptApi("POST", "/bugs", { body: ok({ ...bugs[0], id: "e2e-bug-new" }) }, "createBug")

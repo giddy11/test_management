@@ -48,6 +48,7 @@ const publicLiveChatRoutes = require("./modules/liveChat/routes/publicLiveChat.r
 const slaRoutes = require("./modules/sla/routes/sla.routes");
 const accessRoutes = require("./modules/access/routes/access.routes");
 const searchRoutes = require("./modules/search/routes/search.routes");
+const ticketLinkRoutes = require("./modules/ticketLink/routes/ticketLink.routes");
 
 function createApp() {
   const app = express();
@@ -110,6 +111,7 @@ function createApp() {
   api.use("/feature-requests", featureRequestRoutes);
   api.use("/bugs", bugAttachmentRoutes); // /:id/attachments — mounted first
   api.use("/bugs", bugRoutes);
+  api.use("/ticket-links", ticketLinkRoutes); // relate bugs, feature requests and feedback tickets
   api.use("/app-updates", appUpdateRoutes);
   api.use("/site-banner", siteBannerRoutes);
   api.use("/organizations", organizationRoutes);

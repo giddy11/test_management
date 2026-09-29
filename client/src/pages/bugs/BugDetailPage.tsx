@@ -10,6 +10,8 @@ import { BugSeverityBadge, BugPriorityBadge, BugStatusBadge } from "@/components
 import { BugManageDialog } from "@/components/bugs/BugManageDialog"
 import { BugFormDialog } from "@/components/bugs/BugFormDialog"
 import { BugAttachmentsSection } from "@/components/bugs/BugAttachmentsSection"
+import { RelatedTickets } from "@/components/tickets/RelatedTickets"
+import { OccurrenceBadge } from "@/components/tickets/RepeatBadges"
 import { CommentThread } from "@/components/bugs/CommentThread"
 import { StatusTimeline } from "@/components/shared/StatusTimeline"
 import { useBug, useBugByCode, useBugHistory, useDeleteBug } from "@/hooks/useBugs"
@@ -77,6 +79,7 @@ export default function BugDetailPage() {
             <BugStatusBadge value={bug.status} />
             <BugSeverityBadge value={bug.severity} />
             <BugPriorityBadge value={bug.priority} />
+            <OccurrenceBadge type="bug" id={bug.id} />
           </div>
           <p className="mt-1 text-sm text-muted-foreground">
             {bug.reportedBy ? `Reported by ${bug.reportedBy.name}` : "Reported"}
@@ -171,6 +174,8 @@ export default function BugDetailPage() {
       )}
 
       <BugAttachmentsSection bugId={bug.id} />
+
+      <RelatedTickets type="bug" ticketId={bug.id} projectId={bug.projectId} title={bug.title} />
 
       <Separator />
 

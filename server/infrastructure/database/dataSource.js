@@ -93,6 +93,8 @@ const {
   UserRoleAssignment,
 } = require("../../modules/access/entities/userRole.entity");
 
+const { TicketLink } = require("../../modules/ticketLink/entities/ticketLink.entity");
+
 const AppDataSource = new DataSource({
   type: "postgres",
   host: env.db.host,
@@ -146,6 +148,7 @@ const AppDataSource = new DataSource({
     Role,
     RolePermission,
     UserRoleAssignment,
+    TicketLink,
   ],
   migrations: ["infrastructure/database/migrations/*.{js,ts}"],
 });

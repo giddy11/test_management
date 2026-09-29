@@ -13,7 +13,8 @@ const FEEDBACK_KEY = "feedback"
 const PROJECTS_KEY = "projects"
 
 // projectId omitted => the cross-project view (backend scopes by role).
-export function useFeedback(params: FetchFeedbackParams) {
+// `enabled` lets a caller hold the query back until it has something to ask for.
+export function useFeedback(params: FetchFeedbackParams, enabled = true) {
   return useQuery({
     queryKey: [FEEDBACK_KEY, params],
     queryFn: async () => {
@@ -21,6 +22,7 @@ export function useFeedback(params: FetchFeedbackParams) {
       if (!res.success) throw new ApiError(res.message, res.statusCode)
       return { data: res.data ?? [], meta: res.meta }
     },
+    enabled,
   })
 }
 
