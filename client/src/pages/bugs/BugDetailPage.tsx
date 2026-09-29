@@ -18,7 +18,7 @@ import { useBug, useBugByCode, useBugHistory, useDeleteBug } from "@/hooks/useBu
 import { useCase } from "@/hooks/useCases"
 import { useCanManageProject } from "@/hooks/useProjects"
 import { useAuth } from "@/contexts/AuthContext"
-import { BUG_STATUS_META, type BugStatus } from "@/lib/enums"
+import { BUG_STATUS_META, isBugReportEditable, type BugStatus } from "@/lib/enums"
 import { ApiError } from "@/transport/http"
 
 // A closed bug can still be reopened, but at rest it shows no running clock.
@@ -58,6 +58,8 @@ export default function BugDetailPage() {
   // Reporters can fix mistakes in their own report; triage (Manage/Delete) stays
   // with admins and team leads — mirrors BugService.manageBug.
   const canEdit = canManage || (Boolean(user) && bug.reportedBy?.id === user?.id)
+  // Even then, the report is only editable while the bug is Open — see isBugReportEditable.
+  const reportEditable = isBugReportEditable(bug.status)
 
   const handleShare = () => {
     const url = `${window.location.origin}/projects/${projectId}/bugs/ref/${bug.referenceCode}`
@@ -93,9 +95,25 @@ export default function BugDetailPage() {
             <Share2 className="mr-1 size-4" /> Share
           </Button>
           {canEdit && (
-            <Button variant="outline" onClick={() => setEditOpen(true)} data-cy="bug-edit">
-              <Pencil className="mr-1 size-4" /> Edit
-            </Button>
+            // Shown but disabled once the bug moves on, so people can see why — the
+            // wrapper carries the explanation because a disabled button takes no hover.
+            <span
+              title={
+                reportEditable
+                  ? undefined
+                  : `This bug is ${bug.status}, so its report can no longer be edited. Reports can only be edited while a bug is Open.`
+              }
+              data-cy="bug-edit-wrapper"
+            >
+              <Button
+                variant="outline"
+                onClick={() => setEditOpen(true)}
+                disabled={!reportEditable}
+                data-cy="bug-edit"
+              >
+                <Pencil className="mr-1 size-4" /> Edit
+              </Button>
+            </span>
           )}
           {canManage && (
             <>
@@ -181,7 +199,7 @@ export default function BugDetailPage() {
 
       <CommentThread bugId={bug.id} canModerate={canManage} />
 
-      <BugFormDialog open={editOpen} onOpenChange={setEditOpen} projectId={projectId} bug={bug} />
+      <BugFormDialog open={editOpen && reportEditable} onOpenChange={setEditOpen} projectId={projectId} bug={bug} />
       <BugManageDialog open={manageOpen} onOpenChange={setManageOpen} bug={bug} />
 
       <ConfirmDialog

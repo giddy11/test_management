@@ -584,6 +584,14 @@ const ALL_SECTIONS: DocSection[] = [
           Severity, priority, status and assignee are changed by admins and team leads through{" "}
           <Strong>Manage</Strong>.
         </P>
+        <P>
+          A report can only be edited <Strong>while the bug is Open</Strong>. As soon as work
+          starts — In Progress, Fixed, Verified, Closed or Reopened — the report is locked for
+          everyone, admins included, so the team is always acting on what was actually reported.
+          The <Strong>Edit</Strong> button stays visible but greyed out, and its tooltip says why.
+          Managing the bug (status, severity, priority, assignee), comments and attachments are not
+          affected. If something was missed, add it as a comment.
+        </P>
         <H3>Severity & priority</H3>
         <UL>
           <li>

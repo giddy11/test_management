@@ -505,6 +505,59 @@ describe("BugService", () => {
         expect(bugRepo.update).toHaveBeenCalledWith("bug-1", { description: "Fixed typo" });
       });
 
+      describe("once the bug is no longer Open", () => {
+        const LOCKED = ["In Progress", "Fixed", "Verified", "Closed", "Reopened"];
+
+        it.each(LOCKED)("refuses to edit the report while the bug is %s — even for its reporter", async (status) => {
+          bugRepo.findById.mockResolvedValue({ ...bug, status }); // reportedById: "user-1"
+          await expect(service.manageBug(user, "bug-1", { title: "Clearer title" })).rejects.toMatchObject({
+            statusCode: 422,
+            message: expect.stringContaining(status),
+          });
+          expect(bugRepo.update).not.toHaveBeenCalled();
+        });
+
+        it.each(LOCKED)("refuses an admin too while the bug is %s", async (status) => {
+          bugRepo.findById.mockResolvedValue({ ...bug, status });
+          await expect(service.manageBug(admin, "bug-1", { description: "Fixed typo" })).rejects.toMatchObject({
+            statusCode: 422,
+          });
+          expect(bugRepo.update).not.toHaveBeenCalled();
+        });
+
+        it("locks every field of the report, not just the title", async () => {
+          bugRepo.findById.mockResolvedValue({ ...bug, status: "In Progress" });
+          for (const patch of [
+            { description: "x" },
+            { stepsToReproduce: ["x"] },
+            { expectedBehavior: "x" },
+            { actualBehavior: null },
+            { environment: "x" },
+            { testCaseId: null },
+          ]) {
+            await expect(service.manageBug(admin, "bug-1", patch)).rejects.toMatchObject({ statusCode: 422 });
+          }
+          expect(bugRepo.update).not.toHaveBeenCalled();
+        });
+
+        it("still lets the team triage it: status, severity, priority and assignee", async () => {
+          bugRepo.findById.mockResolvedValue({ ...bug, status: "In Progress" });
+          bugRepo.update.mockResolvedValue({ ...bug, status: "Fixed" });
+          await service.manageBug(admin, "bug-1", { status: "Fixed", severity: "Major", priority: "High" });
+          expect(bugRepo.update).toHaveBeenCalledWith(
+            "bug-1",
+            expect.objectContaining({ status: "Fixed", severity: "Major", priority: "High" })
+          );
+        });
+
+        it("still allows the edit while it is Open, alongside triage in the same request", async () => {
+          bugRepo.findById.mockResolvedValue(bug); // Open
+          bugRepo.update.mockResolvedValue({ ...bug, title: "Clearer title" });
+          await service.manageBug(admin, "bug-1", { title: "Clearer title", severity: "Major" });
+          expect(bugRepo.update).toHaveBeenCalledWith("bug-1", { title: "Clearer title", severity: "Major" });
+        });
+      });
+
       it("forbids the reporter from also changing priority (drives SLA targets)", async () => {
         bugRepo.findById.mockResolvedValue(bug);
         await expect(

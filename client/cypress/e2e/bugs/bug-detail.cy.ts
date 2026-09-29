@@ -151,6 +151,33 @@ describe("Bug detail (admin)", () => {
     cy.contains("Bug updated").should("be.visible")
   })
 
+  describe("once the bug is no longer Open", () => {
+    const MOVED_ON: string[] = ["In Progress", "Fixed", "Verified", "Closed", "Reopened"]
+    MOVED_ON.forEach((status) => {
+      it(`locks editing the report while it is ${status}`, () => {
+        cy.fixture("bugs/list").then((bugs) => {
+          cy.interceptApi("GET", `/bugs/${BUG_ID}`, { body: ok({ ...bugs[0], status }) }, "movedOnBug")
+        })
+        cy.visit(BUG_URL)
+        cy.wait("@movedOnBug")
+
+        cy.dataCy("bug-edit").should("be.visible").and("be.disabled")
+        cy.dataCy("bug-edit-wrapper")
+          .should("have.attr", "title")
+          .and("contain", `This bug is ${status}`)
+          .and("contain", "can no longer be edited")
+        // Triage is untouched — the team can still move the bug along.
+        cy.dataCy("bug-manage").should("be.visible").and("not.be.disabled")
+      })
+    })
+  })
+
+  it("keeps the edit button enabled while the bug is Open", () => {
+    // The fixture bug is Open.
+    cy.dataCy("bug-edit").should("not.be.disabled")
+    cy.dataCy("bug-edit-wrapper").should("not.have.attr", "title")
+  })
+
   it("deletes the bug and returns to the project", () => {
     cy.interceptApi("DELETE", `/bugs/${BUG_ID}`, { body: ok(null) }, "deleteBug")
     cy.fixture("dashboard/overview").then((overview) => {
@@ -174,6 +201,23 @@ describe("Bug detail (reporter, not a team lead)", () => {
     cy.dataCy("bug-edit").should("be.visible")
     cy.dataCy("bug-manage").should("not.exist")
     cy.dataCy("bug-delete").should("not.exist")
+  })
+
+  it("can't edit their own report once the bug has moved on", () => {
+    cy.login("user")
+    cy.fixture("projects/list").then((projects) => {
+      cy.interceptApi("GET", `/projects/${PROJECT_ID}`, { body: ok({ ...projects[0], members: [] }) }, "project")
+    })
+    cy.fixture("bugs/list").then((bugs) => {
+      cy.interceptApi("GET", `/bugs/${BUG_ID}`, { body: ok({ ...bugs[0], status: "In Progress" }) }, "bug")
+    })
+    cy.interceptApi("GET", `/bugs/${BUG_ID}/attachments`, { body: ok([]) }, "attachments")
+    cy.interceptApi("GET", `/bugs/${BUG_ID}/history`, { body: ok([]) }, "history")
+    cy.visit(BUG_URL)
+    cy.wait("@bug")
+
+    // The reporter still sees the button — but it no longer works.
+    cy.dataCy("bug-edit").should("be.disabled")
   })
 
   it("can't edit a bug someone else reported", () => {

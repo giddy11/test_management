@@ -28,6 +28,21 @@ const CONTENT_FIELDS = [
   "testCaseId",
 ];
 
+// The report — what was found, and how — can only be corrected while the bug is
+// still Open. Once work on it starts it is a record of what the team acted on, and
+// rewriting it underneath them (a new title, different steps) would make their work
+// and any links to other reports read as something they weren't. Triage still moves
+// freely; only the report's own fields lock.
+const EDITABLE_BUG_STATUSES = new Set([BugStatus.OPEN]);
+
+function assertReportEditable(status) {
+  if (EDITABLE_BUG_STATUSES.has(status)) return;
+  throw new AppError(
+    `This bug is ${status}, so its report can no longer be edited. A report can only be edited while the bug is Open.`,
+    422
+  );
+}
+
 // The lifecycle's stages in order. "Reopened" isn't one of them: it's how a bug
 // that had been fixed re-enters the sequence, so it sits just before In Progress.
 const BUG_STAGES = [
@@ -234,6 +249,11 @@ class BugService {
     const isReporter = bug.reportedById === actor.id;
     if (touchesTriage || !isReporter) {
       await this.projectService.assertCanManageProject(actor, bug.projectId);
+    }
+    // Judged on the status the bug has NOW, and for everyone — admins and the
+    // team lead included, since the lock protects the record, not a permission.
+    if (CONTENT_FIELDS.some((f) => data[f] !== undefined)) {
+      assertReportEditable(bug.status);
     }
     if (data.testCaseId) {
       await this._assertLinksBelongToProject(bug.projectId, { testCaseId: data.testCaseId });
