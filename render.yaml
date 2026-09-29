@@ -1,0 +1,117 @@
+# Render Blueprint — TestMate API (server/).
+#
+# The API lives in server/, so rootDir points there. The client is deployed
+# separately on Vercel (client/vercel.json) and is not part of this blueprint.
+#
+# Variables marked `sync: false` are prompted for in the Render dashboard when
+# the Blueprint is first created (they are never stored in this file). Copy the
+# values from your current env.yaml / .env — see server/env.example.yaml.
+services:
+  - type: web
+    name: testmate-api
+    runtime: node
+    # Pick the region closest to your Postgres (it cannot be changed later):
+    # oregon | ohio | virginia | frankfurt | singapore. Defaults to oregon.
+    # region: frankfurt
+    # `free` spins down after 15 min idle, which drops Socket.IO connections
+    # (live chat / realtime comments) and adds a cold start on the next request.
+    # Switch to `starter` for an always-on instance.
+    plan: free
+    branch: main
+    rootDir: server
+    # tsx (a production dependency) runs the mixed .js/.ts tree directly, so
+    # there is no compile step — same as the Dockerfile's `npx tsx server.js`.
+    buildCommand: npm ci --omit=dev
+    startCommand: npm start
+    # Public, unauthenticated, and outside the /api/v1 rate limiter (app.js).
+    healthCheckPath: /health
+    # Only redeploy the API when server/ changes (client commits go to Vercel).
+    buildFilter:
+      paths:
+        - server/**
+    envVars:
+      # ── Runtime ─────────────────────────────────────────────────────────
+      - key: NODE_VERSION
+        value: "22" # matches the Dockerfile (node:22-slim); package.json needs >=20
+      - key: NODE_ENV
+        value: production
+      # PORT is injected by Render (default 10000); server.js reads it. Don't set it.
+
+      # ── URLs ────────────────────────────────────────────────────────────
+      # Comma-separated allowlist of deployed frontend origins, e.g.
+      # https://your-app.vercel.app (no trailing slash).
+      - key: CORS_ORIGINS
+        sync: false
+      # Frontend URL — used for links in emails/notifications (env.appUrl reads `URL`).
+      - key: URL
+        sync: false
+      # This API's public URL (https://testmate-api.onrender.com or a custom domain).
+      - key: APP_BASE_URL
+        sync: false
+
+      # ── Database (external PostgreSQL, e.g. Aiven) ──────────────────────
+      - key: DB_HOST
+        sync: false
+      - key: DB_PORT
+        sync: false
+      - key: DB_USERNAME
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: DB_NAME
+        sync: false
+      - key: DB_SSL
+        value: "true"
+      # Schema already exists on the DB and is managed with migrations — never
+      # let the app auto-sync it in production.
+      - key: DB_SYNCHRONIZE
+        value: "false"
+
+      # ── JWT ─────────────────────────────────────────────────────────────
+      # Generated once by Render. To keep sessions issued by the old (Cloud Run)
+      # deployment valid, overwrite both in the dashboard with the existing values.
+      - key: JWT_ACCESS_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: JWT_ACCESS_EXPIRES_IN
+        value: 15m
+      - key: JWT_REFRESH_EXPIRES_IN
+        value: 7d
+
+      # ── Google Sign In ──────────────────────────────────────────────────
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+
+      # ── Email ───────────────────────────────────────────────────────────
+      # EMAIL_PROVIDER: "nodemailer" (Gmail SMTP: EMAIL_USER/PASSWORD/FROM) or
+      # "script" (Google Apps Script over HTTPS: EMAIL_SCRIPT_URL). Leave the
+      # unused provider's variables blank.
+      - key: EMAIL_PROVIDER
+        sync: false
+      - key: EMAIL_USER
+        sync: false
+      - key: EMAIL_PASSWORD
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
+      - key: EMAIL_SCRIPT_URL
+        sync: false
+      - key: OTP_TTL_MINUTES
+        value: "15"
+
+      # ── Cloudinary (image uploads) ──────────────────────────────────────
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+
+      # ── Firestore (realtime feature-request comments) ───────────────────
+      # No Cloud Run identity here, so Application Default Credentials don't
+      # apply — paste the full Firebase Admin service-account key JSON.
+      - key: FIREBASE_PROJECT_ID
+        value: testmate-f973c
+      - key: FIREBASE_SERVICE_ACCOUNT_JSON
+        sync: false
