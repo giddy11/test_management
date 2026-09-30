@@ -17,6 +17,20 @@ import {
 } from "@/hooks/useNotifications"
 import type { AppNotification } from "@/types/notification.types"
 
+type Filter = "all" | "unread" | "read"
+
+const TABS: { value: Filter; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "unread", label: "Unread" },
+  { value: "read", label: "Read" },
+]
+
+const EMPTY_MESSAGE: Record<Filter, string> = {
+  all: "You're all caught up.",
+  unread: "No unread notifications.",
+  read: "No read notifications yet.",
+}
+
 function timeAgo(iso: string) {
   const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000)
   if (s < 60) return "just now"
@@ -43,20 +57,32 @@ function linkFor(n: AppNotification): string {
 
 export function NotificationBell() {
   const [open, setOpen] = useState(false)
+  const [filter, setFilter] = useState<Filter>("all")
   const navigate = useNavigate()
   const { data: count = 0 } = useUnreadCount()
   const { data: items = [], isLoading } = useNotifications(open)
   const markRead = useMarkRead()
   const markAll = useMarkAllRead()
 
+  const visible = items.filter((n) =>
+    filter === "unread" ? !n.read : filter === "read" ? n.read : true
+  )
+
+  const handleOpenChange = (next: boolean) => {
+    setOpen(next)
+    // Start on "All" every time the dropdown is reopened.
+    if (!next) setFilter("all")
+  }
+
   const onItem = (n: AppNotification) => {
     if (!n.read) markRead.mutate(n.id)
     setOpen(false)
+    setFilter("all")
     navigate(linkFor(n))
   }
 
   return (
-    <DropdownMenu open={open} onOpenChange={setOpen}>
+    <DropdownMenu open={open} onOpenChange={handleOpenChange}>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="icon" className="relative" aria-label="Notifications" data-cy="notification-bell">
           <Bell className="size-4" />
@@ -76,12 +102,41 @@ export function NotificationBell() {
             </Button>
           )}
         </div>
+
+        <div role="tablist" aria-label="Filter notifications" className="flex gap-1 border-b px-2 py-1.5">
+          {TABS.map((t) => (
+            <button
+              key={t.value}
+              type="button"
+              role="tab"
+              aria-selected={filter === t.value}
+              data-cy={`notification-tab-${t.value}`}
+              onClick={() => setFilter(t.value)}
+              className={cn(
+                "flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
+                filter === t.value
+                  ? "bg-primary/10 text-primary"
+                  : "text-muted-foreground hover:bg-accent hover:text-foreground"
+              )}
+            >
+              {t.label}
+              {t.value === "unread" && count > 0 && (
+                <span className="rounded-full bg-primary/15 px-1.5 text-[10px] leading-4">
+                  {count > 99 ? "99+" : count}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+
         <div className="max-h-96 overflow-y-auto">
           {isLoading && <InlineLoader className="py-6" />}
-          {!isLoading && items.length === 0 && (
-            <p className="px-3 py-8 text-center text-sm text-muted-foreground">You're all caught up.</p>
+          {!isLoading && visible.length === 0 && (
+            <p className="px-3 py-8 text-center text-sm text-muted-foreground" data-cy="notification-empty">
+              {EMPTY_MESSAGE[filter]}
+            </p>
           )}
-          {items.map((n) => {
+          {visible.map((n) => {
             const Icon = n.type === "run_completed"
               ? FlaskConical
               : n.type.startsWith("bug_")
