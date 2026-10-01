@@ -21,7 +21,10 @@ import FeatureRequestDetailPage from "@/pages/featureRequests/FeatureRequestDeta
 import BugDetailPage from "@/pages/bugs/BugDetailPage"
 import OrganizationsPage from "@/pages/OrganizationsPage"
 import SettingsPage from "@/pages/SettingsPage"
-import LiveChatWidgetPage from "@/pages/widget/LiveChatWidgetPage"
+// Replaced by WhatsAppWidgetPage below (same route) — kept in case the full
+// live-chat panel is wanted again; the component itself is untouched.
+// import LiveChatWidgetPage from "@/pages/widget/LiveChatWidgetPage"
+import WhatsAppWidgetPage from "@/pages/widget/WhatsAppWidgetPage"
 import LandingPage from "@/pages/public/LandingPage"
 import PrivacyPage from "@/pages/public/PrivacyPage"
 import TermsPage from "@/pages/public/TermsPage"
@@ -62,9 +65,10 @@ export default function App() {
           {/* Public product documentation */}
           <Route path="/docs" element={<DocsPage />} />
           <Route path="/doc" element={<Navigate to="/docs" replace />} />
-          {/* Embeddable live-chat widget — always loaded inside an iframe on a
+          {/* Embeddable widget — always loaded inside an iframe on a
               third-party site by public/live-chat-widget.js, never visited directly */}
-          <Route path="/widget/live-chat/:token" element={<LiveChatWidgetPage />} />
+          {/* <Route path="/widget/live-chat/:token" element={<LiveChatWidgetPage />} /> */}
+          <Route path="/widget/live-chat/:token" element={<WhatsAppWidgetPage />} />
 
           {/* Authenticated */}
           <Route element={<ProtectedRoute />}>

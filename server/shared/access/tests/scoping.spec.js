@@ -46,7 +46,10 @@ describe("scoping — a Tester only reaches their own work", () => {
       findById: jest.fn().mockResolvedValue(project),
       fetchPaginated: jest.fn().mockResolvedValue({ data: [], meta: {} }),
     };
-    const memberRepo = { getRole: jest.fn().mockResolvedValue(memberRole) };
+    const memberRepo = {
+      getRole: jest.fn().mockResolvedValue(memberRole),
+      findLeadProjectIds: jest.fn().mockResolvedValue([]),
+    };
     const testCaseRepo = {
       hasAssignmentInProject: jest.fn().mockResolvedValue(hasAssignment),
     };
