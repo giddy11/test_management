@@ -4,6 +4,8 @@ import type { Repository } from "typeorm";
 import { ProjectMember } from "../entities/projectMember.entity";
 import { AppDataSource } from "../../../infrastructure/database/dataSource";
 
+const { ProjectMemberRole } = require("../../../config/constants");
+
 export interface MemberInput {
   userId: string;
   role: string; // ProjectMemberRole
@@ -38,6 +40,14 @@ export class ProjectMemberRepository {
   async getRole(projectId: string, userId: string): Promise<string | null> {
     const row = await this.repo.findOne({ where: { projectId, userId } });
     return row ? row.role : null;
+  }
+
+  // Every project this user leads — one query instead of a per-project
+  // getRole() call, for callers deciding manage authority across a list that
+  // spans many projects (see FeedbackService.fetchFeedback's global mode).
+  async findLeadProjectIds(userId: string): Promise<string[]> {
+    const rows = await this.repo.find({ where: { userId, role: ProjectMemberRole.TEAM_LEAD } });
+    return rows.map((r) => r.projectId);
   }
 
   // Replace the full member list of a project (delete + insert — the list is

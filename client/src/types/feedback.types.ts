@@ -71,6 +71,11 @@ export interface Feedback {
   // and only ratable once the ticket reads as resolved to them.
   rating: number | null
   createdAt: string
+  // Set only by the cross-project (global) list: whether the viewer is an
+  // admin/superadmin or this ticket's project's team lead — the per-project
+  // Tickets tab decides this itself with a page-level prop instead. Null
+  // there, since this list spans one project.
+  canManage: boolean | null
 }
 
 export interface FeedbackCommentAttachment {

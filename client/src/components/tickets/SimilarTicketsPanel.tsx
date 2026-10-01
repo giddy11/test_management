@@ -101,7 +101,10 @@ export function SimilarTicketsPanel({ projectId, title, pending, onChange, noun 
           return (
             <li key={ticketKey(t)} className="flex items-center gap-3 px-3 py-2.5" data-cy="similar-ticket">
               <div className="min-w-0 flex-1">
-                <TicketLinkItem ticket={t}>
+                {/* New tab — this panel sits inside an in-progress draft (title,
+                    description, attachments not yet saved), so following a
+                    suggestion in place would abandon it. */}
+                <TicketLinkItem ticket={t} newTab>
                   {t.occurrenceCount > 1 && (
                     <Badge variant="outline" className="text-[10px]">Reported {t.occurrenceCount}×</Badge>
                   )}
