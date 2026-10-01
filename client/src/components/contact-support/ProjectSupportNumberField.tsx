@@ -67,19 +67,27 @@ export function ProjectSupportNumberField({ projectId, value }: Props) {
   }
 
   return (
-    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-      <span>
-        Contact support WhatsApp number: <span className="text-foreground">{value ?? "Not set"}</span>
-      </span>
-      <Button
-        variant="ghost"
-        size="icon"
-        className="size-6 p-0"
-        aria-label="Change contact support WhatsApp number"
-        onClick={startEditing}
-      >
-        <Pencil className="size-3" />
-      </Button>
+    <div className="space-y-0.5">
+      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        <span>
+          Contact support WhatsApp number: <span className="text-foreground">{value ?? "Not set"}</span>
+        </span>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-6 p-0"
+          aria-label="Change contact support WhatsApp number"
+          onClick={startEditing}
+        >
+          <Pencil className="size-3" />
+        </Button>
+      </div>
+      {!value && (
+        <p className="text-xs text-muted-foreground">
+          Until this is set, your team won't see a "Contact support" button for this product, and
+          it won't appear on your embedded widget either.
+        </p>
+      )}
     </div>
   )
 }
