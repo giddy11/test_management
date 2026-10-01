@@ -7,22 +7,21 @@
 //
 // Replaces the previous full live-chat panel as what this route renders (see
 // LiveChatWidgetPage.tsx, left completely intact and just unrouted — see
-// App.tsx — in case it's wanted again) with a single round button that hands
-// a message off to the project's own WhatsApp number via a wa.me /
-// web.whatsapp.com link. Nothing about the message touches our backend.
+// App.tsx — in case it's wanted again) with a round launcher that opens a
+// WhatsApp-styled chat panel (see WhatsAppChatPanel, shared with the internal
+// Contact support widget) and hands the message off to the project's own
+// WhatsApp number via a wa.me link. Nothing about the message touches our
+// backend — no chat actually happens inside this iframe.
+//
+// No Dialog/overlay here on purpose: this page already fills a tiny, purpose-
+// built iframe, so a full-viewport dark overlay would just darken the whole
+// widget. The launcher and the panel are simply swapped in place, exactly
+// like LiveChatWidgetPage did.
 import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react"
 import { useParams } from "react-router-dom"
 import { MessageCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Textarea } from "@/components/ui/textarea"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
+import { WhatsAppChatPanel } from "@/components/contact-support/WhatsAppChatPanel"
 import { cn } from "@/lib/utils"
 import { useLiveChatWidgetConfig } from "@/hooks/useLiveChatWidget"
 
@@ -39,13 +38,16 @@ function postToParent(payload: Record<string, unknown>) {
   window.parent.postMessage({ source: PARENT_MESSAGE_SOURCE, ...payload }, "*")
 }
 
+// wa.me (not web.whatsapp.com/send) on every platform — it's WhatsApp's own
+// universal click-to-chat link and redirects correctly on desktop (an
+// interstitial that hands off to WhatsApp Web/Desktop) even when the browser
+// has no WhatsApp Web session yet. web.whatsapp.com/send only works with an
+// already-logged-in session — otherwise it just shows the generic QR login
+// screen and silently drops the phone/text params.
 function buildWhatsAppUrl(phoneNumber: string, message: string) {
   const digits = phoneNumber.replace(/\D/g, "")
   const text = encodeURIComponent(message)
-  const isDesktop = !/Android|iPhone|iPad|iPod|Mobi/i.test(navigator.userAgent)
-  return isDesktop
-    ? `https://web.whatsapp.com/send?phone=${digits}&text=${text}`
-    : `https://wa.me/${digits}?text=${text}`
+  return `https://wa.me/${digits}?text=${text}`
 }
 
 export default function WhatsAppWidgetPage() {
@@ -85,7 +87,7 @@ export default function WhatsAppWidgetPage() {
   // iframe's content), so it only tracks the pointer and relays deltas; the
   // loader script is what actually repositions the iframe on the host page.
   // Same movement-threshold trick as the internal widget's launcher, so a
-  // drag-release never opens the dialog.
+  // drag-release never opens the panel.
   const dragInfo = useRef<{ startX: number; startY: number } | null>(null)
   const [dragging, setDragging] = useState(false)
   const hasDraggedRef = useRef(false)
@@ -158,45 +160,30 @@ export default function WhatsAppWidgetPage() {
 
   return (
     <div className="flex h-dvh w-dvw items-center justify-center p-1">
-      {!open && (
+      {open ? (
+        <WhatsAppChatPanel
+          title={config?.displayName ?? "Contact us"}
+          message={message}
+          onMessageChange={setMessage}
+          onSend={handleSend}
+          onClose={() => setOpen(false)}
+          maxLength={MAX_MESSAGE_LEN}
+          placeholder="How can we help?"
+        />
+      ) : (
         <Button
           size="icon-lg"
           onPointerDown={handlePointerDown}
           onClick={handleClick}
           aria-label="Contact us on WhatsApp"
-          className={cn("size-14 touch-none rounded-full shadow-lg", dragging ? "cursor-grabbing" : "cursor-grab")}
+          className={cn(
+            "size-14 touch-none rounded-full bg-[#25d366] text-white shadow-lg hover:bg-[#20bd5a]",
+            dragging ? "cursor-grabbing" : "cursor-grab"
+          )}
         >
           <MessageCircle className="size-6" />
         </Button>
       )}
-
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="w-[calc(100%-1rem)] sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Contact us</DialogTitle>
-            <DialogDescription>
-              Send a message on WhatsApp. This opens a chat in a new tab.
-            </DialogDescription>
-          </DialogHeader>
-          <Textarea
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            placeholder="How can we help?"
-            rows={4}
-            maxLength={MAX_MESSAGE_LEN}
-            className="max-h-32 resize-none"
-            autoFocus
-          />
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleSend} disabled={!message.trim()}>
-              Open WhatsApp
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }

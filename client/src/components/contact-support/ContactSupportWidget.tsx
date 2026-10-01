@@ -1,9 +1,8 @@
 // components/contact-support/ContactSupportWidget.tsx
 // Floating "Contact support" button (bottom-right by default) for every
 // signed-in user. Opens a small dialog, then hands the message off to the
-// chosen project's own WhatsApp number via a wa.me / web.whatsapp.com deep
-// link — the recipient's own WhatsApp client sends it, nothing touches our
-// backend.
+// chosen project's own WhatsApp number via a wa.me deep link — the
+// recipient's own WhatsApp client sends it, nothing touches our backend.
 //
 // Renders nothing only when there is truly nothing to do: no project of the
 // viewer's has a number AND the viewer can't set one up either. A team lead
@@ -14,9 +13,9 @@ import type { PointerEvent as ReactPointerEvent } from "react"
 import { MessageCircle } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
-import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { PhoneNumberInput } from "@/components/shared/PhoneNumberInput"
+import { WhatsAppChatPanel } from "@/components/contact-support/WhatsAppChatPanel"
 import {
   Dialog,
   DialogContent,
@@ -44,13 +43,16 @@ const DRAG_THRESHOLD = 5
 const E164_REGEX = /^\+[1-9]\d{6,14}$/
 const MAX_MESSAGE_LEN = 2000
 
+// wa.me (not web.whatsapp.com/send) on every platform — it's WhatsApp's own
+// universal click-to-chat link and redirects correctly on desktop (an
+// interstitial that hands off to WhatsApp Web/Desktop) even when the browser
+// has no WhatsApp Web session yet. web.whatsapp.com/send only works with an
+// already-logged-in session — otherwise it just shows the generic QR login
+// screen and silently drops the phone/text params.
 function buildWhatsAppUrl(phoneNumber: string, message: string) {
   const digits = phoneNumber.replace(/\D/g, "")
   const text = encodeURIComponent(message)
-  const isDesktop = !/Android|iPhone|iPad|iPod|Mobi/i.test(navigator.userAgent)
-  return isDesktop
-    ? `https://web.whatsapp.com/send?phone=${digits}&text=${text}`
-    : `https://wa.me/${digits}?text=${text}`
+  return `https://wa.me/${digits}?text=${text}`
 }
 
 export function ContactSupportWidget() {
@@ -176,7 +178,6 @@ export function ContactSupportWidget() {
   if (messageableProjects.length === 0 && settableProjects.length === 0) return null
 
   const selectedProject = messageableProjects.find((p) => p.id === selectedProjectId) ?? null
-  const canSend = Boolean(selectedProject?.supportWhatsappNumber) && Boolean(message.trim())
   const showCompose = messageableProjects.length > 0
 
   const handleSend = () => {
@@ -225,7 +226,10 @@ export function ContactSupportWidget() {
       >
         <Button
           size="icon-lg"
-          className={cn("size-14 touch-none rounded-full shadow-lg", dragging ? "cursor-grabbing" : "cursor-grab")}
+          className={cn(
+            "size-14 touch-none rounded-full bg-[#25d366] text-white shadow-lg hover:bg-[#20bd5a]",
+            dragging ? "cursor-grabbing" : "cursor-grab"
+          )}
           onPointerDown={handlePointerDown}
           onClick={handleClick}
           aria-label="Contact support on WhatsApp"
@@ -235,51 +239,47 @@ export function ContactSupportWidget() {
       </div>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent
+          showCloseButton={!showCompose}
+          className={
+            showCompose
+              ? "h-[32rem] max-h-[85vh] w-full max-w-sm gap-0 overflow-hidden border-0 bg-transparent p-0 shadow-none sm:max-w-sm"
+              : "sm:max-w-md"
+          }
+        >
           {showCompose ? (
             <>
-              <DialogHeader>
-                <DialogTitle>Contact support</DialogTitle>
-                <DialogDescription>
-                  Send a message on WhatsApp. This opens a chat in a new tab.
-                </DialogDescription>
-              </DialogHeader>
-
-              {messageableProjects.length > 1 && (
-                <div className="space-y-1.5">
-                  <Label htmlFor="contact-support-project">Which product is this about?</Label>
-                  <Select value={selectedProjectId ?? undefined} onValueChange={setSelectedProjectId}>
-                    <SelectTrigger id="contact-support-project" className="w-full">
-                      <SelectValue placeholder="Choose a product" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {messageableProjects.map((p) => (
-                        <SelectItem key={p.id} value={p.id}>
-                          {p.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-
-              <Textarea
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                placeholder="What do you need help with?"
-                rows={4}
+              {/* Visually-hidden but accessible — the panel's own header is the visible title. */}
+              <DialogTitle className="sr-only">Contact support</DialogTitle>
+              <DialogDescription className="sr-only">
+                Send a message on WhatsApp. This opens a chat in a new tab.
+              </DialogDescription>
+              <WhatsAppChatPanel
+                title={selectedProject?.name ?? "Contact support"}
+                message={message}
+                onMessageChange={setMessage}
+                onSend={handleSend}
+                onClose={() => setOpen(false)}
                 maxLength={MAX_MESSAGE_LEN}
-                className="max-h-48 resize-none"
+                disabled={!selectedProject}
                 autoFocus={messageableProjects.length === 1}
+                topSlot={
+                  messageableProjects.length > 1 ? (
+                    <Select value={selectedProjectId ?? undefined} onValueChange={setSelectedProjectId}>
+                      <SelectTrigger id="contact-support-project" className="w-full" aria-label="Which product is this about?">
+                        <SelectValue placeholder="Which product is this about?" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {messageableProjects.map((p) => (
+                          <SelectItem key={p.id} value={p.id}>
+                            {p.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : undefined
+                }
               />
-              <DialogFooter>
-                <Button variant="ghost" onClick={() => setOpen(false)}>
-                  Cancel
-                </Button>
-                <Button onClick={handleSend} disabled={!canSend}>
-                  Open WhatsApp
-                </Button>
-              </DialogFooter>
             </>
           ) : (
             <>
