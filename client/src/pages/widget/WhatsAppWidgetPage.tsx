@@ -29,6 +29,7 @@ import { useLiveChatWidgetConfig } from "@/hooks/useLiveChatWidget"
 // Must match PARENT_MESSAGE_SOURCE in public/live-chat-widget.js.
 const PARENT_MESSAGE_SOURCE = "testmate-live-chat-widget"
 const DRAG_THRESHOLD = 5
+const MAX_MESSAGE_LEN = 2000
 
 // The loader owns the iframe's actual pixel size and position on the host
 // page — this page only ever asks for "open" vs "closed" (or hides itself
@@ -182,6 +183,8 @@ export default function WhatsAppWidgetPage() {
             onChange={(e) => setMessage(e.target.value)}
             placeholder="How can we help?"
             rows={4}
+            maxLength={MAX_MESSAGE_LEN}
+            className="max-h-32 resize-none"
             autoFocus
           />
           <DialogFooter>

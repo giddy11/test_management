@@ -42,6 +42,7 @@ import type { Project } from "@/types/project.types"
 // opens the dialog.
 const DRAG_THRESHOLD = 5
 const E164_REGEX = /^\+[1-9]\d{6,14}$/
+const MAX_MESSAGE_LEN = 2000
 
 function buildWhatsAppUrl(phoneNumber: string, message: string) {
   const digits = phoneNumber.replace(/\D/g, "")
@@ -267,6 +268,8 @@ export function ContactSupportWidget() {
                 onChange={(e) => setMessage(e.target.value)}
                 placeholder="What do you need help with?"
                 rows={4}
+                maxLength={MAX_MESSAGE_LEN}
+                className="max-h-48 resize-none"
                 autoFocus={messageableProjects.length === 1}
               />
               <DialogFooter>
