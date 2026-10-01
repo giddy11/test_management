@@ -1,9 +1,16 @@
 // components/live-chat/LiveChatTab.tsx
-// The project's live-chat operator inbox: widget settings (admins only) on
-// top, then a two-pane conversation list + realtime thread below — same
-// layout as SupportInboxPage, scoped to this project instead of the whole
-// platform, and reading from live_chat_conversations/liveChatMessages
-// instead of the in-app support-chat's own tables/collection.
+// The project's live-chat embed settings. Used to also show a two-pane
+// operator inbox (conversation list + realtime thread) below the settings
+// card, reading from live_chat_conversations/liveChatMessages — but the embed
+// (see WhatsAppWidgetPage) no longer creates visitors, conversations or
+// messages at all, so that inbox would only ever show "No conversations yet."
+// Commented out below rather than deleted, in case the full custom chat
+// widget (see LiveChatWidgetPage.tsx, also unrouted but intact) is wanted
+// again.
+import { useCanManageProject } from "@/hooks/useProjects"
+import { LiveChatSettingsCard } from "@/components/live-chat/LiveChatSettingsCard"
+
+/*
 import { useEffect, useMemo, useRef, useState } from "react"
 import { CheckCircle2, RotateCcw, UserPlus, XCircle } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
@@ -12,7 +19,6 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { cn } from "@/lib/utils"
 import { ChatComposer } from "@/components/support-chat/ChatComposer"
 import { LiveChatMessageBody } from "@/components/live-chat/LiveChatMessageBody"
-import { LiveChatSettingsCard } from "@/components/live-chat/LiveChatSettingsCard"
 import { useLiveChatMessages } from "@/hooks/useLiveChatWidget"
 import {
   useLiveChatConversations,
@@ -22,7 +28,6 @@ import {
   useAssignLiveChatAgent,
 } from "@/hooks/useLiveChatInbox"
 import { useAuth } from "@/contexts/AuthContext"
-import { useCanManageProject } from "@/hooks/useProjects"
 import {
   LIVE_CHAT_STATUS_LABELS,
   LIVE_CHAT_STATUS_VARIANT,
@@ -178,6 +183,7 @@ function Thread({ conversation }: { conversation: LiveChatConversation }) {
     </div>
   )
 }
+*/
 
 interface Props {
   projectId: string
@@ -187,6 +193,7 @@ export function LiveChatTab({ projectId }: Props) {
   // Widget settings and its link are the project's team lead's call.
   const isAdmin = useCanManageProject(projectId)
 
+  /*
   const [tab, setTab] = useState<LiveChatStatus | "all">("new")
   const statusFilter = tab === "all" ? undefined : tab
   const { data: conversations, isLoading } = useLiveChatConversations(projectId, statusFilter)
@@ -204,11 +211,13 @@ export function LiveChatTab({ projectId }: Props) {
   }, [list, selectedId])
 
   const selected = list.find((c) => c.id === selectedId) ?? null
+  */
 
   return (
     <div className="space-y-4">
       {isAdmin && <LiveChatSettingsCard projectId={projectId} />}
 
+      {/*
       <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
         <TabsList>
           <TabsTrigger value="new">New</TabsTrigger>
@@ -220,7 +229,7 @@ export function LiveChatTab({ projectId }: Props) {
       </Tabs>
 
       <div className="grid h-[32rem] grid-cols-1 gap-4 md:grid-cols-[20rem_1fr]">
-        {/* Conversation list */}
+        {/* Conversation list * /}
         <div className="overflow-y-auto rounded-lg border">
           {isLoading ? (
             <p className="p-4 text-center text-xs text-muted-foreground">Loading…</p>
@@ -274,7 +283,7 @@ export function LiveChatTab({ projectId }: Props) {
           )}
         </div>
 
-        {/* Thread */}
+        {/* Thread * /}
         <div className="overflow-hidden rounded-lg border">
           {selected ? (
             <Thread key={selected.id} conversation={selected} />
@@ -285,6 +294,7 @@ export function LiveChatTab({ projectId }: Props) {
           )}
         </div>
       </div>
+      */}
     </div>
   )
 }
