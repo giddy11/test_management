@@ -174,8 +174,7 @@ export default function WhatsAppWidgetPage() {
           <DialogHeader>
             <DialogTitle>Contact us</DialogTitle>
             <DialogDescription>
-              Send a message on WhatsApp. This opens a chat in a new tab — nothing is sent through
-              TestMate.
+              Send a message on WhatsApp. This opens a chat in a new tab.
             </DialogDescription>
           </DialogHeader>
           <Textarea

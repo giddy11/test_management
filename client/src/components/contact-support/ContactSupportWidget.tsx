@@ -240,8 +240,7 @@ export function ContactSupportWidget() {
               <DialogHeader>
                 <DialogTitle>Contact support</DialogTitle>
                 <DialogDescription>
-                  Send a message on WhatsApp. This opens a chat in a new tab — nothing is sent
-                  through TestMate.
+                  Send a message on WhatsApp. This opens a chat in a new tab.
                 </DialogDescription>
               </DialogHeader>
 
