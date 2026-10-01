@@ -29,6 +29,7 @@ function toUserResponse(user) {
     clientCompanyId: user.clientCompanyId ?? null,
     isSupportLead: user.isSupportLead ?? false,
     avatarUrl: user.avatarUrl ?? null,
+    phoneNumber: user.phoneNumber ?? null,
     address: user.address ?? null,
     city: user.city ?? null,
     state: user.state ?? null,

@@ -16,12 +16,21 @@ export interface Project {
   // Same pair, for the embeddable live-chat widget.
   liveChatToken: string | null;
   liveChatEnabled: boolean;
+  // E.164 format. The number this project's own "Contact support" WhatsApp
+  // widget messages — set by the project's team lead (or project.manageall).
+  // Null hides this project from the widget's "which product is this about?" picker.
+  supportWhatsappNumber: string | null;
   createdAt: Date;
   deletedAt: Date | null;
   owner?: unknown;
   memberships?: ProjectMember[];
   // Attached by ProjectRepository.fetchPaginated — not a column.
   suiteCount?: number;
+  // Attached by ProjectService.fetchProjects — not a column. Whether the
+  // viewer may edit this project (team lead, or holds project.manageall) —
+  // lets the Contact support widget offer to set a missing number inline
+  // instead of sending the viewer to the project page.
+  canManage?: boolean;
 }
 
 const Project = new EntitySchema<Project>({
@@ -72,6 +81,12 @@ const Project = new EntitySchema<Project>({
       name: "live_chat_enabled",
       type: "boolean",
       default: false,
+    },
+    supportWhatsappNumber: {
+      name: "support_whatsapp_number",
+      type: "varchar",
+      length: 20,
+      nullable: true,
     },
     createdAt: {
       name: "created_at",

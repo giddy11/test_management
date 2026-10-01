@@ -14,7 +14,9 @@ import { SiteBannerBar } from "@/components/layout/SiteBannerBar"
 import { PreviewBanner } from "@/components/layout/PreviewBanner"
 import { PresenceProvider } from "@/contexts/PresenceContext"
 import { useAuth } from "@/contexts/AuthContext"
-import { SupportChatWidget } from "@/components/support-chat/SupportChatWidget"
+// Replaced by ContactSupportWidget (WhatsApp hand-off) — see below.
+// import { SupportChatWidget } from "@/components/support-chat/SupportChatWidget"
+import { ContactSupportWidget } from "@/components/contact-support/ContactSupportWidget"
 
 export function DashboardLayout() {
   // Everything global search can return hangs off a project, so an account with
@@ -43,7 +45,8 @@ export function DashboardLayout() {
             <Outlet />
           </main>
           <WhatsNewDialog />
-          <SupportChatWidget />
+          {/* <SupportChatWidget /> */}
+          <ContactSupportWidget />
         </SidebarInset>
       </SidebarProvider>
     </PresenceProvider>

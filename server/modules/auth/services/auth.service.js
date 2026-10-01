@@ -269,6 +269,7 @@ class AuthService {
     if (data.firstName !== undefined) patch.firstName = data.firstName;
     if (data.lastName !== undefined) patch.lastName = data.lastName;
     if (data.email !== undefined) patch.email = data.email;
+    if (data.phoneNumber !== undefined) patch.phoneNumber = data.phoneNumber;
     if (data.address !== undefined) patch.address = data.address;
     if (data.city !== undefined) patch.city = data.city;
     if (data.state !== undefined) patch.state = data.state;

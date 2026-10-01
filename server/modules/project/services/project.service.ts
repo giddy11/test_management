@@ -24,6 +24,7 @@ interface ProjectInput {
   name?: string;
   description?: string | null;
   members?: MemberInput[];
+  supportWhatsappNumber?: string | null;
 }
 
 // A validated member: the hydrated user plus the project role they were given.
@@ -140,11 +141,23 @@ export class ProjectService {
   }
 
   async fetchProjects(actor: Actor, params: Record<string, unknown>) {
-    return this.projectRepo.fetchPaginated({
+    const result = await this.projectRepo.fetchPaginated({
       ...params,
       organizationId: actor.organizationId,
       restrictedUserId: seesAllProjects(actor) ? undefined : actor.id,
     });
+
+    // Lets a client-side picker (e.g. the Contact support widget) know which
+    // of the listed projects this viewer may edit, without a per-project fetch.
+    const isPlatformManager = can(actor, "project.manageall");
+    const leadProjectIds = isPlatformManager
+      ? null
+      : new Set(await this.memberRepo.findLeadProjectIds(actor.id));
+    result.data.forEach((p: Project) => {
+      p.canManage = isPlatformManager || (leadProjectIds?.has(p.id) ?? false);
+    });
+
+    return result;
   }
 
   async getProject(actor: Actor, id: string): Promise<Project> {
@@ -197,6 +210,7 @@ export class ProjectService {
 
     if (data.name !== undefined) project.name = data.name;
     if (data.description !== undefined) project.description = data.description;
+    if (data.supportWhatsappNumber !== undefined) project.supportWhatsappNumber = data.supportWhatsappNumber;
     const saved = await this.projectRepo.save(project);
 
     if (data.members !== undefined) {

@@ -26,6 +26,7 @@ function makeMemberRepo() {
     setMembers: jest.fn().mockResolvedValue(undefined),
     findByProject: jest.fn().mockResolvedValue([]),
     findMemberUsers: jest.fn().mockResolvedValue([]),
+    findLeadProjectIds: jest.fn().mockResolvedValue([]),
   };
 }
 

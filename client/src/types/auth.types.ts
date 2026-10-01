@@ -34,6 +34,9 @@ export interface User {
   isOrgOwner?: boolean
   provider: string
   avatarUrl: string | null
+  // International format (e.g. "+2348012345678"). When this user is their
+  // organisation's admin, their team's "Contact support" widget messages it.
+  phoneNumber: string | null
   address: string | null
   city: string | null
   state: string | null
@@ -74,6 +77,7 @@ export interface UpdateProfilePayload {
   firstName?: string
   lastName?: string
   email?: string
+  phoneNumber?: string | null
   address?: string | null
   city?: string | null
   state?: string | null

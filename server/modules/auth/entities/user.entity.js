@@ -79,6 +79,13 @@ const User = new EntitySchema({
       type: "boolean",
       default: false,
     },
+    // International format (e.g. "+2348012345678") — a general profile field.
+    phoneNumber: {
+      name: "phone_number",
+      type: "varchar",
+      length: 20,
+      nullable: true,
+    },
     // ── Address ──────────────────────────────────────────────────────────────
     address: {
       type: "text",
