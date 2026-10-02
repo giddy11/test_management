@@ -152,7 +152,7 @@ describe("Bug detail (admin)", () => {
   })
 
   describe("once the bug is no longer Open", () => {
-    const MOVED_ON: string[] = ["In Progress", "Fixed", "Verified", "Closed", "Reopened"]
+    const MOVED_ON: string[] = ["In Progress", "Fixed", "Verified", "Closed"]
     MOVED_ON.forEach((status) => {
       it(`locks editing the report while it is ${status}`, () => {
         cy.fixture("bugs/list").then((bugs) => {
@@ -170,6 +170,19 @@ describe("Bug detail (admin)", () => {
         cy.dataCy("bug-manage").should("be.visible").and("not.be.disabled")
       })
     })
+  })
+
+  it("makes the report editable again when the bug is Reopened", () => {
+    cy.fixture("bugs/list").then((bugs) => {
+      cy.interceptApi("GET", `/bugs/${BUG_ID}`, { body: ok({ ...bugs[0], status: "Reopened" }) }, "reopenedBug")
+    })
+    cy.visit(BUG_URL)
+    cy.wait("@reopenedBug")
+
+    cy.dataCy("bug-edit").should("not.be.disabled")
+    cy.dataCy("bug-edit-wrapper").should("not.have.attr", "title")
+    cy.dataCy("bug-edit").click()
+    cy.contains("Edit bug").should("be.visible")
   })
 
   it("keeps the edit button enabled while the bug is Open", () => {

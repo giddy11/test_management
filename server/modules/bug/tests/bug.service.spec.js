@@ -506,7 +506,7 @@ describe("BugService", () => {
       });
 
       describe("once the bug is no longer Open", () => {
-        const LOCKED = ["In Progress", "Fixed", "Verified", "Closed", "Reopened"];
+        const LOCKED = ["In Progress", "Fixed", "Verified", "Closed"];
 
         it.each(LOCKED)("refuses to edit the report while the bug is %s — even for its reporter", async (status) => {
           bugRepo.findById.mockResolvedValue({ ...bug, status }); // reportedById: "user-1"
@@ -548,6 +548,14 @@ describe("BugService", () => {
             "bug-1",
             expect.objectContaining({ status: "Fixed", severity: "Major", priority: "High" })
           );
+        });
+
+        it("lets the report be edited again once the bug is Reopened, for its reporter and for an admin", async () => {
+          bugRepo.findById.mockResolvedValue({ ...bug, status: "Reopened" }); // reportedById: "user-1"
+          bugRepo.update.mockResolvedValue({ ...bug, title: "Clearer title" });
+          await service.manageBug(user, "bug-1", { title: "Clearer title" });
+          await service.manageBug(admin, "bug-1", { description: "Now with the new steps" });
+          expect(bugRepo.update).toHaveBeenCalledTimes(2);
         });
 
         it("still allows the edit while it is Open, alongside triage in the same request", async () => {
