@@ -11,7 +11,7 @@ import type {
 
 const PROJECTS_KEY = "projects"
 
-export function useProjects(params: FetchProjectsParams) {
+export function useProjects(params: FetchProjectsParams, enabled = true) {
   return useQuery({
     queryKey: [PROJECTS_KEY, params],
     queryFn: async () => {
@@ -19,6 +19,7 @@ export function useProjects(params: FetchProjectsParams) {
       if (!res.success) throw new ApiError(res.message, res.statusCode)
       return { data: res.data ?? [], meta: res.meta }
     },
+    enabled,
   })
 }
 

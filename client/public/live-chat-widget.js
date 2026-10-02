@@ -28,8 +28,12 @@
   var origin = new URL(currentScript.src).origin;
   var MESSAGE_SOURCE = "testmate-live-chat-widget"; // must match LiveChatWidgetPage.tsx
 
-  var CLOSED_SIZE = { width: 230, height: 56 }; // wide pill launcher, not a square icon button
-  var OPEN_SIZE = { width: 400, height: 650 };
+  // Previous full live-chat panel's sizes — kept in case that widget (see
+  // LiveChatWidgetPage.tsx, still intact but unrouted) is wanted again:
+  //   var CLOSED_SIZE = { width: 230, height: 56 }; // wide pill launcher
+  //   var OPEN_SIZE = { width: 400, height: 650 };
+  var CLOSED_SIZE = { width: 64, height: 64 }; // round WhatsApp launcher button
+  var OPEN_SIZE = { width: 370, height: 520 }; // branded header + greeting bubbles + composer
   var MOBILE_BREAKPOINT = 640;
   var EDGE_OFFSET = 20;
 

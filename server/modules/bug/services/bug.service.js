@@ -29,16 +29,17 @@ const CONTENT_FIELDS = [
 ];
 
 // The report — what was found, and how — can only be corrected while the bug is
-// still Open. Once work on it starts it is a record of what the team acted on, and
-// rewriting it underneath them (a new title, different steps) would make their work
-// and any links to other reports read as something they weren't. Triage still moves
+// Open, or Reopened (it resurfaced, so the report is worth correcting again).
+// Once work on it starts it is a record of what the team acted on, and rewriting
+// it underneath them (a new title, different steps) would make their work and any
+// links to other reports read as something they weren't. Triage still moves
 // freely; only the report's own fields lock.
-const EDITABLE_BUG_STATUSES = new Set([BugStatus.OPEN]);
+const EDITABLE_BUG_STATUSES = new Set([BugStatus.OPEN, BugStatus.REOPENED]);
 
 function assertReportEditable(status) {
   if (EDITABLE_BUG_STATUSES.has(status)) return;
   throw new AppError(
-    `This bug is ${status}, so its report can no longer be edited. A report can only be edited while the bug is Open.`,
+    `This bug is ${status}, so its report can no longer be edited. A report can only be edited while the bug is Open or Reopened.`,
     422
   );
 }

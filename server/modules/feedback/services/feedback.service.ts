@@ -324,13 +324,26 @@ export class FeedbackService {
     // Cross-project view, scoped to the actor's own org: admins (including
     // superadmin, whose own org is never a real client company) see their
     // org's tickets; plain users only projects they're members of.
-    if (seesAllProjects(actor)) {
-      return this.feedbackRepo.fetchPaginated({
-        ...params,
-        organizationId: actor.organizationId ?? undefined,
-      } as any);
+    const isOrgWideManager = seesAllProjects(actor);
+    const result = isOrgWideManager
+      ? await this.feedbackRepo.fetchPaginated({
+          ...params,
+          organizationId: actor.organizationId ?? undefined,
+        } as any)
+      : await this.feedbackRepo.fetchPaginated({ ...params, restrictedUserId: actor.id } as any);
+
+    // This list spans many projects, so the "Manage" action's authority (same
+    // bar as manageFeedback: admin/superadmin, or this item's project's team
+    // lead) can't be decided with the single page-level flag the per-project
+    // Tickets tab uses. Resolve every project this actor leads in one query
+    // instead of one per row, then stamp each item.
+    const leadProjectIds = isOrgWideManager
+      ? null
+      : new Set(await this.memberRepo.findLeadProjectIds(actor.id));
+    for (const fb of result.data) {
+      fb.canManage = isOrgWideManager || Boolean(leadProjectIds?.has(fb.projectId));
     }
-    return this.feedbackRepo.fetchPaginated({ ...params, restrictedUserId: actor.id } as any);
+    return result;
   }
 
   // Items still sitting in (or resolved by) a client company's IT queue don't

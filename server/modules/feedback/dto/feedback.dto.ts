@@ -63,6 +63,8 @@ export function toFeedbackResponse(fb: Feedback | null) {
     statusUpdatedAt: fb.statusUpdatedAt ?? null,
     rating: fb.rating ?? null,
     createdAt: fb.createdAt,
+    // Present (non-null) only in the cross-project list — see Feedback.canManage.
+    canManage: fb.canManage ?? null,
   };
 }
 

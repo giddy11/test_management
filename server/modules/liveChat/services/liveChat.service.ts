@@ -136,6 +136,10 @@ export class LiveChatService {
         settings.offlineMessage || "We're not online right now — leave a message and we'll get back to you.",
       brandColor: settings.brandColor,
       requireAccount: settings.requireAccount,
+      // Powers the WhatsApp embed widget (public/live-chat-widget.js's current
+      // page) — null hides the launcher entirely, same rule as the internal
+      // Contact support widget.
+      supportWhatsappNumber: project.supportWhatsappNumber ?? null,
     };
   }
 

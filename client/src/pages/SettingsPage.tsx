@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { PhoneNumberInput } from "@/components/shared/PhoneNumberInput"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import {
@@ -48,6 +49,7 @@ function ProfileTab() {
       firstName: user?.firstName ?? "",
       lastName: user?.lastName ?? "",
       email: user?.email ?? "",
+      phoneNumber: user?.phoneNumber ?? "",
       address: user?.address ?? "",
       city: user?.city ?? "",
       state: user?.state ?? "",
@@ -126,6 +128,7 @@ function ProfileTab() {
     if (data.firstName) patch.firstName = data.firstName
     if (data.lastName) patch.lastName = data.lastName
     if (data.email) patch.email = data.email
+    if (data.phoneNumber !== undefined) patch.phoneNumber = data.phoneNumber || null
     if (data.address !== undefined) patch.address = data.address || null
     if (data.city !== undefined) patch.city = data.city || null
     if (data.state !== undefined) patch.state = data.state || null
@@ -164,6 +167,15 @@ function ProfileTab() {
             <p className="text-xs text-muted-foreground">
               Email address cannot be changed. Contact your administrator.
             </p>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="phoneNumber">Phone number</Label>
+            <PhoneNumberInput
+              id="phoneNumber"
+              value={watch("phoneNumber") ?? ""}
+              onChange={(v) => setValue("phoneNumber", v, { shouldDirty: true })}
+            />
           </div>
 
           <Separator />

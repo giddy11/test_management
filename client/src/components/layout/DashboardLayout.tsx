@@ -14,7 +14,12 @@ import { SiteBannerBar } from "@/components/layout/SiteBannerBar"
 import { PreviewBanner } from "@/components/layout/PreviewBanner"
 import { PresenceProvider } from "@/contexts/PresenceContext"
 import { useAuth } from "@/contexts/AuthContext"
-import { SupportChatWidget } from "@/components/support-chat/SupportChatWidget"
+// Internal support widgets — both commented out, not deleted. The WhatsApp
+// hand-off now only happens via the embeddable widget on a project's own
+// external site (see WhatsAppWidgetPage); TestMate's own dashboard shows
+// neither the old in-app support chat nor the Contact support button.
+// import { SupportChatWidget } from "@/components/support-chat/SupportChatWidget"
+// import { ContactSupportWidget } from "@/components/contact-support/ContactSupportWidget"
 
 export function DashboardLayout() {
   // Everything global search can return hangs off a project, so an account with
@@ -43,7 +48,8 @@ export function DashboardLayout() {
             <Outlet />
           </main>
           <WhatsNewDialog />
-          <SupportChatWidget />
+          {/* <SupportChatWidget /> */}
+          {/* <ContactSupportWidget /> */}
         </SidebarInset>
       </SidebarProvider>
     </PresenceProvider>

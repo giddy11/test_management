@@ -37,6 +37,8 @@ export function toProjectResponse(project: Project | null) {
     // so the UI's enabled/disabled state still reads straight off this field.
     feedbackToken: project.feedbackEnabled ? (project.feedbackToken ?? null) : null,
     liveChatToken: project.liveChatEnabled ? (project.liveChatToken ?? null) : null,
+    supportWhatsappNumber: project.supportWhatsappNumber ?? null,
+    canManage: project.canManage ?? false,
     createdAt: project.createdAt,
   };
 }

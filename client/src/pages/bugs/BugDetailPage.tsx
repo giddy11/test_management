@@ -58,7 +58,7 @@ export default function BugDetailPage() {
   // Reporters can fix mistakes in their own report; triage (Manage/Delete) stays
   // with admins and team leads — mirrors BugService.manageBug.
   const canEdit = canManage || (Boolean(user) && bug.reportedBy?.id === user?.id)
-  // Even then, the report is only editable while the bug is Open — see isBugReportEditable.
+  // Even then, the report is only editable while the bug is Open or Reopened — see isBugReportEditable.
   const reportEditable = isBugReportEditable(bug.status)
 
   const handleShare = () => {
@@ -101,7 +101,7 @@ export default function BugDetailPage() {
               title={
                 reportEditable
                   ? undefined
-                  : `This bug is ${bug.status}, so its report can no longer be edited. Reports can only be edited while a bug is Open.`
+                  : `This bug is ${bug.status}, so its report can no longer be edited. Reports can only be edited while a bug is Open or Reopened.`
               }
               data-cy="bug-edit-wrapper"
             >

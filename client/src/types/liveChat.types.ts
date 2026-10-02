@@ -12,6 +12,9 @@ export interface LiveChatWidgetConfig {
   // When true, the widget gates on a real login/signup (LiveChatAccount)
   // instead of the free-form pre-chat contact form.
   requireAccount: boolean
+  // Powers the WhatsApp embed widget (WhatsAppWidgetPage) — null hides the
+  // launcher entirely, same rule as the internal Contact support widget.
+  supportWhatsappNumber: string | null
 }
 
 export interface LiveChatVisitor {

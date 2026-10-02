@@ -181,6 +181,56 @@ describe("FeedbackService.manageFeedback — closing", () => {
 });
 
 
+// The cross-project (global) list has no single page-level "can manage" flag
+// the way the per-project Tickets tab does (it spans many projects), so the
+// service stamps each returned item with whether THIS actor may manage THAT
+// item's project — admin/superadmin, or that project's team lead. The UI
+// (AllFeedbackPage) uses this to decide whether to show Manage/Delete/reassign.
+describe("FeedbackService.fetchFeedback — cross-project canManage", () => {
+  const tester = actorFor("user", { id: "tester-1" });
+  const admin = actorFor("admin", { id: "admin-1" });
+
+  function makeService(items: any[]) {
+    const feedbackRepo = { fetchPaginated: jest.fn().mockResolvedValue({ data: items, meta: {} }) };
+    const memberRepo = { findLeadProjectIds: jest.fn().mockResolvedValue(["proj-lead"]) };
+    const service = new FeedbackService(
+      feedbackRepo as any,
+      makeHistoryRepo() as any,
+      makeProjectRepo() as any,
+      makeProjectService() as any,
+      memberRepo as any
+    );
+    return { service, feedbackRepo, memberRepo };
+  }
+
+  it("marks every item manageable for an org-wide admin, without a membership lookup", async () => {
+    const items = [{ ...baseItem, id: "fb-1", projectId: "proj-lead" }, { ...baseItem, id: "fb-2", projectId: "proj-other" }];
+    const { service, feedbackRepo, memberRepo } = makeService(items);
+
+    const result = await service.fetchFeedback(admin, {});
+
+    expect(result.data.every((fb: any) => fb.canManage === true)).toBe(true);
+    expect(memberRepo.findLeadProjectIds).not.toHaveBeenCalled();
+    expect(feedbackRepo.fetchPaginated).toHaveBeenCalledWith(
+      expect.objectContaining({ organizationId: "org-1" })
+    );
+  });
+
+  it("marks only the projects this user leads as manageable, leaving the rest to assignee-only access", async () => {
+    const items = [{ ...baseItem, id: "fb-1", projectId: "proj-lead" }, { ...baseItem, id: "fb-2", projectId: "proj-other" }];
+    const { service, feedbackRepo, memberRepo } = makeService(items);
+
+    const result = await service.fetchFeedback(tester, {});
+
+    expect(result.data.find((fb: any) => fb.id === "fb-1")?.canManage).toBe(true);
+    expect(result.data.find((fb: any) => fb.id === "fb-2")?.canManage).toBe(false);
+    expect(memberRepo.findLeadProjectIds).toHaveBeenCalledWith("tester-1");
+    expect(feedbackRepo.fetchPaginated).toHaveBeenCalledWith(
+      expect.objectContaining({ restrictedUserId: "tester-1" })
+    );
+  });
+});
+
 // SLA timestamps (see modules/sla): stamped once, the first time each applies.
 describe("FeedbackService.manageFeedback — SLA timestamps", () => {
   let feedbackRepo: any;

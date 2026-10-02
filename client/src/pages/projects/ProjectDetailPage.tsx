@@ -11,6 +11,7 @@ import { FeatureRequestsTab } from "@/components/featureRequests/FeatureRequests
 import { BugsTab } from "@/components/bugs/BugsTab"
 import { FeedbackTab } from "@/components/feedback/FeedbackTab"
 import { LiveChatTab } from "@/components/live-chat/LiveChatTab"
+import { ProjectSupportNumberField } from "@/components/contact-support/ProjectSupportNumberField"
 import { useProject } from "@/hooks/useProjects"
 import { useDashboard } from "@/hooks/useDashboard"
 import { useFeatureRequests } from "@/hooks/useFeatureRequests"
@@ -97,6 +98,11 @@ export default function ProjectDetailPage() {
             >
               <Copy className="size-3" />
             </Button>
+          </div>
+        )}
+        {canManage && (
+          <div className="mt-1.5">
+            <ProjectSupportNumberField projectId={projectId} value={project?.supportWhatsappNumber ?? null} />
           </div>
         )}
         {Boolean(project?.members?.length) && (

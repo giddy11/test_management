@@ -117,11 +117,11 @@ export function isBugStatusSelectable(current: BugStatus, candidate: BugStatus):
 }
 
 // A bug's report (title, description, steps, …) can only be corrected while the
-// bug is still Open; once work starts it is locked for everyone. Triage — status,
-// severity, priority, assignee — is unaffected. Mirrors assertReportEditable in the
-// API's bug.service.js.
+// bug is Open or Reopened; once work starts it is locked for everyone. Triage —
+// status, severity, priority, assignee — is unaffected. Mirrors assertReportEditable
+// in the API's bug.service.js.
 export function isBugReportEditable(status: BugStatus): boolean {
-  return status === "Open"
+  return status === "Open" || status === "Reopened"
 }
 
 // ── Activity log ─────────────────────────────────────────────────────────────

@@ -65,12 +65,7 @@ const SEVERITY_VARIANT: Record<FeedbackSeverity, "default" | "secondary" | "outl
 }
 
 export default function AllFeedbackPage() {
-  const { user, can } = useAuth()
-  // This cross-project list does not know the viewer's role in each ticket's
-  // project, so it offers delete / reassign only to org-wide managers, as it
-  // always has. A team lead does those from the project's own Tickets tab. The
-  // server decides either way.
-  const isAdmin = can("project.manageall")
+  const { user } = useAuth()
   const [projectFilter, setProjectFilter] = useState<string>("all")
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [typeFilter, setTypeFilter] = useState<string>("all")
@@ -211,7 +206,12 @@ export default function AllFeedbackPage() {
               </TableRow>
             )}
             {items.map((fb) => {
-              const canManageItem = isAdmin || fb.assignees.some((a) => a.id === user?.id)
+              // canManage comes from the server: admin/superadmin, or this
+              // ticket's project's team lead (see FeedbackService.fetchFeedback).
+              // An assignee who is neither can still drive status/notes, just
+              // not reassign or delete — same split as the project Tickets tab.
+              const canManageProject = Boolean(fb.canManage)
+              const canManageItem = canManageProject || fb.assignees.some((a) => a.id === user?.id)
               return (
                 <TableRow key={fb.id} data-cy="ticket-row">
                   <TableCell className="font-mono text-xs text-muted-foreground">{fb.ticketCode}</TableCell>
@@ -270,7 +270,7 @@ export default function AllFeedbackPage() {
                           {canManageItem && (
                             <DropdownMenuItem onClick={() => setManaging(fb)}>Manage</DropdownMenuItem>
                           )}
-                          {isAdmin && (
+                          {canManageProject && (
                             <DropdownMenuItem variant="destructive" onClick={() => setDeleting(fb)}>
                               <Trash2 className="size-3.5" /> Delete
                             </DropdownMenuItem>
@@ -301,7 +301,7 @@ export default function AllFeedbackPage() {
       <FeedbackManageDialog
         feedback={managing}
         members={managingProject?.members ?? []}
-        canReassign={isAdmin}
+        canReassign={Boolean(managing?.canManage)}
         onOpenChange={(o) => !o && setManaging(null)}
       />
 

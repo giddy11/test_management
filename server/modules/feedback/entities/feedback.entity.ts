@@ -80,6 +80,12 @@ export interface Feedback {
   // A feedback item can be assigned to several project members at once.
   assignees?: { id: string; firstName: string; lastName: string | null; email: string }[];
   attachments?: { id: string; url: string; publicId: string }[];
+  // Transient, never persisted: whether the viewer requesting this list is an
+  // admin/superadmin or this item's project's team lead. Only set by
+  // FeedbackService.fetchFeedback's cross-project (global) mode, where a
+  // single list spans many projects and the UI can't otherwise tell —
+  // mirrors ProjectService.canManageProject for that project.
+  canManage?: boolean;
 }
 
 const Feedback = new EntitySchema<Feedback>({

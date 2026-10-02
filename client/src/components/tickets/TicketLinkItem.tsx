@@ -11,12 +11,17 @@ interface Props {
   onNavigate?: () => void
   // Trailing badges, shown after the status and date.
   children?: ReactNode
+  // Open in a new tab instead of navigating away in place — for a panel shown
+  // inside an in-progress form (see SimilarTicketsPanel), where following the
+  // link in the same tab would abandon the draft being typed. Implies ignoring
+  // onNavigate, since there is no longer a dialog to close.
+  newTab?: boolean
 }
 
 // One ticket as two lines: what it is (kind, reference code, title — a link to
 // it) above how it stands (status, date, any badges). The title takes the room
 // it needs and truncates rather than wrapping, so a list of these stays even.
-export function TicketLinkItem({ ticket, onNavigate, children }: Props) {
+export function TicketLinkItem({ ticket, onNavigate, children, newTab }: Props) {
   return (
     <div className="min-w-0" data-cy="linked-ticket">
       <div className="flex min-w-0 items-center gap-2">
@@ -24,7 +29,9 @@ export function TicketLinkItem({ ticket, onNavigate, children }: Props) {
         <span className="shrink-0 font-mono text-xs text-muted-foreground">{ticket.referenceCode}</span>
         <Link
           to={ticketPath(ticket)}
-          onClick={onNavigate}
+          onClick={newTab ? undefined : onNavigate}
+          target={newTab ? "_blank" : undefined}
+          rel={newTab ? "noopener noreferrer" : undefined}
           title={ticket.title}
           className="min-w-0 truncate text-sm font-medium hover:underline"
         >
