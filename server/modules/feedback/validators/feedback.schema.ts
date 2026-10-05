@@ -58,6 +58,8 @@ export const fetchFeedbackSchema = z.object({
     status: z.enum(feedbackStatuses).optional(),
     type: z.enum(feedbackTypes).optional(),
     search: z.string().optional(),
+    // Narrows to tickets not yet Closed — the tab-count "pending" figure.
+    pending: z.coerce.boolean().optional(),
   }),
 });
 

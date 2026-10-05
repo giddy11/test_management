@@ -14,7 +14,7 @@ import type {
 const obj = (p: unknown) => p as Record<string, unknown>
 
 export const FeatureRequestEndpoints = {
-  fetchAll: (params: { projectId: string; page?: number; limit?: number; status?: string; category?: string; search?: string; searchBy?: FeatureRequestSearchField; from?: string; to?: string; sort?: "top" | "newest" }) =>
+  fetchAll: (params: { projectId: string; page?: number; limit?: number; status?: string; category?: string; search?: string; searchBy?: FeatureRequestSearchField; from?: string; to?: string; pending?: boolean; sort?: "top" | "newest" }) =>
     wrapCall<FeatureRequest[]>("GET", "/api/v1/feature-requests", obj(params)),
   fetchById: (id: string) => wrapCall<FeatureRequest>("GET", `/api/v1/feature-requests/${id}`),
   fetchByCode: (code: string) =>

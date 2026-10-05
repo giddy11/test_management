@@ -26,6 +26,7 @@ import {
   isFeatureRequestFinal,
   isFeatureRequestStatusSelectable,
   isFeatureRequestAssignable,
+  isFeatureRequestAssigneeRequired,
   type FeatureRequestStatus,
 } from "@/lib/enums"
 import { ApiError } from "@/transport/http"
@@ -52,6 +53,8 @@ export function StatusUpdateDialog({ open, onOpenChange, request }: Props) {
       setAssignedToId(request.assignedTo?.id ?? "unassigned")
     }
   }, [open, request])
+
+  const needsAssignee = isFeatureRequestAssigneeRequired(status) && assignedToId === "unassigned"
 
   const onSubmit = () => {
     if (!request) return
@@ -114,6 +117,11 @@ export function StatusUpdateDialog({ open, onOpenChange, request }: Props) {
                   {users.map((u) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
                 </SelectContent>
               </Select>
+              {needsAssignee && (
+                <p className="text-xs text-destructive">
+                  {FEATURE_REQUEST_STATUS_META[status].label} requests must be assigned to someone.
+                </p>
+              )}
             </div>
           )}
           <div className="grid gap-1.5">
@@ -131,7 +139,7 @@ export function StatusUpdateDialog({ open, onOpenChange, request }: Props) {
           <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button type="button" onClick={onSubmit} disabled={update.isPending} data-cy="fr-status-save">
+          <Button type="button" onClick={onSubmit} disabled={update.isPending || needsAssignee} data-cy="fr-status-save">
             {update.isPending ? "Saving…" : "Save"}
           </Button>
         </DialogFooter>

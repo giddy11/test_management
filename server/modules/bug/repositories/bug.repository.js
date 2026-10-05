@@ -4,6 +4,11 @@ const { Bug } = require("../entities/bug.entity");
 const { buildMeta, getOffset } = require("../../../shared/pagination/paginate");
 const { andWhereUserNameMatches } = require("../../../shared/utils/nameSearch");
 const { andWhereDateRange } = require("../../../shared/utils/dateRange");
+const { BugStatus } = require("../../../config/constants");
+
+// Not yet resolved — the tab-count "pending" figure. Mirrors RESOLVED_BUG_STATUSES
+// in bug.service.js (kept separate to avoid a repository -> service dependency).
+const OPEN_BUG_STATUSES = [BugStatus.OPEN, BugStatus.IN_PROGRESS, BugStatus.REOPENED];
 
 class BugRepository {
   static Instance = new BugRepository();
@@ -24,6 +29,7 @@ class BugRepository {
     searchBy = "title",
     from,
     to,
+    pending,
   }) {
     const offset = getOffset(page, limit);
     const qb = this.repo
@@ -37,6 +43,8 @@ class BugRepository {
       .take(limit);
 
     if (status) qb.andWhere("bug.status = :status", { status });
+    // Not resolved yet — Fixed/Verified/Closed are "done" for this count.
+    if (pending) qb.andWhere("bug.status IN (:...openStatuses)", { openStatuses: OPEN_BUG_STATUSES });
     if (severity) qb.andWhere("bug.severity = :severity", { severity });
     if (priority) qb.andWhere("bug.priority = :priority", { priority });
     if (assignedToId) qb.andWhere("bug.assigned_to_id = :assignedToId", { assignedToId });

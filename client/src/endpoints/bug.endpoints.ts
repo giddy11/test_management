@@ -26,6 +26,8 @@ export const BugEndpoints = {
     // YYYY-MM-DD, inclusive — filters on the date the bug was reported.
     from?: string
     to?: string
+    // Not yet Fixed/Verified/Closed — the tab-count "pending" figure.
+    pending?: boolean
   }) => wrapCall<Bug[]>("GET", "/api/v1/bugs", obj(params)),
   fetchById: (id: string) => wrapCall<Bug>("GET", `/api/v1/bugs/${id}`),
   fetchByCode: (code: string) => wrapCall<Bug>("GET", `/api/v1/bugs/by-code/${code}`),

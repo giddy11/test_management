@@ -65,6 +65,8 @@ const fetchBugsSchema = z.object({
     search: z.string().optional(),
     // Which field `search` is matched against.
     searchBy: z.enum(["title", "reporter", "assignee", "suite"]).default("title"),
+    // Narrows to bugs not yet Fixed/Verified/Closed — the tab-count "pending" figure.
+    pending: z.coerce.boolean().optional(),
   }),
 });
 

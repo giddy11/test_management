@@ -79,6 +79,16 @@ function assertValidStatusTransition(current, next) {
   }
 }
 
+// Work can't be tracked against nobody — a bug being worked on must have
+// someone on it. Checked against the status and assignee the bug will end up
+// with, so either field alone can create (or fix) the gap. Mirrored on the
+// client in isBugAssigneeRequired (lib/enums.ts).
+function assertBugHasAssignee(status, assignedToId) {
+  if (status === BugStatus.IN_PROGRESS && !assignedToId) {
+    throw new AppError("A bug can't be In Progress without an assignee — pick someone to work on it first.", 422);
+  }
+}
+
 class BugService {
   static Instance = new BugService();
 
@@ -292,6 +302,15 @@ class BugService {
         patch.resolvedAt = null;
         patch.closedAt = null;
       }
+    }
+
+    // Only when status or assignee is actually being touched — an edit that
+    // changes neither (e.g. correcting severity) leaves a pre-existing gap alone.
+    if (data.status !== undefined || data.assignedToId !== undefined) {
+      assertBugHasAssignee(
+        patch.status ?? bug.status,
+        "assignedToId" in patch ? patch.assignedToId : bug.assignedToId
+      );
     }
 
     const updated = await this.bugRepo.update(id, patch);

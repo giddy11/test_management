@@ -35,6 +35,8 @@ export interface FetchFeedbackParams {
   status?: string;
   type?: string;
   search?: string;
+  // Narrows to tickets not yet Closed — the tab-count "pending" figure.
+  pending?: boolean;
   // IT-queue mode: only this client company's items (all support states unless
   // supportStatus narrows it). Bypasses the escalated-only visibility rule.
   clientCompanyId?: string;
@@ -69,6 +71,7 @@ export class FeedbackRepository {
     status,
     type,
     search,
+    pending,
     clientCompanyId,
     supportStatus,
     assignedSupporterId,
@@ -123,6 +126,8 @@ export class FeedbackRepository {
     }
 
     if (status) qb.andWhere("fb.status = :status", { status });
+    // Not yet Closed — "pending" for the tab count.
+    if (pending) qb.andWhere("fb.status IN (:...openStatuses)", { openStatuses: OPEN_FEEDBACK_STATUSES });
     if (type) qb.andWhere("fb.type = :type", { type });
     if (submitterEmail) qb.andWhere("fb.submitter_email = :submitterEmail", { submitterEmail });
     if (search) {

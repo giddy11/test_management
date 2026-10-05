@@ -346,7 +346,9 @@ describe("BugService", () => {
     });
 
     it("stamps firstResponseAt the first time status changes away from Open", async () => {
-      bugRepo.findById.mockResolvedValue(bug);
+      // In Progress needs an assignee — give it one so this test only exercises
+      // the firstResponseAt stamp (the assignee rule has its own describe below).
+      bugRepo.findById.mockResolvedValue({ ...bug, assignedToId: "dev-1" });
       bugRepo.update.mockResolvedValue({ ...bug, status: "In Progress" });
       await service.manageBug(admin, "bug-1", { status: "In Progress" });
       expect(bugRepo.update).toHaveBeenCalledWith(
@@ -417,7 +419,8 @@ describe("BugService", () => {
         ["In Progress", "Verified"],
         ["Fixed", "Closed"],
       ])("allows moving forward from %s to %s, skipping stages if needed", async (current, next) => {
-        bugRepo.findById.mockResolvedValue({ ...bug, status: current });
+        // Already assigned, so landing on In Progress never trips the assignee rule here.
+        bugRepo.findById.mockResolvedValue({ ...bug, status: current, assignedToId: "dev-1" });
         bugRepo.update.mockResolvedValue({ ...bug, status: next });
         await service.manageBug(admin, "bug-1", { status: next });
         expect(bugRepo.update).toHaveBeenCalledWith("bug-1", expect.objectContaining({ status: next }));
@@ -441,7 +444,8 @@ describe("BugService", () => {
       it.each(["In Progress", "Fixed", "Verified", "Closed"])(
         "lets a reopened bug work forward again to %s",
         async (next) => {
-          bugRepo.findById.mockResolvedValue({ ...bug, status: "Reopened" });
+          // Already assigned, so landing on In Progress never trips the assignee rule here.
+          bugRepo.findById.mockResolvedValue({ ...bug, status: "Reopened", assignedToId: "dev-1" });
           bugRepo.update.mockResolvedValue({ ...bug, status: next });
           await service.manageBug(admin, "bug-1", { status: next });
           expect(bugRepo.update).toHaveBeenCalledWith("bug-1", expect.objectContaining({ status: next }));
@@ -457,8 +461,61 @@ describe("BugService", () => {
       });
     });
 
+    describe("In Progress needs an assignee", () => {
+      it("rejects moving to In Progress with no assignee, in the request or already on the bug", async () => {
+        bugRepo.findById.mockResolvedValue({ ...bug, status: "Open" });
+        await expect(service.manageBug(admin, "bug-1", { status: "In Progress" })).rejects.toMatchObject({
+          statusCode: 422,
+        });
+        expect(bugRepo.update).not.toHaveBeenCalled();
+      });
+
+      it("rejects clearing the assignee while the bug stays In Progress", async () => {
+        bugRepo.findById.mockResolvedValue({ ...bug, status: "In Progress", assignedToId: "dev-1" });
+        await expect(service.manageBug(admin, "bug-1", { assignedToId: null })).rejects.toMatchObject({
+          statusCode: 422,
+        });
+        expect(bugRepo.update).not.toHaveBeenCalled();
+      });
+
+      it("allows moving to In Progress when an assignee is picked in the same request", async () => {
+        bugRepo.findById.mockResolvedValue({ ...bug, status: "Open" });
+        bugRepo.update.mockResolvedValue({ ...bug, status: "In Progress", assignedToId: "dev-1" });
+        await service.manageBug(admin, "bug-1", { status: "In Progress", assignedToId: "dev-1" });
+        expect(bugRepo.update).toHaveBeenCalledWith(
+          "bug-1",
+          expect.objectContaining({ status: "In Progress", assignedToId: "dev-1" })
+        );
+      });
+
+      it("allows moving to In Progress when the bug is already assigned", async () => {
+        bugRepo.findById.mockResolvedValue({ ...bug, status: "Open", assignedToId: "dev-1" });
+        bugRepo.update.mockResolvedValue({ ...bug, status: "In Progress" });
+        await service.manageBug(admin, "bug-1", { status: "In Progress" });
+        expect(bugRepo.update).toHaveBeenCalledWith("bug-1", expect.objectContaining({ status: "In Progress" }));
+      });
+
+      it("allows clearing the assignee in the same request that moves the status off In Progress", async () => {
+        bugRepo.findById.mockResolvedValue({ ...bug, status: "In Progress", assignedToId: "dev-1" });
+        bugRepo.update.mockResolvedValue({ ...bug, status: "Fixed", assignedToId: null });
+        await service.manageBug(admin, "bug-1", { status: "Fixed", assignedToId: null });
+        expect(bugRepo.update).toHaveBeenCalledWith(
+          "bug-1",
+          expect.objectContaining({ status: "Fixed", assignedToId: null })
+        );
+      });
+
+      it("doesn't retroactively block an unrelated edit on a pre-existing unassigned In Progress bug", async () => {
+        const legacy = { ...bug, status: "In Progress", assignedToId: null };
+        bugRepo.findById.mockResolvedValue(legacy);
+        bugRepo.update.mockResolvedValue({ ...legacy, severity: "Major" });
+        await service.manageBug(admin, "bug-1", { severity: "Major" });
+        expect(bugRepo.update).toHaveBeenCalledWith("bug-1", expect.objectContaining({ severity: "Major" }));
+      });
+    });
+
     it("notifies the reporter on status change", async () => {
-      bugRepo.findById.mockResolvedValue(bug);
+      bugRepo.findById.mockResolvedValue({ ...bug, assignedToId: "dev-1" });
       bugRepo.update.mockResolvedValue({ ...bug, status: "In Progress" });
       authRepo.findUserById.mockResolvedValue({ id: "user-1", email: "u@x.com", firstName: "U" });
       await service.manageBug(admin, "bug-1", { status: "In Progress" });

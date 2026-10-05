@@ -46,6 +46,8 @@ const fetchFeatureRequestsSchema = z.object({
     search: z.string().optional(),
     // Which field `search` is matched against. Requests have no suite or assignee.
     searchBy: z.enum(["title", "reporter"]).default("title"),
+    // Narrows to requests not yet Done/Rejected — the tab-count "pending" figure.
+    pending: z.coerce.boolean().optional(),
     sort: z.enum(["top", "newest"]).default("top"),
   }),
 });

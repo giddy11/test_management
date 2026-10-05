@@ -19,6 +19,8 @@ interface FeatureRequestQuery {
   searchBy?: FeatureRequestSearchField
   from?: string
   to?: string
+  // Not yet Done/Rejected — the tab-count "pending" figure.
+  pending?: boolean
   sort?: "top" | "newest"
 }
 

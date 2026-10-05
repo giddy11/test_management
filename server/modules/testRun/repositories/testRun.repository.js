@@ -11,7 +11,7 @@ class TestRunRepository {
     this.repo = AppDataSource.getRepository(TestRun);
   }
 
-  async fetchPaginated({ projectId, page = 1, limit = 20, restrictToUserId }) {
+  async fetchPaginated({ projectId, page = 1, limit = 20, restrictToUserId, pending }) {
     const offset = getOffset(page, limit);
     const qb = this.repo
       .createQueryBuilder("run")
@@ -21,6 +21,9 @@ class TestRunRepository {
       .orderBy("run.createdAt", "DESC")
       .skip(offset)
       .take(limit);
+
+    // Not completed yet — the tab-count "pending" figure.
+    if (pending) qb.andWhere("run.status = :pendingStatus", { pendingStatus: RunStatus.IN_PROGRESS });
 
     // Non-admin callers only see runs they started or have recorded a result in.
     if (restrictToUserId) {

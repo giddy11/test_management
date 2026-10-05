@@ -77,6 +77,13 @@ export function isFeatureRequestAssignable(status: FeatureRequestStatus): boolea
   return FEATURE_REQUEST_STAGES.indexOf(status) >= FEATURE_REQUEST_STAGES.indexOf("under_review")
 }
 
+// Work can't be tracked against nobody — a request being reviewed or built must
+// have someone on it. Mirrors assertFeatureRequestHasAssignee in the API's
+// featureRequest.service.js.
+export function isFeatureRequestAssigneeRequired(status: FeatureRequestStatus): boolean {
+  return status === "under_review" || status === "in_progress"
+}
+
 export const BUG_SEVERITIES = ["Trivial", "Minor", "Major", "Critical"] as const
 export type BugSeverity = (typeof BUG_SEVERITIES)[number]
 
@@ -128,6 +135,12 @@ export function isBugStatusSelectable(current: BugStatus, candidate: BugStatus):
 // in the API's bug.service.js.
 export function isBugReportEditable(status: BugStatus): boolean {
   return status === "Open" || status === "Reopened"
+}
+
+// Work can't be tracked against nobody — a bug being worked on must have someone
+// on it. Mirrors assertBugHasAssignee in the API's bug.service.js.
+export function isBugAssigneeRequired(status: BugStatus): boolean {
+  return status === "In Progress"
 }
 
 // ── Activity log ─────────────────────────────────────────────────────────────

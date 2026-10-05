@@ -4,6 +4,17 @@ const { FeatureRequest } = require("../entities/featureRequest.entity");
 const { buildMeta, getOffset } = require("../../../shared/pagination/paginate");
 const { andWhereUserNameMatches } = require("../../../shared/utils/nameSearch");
 const { andWhereDateRange } = require("../../../shared/utils/dateRange");
+const { FeatureRequestStatus } = require("../../../config/constants");
+
+// Not yet done or rejected — the tab-count "pending" figure. Mirrors
+// TERMINAL_FEATURE_REQUEST_STATUSES in featureRequest.service.js (kept separate
+// to avoid a repository -> service dependency).
+const OPEN_FEATURE_REQUEST_STATUSES = [
+  FeatureRequestStatus.NEW,
+  FeatureRequestStatus.UNDER_REVIEW,
+  FeatureRequestStatus.PLANNED,
+  FeatureRequestStatus.IN_PROGRESS,
+];
 
 class FeatureRequestRepository {
   static Instance = new FeatureRequestRepository();
@@ -23,6 +34,7 @@ class FeatureRequestRepository {
     searchBy = "title",
     from,
     to,
+    pending,
     sort = "top",
   }) {
     const offset = getOffset(page, limit);
@@ -36,6 +48,8 @@ class FeatureRequestRepository {
       .take(limit);
 
     if (status) qb.andWhere("fr.status = :status", { status });
+    // Not done or rejected yet — "pending" for the tab count.
+    if (pending) qb.andWhere("fr.status IN (:...openStatuses)", { openStatuses: OPEN_FEATURE_REQUEST_STATUSES });
     if (category) qb.andWhere("fr.category = :category", { category });
     if (search) {
       if (searchBy === "reporter") {

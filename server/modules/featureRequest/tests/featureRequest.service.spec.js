@@ -265,7 +265,9 @@ describe("FeatureRequestService", () => {
         ["under_review", "in_progress"],
         ["in_progress", "done"],
       ])("allows moving forward from %s to %s, skipping stages if needed", async (current, next) => {
-        frRepo.findById.mockResolvedValue({ ...fr, status: current });
+        // Under Review and In Progress need an assignee — already assigned, so
+        // that never trips here (its own describe below covers the rule itself).
+        frRepo.findById.mockResolvedValue({ ...fr, status: current, assignedToId: "dev-1" });
         frRepo.update.mockResolvedValue({ ...fr, status: next });
         await service.updateStatus(admin, "fr-1", { status: next });
         expect(frRepo.update).toHaveBeenCalledWith("fr-1", expect.objectContaining({ status: next }));
@@ -290,6 +292,65 @@ describe("FeatureRequestService", () => {
         expect(frRepo.update).toHaveBeenCalledWith(
           "fr-1",
           expect.not.objectContaining({ resolvedAt: null, closedAt: null })
+        );
+      });
+    });
+
+    describe("Under Review and In Progress need an assignee", () => {
+      it.each(["under_review", "in_progress"])(
+        "rejects moving to %s with no assignee, in the request or already on it",
+        async (status) => {
+          frRepo.findById.mockResolvedValue(fr); // status: "new", no assignee
+          await expect(service.updateStatus(admin, "fr-1", { status })).rejects.toMatchObject({
+            statusCode: 422,
+          });
+          expect(frRepo.update).not.toHaveBeenCalled();
+        }
+      );
+
+      it("rejects clearing the assignee while the request stays Under Review", async () => {
+        frRepo.findById.mockResolvedValue({ ...fr, status: "under_review", assignedToId: "dev-1" });
+        await expect(service.updateStatus(admin, "fr-1", { assignedToId: null })).rejects.toMatchObject({
+          statusCode: 422,
+        });
+        expect(frRepo.update).not.toHaveBeenCalled();
+      });
+
+      it("allows moving to Under Review when an assignee is picked in the same request", async () => {
+        frRepo.findById.mockResolvedValue(fr);
+        frRepo.update.mockResolvedValue({ ...fr, status: "under_review", assignedToId: "dev-1" });
+        await service.updateStatus(admin, "fr-1", { status: "under_review", assignedToId: "dev-1" });
+        expect(frRepo.update).toHaveBeenCalledWith(
+          "fr-1",
+          expect.objectContaining({ status: "under_review", assignedToId: "dev-1" })
+        );
+      });
+
+      it("allows moving to In Progress when the request is already assigned", async () => {
+        frRepo.findById.mockResolvedValue({ ...fr, status: "under_review", assignedToId: "dev-1" });
+        frRepo.update.mockResolvedValue({ ...fr, status: "in_progress" });
+        await service.updateStatus(admin, "fr-1", { status: "in_progress" });
+        expect(frRepo.update).toHaveBeenCalledWith("fr-1", expect.objectContaining({ status: "in_progress" }));
+      });
+
+      it("allows clearing the assignee in the same request that moves the status to Planned", async () => {
+        frRepo.findById.mockResolvedValue({ ...fr, status: "under_review", assignedToId: "dev-1" });
+        frRepo.update.mockResolvedValue({ ...fr, status: "planned", assignedToId: null });
+        await service.updateStatus(admin, "fr-1", { status: "planned", assignedToId: null });
+        expect(frRepo.update).toHaveBeenCalledWith(
+          "fr-1",
+          expect.objectContaining({ status: "planned", assignedToId: null })
+        );
+      });
+
+      it("doesn't retroactively block an unrelated edit on a pre-existing unassigned Under Review request", async () => {
+        const legacy = { ...fr, status: "under_review", assignedToId: null };
+        frRepo.findById.mockResolvedValue(legacy);
+        frRepo.update.mockResolvedValue({ ...legacy, adminResponse: "Still looking into it" });
+        await service.updateStatus(admin, "fr-1", { adminResponse: "Still looking into it" });
+        expect(frRepo.update).toHaveBeenCalledWith(
+          "fr-1",
+          expect.objectContaining({ adminResponse: "Still looking into it" })
         );
       });
     });

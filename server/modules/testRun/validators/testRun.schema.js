@@ -31,6 +31,8 @@ const fetchTestRunsSchema = z.object({
     page: z.coerce.number().int().min(1).default(1),
     limit: z.coerce.number().int().min(1).max(100).default(20),
     projectId: z.string().uuid(),
+    // Narrows to runs still in progress — the tab-count "pending" figure.
+    pending: z.coerce.boolean().optional(),
   }),
 });
 

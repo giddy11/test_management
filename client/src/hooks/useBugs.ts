@@ -17,6 +17,8 @@ interface BugQuery {
   searchBy?: BugSearchField
   from?: string
   to?: string
+  // Not yet Fixed/Verified/Closed — the tab-count "pending" figure.
+  pending?: boolean
 }
 
 export function useBugs(projectId: string, params: BugQuery = {}) {

@@ -25,6 +25,7 @@ import {
   BUG_SEVERITIES,
   BUG_PRIORITIES,
   isBugStatusSelectable,
+  isBugAssigneeRequired,
   type BugStatus,
   type BugSeverity,
   type BugPriority,
@@ -56,6 +57,8 @@ export function BugManageDialog({ open, onOpenChange, bug }: Props) {
       setAssignedToId(bug.assignedTo?.id ?? "unassigned")
     }
   }, [open, bug])
+
+  const needsAssignee = isBugAssigneeRequired(status) && assignedToId === "unassigned"
 
   const onSubmit = () => {
     if (!bug) return
@@ -130,19 +133,24 @@ export function BugManageDialog({ open, onOpenChange, bug }: Props) {
           <div className="grid gap-1.5">
             <Label>Assignee</Label>
             <Select value={assignedToId} onValueChange={setAssignedToId}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectTrigger data-cy="bug-assignee"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="unassigned">Unassigned</SelectItem>
                 {users.map((u) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
               </SelectContent>
             </Select>
+            {needsAssignee && (
+              <p className="text-xs text-destructive">
+                An In Progress bug must be assigned to someone.
+              </p>
+            )}
           </div>
         </div>
         <DialogFooter>
           <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button type="button" onClick={onSubmit} disabled={manage.isPending} data-cy="bug-manage-save">
+          <Button type="button" onClick={onSubmit} disabled={manage.isPending || needsAssignee} data-cy="bug-manage-save">
             {manage.isPending ? "Saving…" : "Save"}
           </Button>
         </DialogFooter>

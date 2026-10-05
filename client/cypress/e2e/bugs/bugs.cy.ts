@@ -27,7 +27,9 @@ describe("Bug reports", () => {
 
   it("lists bugs with severity and status", () => {
     cy.dataCy("bug-card").should("have.length", 1)
-    cy.dataCy("bugs-tab-count").should("have.text", "1")
+    // The stub doesn't vary by query, so the "pending" and "total" tab-count
+    // requests both resolve to the same count here.
+    cy.dataCy("bugs-tab-count").should("have.text", "1/1")
     cy.contains('[data-cy="bug-card"]', "Login button unresponsive on Safari").within(() => {
       cy.contains("Open").should("be.visible")
       cy.contains("Major").should("be.visible")

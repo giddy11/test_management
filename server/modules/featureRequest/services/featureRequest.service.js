@@ -77,6 +77,24 @@ function assertCanAssignFeatureRequest(status) {
   }
 }
 
+// Work can't be tracked against nobody — a request being reviewed or built must
+// have someone on it. Checked against the status and assignee the request will
+// end up with, so either field alone can create (or fix) the gap. Mirrored on
+// the client in isFeatureRequestAssigneeRequired (lib/enums.ts).
+const ASSIGNEE_REQUIRED_STATUSES = new Set([
+  FeatureRequestStatus.UNDER_REVIEW,
+  FeatureRequestStatus.IN_PROGRESS,
+]);
+
+function assertFeatureRequestHasAssignee(status, assignedToId) {
+  if (ASSIGNEE_REQUIRED_STATUSES.has(status) && !assignedToId) {
+    throw new AppError(
+      `A request can't be ${FEATURE_REQUEST_STATUS_LABELS[status]} without an assignee — pick someone first.`,
+      422
+    );
+  }
+}
+
 class FeatureRequestService {
   static Instance = new FeatureRequestService();
 
@@ -254,6 +272,15 @@ class FeatureRequestService {
     if (data.assignedToId !== undefined) {
       if (data.assignedToId) assertCanAssignFeatureRequest(patch.status ?? fr.status);
       patch.assignedToId = data.assignedToId;
+    }
+
+    // Only when status or assignee is actually being touched — an edit that
+    // changes neither (e.g. just a reply) leaves a pre-existing gap alone.
+    if (data.status !== undefined || data.assignedToId !== undefined) {
+      assertFeatureRequestHasAssignee(
+        patch.status ?? fr.status,
+        "assignedToId" in patch ? patch.assignedToId : fr.assignedToId
+      );
     }
 
     const updated = await this.frRepo.update(id, patch);

@@ -93,7 +93,7 @@ export const ResultAttachmentEndpoints = {
 }
 
 export const RunEndpoints = {
-  fetchAll: (params: { projectId: string; page?: number; limit?: number }) =>
+  fetchAll: (params: { projectId: string; page?: number; limit?: number; pending?: boolean }) =>
     wrapCall<TestRun[]>("GET", "/api/v1/test-runs", obj(params)),
   fetchById: (id: string) => wrapCall<TestRun>("GET", `/api/v1/test-runs/${id}`),
   checkActive: (params: { projectId: string }) =>

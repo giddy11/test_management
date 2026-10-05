@@ -115,6 +115,8 @@ export interface FetchFeedbackParams {
   status?: FeedbackStatus
   type?: FeedbackType
   search?: string
+  // Not yet Closed — the tab-count "pending" figure.
+  pending?: boolean
 }
 
 export interface SupportQueueParams {

@@ -25,12 +25,23 @@ import type { SuiteBreakdown } from "@/types/testMgmt.types"
 
 const PROJECT_TABS = ["suites", "runs", "feature-requests", "bugs", "feedback", "live-chat"] as const
 
-// Small count pill beside a tab label. Hidden until loaded and when there's nothing to count.
-function TabCount({ count, ...props }: { count?: number } & React.ComponentProps<"span">) {
-  if (!count) return null
+// Small count pill beside a tab label. Hidden until the total has loaded and
+// when there's nothing to count. `pending` (not yet closed/done/completed) is
+// shown alongside the total as "pending/total"; omit it for a tab with no such
+// concept (Test Suites), which then just shows the total on its own.
+function TabCount({
+  pending,
+  total,
+  ...props
+}: { pending?: number; total?: number } & React.ComponentProps<"span">) {
+  if (!total) return null
   return (
-    <span className="rounded-full bg-foreground/10 px-1.5 text-xs tabular-nums" {...props}>
-      {count}
+    <span
+      className="rounded-full bg-foreground/10 px-1.5 text-xs tabular-nums"
+      title={pending !== undefined ? `${pending} pending of ${total} total` : `${total} total`}
+      {...props}
+    >
+      {pending !== undefined ? `${pending}/${total}` : total}
     </span>
   )
 }
@@ -52,16 +63,26 @@ export default function ProjectDetailPage() {
     Boolean(project?.members?.some((m) => m.id === user?.id && m.role === "team_lead"))
   const { data: stats } = useDashboard(projectId)
   // Project-wide totals for the tab labels, independent of each tab's own
-  // filters. limit 1 because only meta.total is read; creating or deleting an
-  // item invalidates these along with the lists.
+  // filters — plus, for everything but suites (which have no such status), how
+  // many of those are still pending (not yet Fixed/Verified/Closed, Done/Rejected,
+  // Closed, or Completed). limit 1 because only meta.total is read; creating,
+  // deleting or changing the status of an item invalidates these along with
+  // the lists.
   const { data: suiteTotal } = useSuiteTotal(projectId)
   const { data: runTotal } = useRunTotal(projectId)
+  const { data: runPending } = useRunTotal(projectId, { pending: true })
   const { data: featureRequests } = useFeatureRequests(projectId, { limit: 1 })
+  const { data: featureRequestsPending } = useFeatureRequests(projectId, { limit: 1, pending: true })
   const { data: bugs } = useBugs(projectId, { limit: 1 })
+  const { data: bugsPending } = useBugs(projectId, { limit: 1, pending: true })
   const { data: tickets } = useFeedback({ projectId, limit: 1 })
+  const { data: ticketsPending } = useFeedback({ projectId, limit: 1, pending: true })
   const featureRequestTotal = featureRequests?.meta?.total
+  const featureRequestPending = featureRequestsPending?.meta?.total
   const bugTotal = bugs?.meta?.total
+  const bugPending = bugsPending?.meta?.total
   const ticketTotal = tickets?.meta?.total
+  const ticketPending = ticketsPending?.meta?.total
 
   const breakdownMap = useMemo<Map<string, SuiteBreakdown>>(() => {
     if (!stats?.suitesBreakdown) return new Map()
@@ -128,19 +149,20 @@ export default function ProjectDetailPage() {
       >
         <TabsList>
           <TabsTrigger value="suites">
-            Test Suites <TabCount count={suiteTotal} data-cy="suites-tab-count" />
+            Test Suites <TabCount total={suiteTotal} data-cy="suites-tab-count" />
           </TabsTrigger>
           <TabsTrigger value="runs" data-tour="runs-tab-trigger">
-            Test Runs <TabCount count={runTotal} data-cy="runs-tab-count" />
+            Test Runs <TabCount pending={runPending} total={runTotal} data-cy="runs-tab-count" />
           </TabsTrigger>
           <TabsTrigger value="feature-requests">
-            Feature Requests <TabCount count={featureRequestTotal} data-cy="feature-requests-tab-count" />
+            Feature Requests{" "}
+            <TabCount pending={featureRequestPending} total={featureRequestTotal} data-cy="feature-requests-tab-count" />
           </TabsTrigger>
           <TabsTrigger value="bugs">
-            Bug Fixes <TabCount count={bugTotal} data-cy="bugs-tab-count" />
+            Bug Fixes <TabCount pending={bugPending} total={bugTotal} data-cy="bugs-tab-count" />
           </TabsTrigger>
           <TabsTrigger value="feedback" data-tour="feedback-tab-trigger">
-            Tickets <TabCount count={ticketTotal} data-cy="tickets-tab-count" />
+            Tickets <TabCount pending={ticketPending} total={ticketTotal} data-cy="tickets-tab-count" />
           </TabsTrigger>
           <TabsTrigger value="live-chat">Live Chat</TabsTrigger>
         </TabsList>

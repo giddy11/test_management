@@ -19,12 +19,13 @@ export function useRuns(projectId: string) {
 }
 
 // Number of runs the caller can see in the project — for the tab label. The list
-// hook above returns bare rows with no total.
-export function useRunTotal(projectId: string) {
+// hook above returns bare rows with no total. pending: true narrows to runs
+// still in progress (not yet Completed).
+export function useRunTotal(projectId: string, { pending }: { pending?: boolean } = {}) {
   return useQuery({
-    queryKey: [RUNS, "total", projectId],
+    queryKey: [RUNS, "total", projectId, { pending }],
     queryFn: async () => {
-      const res = await RunEndpoints.fetchAll({ projectId, limit: 1 })
+      const res = await RunEndpoints.fetchAll({ projectId, limit: 1, pending })
       if (!res.success) throw new ApiError(res.message, res.statusCode)
       return res.meta?.total ?? 0
     },

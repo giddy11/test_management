@@ -1,4 +1,4 @@
-import { listMeta, ok } from "../../support/api"
+import { apiPath, listMeta, ok } from "../../support/api"
 
 const PROJECT_ID = "e2e-proj-1"
 
@@ -57,11 +57,29 @@ describe("Project detail — suites", () => {
     cy.visit(`/projects/${PROJECT_ID}`)
     cy.wait("@tickets")
 
+    // Suites have no "pending" concept, so that pill is just the total. The
+    // others show pending/total — the stubs don't vary by query, so both
+    // numbers come out equal here.
     cy.dataCy("suites-tab-count").should("have.text", "2")
-    cy.dataCy("runs-tab-count").should("have.text", "1")
-    cy.dataCy("feature-requests-tab-count").should("have.text", "2")
-    cy.dataCy("bugs-tab-count").should("have.text", "1")
-    cy.dataCy("tickets-tab-count").should("have.text", "3")
+    cy.dataCy("runs-tab-count").should("have.text", "1/1")
+    cy.dataCy("feature-requests-tab-count").should("have.text", "2/2")
+    cy.dataCy("bugs-tab-count").should("have.text", "1/1")
+    cy.dataCy("tickets-tab-count").should("have.text", "3/3")
+  })
+
+  it("shows a different pending count from the total when they differ", () => {
+    cy.fixture("bugs/list").then((bugs) => {
+      cy.intercept("GET", apiPath("/bugs"), (req) => {
+        req.reply({
+          body: req.url.includes("pending=true")
+            ? ok([bugs[0]], listMeta(1))
+            : ok([bugs[0], bugs[0], bugs[0]], listMeta(3)),
+        })
+      })
+    })
+    cy.visit(`/projects/${PROJECT_ID}`)
+
+    cy.dataCy("bugs-tab-count").should("have.text", "1/3")
   })
 
   it("searches suites by name through the API", () => {

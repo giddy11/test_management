@@ -28,7 +28,9 @@ describe("Feature requests", () => {
 
   it("lists requests with status, votes, and comment counts", () => {
     cy.dataCy("feature-request-card").should("have.length", 2)
-    cy.dataCy("feature-requests-tab-count").should("have.text", "2")
+    // The stub doesn't vary by query, so the "pending" and "total" tab-count
+    // requests both resolve to the same count here.
+    cy.dataCy("feature-requests-tab-count").should("have.text", "2/2")
     cy.contains('[data-cy="feature-request-card"]', "Dark mode for reports").within(() => {
       cy.contains("Under Review").should("be.visible")
       cy.contains("UI/UX").should("be.visible")
