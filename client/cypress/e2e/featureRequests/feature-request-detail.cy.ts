@@ -8,13 +8,29 @@ describe("Feature request detail (admin)", () => {
   beforeEach(() => {
     cy.login("admin")
     cy.fixture("projects/list").then((projects) => {
-      cy.interceptApi("GET", `/projects/${PROJECT_ID}`, { body: ok({ ...projects[0], members: [] }) }, "project")
+      cy.interceptApi(
+        "GET",
+        `/projects/${PROJECT_ID}`,
+        {
+          body: ok({
+            ...projects[0],
+            // The status dialog's assignee picker is scoped to these — "Ada Admin"
+            // (in team/users but not a member here) must never appear in it.
+            members: [
+              { id: "e2e-user-0001", name: "Uche Tester", email: "uche.tester@example.com", role: "member" },
+              { id: "e2e-user-0002", name: "Bola Runner", email: "bola.runner@example.com", role: "team_lead" },
+            ],
+          }),
+        },
+        "project"
+      )
     })
     cy.fixture("featureRequests/list").then((requests) => {
       cy.interceptApi("GET", `/feature-requests/${FR_ID}`, { body: ok(requests[0]) }, "request")
     })
     cy.interceptApi("GET", `/feature-requests/${FR_ID}/attachments`, { body: ok([]) }, "attachments")
-    // The status dialog's assignee picker loads users — same as BugManageDialog.
+    // The comment thread's @mention autocomplete loads users — the status
+    // dialog's assignee picker uses the project's own members (stubbed above).
     cy.fixture("team/users").then((users) => {
       cy.interceptApi("GET", "/users", { body: ok(users, listMeta(users.length)) }, "users")
     })
@@ -87,6 +103,37 @@ describe("Feature request detail (admin)", () => {
       assignedToId: null,
     })
     cy.contains("Feature request updated").should("be.visible")
+  })
+
+  it("requires an assignee for an Under Review request, then only offers project members", () => {
+    // The fixture request is already Under Review, with no assignee.
+    cy.dataCy("fr-update-status").click()
+    cy.contains("Update status").should("be.visible")
+
+    cy.contains("Under Review requests must be assigned to someone.").should("be.visible")
+    cy.dataCy("fr-status-save").should("be.disabled")
+
+    // Only this project's members are offered — not every user in the company.
+    cy.dataCy("fr-assignee").click()
+    cy.contains('[role="option"]', "Bola Runner").should("be.visible")
+    cy.contains('[role="option"]', "Ada Admin").should("not.exist")
+    cy.contains('[role="option"]', "Bola Runner").click()
+
+    cy.fixture("featureRequests/list").then((requests) => {
+      cy.interceptApi(
+        "PATCH",
+        `/feature-requests/${FR_ID}`,
+        { body: ok({ ...requests[0], assignedTo: { id: "e2e-user-0002", name: "Bola Runner" } }) },
+        "assignRequest"
+      )
+    })
+    cy.dataCy("fr-status-save").should("not.be.disabled").click()
+
+    cy.wait("@assignRequest").its("request.body").should("deep.equal", {
+      status: "under_review",
+      adminResponse: null,
+      assignedToId: "e2e-user-0002",
+    })
   })
 
   it("only offers the current status and later ones — no going back", () => {

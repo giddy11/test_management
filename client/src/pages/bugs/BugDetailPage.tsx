@@ -16,7 +16,7 @@ import { CommentThread } from "@/components/bugs/CommentThread"
 import { StatusTimeline } from "@/components/shared/StatusTimeline"
 import { useBug, useBugByCode, useBugHistory, useDeleteBug } from "@/hooks/useBugs"
 import { useCase } from "@/hooks/useCases"
-import { useCanManageProject } from "@/hooks/useProjects"
+import { useCanManageProject, useProject } from "@/hooks/useProjects"
 import { useAuth } from "@/contexts/AuthContext"
 import { BUG_STATUS_META, isBugReportEditable, type BugStatus } from "@/lib/enums"
 import { ApiError } from "@/transport/http"
@@ -42,6 +42,8 @@ export default function BugDetailPage() {
   const navigate = useNavigate()
   const { user } = useAuth()
   const canManage = useCanManageProject(projectId)
+  // The Manage dialog's assignee picker is scoped to these — same rule the API enforces.
+  const { data: project } = useProject(projectId)
 
   const byId = useBug(id ?? "")
   const byCode = useBugByCode(code ?? "")
@@ -200,7 +202,7 @@ export default function BugDetailPage() {
       <CommentThread bugId={bug.id} canModerate={canManage} />
 
       <BugFormDialog open={editOpen && reportEditable} onOpenChange={setEditOpen} projectId={projectId} bug={bug} />
-      <BugManageDialog open={manageOpen} onOpenChange={setManageOpen} bug={bug} />
+      <BugManageDialog open={manageOpen} onOpenChange={setManageOpen} bug={bug} members={project?.members ?? []} />
 
       <ConfirmDialog
         open={deleteOpen}

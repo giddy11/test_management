@@ -246,6 +246,15 @@ class BugService {
     return this.bugRepo.findById(bug.id);
   }
 
+  // An assignee must be someone on this project — picking a stranger would
+  // create work nobody on the team can actually see assigned to them.
+  async _assertAssigneeBelongsToProject(projectId, userId) {
+    const role = await this.memberRepo.getRole(projectId, userId);
+    if (!role) {
+      throw new AppError("The assignee must be a member of this project.", 422);
+    }
+  }
+
   async manageBug(actor, id, data) {
     const bug = await this.getAccessible(actor, id);
     await this.projectService.assertCanContribute(actor, bug.projectId);
@@ -268,6 +277,9 @@ class BugService {
     }
     if (data.testCaseId) {
       await this._assertLinksBelongToProject(bug.projectId, { testCaseId: data.testCaseId });
+    }
+    if (data.assignedToId) {
+      await this._assertAssigneeBelongsToProject(bug.projectId, data.assignedToId);
     }
 
     if (data.status !== undefined) assertValidStatusTransition(bug.status, data.status);

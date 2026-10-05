@@ -18,7 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { useManageBug } from "@/hooks/useBugs"
-import { useUsers } from "@/hooks/useUsers"
+import type { ProjectMember } from "@/types/project.types"
 import {
   BUG_STATUSES,
   BUG_STATUS_META,
@@ -37,12 +37,12 @@ interface Props {
   open: boolean
   onOpenChange: (open: boolean) => void
   bug: Bug | null
+  // The assignee must be on this project — same rule the API enforces.
+  members: ProjectMember[]
 }
 
-export function BugManageDialog({ open, onOpenChange, bug }: Props) {
+export function BugManageDialog({ open, onOpenChange, bug, members }: Props) {
   const manage = useManageBug()
-  const { data: usersData } = useUsers({ limit: 100 })
-  const users = usersData?.data ?? []
 
   const [status, setStatus] = useState<BugStatus>("Open")
   const [severity, setSeverity] = useState<BugSeverity>("Minor")
@@ -131,12 +131,17 @@ export function BugManageDialog({ open, onOpenChange, bug }: Props) {
             </div>
           </div>
           <div className="grid gap-1.5">
-            <Label>Assignee</Label>
+            <Label>Assignee (project members only)</Label>
             <Select value={assignedToId} onValueChange={setAssignedToId}>
               <SelectTrigger data-cy="bug-assignee"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="unassigned">Unassigned</SelectItem>
-                {users.map((u) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
+                {/* Carries over a previously valid assignee who has since left the
+                    project, so the save button isn't silently stuck on them. */}
+                {bug?.assignedTo && !members.some((m) => m.id === bug.assignedTo!.id) && (
+                  <SelectItem value={bug.assignedTo.id}>{bug.assignedTo.name} (no longer on this project)</SelectItem>
+                )}
+                {members.map((m) => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
               </SelectContent>
             </Select>
             {needsAssignee && (

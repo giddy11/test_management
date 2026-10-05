@@ -240,6 +240,15 @@ class FeatureRequestService {
     return fr;
   }
 
+  // An assignee must be someone on this project — picking a stranger would
+  // create work nobody on the team can actually see assigned to them.
+  async _assertAssigneeBelongsToProject(projectId, userId) {
+    const role = await this.memberRepo.getRole(projectId, userId);
+    if (!role) {
+      throw new AppError("The assignee must be a member of this project.", 422);
+    }
+  }
+
   async updateStatus(actor, id, data) {
     const fr = await this.getAccessible(actor, id);
     // Editing a request and deciding its fate (planned, done, rejected) are both
@@ -270,7 +279,10 @@ class FeatureRequestService {
       patch.firstResponseAt = patch.statusUpdatedAt ?? new Date();
     }
     if (data.assignedToId !== undefined) {
-      if (data.assignedToId) assertCanAssignFeatureRequest(patch.status ?? fr.status);
+      if (data.assignedToId) {
+        assertCanAssignFeatureRequest(patch.status ?? fr.status);
+        await this._assertAssigneeBelongsToProject(fr.projectId, data.assignedToId);
+      }
       patch.assignedToId = data.assignedToId;
     }
 

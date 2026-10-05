@@ -9,7 +9,22 @@ const BUG_URL = `/projects/${PROJECT_ID}/bugs/${BUG_ID}`
 function openBug(role: "admin" | "user", userOverrides?: Record<string, unknown>) {
   cy.login(role, userOverrides)
   cy.fixture("projects/list").then((projects) => {
-    cy.interceptApi("GET", `/projects/${PROJECT_ID}`, { body: ok({ ...projects[0], members: [] }) }, "project")
+    cy.interceptApi(
+      "GET",
+      `/projects/${PROJECT_ID}`,
+      {
+        body: ok({
+          ...projects[0],
+          // The Manage dialog's assignee picker is scoped to these — "Ada Admin"
+          // (in team/users but not a member here) must never appear in it.
+          members: [
+            { id: "e2e-user-0001", name: "Uche Tester", email: "uche.tester@example.com", role: "member" },
+            { id: "e2e-user-0002", name: "Bola Runner", email: "bola.runner@example.com", role: "team_lead" },
+          ],
+        }),
+      },
+      "project"
+    )
   })
   cy.fixture("bugs/list").then((bugs) => {
     cy.interceptApi("GET", `/bugs/${BUG_ID}`, { body: ok(bugs[0]) }, "bug")
@@ -29,7 +44,9 @@ function openBug(role: "admin" | "user", userOverrides?: Record<string, unknown>
     },
     "history"
   )
-  // The manage dialog's assignee picker loads users; the edit dialog's test-case picker loads suites.
+  // The comment thread's @mention autocomplete loads users; the edit dialog's
+  // test-case picker loads suites. The Manage dialog's assignee picker uses the
+  // project's own members (stubbed above), not this.
   cy.fixture("team/users").then((users) => {
     cy.interceptApi("GET", "/users", { body: ok(users, listMeta(users.length)) }, "users")
   })
@@ -62,7 +79,7 @@ describe("Bug detail (admin)", () => {
     cy.dataCy("timeline-entry").eq(4).should("contain", "In Progress").and("contain", "so far")
   })
 
-  it("transitions the bug status and assigns a user", () => {
+  it("requires an assignee before an In Progress bug can be saved, then only offers project members", () => {
     cy.fixture("bugs/list").then((bugs) => {
       cy.interceptApi(
         "PATCH",
@@ -75,13 +92,24 @@ describe("Bug detail (admin)", () => {
     cy.dataCy("bug-manage").click()
     cy.contains("Manage bug").should("be.visible")
     cy.selectDropdown('[data-cy="bug-status"]', "In Progress")
-    cy.dataCy("bug-manage-save").click()
+
+    // No assignee picked yet — blocked, with the reason shown.
+    cy.contains("An In Progress bug must be assigned to someone.").should("be.visible")
+    cy.dataCy("bug-manage-save").should("be.disabled")
+
+    // Only this project's members are offered — not every user in the company.
+    cy.dataCy("bug-assignee").click()
+    cy.contains('[role="option"]', "Bola Runner").should("be.visible")
+    cy.contains('[role="option"]', "Ada Admin").should("not.exist")
+    cy.contains('[role="option"]', "Bola Runner").click()
+
+    cy.dataCy("bug-manage-save").should("not.be.disabled").click()
 
     cy.wait("@manageBug").its("request.body").should("deep.equal", {
       status: "In Progress",
       severity: "Major",
       priority: "High",
-      assignedToId: null,
+      assignedToId: "e2e-user-0002",
     })
     cy.contains("Bug updated").should("be.visible")
   })

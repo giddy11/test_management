@@ -21,7 +21,7 @@ import {
   useFeatureRequestHistory,
   useDeleteFeatureRequest,
 } from "@/hooks/useFeatureRequests"
-import { useCanManageProject } from "@/hooks/useProjects"
+import { useCanManageProject, useProject } from "@/hooks/useProjects"
 import { FEATURE_REQUEST_STATUS_META, type FeatureRequestStatus } from "@/lib/enums"
 import { ApiError } from "@/transport/http"
 
@@ -32,6 +32,8 @@ export default function FeatureRequestDetailPage() {
   const { projectId = "", id, code } = useParams()
   const navigate = useNavigate()
   const canManage = useCanManageProject(projectId)
+  // The status dialog's assignee picker is scoped to these — same rule the API enforces.
+  const { data: project } = useProject(projectId)
 
   const byId = useFeatureRequest(id ?? "")
   const byCode = useFeatureRequestByCode(code ?? "")
@@ -146,7 +148,7 @@ export default function FeatureRequestDetailPage() {
 
       <CommentThread requestId={request.id} canModerate={canManage} />
 
-      <StatusUpdateDialog open={statusOpen} onOpenChange={setStatusOpen} request={request} />
+      <StatusUpdateDialog open={statusOpen} onOpenChange={setStatusOpen} request={request} members={project?.members ?? []} />
 
       <ConfirmDialog
         open={deleteOpen}

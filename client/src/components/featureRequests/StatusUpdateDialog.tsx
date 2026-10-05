@@ -19,7 +19,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { useUpdateFeatureRequestStatus } from "@/hooks/useFeatureRequests"
-import { useUsers } from "@/hooks/useUsers"
+import type { ProjectMember } from "@/types/project.types"
 import {
   FEATURE_REQUEST_STATUSES,
   FEATURE_REQUEST_STATUS_META,
@@ -36,12 +36,12 @@ interface Props {
   open: boolean
   onOpenChange: (open: boolean) => void
   request: FeatureRequest | null
+  // The assignee must be on this project — same rule the API enforces.
+  members: ProjectMember[]
 }
 
-export function StatusUpdateDialog({ open, onOpenChange, request }: Props) {
+export function StatusUpdateDialog({ open, onOpenChange, request, members }: Props) {
   const update = useUpdateFeatureRequestStatus()
-  const { data: usersData } = useUsers({ limit: 100 })
-  const users = usersData?.data ?? []
   const [status, setStatus] = useState<FeatureRequestStatus>("new")
   const [adminResponse, setAdminResponse] = useState("")
   const [assignedToId, setAssignedToId] = useState<string>("unassigned")
@@ -109,12 +109,19 @@ export function StatusUpdateDialog({ open, onOpenChange, request }: Props) {
           </div>
           {isFeatureRequestAssignable(status) && (
             <div className="grid gap-1.5">
-              <Label>Assignee</Label>
+              <Label>Assignee (project members only)</Label>
               <Select value={assignedToId} onValueChange={setAssignedToId}>
                 <SelectTrigger data-cy="fr-assignee"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="unassigned">Unassigned</SelectItem>
-                  {users.map((u) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
+                  {/* Carries over a previously valid assignee who has since left
+                      the project, so the save button isn't silently stuck on them. */}
+                  {request?.assignedTo && !members.some((m) => m.id === request.assignedTo!.id) && (
+                    <SelectItem value={request.assignedTo.id}>
+                      {request.assignedTo.name} (no longer on this project)
+                    </SelectItem>
+                  )}
+                  {members.map((m) => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
                 </SelectContent>
               </Select>
               {needsAssignee && (

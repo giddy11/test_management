@@ -59,7 +59,12 @@ function makeNotificationService() {
 }
 
 function makeMemberRepo() {
-  return { findMemberUsers: jest.fn().mockResolvedValue([]) };
+  return {
+    findMemberUsers: jest.fn().mockResolvedValue([]),
+    // Default: any assignee is a project member — override per test for the
+    // "assignee must belong to the project" cases.
+    getRole: jest.fn().mockResolvedValue("member"),
+  };
 }
 
 function makeHistoryRepo() {
@@ -511,6 +516,34 @@ describe("BugService", () => {
         bugRepo.update.mockResolvedValue({ ...legacy, severity: "Major" });
         await service.manageBug(admin, "bug-1", { severity: "Major" });
         expect(bugRepo.update).toHaveBeenCalledWith("bug-1", expect.objectContaining({ severity: "Major" }));
+      });
+    });
+
+    describe("an assignee must belong to the project", () => {
+      it("rejects an assignee who isn't a project member", async () => {
+        memberRepo.getRole.mockResolvedValue(null);
+        bugRepo.findById.mockResolvedValue(bug);
+        await expect(service.manageBug(admin, "bug-1", { assignedToId: "outsider-1" })).rejects.toMatchObject({
+          statusCode: 422,
+        });
+        expect(memberRepo.getRole).toHaveBeenCalledWith("proj-1", "outsider-1");
+        expect(bugRepo.update).not.toHaveBeenCalled();
+      });
+
+      it("accepts an assignee who is a project member", async () => {
+        memberRepo.getRole.mockResolvedValue("member");
+        bugRepo.findById.mockResolvedValue(bug);
+        bugRepo.update.mockResolvedValue({ ...bug, assignedToId: "dev-1" });
+        await service.manageBug(admin, "bug-1", { assignedToId: "dev-1" });
+        expect(bugRepo.update).toHaveBeenCalledWith("bug-1", expect.objectContaining({ assignedToId: "dev-1" }));
+      });
+
+      it("never checks membership when clearing the assignee", async () => {
+        bugRepo.findById.mockResolvedValue({ ...bug, assignedToId: "dev-1" });
+        bugRepo.update.mockResolvedValue({ ...bug, assignedToId: null });
+        await service.manageBug(admin, "bug-1", { assignedToId: null });
+        expect(memberRepo.getRole).not.toHaveBeenCalled();
+        expect(bugRepo.update).toHaveBeenCalledWith("bug-1", expect.objectContaining({ assignedToId: null }));
       });
     });
 

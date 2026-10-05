@@ -65,7 +65,12 @@ function makeProjectService() {
 }
 
 function makeMemberRepo() {
-  return { findMemberUsers: jest.fn().mockResolvedValue([]) };
+  return {
+    findMemberUsers: jest.fn().mockResolvedValue([]),
+    // Default: any assignee is a project member — override per test for the
+    // "assignee must belong to the project" cases.
+    getRole: jest.fn().mockResolvedValue("member"),
+  };
 }
 
 function makeHistoryRepo() {
@@ -352,6 +357,34 @@ describe("FeatureRequestService", () => {
           "fr-1",
           expect.objectContaining({ adminResponse: "Still looking into it" })
         );
+      });
+    });
+
+    describe("an assignee must belong to the project", () => {
+      it("rejects an assignee who isn't a project member", async () => {
+        memberRepo.getRole.mockResolvedValue(null);
+        frRepo.findById.mockResolvedValue({ ...fr, status: "under_review" });
+        await expect(
+          service.updateStatus(admin, "fr-1", { assignedToId: "outsider-1" })
+        ).rejects.toMatchObject({ statusCode: 422 });
+        expect(memberRepo.getRole).toHaveBeenCalledWith("proj-1", "outsider-1");
+        expect(frRepo.update).not.toHaveBeenCalled();
+      });
+
+      it("accepts an assignee who is a project member", async () => {
+        memberRepo.getRole.mockResolvedValue("member");
+        frRepo.findById.mockResolvedValue({ ...fr, status: "under_review" });
+        frRepo.update.mockResolvedValue({ ...fr, status: "under_review", assignedToId: "dev-1" });
+        await service.updateStatus(admin, "fr-1", { assignedToId: "dev-1" });
+        expect(frRepo.update).toHaveBeenCalledWith("fr-1", expect.objectContaining({ assignedToId: "dev-1" }));
+      });
+
+      it("never checks membership when clearing the assignee", async () => {
+        frRepo.findById.mockResolvedValue({ ...fr, status: "under_review", assignedToId: "dev-1" });
+        frRepo.update.mockResolvedValue({ ...fr, status: "under_review", assignedToId: null });
+        await service.updateStatus(admin, "fr-1", { assignedToId: null });
+        expect(memberRepo.getRole).not.toHaveBeenCalled();
+        expect(frRepo.update).toHaveBeenCalledWith("fr-1", expect.objectContaining({ assignedToId: null }));
       });
     });
 
