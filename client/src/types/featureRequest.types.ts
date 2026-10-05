@@ -13,6 +13,7 @@ export interface FeatureRequest {
   module: string | null
   referenceLinks: string[]
   submittedBy: { id: string; name: string } | null
+  assignedTo: { id: string; name: string } | null
   upvoteCount: number
   hasVoted: boolean
   commentCount: number
@@ -64,6 +65,7 @@ export interface FeatureRequestAttachment {
 export interface UpdateFeatureRequestStatusPayload {
   status?: FeatureRequestStatus
   adminResponse?: string | null
+  assignedToId?: string | null
 }
 
 export interface VoteResult {

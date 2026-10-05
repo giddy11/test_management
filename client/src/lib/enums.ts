@@ -71,6 +71,12 @@ export function isFeatureRequestStatusSelectable(current: FeatureRequestStatus, 
   return FEATURE_REQUEST_STAGES.indexOf(candidate) > FEATURE_REQUEST_STAGES.indexOf(current)
 }
 
+// Assigning someone only makes sense once the request is past "new" and hasn't
+// been rejected. Mirrors assertCanAssignFeatureRequest in the API's featureRequest.service.js.
+export function isFeatureRequestAssignable(status: FeatureRequestStatus): boolean {
+  return FEATURE_REQUEST_STAGES.indexOf(status) >= FEATURE_REQUEST_STAGES.indexOf("under_review")
+}
+
 export const BUG_SEVERITIES = ["Trivial", "Minor", "Major", "Critical"] as const
 export type BugSeverity = (typeof BUG_SEVERITIES)[number]
 

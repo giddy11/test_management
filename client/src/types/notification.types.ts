@@ -5,6 +5,7 @@ export type NotificationType =
   | "feature_request_new"
   | "feature_request_status_changed"
   | "feature_request_comment"
+  | "feature_request_assigned"
   | "bug_reported"
   | "bug_assigned"
   | "bug_status_changed"

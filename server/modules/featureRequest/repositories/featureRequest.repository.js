@@ -29,6 +29,7 @@ class FeatureRequestRepository {
     const qb = this.repo
       .createQueryBuilder("fr")
       .leftJoinAndSelect("fr.submittedBy", "submittedBy")
+      .leftJoinAndSelect("fr.assignedTo", "assignedTo")
       .where("fr.project_id = :projectId", { projectId }) // indexed FK
       .andWhere("fr.deleted_at IS NULL")
       .skip(offset)
@@ -60,11 +61,14 @@ class FeatureRequestRepository {
   }
 
   async findById(id) {
-    return this.repo.findOne({ where: { id }, relations: { submittedBy: true } });
+    return this.repo.findOne({ where: { id }, relations: { submittedBy: true, assignedTo: true } });
   }
 
   async findByNumber(requestNumber) {
-    return this.repo.findOne({ where: { requestNumber }, relations: { submittedBy: true } });
+    return this.repo.findOne({
+      where: { requestNumber },
+      relations: { submittedBy: true, assignedTo: true },
+    });
   }
 
   async create(data) {

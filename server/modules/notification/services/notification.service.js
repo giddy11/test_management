@@ -15,6 +15,7 @@ const {
   sendFeatureRequestStatusEmail,
   sendFeatureRequestCommentEmail,
   sendFeatureRequestMentionEmail,
+  sendFeatureRequestAssignedEmail,
   sendFeedbackCommentEmail,
   sendFeedbackMentionEmail,
   sendNewBugEmail,
@@ -587,6 +588,22 @@ class NotificationService {
     ]);
     sendBugAssignedEmail(user.email, user.firstName, ctx.title, url, user.organizationId).catch((e) =>
       console.error("[notify] bug-assigned email failed:", e.message)
+    );
+  }
+
+  async notifyFeatureRequestAssigned(user, ctx) {
+    const url = `${env.appUrl}/projects/${ctx.projectId}/feature-requests/${ctx.requestId}`;
+    await this.repo.createMany([
+      {
+        userId: user.id,
+        type: NotificationType.FEATURE_REQUEST_ASSIGNED,
+        title: `Feature request assigned: ${ctx.title}`,
+        body: `You've been assigned to "${ctx.title}"`,
+        data: { requestId: ctx.requestId, projectId: ctx.projectId },
+      },
+    ]);
+    sendFeatureRequestAssignedEmail(user.email, user.firstName, ctx.title, url, user.organizationId).catch((e) =>
+      console.error("[notify] feature-request-assigned email failed:", e.message)
     );
   }
 }

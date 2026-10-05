@@ -61,6 +61,11 @@ const FeatureRequest = new EntitySchema({
       type: "uuid",
       nullable: true,
     },
+    assignedToId: {
+      name: "assigned_to_id",
+      type: "uuid",
+      nullable: true,
+    },
     upvoteCount: {
       name: "upvote_count",
       type: "integer",
@@ -126,10 +131,18 @@ const FeatureRequest = new EntitySchema({
       nullable: true,
       onDelete: "SET NULL",
     },
+    assignedTo: {
+      type: "many-to-one",
+      target: "User",
+      joinColumn: { name: "assigned_to_id" },
+      nullable: true,
+      onDelete: "SET NULL",
+    },
   },
   indices: [
     { name: "idx_feature_requests_project_status_created", columns: ["projectId", "status", "createdAt"] },
     { name: "idx_feature_requests_submitted_by", columns: ["submittedById"] },
+    { name: "idx_feature_requests_assigned_to", columns: ["assignedToId"] },
     { name: "idx_feature_requests_project_upvote_count", columns: ["projectId", "upvoteCount"] },
     { name: "idx_feature_requests_request_number", columns: ["requestNumber"], unique: true },
   ],

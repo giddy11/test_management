@@ -71,6 +71,7 @@ export default function FeatureRequestDetailPage() {
             <p className="mt-1 text-sm text-muted-foreground">
               {request.submittedBy ? `Submitted by ${request.submittedBy.name}` : "Submitted"}
               {` · ${new Date(request.createdAt).toLocaleDateString()}`}
+              {request.assignedTo && ` · Assigned to ${request.assignedTo.name}`}
             </p>
           </div>
         </div>

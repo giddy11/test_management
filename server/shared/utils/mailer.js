@@ -419,6 +419,19 @@ async function sendFeatureRequestStatusEmail(to, firstName, title, status, admin
   });
 }
 
+async function sendFeatureRequestAssignedEmail(to, firstName, title, url, organizationId) {
+  const body = `
+    <h1 style="margin:0 0 12px;font-size:20px;font-weight:700;color:#0f172a">You've been assigned a feature request</h1>
+    <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.65">Hi ${firstName}, you've been assigned to <strong>${title}</strong>.</p>
+    ${ctaButton(url, "View request")}`;
+  return send({
+    to,
+    subject: `Feature request assigned — ${title} — TestMate`,
+    html: emailLayout(body, await resolveFooterEmail(organizationId)),
+    text: `You've been assigned to the feature request "${title}".`,
+  });
+}
+
 async function sendFeatureRequestCommentEmail(to, firstName, title, commenterName, url, organizationId) {
   const body = `
     <h1 style="margin:0 0 12px;font-size:20px;font-weight:700;color:#0f172a">New comment on your feature request</h1>
@@ -538,6 +551,7 @@ module.exports = {
   sendFeatureRequestStatusEmail,
   sendFeatureRequestCommentEmail,
   sendFeatureRequestMentionEmail,
+  sendFeatureRequestAssignedEmail,
   sendNewBugEmail,
   sendBugStatusEmail,
   sendBugCommentEmail,

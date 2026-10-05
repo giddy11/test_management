@@ -138,17 +138,18 @@ export function FeatureRequestsTab({ projectId }: { projectId: string }) {
                 <TableHead>Status</TableHead>
                 <TableHead>Category</TableHead>
                 <TableHead>Submitted by</TableHead>
+                <TableHead>Assignee</TableHead>
                 <TableHead>Comments</TableHead>
                 <TableHead>Submitted</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading && (
-                <TableRow><TableCell colSpan={8} className="h-24"><InlineLoader /></TableCell></TableRow>
+                <TableRow><TableCell colSpan={9} className="h-24"><InlineLoader /></TableCell></TableRow>
               )}
               {!isLoading && requests.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={8} className="h-32">
+                  <TableCell colSpan={9} className="h-32">
                     <div className="flex flex-col items-center gap-2 text-center">
                       <Lightbulb className="size-7 text-muted-foreground" />
                       <p className="text-sm text-muted-foreground">No feature requests yet.</p>

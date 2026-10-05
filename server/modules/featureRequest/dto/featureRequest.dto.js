@@ -20,6 +20,12 @@ function toFeatureRequestResponse(fr, extra = {}) {
           name: [submitter.firstName, submitter.lastName].filter(Boolean).join(" "),
         }
       : null,
+    assignedTo: fr.assignedTo
+      ? {
+          id: fr.assignedTo.id,
+          name: [fr.assignedTo.firstName, fr.assignedTo.lastName].filter(Boolean).join(" "),
+        }
+      : null,
     upvoteCount: fr.upvoteCount ?? 0,
     hasVoted: extra.hasVoted ?? false,
     commentCount: extra.commentCount ?? 0,

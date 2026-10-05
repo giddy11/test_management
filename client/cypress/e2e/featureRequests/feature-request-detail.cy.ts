@@ -14,6 +14,10 @@ describe("Feature request detail (admin)", () => {
       cy.interceptApi("GET", `/feature-requests/${FR_ID}`, { body: ok(requests[0]) }, "request")
     })
     cy.interceptApi("GET", `/feature-requests/${FR_ID}/attachments`, { body: ok([]) }, "attachments")
+    // The status dialog's assignee picker loads users — same as BugManageDialog.
+    cy.fixture("team/users").then((users) => {
+      cy.interceptApi("GET", "/users", { body: ok(users, listMeta(users.length)) }, "users")
+    })
     cy.interceptApi(
       "GET",
       `/feature-requests/${FR_ID}/history`,
@@ -80,6 +84,7 @@ describe("Feature request detail (admin)", () => {
     cy.wait("@updateStatus").its("request.body").should("deep.equal", {
       status: "planned",
       adminResponse: "Scheduled for Q3.",
+      assignedToId: null,
     })
     cy.contains("Feature request updated").should("be.visible")
   })

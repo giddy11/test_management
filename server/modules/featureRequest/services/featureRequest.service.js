@@ -64,6 +64,19 @@ function assertValidStatusTransition(current, next) {
   }
 }
 
+// Assigning someone only makes sense once the request is being acted on — not
+// while it's still unreviewed "new", and not once it's been rejected. Clearing
+// an assignee (assignedToId: null) is always allowed, regardless of status.
+// Mirrored on the client in isFeatureRequestAssignable (lib/enums.ts).
+function assertCanAssignFeatureRequest(status) {
+  if (FEATURE_REQUEST_STAGES.indexOf(status) < FEATURE_REQUEST_STAGES.indexOf(FeatureRequestStatus.UNDER_REVIEW)) {
+    throw new AppError(
+      `Move the request to ${FEATURE_REQUEST_STATUS_LABELS[FeatureRequestStatus.UNDER_REVIEW]} or later before assigning someone.`,
+      422
+    );
+  }
+}
+
 class FeatureRequestService {
   static Instance = new FeatureRequestService();
 
@@ -238,6 +251,10 @@ class FeatureRequestService {
     if ((statusChanged || staffReplied) && !fr.firstResponseAt) {
       patch.firstResponseAt = patch.statusUpdatedAt ?? new Date();
     }
+    if (data.assignedToId !== undefined) {
+      if (data.assignedToId) assertCanAssignFeatureRequest(patch.status ?? fr.status);
+      patch.assignedToId = data.assignedToId;
+    }
 
     const updated = await this.frRepo.update(id, patch);
     const project = await this.projectService.getProject(actor, fr.projectId);
@@ -284,6 +301,26 @@ class FeatureRequestService {
           }
         })
         .catch((e) => console.error("[featureRequest] status notify failed:", e.message));
+    }
+
+    if (
+      data.assignedToId !== undefined &&
+      data.assignedToId &&
+      data.assignedToId !== fr.assignedToId &&
+      data.assignedToId !== actor.id
+    ) {
+      this.authRepo
+        .findUserById(data.assignedToId)
+        .then((assignee) => {
+          if (assignee) {
+            this.notificationService.notifyFeatureRequestAssigned(assignee, {
+              requestId: fr.id,
+              projectId: fr.projectId,
+              title: fr.title,
+            });
+          }
+        })
+        .catch((e) => console.error("[featureRequest] assign notify failed:", e.message));
     }
 
     return updated;

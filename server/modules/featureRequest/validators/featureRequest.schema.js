@@ -20,6 +20,7 @@ const updateStatusSchema = z.object({
     .object({
       status: z.enum(enums.featureRequestStatus).optional(),
       adminResponse: z.string().max(3000).nullable().optional(),
+      assignedToId: z.string().uuid().nullable().optional(),
     })
     .refine((b) => Object.keys(b).length > 0, {
       message: "At least one field must be provided",

@@ -116,6 +116,7 @@ const NotificationType = Object.freeze({
   FEATURE_REQUEST_STATUS_CHANGED: "feature_request_status_changed",
   FEATURE_REQUEST_COMMENT: "feature_request_comment",
   FEATURE_REQUEST_NEW: "feature_request_new",
+  FEATURE_REQUEST_ASSIGNED: "feature_request_assigned",
   BUG_REPORTED: "bug_reported",
   BUG_ASSIGNED: "bug_assigned",
   BUG_STATUS_CHANGED: "bug_status_changed",

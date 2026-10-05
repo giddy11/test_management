@@ -19,11 +19,13 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { useUpdateFeatureRequestStatus } from "@/hooks/useFeatureRequests"
+import { useUsers } from "@/hooks/useUsers"
 import {
   FEATURE_REQUEST_STATUSES,
   FEATURE_REQUEST_STATUS_META,
   isFeatureRequestFinal,
   isFeatureRequestStatusSelectable,
+  isFeatureRequestAssignable,
   type FeatureRequestStatus,
 } from "@/lib/enums"
 import { ApiError } from "@/transport/http"
@@ -37,20 +39,31 @@ interface Props {
 
 export function StatusUpdateDialog({ open, onOpenChange, request }: Props) {
   const update = useUpdateFeatureRequestStatus()
+  const { data: usersData } = useUsers({ limit: 100 })
+  const users = usersData?.data ?? []
   const [status, setStatus] = useState<FeatureRequestStatus>("new")
   const [adminResponse, setAdminResponse] = useState("")
+  const [assignedToId, setAssignedToId] = useState<string>("unassigned")
 
   useEffect(() => {
     if (open && request) {
       setStatus(request.status)
       setAdminResponse(request.adminResponse ?? "")
+      setAssignedToId(request.assignedTo?.id ?? "unassigned")
     }
   }, [open, request])
 
   const onSubmit = () => {
     if (!request) return
     update.mutate(
-      { id: request.id, payload: { status, adminResponse: adminResponse || null } },
+      {
+        id: request.id,
+        payload: {
+          status,
+          adminResponse: adminResponse || null,
+          assignedToId: assignedToId === "unassigned" ? null : assignedToId,
+        },
+      },
       {
         onError: (e) => toast.error(e instanceof ApiError ? e.message : "Failed"),
         onSuccess: () => {
@@ -91,6 +104,18 @@ export function StatusUpdateDialog({ open, onOpenChange, request }: Props) {
                 : "Status can only move forward — earlier stages can't be selected."}
             </p>
           </div>
+          {isFeatureRequestAssignable(status) && (
+            <div className="grid gap-1.5">
+              <Label>Assignee</Label>
+              <Select value={assignedToId} onValueChange={setAssignedToId}>
+                <SelectTrigger data-cy="fr-assignee"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="unassigned">Unassigned</SelectItem>
+                  {users.map((u) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <div className="grid gap-1.5">
             <Label htmlFor="adminResponse">Response (optional)</Label>
             <Textarea
