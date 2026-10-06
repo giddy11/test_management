@@ -84,6 +84,15 @@ export function isFeatureRequestAssigneeRequired(status: FeatureRequestStatus): 
   return status === "under_review" || status === "in_progress"
 }
 
+// The write-up (title, description, category, module, reference links) can
+// only be corrected before work on it starts; once it's In Progress — or past
+// it: Done/Rejected — it's locked for everyone. Status/response/assignee are
+// unaffected. Mirrors assertFeatureRequestContentEditable in the API's
+// featureRequest.service.js.
+export function isFeatureRequestEditable(status: FeatureRequestStatus): boolean {
+  return status === "new" || status === "under_review" || status === "planned"
+}
+
 export const BUG_SEVERITIES = ["Trivial", "Minor", "Major", "Critical"] as const
 export type BugSeverity = (typeof BUG_SEVERITIES)[number]
 

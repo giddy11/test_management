@@ -423,6 +423,110 @@ describe("FeatureRequestService", () => {
       await Promise.resolve();
       expect(historyRepo.create).not.toHaveBeenCalled();
     });
+
+    describe("editing the write-up's content", () => {
+      it("lets the submitter (a plain user) correct their own request", async () => {
+        frRepo.findById.mockResolvedValue(fr); // submittedById: "user-1"
+        frRepo.update.mockResolvedValue({ ...fr, title: "Dark mode for the dashboard" });
+        await service.updateStatus(user, "fr-1", {
+          title: "Dark mode for the dashboard",
+          description: "Please add a dark theme to the dashboard",
+        });
+        expect(projectService.assertCanManageProject).not.toHaveBeenCalled();
+        expect(frRepo.update).toHaveBeenCalledWith("fr-1", {
+          title: "Dark mode for the dashboard",
+          description: "Please add a dark theme to the dashboard",
+        });
+      });
+
+      it("forbids a plain user who isn't the submitter", async () => {
+        frRepo.findById.mockResolvedValue({ ...fr, submittedById: "someone-else" });
+        await expect(service.updateStatus(user, "fr-1", { title: "Hijacked" })).rejects.toMatchObject({
+          statusCode: 403,
+        });
+        expect(frRepo.update).not.toHaveBeenCalled();
+      });
+
+      it("lets an admin edit a request someone else submitted", async () => {
+        frRepo.findById.mockResolvedValue(fr);
+        frRepo.update.mockResolvedValue({ ...fr, description: "Fixed typo" });
+        await service.updateStatus(admin, "fr-1", { description: "Fixed typo" });
+        expect(frRepo.update).toHaveBeenCalledWith("fr-1", { description: "Fixed typo" });
+      });
+
+      describe("once the request is In Progress or later", () => {
+        const LOCKED = ["in_progress", "done", "rejected"];
+
+        it.each(LOCKED)(
+          "refuses to edit the write-up while the request is %s — even for its submitter",
+          async (status) => {
+            frRepo.findById.mockResolvedValue({ ...fr, status }); // submittedById: "user-1"
+            await expect(service.updateStatus(user, "fr-1", { title: "Clearer title" })).rejects.toMatchObject({
+              statusCode: 422,
+            });
+            expect(frRepo.update).not.toHaveBeenCalled();
+          }
+        );
+
+        it.each(LOCKED)("refuses an admin too while the request is %s", async (status) => {
+          frRepo.findById.mockResolvedValue({ ...fr, status });
+          await expect(service.updateStatus(admin, "fr-1", { description: "Fixed typo" })).rejects.toMatchObject({
+            statusCode: 422,
+          });
+          expect(frRepo.update).not.toHaveBeenCalled();
+        });
+
+        it("locks every field of the write-up, not just the title", async () => {
+          frRepo.findById.mockResolvedValue({ ...fr, status: "in_progress" });
+          for (const patch of [
+            { description: "x" },
+            { category: "x" },
+            { module: "x" },
+            { referenceLinks: ["https://example.com"] },
+          ]) {
+            await expect(service.updateStatus(admin, "fr-1", patch)).rejects.toMatchObject({ statusCode: 422 });
+          }
+          expect(frRepo.update).not.toHaveBeenCalled();
+        });
+
+        it("still lets the team triage it: status, response and assignee", async () => {
+          frRepo.findById.mockResolvedValue({ ...fr, status: "in_progress", assignedToId: "dev-1" });
+          frRepo.update.mockResolvedValue({ ...fr, status: "done" });
+          await service.updateStatus(admin, "fr-1", { status: "done", adminResponse: "Shipped" });
+          expect(frRepo.update).toHaveBeenCalledWith(
+            "fr-1",
+            expect.objectContaining({ status: "done", adminResponse: "Shipped" })
+          );
+        });
+
+        it("still allows the edit while New, Under Review, or Planned, alongside triage in the same request", async () => {
+          frRepo.findById.mockResolvedValue({ ...fr, status: "planned", assignedToId: "dev-1" });
+          frRepo.update.mockResolvedValue({ ...fr, title: "Clearer title" });
+          await service.updateStatus(admin, "fr-1", { title: "Clearer title", adminResponse: "Noted" });
+          expect(frRepo.update).toHaveBeenCalledWith(
+            "fr-1",
+            expect.objectContaining({ title: "Clearer title", adminResponse: "Noted" })
+          );
+        });
+      });
+
+      it("forbids the submitter from changing status, response, or assignee", async () => {
+        frRepo.findById.mockResolvedValue(fr);
+        await expect(service.updateStatus(user, "fr-1", { status: "planned" })).rejects.toMatchObject({
+          statusCode: 403,
+        });
+        await expect(service.updateStatus(user, "fr-1", { adminResponse: "noted" })).rejects.toMatchObject({
+          statusCode: 403,
+        });
+      });
+
+      it("clears optional fields when null is sent", async () => {
+        frRepo.findById.mockResolvedValue(fr);
+        frRepo.update.mockResolvedValue(fr);
+        await service.updateStatus(user, "fr-1", { category: null, module: null, referenceLinks: null });
+        expect(frRepo.update).toHaveBeenCalledWith("fr-1", { category: null, module: null, referenceLinks: null });
+      });
+    });
   });
 
   describe("deleteFeatureRequest", () => {

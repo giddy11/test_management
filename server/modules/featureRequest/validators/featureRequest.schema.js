@@ -14,6 +14,11 @@ const createFeatureRequestSchema = z.object({
   }),
 });
 
+// One PATCH covers both triage (status/response/assignee — managers only) and
+// correcting the write-up itself (title … referenceLinks — the submitter or a
+// manager). The permission split lives in FeatureRequestService.updateStatus.
+// category/module/referenceLinks are nullable so a mistaken value can be
+// cleared, not just replaced.
 const updateStatusSchema = z.object({
   params: z.object({ id: z.string().uuid() }),
   body: z
@@ -21,6 +26,11 @@ const updateStatusSchema = z.object({
       status: z.enum(enums.featureRequestStatus).optional(),
       adminResponse: z.string().max(3000).nullable().optional(),
       assignedToId: z.string().uuid().nullable().optional(),
+      title: z.string().min(1).max(200).optional(),
+      description: z.string().min(1).max(3000).optional(),
+      category: z.string().max(50).nullable().optional(),
+      module: z.string().max(100).nullable().optional(),
+      referenceLinks: z.array(z.string().url()).max(10).nullable().optional(),
     })
     .refine((b) => Object.keys(b).length > 0, {
       message: "At least one field must be provided",

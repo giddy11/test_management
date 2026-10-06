@@ -23,22 +23,28 @@ import {
 import { FormField } from "@/components/shared/FormField"
 import { PendingAttachmentsField } from "@/components/shared/PendingAttachmentsField"
 import { SimilarTicketsPanel } from "@/components/tickets/SimilarTicketsPanel"
-import { useCreateFeatureRequest } from "@/hooks/useFeatureRequests"
+import { useCreateFeatureRequest, useUpdateFeatureRequestStatus } from "@/hooks/useFeatureRequests"
 import { useLinkPendingTickets } from "@/hooks/useTicketLinks"
 import { useSuites } from "@/hooks/useSuites"
 import { featureRequestSchema, linesToArray, type FeatureRequestForm } from "@/lib/testMgmtValidation"
 import { ApiError } from "@/transport/http"
 import { FeatureRequestAttachmentEndpoints } from "@/endpoints/featureRequest.endpoints"
+import type { FeatureRequest } from "@/types/featureRequest.types"
 import type { PendingTicketLink } from "@/types/ticketLink.types"
 
 interface Props {
   open: boolean
   onOpenChange: (open: boolean) => void
   projectId: string
+  // When set, the dialog corrects this request's write-up instead of filing a
+  // new one. Attachments aren't editable here — that stays in the attachments section.
+  request?: FeatureRequest
 }
 
-export function FeatureRequestFormDialog({ open, onOpenChange, projectId }: Props) {
+export function FeatureRequestFormDialog({ open, onOpenChange, projectId, request }: Props) {
+  const isEdit = Boolean(request)
   const create = useCreateFeatureRequest()
+  const update = useUpdateFeatureRequestStatus()
   const { data: suites = [] } = useSuites(projectId)
   const [files, setFiles] = useState<File[]>([])
   const [uploading, setUploading] = useState(false)
@@ -59,15 +65,45 @@ export function FeatureRequestFormDialog({ open, onOpenChange, projectId }: Prop
   const moduleValue = watch("module")
   const title = watch("title")
 
+  // Prefill once per open — a background refetch of `request` must not wipe
+  // what's being typed.
   useEffect(() => {
     if (open) {
-      reset({ title: "", description: "", category: "", module: "", referenceLinksText: "" })
+      reset({
+        title: request?.title ?? "",
+        description: request?.description ?? "",
+        category: request?.category ?? "",
+        module: request?.module ?? "",
+        referenceLinksText: request?.referenceLinks.join("\n") ?? "",
+      })
       setFiles([])
       setPendingLinks([])
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, reset])
 
+  const onEdit = async (requestToEdit: FeatureRequest, values: FeatureRequestForm) => {
+    try {
+      // Empty optional fields are sent as null (not omitted) so a mistaken value can be cleared.
+      await update.mutateAsync({
+        id: requestToEdit.id,
+        payload: {
+          title: values.title,
+          description: values.description,
+          category: values.category || null,
+          module: values.module || null,
+          referenceLinks: linesToArray(values.referenceLinksText ?? ""),
+        },
+      })
+      toast.success("Feature request updated")
+      onOpenChange(false)
+    } catch (e) {
+      toast.error(e instanceof ApiError ? e.message : "Failed")
+    }
+  }
+
   const onSubmit = async (values: FeatureRequestForm) => {
+    if (request) return onEdit(request, values)
     const referenceLinks = values.referenceLinksText ? linesToArray(values.referenceLinksText) : undefined
     try {
       const request = await create.mutateAsync({
@@ -110,20 +146,26 @@ export function FeatureRequestFormDialog({ open, onOpenChange, projectId }: Prop
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Suggest a feature</DialogTitle>
-          <DialogDescription>Tell us what you'd like to see in TestMate.</DialogDescription>
+          <DialogTitle>{isEdit ? "Edit feature request" : "Suggest a feature"}</DialogTitle>
+          <DialogDescription>
+            {isEdit
+              ? "Correct the write-up — title, description, category, module, or reference links."
+              : "Tell us what you'd like to see in TestMate."}
+          </DialogDescription>
         </DialogHeader>
         <form className="grid min-w-0 gap-4" onSubmit={handleSubmit(onSubmit)}>
           <FormField id="title" label="Title" error={errors.title?.message} {...register("title")} />
 
-          {/* Has this been suggested before? */}
-          <SimilarTicketsPanel
-            projectId={projectId}
-            title={title ?? ""}
-            pending={pendingLinks}
-            onChange={setPendingLinks}
-            noun="request"
-          />
+          {/* Only when filing a new request: has this been suggested before? */}
+          {!isEdit && (
+            <SimilarTicketsPanel
+              projectId={projectId}
+              title={title ?? ""}
+              pending={pendingLinks}
+              onChange={setPendingLinks}
+              noun="request"
+            />
+          )}
 
           <div className="grid gap-1.5">
             <Label htmlFor="description">Description</Label>
@@ -165,14 +207,22 @@ export function FeatureRequestFormDialog({ open, onOpenChange, projectId }: Prop
             />
           </div>
 
-          <PendingAttachmentsField files={files} onChange={setFiles} disabled={create.isPending || uploading} />
+          {!isEdit && (
+            <PendingAttachmentsField files={files} onChange={setFiles} disabled={create.isPending || uploading} />
+          )}
 
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={create.isPending || uploading || linkPending.isPending} data-cy="feature-request-submit">
-              {uploading ? "Uploading…" : create.isPending ? "Submitting…" : "Submit request"}
+            <Button
+              type="submit"
+              disabled={create.isPending || update.isPending || uploading || linkPending.isPending}
+              data-cy="feature-request-submit"
+            >
+              {isEdit
+                ? update.isPending ? "Saving…" : "Save changes"
+                : uploading ? "Uploading…" : create.isPending ? "Submitting…" : "Submit request"}
             </Button>
           </DialogFooter>
         </form>

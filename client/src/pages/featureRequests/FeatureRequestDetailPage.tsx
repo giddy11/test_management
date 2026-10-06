@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { Link, useNavigate, useParams } from "react-router-dom"
-import { ChevronLeft, Pencil, Trash2, ExternalLink, Share2 } from "lucide-react"
+import { ChevronLeft, Pencil, SlidersHorizontal, Trash2, ExternalLink, Share2 } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -10,6 +10,7 @@ import { ConfirmDialog } from "@/components/shared/ConfirmDialog"
 import { FeatureRequestStatusBadge } from "@/components/shared/StatusBadge"
 import { VoteButton } from "@/components/featureRequests/VoteButton"
 import { StatusUpdateDialog } from "@/components/featureRequests/StatusUpdateDialog"
+import { FeatureRequestFormDialog } from "@/components/featureRequests/FeatureRequestFormDialog"
 import { CommentThread } from "@/components/featureRequests/CommentThread"
 import { FeatureRequestAttachmentsSection } from "@/components/featureRequests/FeatureRequestAttachmentsSection"
 import { RelatedTickets } from "@/components/tickets/RelatedTickets"
@@ -22,7 +23,8 @@ import {
   useDeleteFeatureRequest,
 } from "@/hooks/useFeatureRequests"
 import { useCanManageProject, useProject } from "@/hooks/useProjects"
-import { FEATURE_REQUEST_STATUS_META, type FeatureRequestStatus } from "@/lib/enums"
+import { useAuth } from "@/contexts/AuthContext"
+import { FEATURE_REQUEST_STATUS_META, isFeatureRequestEditable, type FeatureRequestStatus } from "@/lib/enums"
 import { ApiError } from "@/transport/http"
 
 // Done and rejected are final, so their timeline row shows no running clock.
@@ -31,6 +33,7 @@ const FINAL_STATUSES = ["done", "rejected"]
 export default function FeatureRequestDetailPage() {
   const { projectId = "", id, code } = useParams()
   const navigate = useNavigate()
+  const { user } = useAuth()
   const canManage = useCanManageProject(projectId)
   // The status dialog's assignee picker is scoped to these — same rule the API enforces.
   const { data: project } = useProject(projectId)
@@ -40,11 +43,18 @@ export default function FeatureRequestDetailPage() {
   const { data: request, isLoading } = code ? byCode : byId
   const { data: history = [] } = useFeatureRequestHistory(request?.id ?? "")
   const del = useDeleteFeatureRequest()
+  const [editOpen, setEditOpen] = useState(false)
   const [statusOpen, setStatusOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
 
   if (isLoading) return <PageLoader />
   if (!request) return null
+
+  // Submitters can fix mistakes in their own write-up; status/response/assignee
+  // stays with admins and team leads — mirrors FeatureRequestService.updateStatus.
+  const canEdit = canManage || (Boolean(user) && request.submittedBy?.id === user?.id)
+  // Even then, the write-up is only editable while New, Under Review, or Planned.
+  const writeUpEditable = isFeatureRequestEditable(request.status)
 
   const handleShare = () => {
     const url = `${window.location.origin}/projects/${projectId}/feature-requests/ref/${request.referenceCode}`
@@ -82,10 +92,31 @@ export default function FeatureRequestDetailPage() {
           <Button variant="outline" onClick={handleShare} data-cy="fr-share">
             <Share2 className="mr-1 size-4" /> Share
           </Button>
+          {canEdit && (
+            // Shown but disabled once the request moves on, so people can see why —
+            // the wrapper carries the explanation because a disabled button takes no hover.
+            <span
+              title={
+                writeUpEditable
+                  ? undefined
+                  : `This request is ${FEATURE_REQUEST_STATUS_META[request.status].label}, so it can no longer be edited. It can only be edited while New, Under Review, or Planned.`
+              }
+              data-cy="fr-edit-wrapper"
+            >
+              <Button
+                variant="outline"
+                onClick={() => setEditOpen(true)}
+                disabled={!writeUpEditable}
+                data-cy="fr-edit"
+              >
+                <Pencil className="mr-1 size-4" /> Edit
+              </Button>
+            </span>
+          )}
           {canManage && (
             <>
               <Button variant="outline" onClick={() => setStatusOpen(true)} data-cy="fr-update-status">
-                <Pencil className="mr-1 size-4" /> Update status
+                <SlidersHorizontal className="mr-1 size-4" /> Update status
               </Button>
               <Button variant="outline" onClick={() => setDeleteOpen(true)} data-cy="fr-delete">
                 <Trash2 className="mr-1 size-4 text-destructive" />
@@ -148,6 +179,12 @@ export default function FeatureRequestDetailPage() {
 
       <CommentThread requestId={request.id} canModerate={canManage} />
 
+      <FeatureRequestFormDialog
+        open={editOpen && writeUpEditable}
+        onOpenChange={setEditOpen}
+        projectId={projectId}
+        request={request}
+      />
       <StatusUpdateDialog open={statusOpen} onOpenChange={setStatusOpen} request={request} members={project?.members ?? []} />
 
       <ConfirmDialog

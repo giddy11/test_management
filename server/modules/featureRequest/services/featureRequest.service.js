@@ -95,6 +95,33 @@ function assertFeatureRequestHasAssignee(status, assignedToId) {
   }
 }
 
+// PATCH /feature-requests/:id fields that need manage rights vs. ones the
+// submitter may fix on their own request. Mirrors TRIAGE_FIELDS/CONTENT_FIELDS
+// in bug.service.js.
+const TRIAGE_FIELDS = ["status", "adminResponse", "assignedToId"];
+const CONTENT_FIELDS = ["title", "description", "category", "module", "referenceLinks"];
+
+// The write-up (title, description, category, module, reference links) can
+// only be corrected before work on it starts. Once a request is In Progress —
+// or past it: Done/Rejected — it's a record of what the team is building or
+// decided, and rewriting it underneath them would make their work read as
+// something it wasn't. Status/response/assignee still move freely; only the
+// write-up locks. Mirrored on the client in isFeatureRequestEditable (lib/enums.ts).
+const LOCKED_FEATURE_REQUEST_CONTENT_STATUSES = new Set([
+  FeatureRequestStatus.IN_PROGRESS,
+  FeatureRequestStatus.DONE,
+  FeatureRequestStatus.REJECTED,
+]);
+
+function assertFeatureRequestContentEditable(status) {
+  if (LOCKED_FEATURE_REQUEST_CONTENT_STATUSES.has(status)) {
+    throw new AppError(
+      `This request is ${FEATURE_REQUEST_STATUS_LABELS[status]}, so it can no longer be edited. It can only be edited while New, Under Review, or Planned.`,
+      422
+    );
+  }
+}
+
 class FeatureRequestService {
   static Instance = new FeatureRequestService();
 
@@ -251,11 +278,27 @@ class FeatureRequestService {
 
   async updateStatus(actor, id, data) {
     const fr = await this.getAccessible(actor, id);
-    // Editing a request and deciding its fate (planned, done, rejected) are both
-    // the project's team lead's call.
-    await this.projectService.assertCanManageProject(actor, fr.projectId);
+    await this.projectService.assertCanContribute(actor, fr.projectId);
+
+    // Triage fields (status/response/assignee — deciding the request's fate)
+    // are for the project's team lead only; correcting the write-up itself is
+    // also open to whoever submitted it. A request that mixes both is treated
+    // as triage (all-or-nothing).
+    const touchesTriage = TRIAGE_FIELDS.some((f) => data[f] !== undefined);
+    const isSubmitter = fr.submittedById === actor.id;
+    if (touchesTriage || !isSubmitter) {
+      await this.projectService.assertCanManageProject(actor, fr.projectId);
+    }
+    // Judged on the status the request has NOW, and for everyone — admins and
+    // the team lead included, since the lock protects the record, not a permission.
+    if (CONTENT_FIELDS.some((f) => data[f] !== undefined)) {
+      assertFeatureRequestContentEditable(fr.status);
+    }
 
     const patch = {};
+    for (const field of CONTENT_FIELDS) {
+      if (data[field] !== undefined) patch[field] = data[field];
+    }
     if (data.status !== undefined) assertValidStatusTransition(fr.status, data.status);
     // Only a real move counts as a transition — resending the current status
     // alongside a reply must not stamp a first response or reset statusUpdatedAt.

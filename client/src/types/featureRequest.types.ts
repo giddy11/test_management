@@ -62,10 +62,18 @@ export interface FeatureRequestAttachment {
   createdAt: string
 }
 
+// PATCH /feature-requests/:id takes triage fields (status/response/assignee —
+// managers only) and/or corrections to the write-up itself (submitter or a
+// manager). Optional text is nullable so a mistaken value can be cleared.
 export interface UpdateFeatureRequestStatusPayload {
   status?: FeatureRequestStatus
   adminResponse?: string | null
   assignedToId?: string | null
+  title?: string
+  description?: string
+  category?: string | null
+  module?: string | null
+  referenceLinks?: string[] | null
 }
 
 export interface VoteResult {

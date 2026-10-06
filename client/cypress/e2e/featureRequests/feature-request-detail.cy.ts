@@ -4,50 +4,58 @@ const PROJECT_ID = "e2e-proj-1"
 const FR_ID = "e2e-fr-1"
 const FR_URL = `/projects/${PROJECT_ID}/feature-requests/${FR_ID}`
 
-describe("Feature request detail (admin)", () => {
-  beforeEach(() => {
-    cy.login("admin")
-    cy.fixture("projects/list").then((projects) => {
-      cy.interceptApi(
-        "GET",
-        `/projects/${PROJECT_ID}`,
-        {
-          body: ok({
-            ...projects[0],
-            // The status dialog's assignee picker is scoped to these — "Ada Admin"
-            // (in team/users but not a member here) must never appear in it.
-            members: [
-              { id: "e2e-user-0001", name: "Uche Tester", email: "uche.tester@example.com", role: "member" },
-              { id: "e2e-user-0002", name: "Bola Runner", email: "bola.runner@example.com", role: "team_lead" },
-            ],
-          }),
-        },
-        "project"
-      )
-    })
-    cy.fixture("featureRequests/list").then((requests) => {
-      cy.interceptApi("GET", `/feature-requests/${FR_ID}`, { body: ok(requests[0]) }, "request")
-    })
-    cy.interceptApi("GET", `/feature-requests/${FR_ID}/attachments`, { body: ok([]) }, "attachments")
-    // The comment thread's @mention autocomplete loads users — the status
-    // dialog's assignee picker uses the project's own members (stubbed above).
-    cy.fixture("team/users").then((users) => {
-      cy.interceptApi("GET", "/users", { body: ok(users, listMeta(users.length)) }, "users")
-    })
+// The fixture request was submitted by "user" (e2e-user-0001), so logging in as
+// "user" is the submitter; pass a different id to be someone else on the project.
+function openFeatureRequest(role: "admin" | "user", userOverrides?: Record<string, unknown>) {
+  cy.login(role, userOverrides)
+  cy.fixture("projects/list").then((projects) => {
     cy.interceptApi(
       "GET",
-      `/feature-requests/${FR_ID}/history`,
+      `/projects/${PROJECT_ID}`,
       {
-        body: ok([
-          { status: "new", enteredAt: "2026-07-14T09:00:00.000Z" },
-          { status: "under_review", enteredAt: "2026-07-15T10:30:00.000Z" },
-        ]),
+        body: ok({
+          ...projects[0],
+          // The status dialog's assignee picker is scoped to these — "Ada Admin"
+          // (in team/users but not a member here) must never appear in it.
+          members: [
+            { id: "e2e-user-0001", name: "Uche Tester", email: "uche.tester@example.com", role: "member" },
+            { id: "e2e-user-0002", name: "Bola Runner", email: "bola.runner@example.com", role: "team_lead" },
+          ],
+        }),
       },
-      "history"
+      "project"
     )
-    cy.visit(FR_URL)
-    cy.wait("@request")
   })
+  cy.fixture("featureRequests/list").then((requests) => {
+    cy.interceptApi("GET", `/feature-requests/${FR_ID}`, { body: ok(requests[0]) }, "request")
+  })
+  cy.interceptApi("GET", `/feature-requests/${FR_ID}/attachments`, { body: ok([]) }, "attachments")
+  // The comment thread's @mention autocomplete loads users — the status
+  // dialog's assignee picker uses the project's own members (stubbed above).
+  cy.fixture("team/users").then((users) => {
+    cy.interceptApi("GET", "/users", { body: ok(users, listMeta(users.length)) }, "users")
+  })
+  // The edit dialog's "Module" picker loads suites.
+  cy.fixture("testmgmt/suites").then((suites) => {
+    cy.interceptApi("GET", "/test-suites", { body: ok(suites, listMeta(suites.length)) }, "suites")
+  })
+  cy.interceptApi(
+    "GET",
+    `/feature-requests/${FR_ID}/history`,
+    {
+      body: ok([
+        { status: "new", enteredAt: "2026-07-14T09:00:00.000Z" },
+        { status: "under_review", enteredAt: "2026-07-15T10:30:00.000Z" },
+      ]),
+    },
+    "history"
+  )
+  cy.visit(FR_URL)
+  cy.wait("@request")
+}
+
+describe("Feature request detail (admin)", () => {
+  beforeEach(() => openFeatureRequest("admin"))
 
   it("shows the status timeline with time spent in each status", () => {
     cy.contains("Status timeline").should("be.visible")
@@ -164,6 +172,65 @@ describe("Feature request detail (admin)", () => {
     cy.contains('[role="option"]', "Done").should("not.have.attr", "aria-disabled", "true")
   })
 
+  it("edits the write-up and sends only the content fields", () => {
+    cy.fixture("featureRequests/list").then((requests) => {
+      cy.interceptApi(
+        "PATCH",
+        `/feature-requests/${FR_ID}`,
+        { body: ok({ ...requests[0], title: "Dark mode for exported reports", category: null }) },
+        "editRequest"
+      )
+    })
+
+    cy.dataCy("fr-edit").click()
+    cy.contains("Edit feature request").should("be.visible")
+    // Prefilled from the request; status/response/assignee aren't editable here.
+    cy.get("#title").should("have.value", "Dark mode for reports")
+    cy.get('[role="dialog"]').within(() => {
+      cy.contains("Status").should("not.exist")
+      cy.contains("Response").should("not.exist")
+    })
+
+    cy.get("#title").clear().type("Dark mode for exported reports")
+    cy.get("#category").clear()
+    cy.dataCy("feature-request-submit").click()
+
+    cy.wait("@editRequest").its("request.body").should("deep.equal", {
+      title: "Dark mode for exported reports",
+      description: "Exported reports should respect the dark theme.",
+      category: null,
+      module: "Authentication",
+      referenceLinks: [],
+    })
+    cy.contains("Feature request updated").should("be.visible")
+  })
+
+  describe("once the request is In Progress or later", () => {
+    const LOCKED: string[] = ["in_progress", "done", "rejected"]
+    LOCKED.forEach((status) => {
+      it(`locks editing the write-up while the request is ${status}`, () => {
+        cy.fixture("featureRequests/list").then((requests) => {
+          cy.interceptApi("GET", `/feature-requests/${FR_ID}`, { body: ok({ ...requests[0], status }) }, "movedOnRequest")
+        })
+        cy.visit(FR_URL)
+        cy.wait("@movedOnRequest")
+
+        cy.dataCy("fr-edit").should("be.visible").and("be.disabled")
+        cy.dataCy("fr-edit-wrapper")
+          .should("have.attr", "title")
+          .and("contain", "can no longer be edited")
+        // Triage is untouched — the team can still move the request along.
+        cy.dataCy("fr-update-status").should("be.visible").and("not.be.disabled")
+      })
+    })
+  })
+
+  it("keeps the edit button enabled while the request is Under Review", () => {
+    // The fixture request is Under Review.
+    cy.dataCy("fr-edit").should("not.be.disabled")
+    cy.dataCy("fr-edit-wrapper").should("not.have.attr", "title")
+  })
+
   it("deletes the request and returns to the project", () => {
     cy.interceptApi("DELETE", `/feature-requests/${FR_ID}`, { body: ok(null) }, "deleteRequest")
     cy.fixture("dashboard/overview").then((overview) => {
@@ -178,5 +245,42 @@ describe("Feature request detail (admin)", () => {
     cy.wait("@deleteRequest")
     cy.contains("Feature request deleted").should("be.visible")
     cy.location("pathname").should("eq", `/projects/${PROJECT_ID}`)
+  })
+})
+
+describe("Feature request detail (submitter, not a team lead)", () => {
+  it("can fix their own write-up but not update status or delete it", () => {
+    openFeatureRequest("user")
+    cy.dataCy("fr-edit").should("be.visible")
+    cy.dataCy("fr-update-status").should("not.exist")
+    cy.dataCy("fr-delete").should("not.exist")
+  })
+
+  it("can't edit their own write-up once the request has moved on", () => {
+    cy.login("user")
+    cy.fixture("projects/list").then((projects) => {
+      cy.interceptApi("GET", `/projects/${PROJECT_ID}`, { body: ok({ ...projects[0], members: [] }) }, "project")
+    })
+    cy.fixture("featureRequests/list").then((requests) => {
+      cy.interceptApi(
+        "GET",
+        `/feature-requests/${FR_ID}`,
+        { body: ok({ ...requests[0], status: "in_progress" }) },
+        "request"
+      )
+    })
+    cy.interceptApi("GET", `/feature-requests/${FR_ID}/attachments`, { body: ok([]) }, "attachments")
+    cy.interceptApi("GET", `/feature-requests/${FR_ID}/history`, { body: ok([]) }, "history")
+    cy.visit(FR_URL)
+    cy.wait("@request")
+
+    // The submitter still sees the button — but it no longer works.
+    cy.dataCy("fr-edit").should("be.disabled")
+  })
+
+  it("can't edit a request someone else submitted", () => {
+    openFeatureRequest("user", { id: "e2e-user-9999", name: "Someone Else" })
+    cy.contains("h1", "Dark mode for reports").should("be.visible")
+    cy.dataCy("fr-edit").should("not.exist")
   })
 })
