@@ -11,6 +11,7 @@ import {
   listMyTicketsSchema,
   publicFetchCommentsSchema,
   publicAddCommentSchema,
+  publicEmailTranscriptSchema,
   submitRatingSchema,
 } from "../validators/feedback.schema";
 
@@ -40,6 +41,17 @@ const commentLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { success: false, message: "Too many requests — please try again shortly", statusCode: 429 },
+});
+
+// A transcript is one email per request, to the ticket's own (verified)
+// address — a handful an hour is plenty for a person, and keeps it useless
+// as a way to flood someone's inbox.
+const transcriptLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: "Too many transcript requests — please try again later", statusCode: 429 },
 });
 
 // A partner's own dashboard, refreshing/paging more often than a one-shot
@@ -105,6 +117,14 @@ router.post(
   uploadCommentAttachments("attachments"),
   validate(publicAddCommentSchema),
   FeedbackCommentController.publicCreate
+);
+// Emails the whole thread to the ticket's own address — tighter than the
+// thread's own limit, since every call sends an email.
+router.post(
+  "/:id/transcript", publicRoute("Token-gated ticket thread"),
+  transcriptLimiter,
+  validate(publicEmailTranscriptSchema),
+  FeedbackCommentController.publicEmailTranscript
 );
 
 // A resolved ticket's one-time satisfaction rating, from the "My Tickets"

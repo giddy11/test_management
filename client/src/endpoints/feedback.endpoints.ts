@@ -155,6 +155,11 @@ export const FeedbackEndpoints = {
   // realtime Firestore listener staff use). Proves ownership with the same
   // email + code pair as the My Tickets lookup above (sent in the body, same
   // as everywhere else that credential is used).
+  // Emails the whole thread (original message + every reply) to the ticket's
+  // own address — same email + code proof. timeZone only formats timestamps.
+  publicEmailTranscript: (id: string, email: string, code: string, timeZone?: string) =>
+    wrapCall<null>("POST", `/api/v1/public/feedback/${id}/transcript`, { email, code, timeZone }),
+
   publicAddComment: (id: string, email: string, code: string, body: string, files: File[] = []) =>
     uploadFilesWithFields<FeedbackComment>(
       `/api/v1/public/feedback/${id}/comments`,

@@ -66,6 +66,20 @@ export class FeedbackCommentController {
     }
   }
 
+  static async publicEmailTranscript(req: any, res: any, next: any) {
+    try {
+      await FeedbackCommentService.Instance.emailTranscriptToSubmitter(
+        req.validated.params.id,
+        req.validated.body.email,
+        req.validated.body.code,
+        req.validated.body.timeZone
+      );
+      res.status(200).json(ApiResponse.ok("Transcript sent", null));
+    } catch (err) {
+      next(err);
+    }
+  }
+
   static async publicCreate(req: any, res: any, next: any) {
     try {
       const files = (req.files ?? []) as { buffer: Buffer; originalname: string; mimetype: string; size: number }[];

@@ -23,7 +23,8 @@ import { ProjectRepository } from "../../project/repositories/project.repository
 import { ProjectService } from "../../project/services/project.service";
 import { ProjectMemberRepository } from "../../project/repositories/projectMember.repository";
 import { ClientCompanyRepository } from "../../clientCompany/repositories/clientCompany.repository";
-import { ticketLabel } from "../dto/feedback.dto";
+import { SubmitterTicketStatus, ticketLabel, toSubmitterStatus } from "../dto/feedback.dto";
+import { sendTicketTranscriptEmail } from "../../../shared/utils/mail/ticket.mail";
 import type { Actor } from "../../../shared/types/actor";
 import type { Feedback } from "../entities/feedback.entity";
 
@@ -46,6 +47,14 @@ const MAX_ATTACHMENTS_PER_COMMENT = 5;
 const CLOUDINARY_FOLDER = "testmate/feedback-comments";
 
 type UploadedFile = { buffer: Buffer; originalname: string; mimetype: string; size: number };
+
+// The submitter's collapsed view of a ticket's status (see toSubmitterStatus)
+// — same wording as the My Tickets page.
+const SUBMITTER_STATUS_LABELS: Record<string, string> = {
+  [SubmitterTicketStatus.RECEIVED]: "Received",
+  [SubmitterTicketStatus.IN_PROGRESS]: "In progress",
+  [SubmitterTicketStatus.RESOLVED]: "Resolved",
+};
 
 export class FeedbackCommentService {
   static Instance = new FeedbackCommentService();
@@ -383,6 +392,48 @@ export class FeedbackCommentService {
   async listForSubmitter(feedbackId: string, email: string, code: string) {
     await this.loadForSubmitterByCode(feedbackId, email, code);
     return this.commentRepo.findByFeedback(feedbackId);
+  }
+
+  // Emails the submitter the whole conversation — their original message
+  // plus every reply — on request from the WhatsApp widget's ticket view.
+  // Always to the ticket's own address (already proven by the code), never
+  // to one supplied with the request.
+  async emailTranscriptToSubmitter(
+    feedbackId: string,
+    email: string,
+    code: string,
+    timeZone?: string
+  ): Promise<void> {
+    const fb = await this.loadForSubmitterByCode(feedbackId, email, code);
+    const [comments, project] = await Promise.all([
+      this.commentRepo.findByFeedback(feedbackId),
+      this.projectRepo.findById(fb.projectId),
+    ]);
+
+    try {
+      await sendTicketTranscriptEmail({
+        to: fb.submitterEmail,
+        name: fb.submitterName,
+        ticketLabel: ticketLabel(fb),
+        productName: project?.name ?? "your product",
+        statusLabel: SUBMITTER_STATUS_LABELS[toSubmitterStatus(fb)] ?? "Received",
+        originalMessage: fb.description,
+        originalAt: fb.createdAt,
+        entries: comments.map((c) => ({
+          author: c.authorType === "submitter" ? "You" : "Support team",
+          fromSubmitter: c.authorType === "submitter",
+          body: c.body,
+          attachments: (c.attachments ?? []).map((a) => ({ url: a.url, name: a.name ?? null })),
+          createdAt: c.createdAt,
+        })),
+        url: `${env.appUrl}/my-tickets`,
+        timeZone,
+        organizationId: project?.organizationId ?? null,
+      });
+    } catch (e) {
+      console.error("[feedback] transcript email failed:", (e as Error).message);
+      throw new AppError("Couldn't send the transcript right now — please try again shortly", 502);
+    }
   }
 
   async addForSubmitter(

@@ -11,7 +11,7 @@
 // for days (server's TICKET_LOOKUP_CODE_TTL_MINUTES), so it's remembered in
 // this browser and a returning visitor isn't asked for a new one every time.
 import { useEffect, useId, useRef, useState } from "react"
-import { ArrowLeft, FileText } from "lucide-react"
+import { ArrowLeft, Check, FileText, Mail } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { WhatsAppChatPanel, WHATSAPP_FIELD_CLASS } from "@/components/contact-support/WhatsAppChatPanel"
@@ -20,7 +20,8 @@ import { useFeedbackCommentThread } from "@/hooks/useFeedbackComments"
 import { cn } from "@/lib/utils"
 import { MY_TICKET_STATUS_LABELS, type MyTicket } from "@/types/feedback.types"
 
-const MAX_REPLY_LEN = 5000
+// Matches the server's publicAddCommentSchema.
+const MAX_REPLY_LEN = 3000
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const SESSION_STORAGE_KEY = "tm_whatsapp_widget_ticket_session"
 
@@ -81,6 +82,7 @@ export function WhatsAppTicketLookup({ title, onClose, onBack, initialEmail }: P
   const [verifiedCode, setVerifiedCode] = useState("")
   const [reply, setReply] = useState("")
   const [sending, setSending] = useState(false)
+  const [transcript, setTranscript] = useState<"idle" | "sending" | "sent">("idle")
 
   const { data: comments, isLoading: commentsLoading, isError: commentsError } = useFeedbackCommentThread(
     ticket?.id ?? ""
@@ -164,10 +166,7 @@ export function WhatsAppTicketLookup({ title, onClose, onBack, initialEmail }: P
       if (res.success) {
         setReply("") // the new message arrives through the live thread listener
       } else if (res.statusCode === 401) {
-        saveSession(null)
-        setTicket(null)
-        setStep("find")
-        setError("Your code has expired — continue to get a new one.")
+        expireSession()
       } else {
         setError(res.message || "Couldn't send your reply — try again.")
       }
@@ -176,6 +175,35 @@ export function WhatsAppTicketLookup({ title, onClose, onBack, initialEmail }: P
     } finally {
       setSending(false)
     }
+  }
+
+  // Code expired mid-conversation — back to the start for a fresh one.
+  const expireSession = () => {
+    saveSession(null)
+    setTicket(null)
+    setStep("find")
+    setError("Your code has expired — continue to get a new one.")
+  }
+
+  const handleEmailTranscript = async () => {
+    if (!ticket || transcript === "sending") return
+    setTranscript("sending")
+    setError(null)
+    // The reader's own time zone, so the transcript's timestamps match theirs.
+    let timeZone: string | undefined
+    try {
+      timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone
+    } catch {
+      timeZone = undefined
+    }
+    const res = await FeedbackEndpoints.publicEmailTranscript(ticket.id, trimmedEmail, verifiedCode, timeZone)
+    if (res.success) {
+      setTranscript("sent")
+      return
+    }
+    setTranscript("idle")
+    if (res.statusCode === 401) expireSession()
+    else setError(res.message || "Couldn't send the transcript — try again shortly.")
   }
 
   if (step === "thread" && ticket) {
@@ -201,7 +229,22 @@ export function WhatsAppTicketLookup({ title, onClose, onBack, initialEmail }: P
             >
               <ArrowLeft className="size-4" />
             </button>
-            <p className="min-w-0 truncate text-xs font-medium">{ticket.title}</p>
+            <p className="min-w-0 flex-1 truncate text-xs font-medium">{ticket.title}</p>
+            <button
+              type="button"
+              onClick={handleEmailTranscript}
+              disabled={transcript !== "idle"}
+              title={transcript === "sent" ? `Sent to ${trimmedEmail}` : "Email me this whole conversation"}
+              className={cn(
+                "flex shrink-0 items-center gap-1 rounded-full border px-2 py-1 text-[11px] font-medium transition-colors",
+                transcript === "sent"
+                  ? "border-[#25d366] text-[#075e54]"
+                  : "border-neutral-300 text-neutral-700 hover:bg-neutral-100 disabled:opacity-60"
+              )}
+            >
+              {transcript === "sent" ? <Check className="size-3" /> : <Mail className="size-3" />}
+              {transcript === "sending" ? "Sending…" : transcript === "sent" ? "Emailed" : "Email transcript"}
+            </button>
           </div>
         }
       >

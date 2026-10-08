@@ -200,6 +200,18 @@ export const publicAddCommentSchema = z.object({
   }),
 });
 
+// The whole conversation emailed to the submitter — same email/code proof of
+// ownership as the thread itself. timeZone (IANA, e.g. "Africa/Lagos") only
+// formats the timestamps; an unknown one falls back to UTC.
+export const publicEmailTranscriptSchema = z.object({
+  params: z.object({ id: z.string().uuid() }),
+  body: z.object({
+    email: z.string().email().max(255),
+    code: z.string().length(6),
+    timeZone: z.string().max(64).optional(),
+  }),
+});
+
 // A resolved ticket's one-time satisfaction rating, from the "My Tickets"
 // page — same email/code proof of ownership as listMyTicketsSchema.
 export const submitRatingSchema = z.object({
