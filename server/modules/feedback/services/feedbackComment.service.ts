@@ -444,8 +444,11 @@ export class FeedbackCommentService {
     files?: UploadedFile[],
     parentId?: string | null
   ): Promise<FeedbackComment> {
+    if (!body.trim() && !files?.length) {
+      throw new AppError("Write a message or attach a file", 422);
+    }
     const fb = await this.loadForSubmitterByCode(feedbackId, email, code);
-    return this.createSubmitterComment(fb, body, files, parentId);
+    return this.createSubmitterComment(fb, body.trim(), files, parentId);
   }
 
   private async createSubmitterComment(

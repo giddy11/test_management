@@ -4,7 +4,7 @@
 // conversation happens here; see WhatsAppTicketPanel for what send does
 // (logs a ticket, then hands off to WhatsApp).
 import { useEffect, useRef } from "react"
-import { Loader2, MessageCircle, Send, X } from "lucide-react"
+import { Loader2, MessageCircle, Paperclip, Send, X } from "lucide-react"
 import { Textarea } from "@/components/ui/textarea"
 
 // The panel is always light (WhatsApp-styled) — form fields inside it pin
@@ -35,6 +35,16 @@ interface Props {
   /** The two static "Hi there!" bubbles — off when the body is a real conversation. */
   showGreeting?: boolean
   autoFocus?: boolean
+  /**
+   * Turns on the composer's paperclip. The caller owns the list (and decides
+   * what's acceptable — size, count, type); a message may then be just files.
+   */
+  attachments?: {
+    files: File[]
+    accept: string
+    onAdd: (files: File[]) => void
+    onRemove: (index: number) => void
+  }
 }
 
 export function WhatsAppChatPanel({
@@ -53,9 +63,12 @@ export function WhatsAppChatPanel({
   footer,
   showGreeting = true,
   autoFocus = true,
+  attachments,
 }: Props) {
-  const canSend = !disabled && !sending && Boolean(message.trim())
+  const hasFiles = Boolean(attachments?.files.length)
+  const canSend = !disabled && !sending && (Boolean(message.trim()) || hasFiles)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (autoFocus) textareaRef.current?.focus()
@@ -97,8 +110,55 @@ export function WhatsAppChatPanel({
         {children}
       </div>
 
+      {!footer && attachments && hasFiles && (
+        <div className="flex shrink-0 flex-wrap gap-1.5 border-t border-neutral-200 bg-[#f0f0f0] px-2 pt-2">
+          {attachments.files.map((f, i) => (
+            <span
+              key={`${f.name}-${i}`}
+              className="flex max-w-full items-center gap-1 rounded-full bg-white px-2.5 py-1 text-xs text-neutral-700 shadow-sm"
+            >
+              <span className="max-w-40 truncate">{f.name}</span>
+              <button
+                type="button"
+                onClick={() => attachments.onRemove(i)}
+                disabled={sending}
+                aria-label={`Remove ${f.name}`}
+                className="shrink-0 rounded-full text-neutral-500 hover:text-neutral-800"
+              >
+                <X className="size-3" />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+
       {footer ?? (
         <div className="flex shrink-0 items-end gap-2 bg-[#f0f0f0] p-2">
+          {attachments && (
+            <>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept={attachments.accept}
+                multiple
+                hidden
+                onChange={(e) => {
+                  attachments.onAdd(Array.from(e.target.files ?? []))
+                  e.target.value = "" // lets the same file be picked again after removing it
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={sending}
+                aria-label="Attach files"
+                title="Attach images, PDF, Word or Excel files"
+                className="flex size-10 shrink-0 items-center justify-center rounded-full text-neutral-600 transition-colors hover:bg-neutral-200 disabled:opacity-40"
+              >
+                <Paperclip className="size-4.5" />
+              </button>
+            </>
+          )}
           <Textarea
             ref={textareaRef}
             value={message}

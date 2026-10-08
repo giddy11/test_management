@@ -22,6 +22,14 @@ import { MY_TICKET_STATUS_LABELS, type MyTicket } from "@/types/feedback.types"
 
 // Matches the server's publicAddCommentSchema.
 const MAX_REPLY_LEN = 3000
+// Match the server's comment attachment rules (uploadCommentAttachments /
+// commentAttachmentFileFilter) — checked here too so the visitor hears about
+// a bad file straight away instead of after a failed upload.
+const MAX_FILES = 5
+const MAX_FILE_MB = 10
+const ATTACHMENT_ACCEPT =
+  "image/png,image/jpeg,image/webp,application/pdf,.doc,.docx,.xls,.xlsx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+const ALLOWED_FILE_NAME = /\.(pdf|docx?|xlsx?|png|jpe?g|webp)$/i
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const SESSION_STORAGE_KEY = "tm_whatsapp_widget_ticket_session"
 
@@ -81,6 +89,7 @@ export function WhatsAppTicketLookup({ title, onClose, onBack, initialEmail }: P
   const [ticket, setTicket] = useState<MyTicket | null>(null)
   const [verifiedCode, setVerifiedCode] = useState("")
   const [reply, setReply] = useState("")
+  const [files, setFiles] = useState<File[]>([])
   const [sending, setSending] = useState(false)
   const [transcript, setTranscript] = useState<"idle" | "sending" | "sent">("idle")
 
@@ -156,15 +165,34 @@ export function WhatsAppTicketLookup({ title, onClose, onBack, initialEmail }: P
     }
   }
 
+  const addFiles = (picked: File[]) => {
+    setError(null)
+    const wrongType = picked.find((f) => !ALLOWED_FILE_NAME.test(f.name))
+    if (wrongType) {
+      setError(`"${wrongType.name}" can't be attached — only images, PDF, Word or Excel files.`)
+      return
+    }
+    const tooBig = picked.find((f) => f.size > MAX_FILE_MB * 1024 * 1024)
+    if (tooBig) {
+      setError(`"${tooBig.name}" is over ${MAX_FILE_MB} MB.`)
+      return
+    }
+    const combined = [...files, ...picked]
+    if (combined.length > MAX_FILES) setError(`Up to ${MAX_FILES} files per message — the extras were left out.`)
+    setFiles(combined.slice(0, MAX_FILES))
+  }
+
   const handleReply = async () => {
     const body = reply.trim()
-    if (!ticket || !body || sending) return
+    if (!ticket || (!body && files.length === 0) || sending) return
     setSending(true)
     setError(null)
     try {
-      const res = await FeedbackEndpoints.publicAddComment(ticket.id, trimmedEmail, verifiedCode, body)
+      const res = await FeedbackEndpoints.publicAddComment(ticket.id, trimmedEmail, verifiedCode, body, files)
       if (res.success) {
-        setReply("") // the new message arrives through the live thread listener
+        // The new message arrives through the live thread listener.
+        setReply("")
+        setFiles([])
       } else if (res.statusCode === 401) {
         expireSession()
       } else {
@@ -219,6 +247,12 @@ export function WhatsAppTicketLookup({ title, onClose, onBack, initialEmail }: P
         placeholder="Reply to the support team"
         sending={sending}
         showGreeting={false}
+        attachments={{
+          files,
+          accept: ATTACHMENT_ACCEPT,
+          onAdd: addFiles,
+          onRemove: (i) => setFiles((prev) => prev.filter((_, j) => j !== i)),
+        }}
         topSlot={
           <div className="flex items-center gap-2 text-neutral-800">
             <button
@@ -269,7 +303,7 @@ export function WhatsAppTicketLookup({ title, onClose, onBack, initialEmail }: P
             >
               {/* Individual staff names stay internal — same as the My Tickets page. */}
               {!mine && <p className="mb-0.5 text-xs font-medium text-[#075e54]">Support team</p>}
-              <p className="whitespace-pre-wrap break-words">{c.body}</p>
+              {c.body && <p className="whitespace-pre-wrap wrap-break-word">{c.body}</p>}
               {c.attachments.length > 0 && (
                 <div className="mt-1.5 flex flex-wrap gap-1.5">
                   {c.attachments.map((a, i) =>
@@ -286,7 +320,7 @@ export function WhatsAppTicketLookup({ title, onClose, onBack, initialEmail }: P
                         className="flex items-center gap-1 rounded border border-neutral-300 px-1.5 py-0.5 text-xs text-neutral-700 hover:bg-neutral-50"
                       >
                         <FileText className="size-3" />
-                        <span className="max-w-[9rem] truncate">{a.name ?? "Attachment"}</span>
+                        <span className="max-w-36 truncate">{a.name ?? "Attachment"}</span>
                       </a>
                     )
                   )}

@@ -195,7 +195,9 @@ export const publicAddCommentSchema = z.object({
   body: z.object({
     email: z.string().email().max(255),
     code: z.string().length(6),
-    body: z.string().min(1).max(3000),
+    // May be empty when the message is just attachments (e.g. a screenshot) —
+    // FeedbackCommentService.addForSubmitter requires one or the other.
+    body: z.string().max(3000).default(""),
     parentId: z.string().min(1).optional(),
   }),
 });
