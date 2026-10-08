@@ -17,7 +17,7 @@ const { env } = require("../../../config/env");
 
 function makeLookupCodeRepo() {
   return {
-    invalidateActive: jest.fn().mockResolvedValue(undefined),
+    invalidateAllButNewest: jest.fn().mockResolvedValue(undefined),
     save: jest.fn().mockResolvedValue({ id: "code-1" }),
     findActive: jest.fn(),
   };
@@ -58,12 +58,13 @@ function makeService({
 describe("FeedbackService.requestMyTicketsCode", () => {
   beforeEach(() => jest.clearAllMocks());
 
-  it("invalidates previous codes, saves a new hashed one, and emails it", async () => {
+  it("keeps the few newest codes live, saves a new hashed one, and emails it", async () => {
     const { service, lookupCodeRepo } = makeService();
 
     await service.requestMyTicketsCode("jane@example.com");
 
-    expect(lookupCodeRepo.invalidateActive).toHaveBeenCalledWith("jane@example.com");
+    // Earlier codes aren't all cancelled — only those beyond the newest few.
+    expect(lookupCodeRepo.invalidateAllButNewest).toHaveBeenCalledWith("jane@example.com", 4);
     expect(lookupCodeRepo.save).toHaveBeenCalledWith(
       expect.objectContaining({
         email: "jane@example.com",

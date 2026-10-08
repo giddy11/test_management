@@ -152,13 +152,17 @@ export class FeedbackRepository {
   // project/company — unlike fetchPaginated's global mode, this never hides
   // un-escalated company-routed items (those aren't the product owner's
   // triage view; they're the submitter's own ticket).
+  // Case-insensitive — a ticket raised as "Jane@Example.com" is still found
+  // when its owner later looks up "jane@example.com" (same inbox).
   async findBySubmitterEmail(email: string): Promise<Feedback[]> {
-    return this.repo.find({
-      where: { submitterEmail: email },
-      relations: { project: true, clientCompany: true },
-      order: { createdAt: "DESC" },
-      take: 100,
-    });
+    return this.repo
+      .createQueryBuilder("fb")
+      .leftJoinAndSelect("fb.project", "project")
+      .leftJoinAndSelect("fb.clientCompany", "clientCompany")
+      .where("LOWER(fb.submitter_email) = LOWER(:email)", { email })
+      .orderBy("fb.createdAt", "DESC")
+      .take(100)
+      .getMany();
   }
 
   async findById(id: string): Promise<Feedback | null> {

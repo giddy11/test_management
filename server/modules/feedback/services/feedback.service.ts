@@ -100,6 +100,12 @@ export interface WhatsAppTicketInput {
   pageUrl?: string | null;
 }
 
+// How many "My Tickets" lookup codes one email can have live at once. More
+// than one, so a new request (another device, the My Tickets page, the
+// widget) doesn't silently kill a code already in use; few enough that
+// guessing any of them stays hopeless (6 digits, rate-limited attempts).
+const MAX_LIVE_LOOKUP_CODES = 5;
+
 // Fixed id of the auto-created "TestMate Support" project — see
 // FeedbackService.resolveTestMateSupportProject.
 const TESTMATE_SUPPORT_PROJECT_ID = "7e570a7e-5a99-4c0b-8d1e-5e1f0a2c3d4e";
@@ -699,9 +705,12 @@ export class FeedbackService {
   // much longer TTL than auth OTPs (see env.ticketLookupCodeTtlMinutes) —
   // read-only access to your own tickets, not an account action, so it's
   // fine for the same code to keep working across a multi-day check-in.
+  // Requesting another code doesn't cancel the recent ones (see
+  // MAX_LIVE_LOOKUP_CODES) — a code already saved in the WhatsApp widget, or
+  // sitting in an inbox, keeps working until its own expiry.
   async requestMyTicketsCode(email: string): Promise<void> {
     const code = generateOtp(6);
-    await this.lookupCodeRepo.invalidateActive(email);
+    await this.lookupCodeRepo.invalidateAllButNewest(email, MAX_LIVE_LOOKUP_CODES - 1);
     await this.lookupCodeRepo.save({
       email,
       codeHash: hashToken(code),

@@ -3,8 +3,8 @@
 // raised (by email, across all projects/companies) without an account. Only
 // the SHA-256 hash of the code is stored — never the raw digits. Reusable
 // for repeated lookups until it expires (see FeedbackService.listMyTickets)
-// — consumedAt is only ever set when a newer code supersedes it
-// (invalidateActive), not by a successful lookup.
+// — consumedAt is only ever set when newer codes push it out of the few kept
+// live per email (invalidateAllButNewest), not by a successful lookup.
 import { EntitySchema } from "typeorm";
 
 export interface FeedbackLookupCode {
