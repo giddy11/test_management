@@ -8,10 +8,12 @@
 // Replaces the previous full live-chat panel as what this route renders (see
 // LiveChatWidgetPage.tsx, left completely intact and just unrouted — see
 // App.tsx — in case it's wanted again) with a round launcher that opens a
-// WhatsApp-styled chat panel (see WhatsAppChatPanel, shared with the internal
-// Contact support widget) and hands the message off to the project's own
-// WhatsApp number via a wa.me link. Nothing about the message touches our
-// backend — no chat actually happens inside this iframe.
+// WhatsApp-styled chat panel (see WhatsAppTicketPanel, shared with the
+// internal Contact support widget). The panel collects the visitor's name,
+// email, optional phone, topic and full message, logs a ticket on this
+// project, then hands the message — with the ticket's reference — off to the
+// project's own WhatsApp number via a wa.me link. The chat itself carries on
+// in WhatsApp, not inside this iframe.
 //
 // No Dialog/overlay here on purpose: this page already fills a tiny, purpose-
 // built iframe, so a full-viewport dark overlay would just darken the whole
@@ -21,14 +23,13 @@ import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPoi
 import { useParams } from "react-router-dom"
 import { MessageCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { WhatsAppChatPanel } from "@/components/contact-support/WhatsAppChatPanel"
+import { WhatsAppTicketPanel } from "@/components/contact-support/WhatsAppTicketPanel"
 import { cn } from "@/lib/utils"
-import { useLiveChatWidgetConfig } from "@/hooks/useLiveChatWidget"
+import { useCreateWhatsAppTicket, useLiveChatWidgetConfig } from "@/hooks/useLiveChatWidget"
 
 // Must match PARENT_MESSAGE_SOURCE in public/live-chat-widget.js.
 const PARENT_MESSAGE_SOURCE = "testmate-live-chat-widget"
 const DRAG_THRESHOLD = 5
-const MAX_MESSAGE_LEN = 2000
 
 // The loader owns the iframe's actual pixel size and position on the host
 // page — this page only ever asks for "open" vs "closed" (or hides itself
@@ -38,22 +39,10 @@ function postToParent(payload: Record<string, unknown>) {
   window.parent.postMessage({ source: PARENT_MESSAGE_SOURCE, ...payload }, "*")
 }
 
-// wa.me (not web.whatsapp.com/send) on every platform — it's WhatsApp's own
-// universal click-to-chat link and redirects correctly on desktop (an
-// interstitial that hands off to WhatsApp Web/Desktop) even when the browser
-// has no WhatsApp Web session yet. web.whatsapp.com/send only works with an
-// already-logged-in session — otherwise it just shows the generic QR login
-// screen and silently drops the phone/text params.
-function buildWhatsAppUrl(phoneNumber: string, message: string) {
-  const digits = phoneNumber.replace(/\D/g, "")
-  const text = encodeURIComponent(message)
-  return `https://wa.me/${digits}?text=${text}`
-}
-
 export default function WhatsAppWidgetPage() {
   const { token } = useParams<{ token: string }>()
   const [open, setOpen] = useState(false)
-  const [message, setMessage] = useState("")
+  const createTicket = useCreateWhatsAppTicket(token)
 
   // This page is always the entire document (its own dedicated iframe) — undo
   // the app's default opaque body background so the transparent corners
@@ -107,7 +96,6 @@ export default function WhatsAppWidgetPage() {
       hasDraggedRef.current = false
       return
     }
-    setMessage("")
     setOpen(true)
   }, [])
 
@@ -142,32 +130,27 @@ export default function WhatsAppWidgetPage() {
   // on the host page.
   if (!token || !phoneNumber) return null
 
-  const handleSend = () => {
-    const trimmed = message.trim()
-    if (!trimmed) return
-
-    // No logged-in visitor to name here — the referring page and the
-    // project's own name are the only context available.
-    const fromPage = document.referrer ? new URL(document.referrer).hostname : null
-    const context = [fromPage ? `Visitor on ${fromPage}` : "Website visitor", `Product: ${config?.displayName}`].join(
-      " — "
-    )
-    const fullMessage = `${context}:\n${trimmed}`
-
-    window.open(buildWhatsAppUrl(phoneNumber, fullMessage), "_blank", "noopener,noreferrer")
-    setOpen(false)
-  }
+  // The host page this iframe sits on — the iframe's referrer. Often just the
+  // origin, depending on the host page's referrer policy.
+  const hostPage = document.referrer || undefined
+  const hostName = hostPage ? new URL(hostPage).hostname : null
 
   return (
     <div className="flex h-dvh w-dvw items-center justify-center p-1">
       {open ? (
-        <WhatsAppChatPanel
+        <WhatsAppTicketPanel
           title={config?.displayName ?? "Contact us"}
-          message={message}
-          onMessageChange={setMessage}
-          onSend={handleSend}
+          phoneNumber={phoneNumber}
           onClose={() => setOpen(false)}
-          maxLength={MAX_MESSAGE_LEN}
+          createTicket={createTicket.mutateAsync}
+          describeSender={(s) =>
+            [
+              `${s.name} (${s.email})`,
+              hostName ? `Visitor on ${hostName}` : "Website visitor",
+              `Product: ${config?.displayName}`,
+            ].join(" — ")
+          }
+          pageUrl={hostPage}
           placeholder="How can we help?"
         />
       ) : (

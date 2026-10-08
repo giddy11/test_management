@@ -1,11 +1,25 @@
 // modules/liveChat/validators/liveChat.schema.ts
 import { z } from "zod";
-import { LiveChatStatus } from "../../../config/constants";
+import { LiveChatStatus, enums } from "../../../config/constants";
 
 // ── Public (widget) ─────────────────────────────────────────────────────────
 
 export const widgetTokenParamSchema = z.object({
   params: z.object({ token: z.string().uuid() }),
+});
+
+// The WhatsApp embed widget logs a ticket just before handing the visitor off
+// to wa.me — see FeedbackService.submitViaWhatsApp.
+export const whatsAppTicketSchema = z.object({
+  params: z.object({ token: z.string().uuid() }),
+  body: z.object({
+    type: z.enum(enums.feedbackType as [string, ...string[]]),
+    message: z.string().trim().min(1).max(4000),
+    submitterName: z.string().trim().min(1).max(120),
+    submitterEmail: z.string().trim().email().max(255),
+    submitterPhone: z.string().regex(/^\+[1-9]\d{6,14}$/, "Invalid phone number").optional(),
+    pageUrl: z.string().trim().max(500).optional(),
+  }),
 });
 
 // Same password policy as the main app's registerSchema (auth.schema.js) —

@@ -15,6 +15,7 @@ import { db, ensureFirebaseAuth } from "@/lib/firestore"
 import { LiveChatWidgetEndpoints } from "@/endpoints/liveChat.endpoints"
 import { ApiError } from "@/transport/http"
 import type { LiveChatConversation, LiveChatMessage, LiveChatVisitor } from "@/types/liveChat.types"
+import type { WhatsAppTicketPayload } from "@/types/feedback.types"
 
 export const LIVE_CHAT_KEY = "liveChatWidget"
 
@@ -35,6 +36,18 @@ export function useLiveChatWidgetConfig(token: string | undefined) {
     enabled: Boolean(token),
     staleTime: 60000,
     retry: false,
+  })
+}
+
+// The WhatsApp embed widget logs a ticket just before its wa.me hand-off
+// (see WhatsAppTicketPanel).
+export function useCreateWhatsAppTicket(token: string | undefined) {
+  return useMutation({
+    mutationFn: async (payload: WhatsAppTicketPayload) => {
+      const res = await LiveChatWidgetEndpoints.createWhatsAppTicket(token as string, payload)
+      if (!res.success || !res.data) throw new ApiError(res.message, res.statusCode)
+      return res.data
+    },
   })
 }
 

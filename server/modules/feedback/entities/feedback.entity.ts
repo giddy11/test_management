@@ -4,7 +4,7 @@
 // the submitter is emailed at every stage transition.
 import { EntitySchema } from "typeorm";
 
-const { FeedbackStatus } = require("../../../config/constants");
+const { FeedbackStatus, FeedbackChannel } = require("../../../config/constants");
 
 export interface Feedback {
   id: string;
@@ -40,6 +40,9 @@ export interface Feedback {
   // is a deliberate relay step, not automatic. Null until they do.
   submitterNotifiedAt: Date | null;
   type: string; // FeedbackType
+  // Where it came in from (FeedbackChannel) — the public form, or a WhatsApp
+  // widget that logged it just before handing the person off to WhatsApp.
+  channel: string;
   title: string;
   description: string;
   // Optional module/suite of the project the feedback relates to (suite name
@@ -157,6 +160,11 @@ const Feedback = new EntitySchema<Feedback>({
     type: {
       type: "varchar",
       length: 30,
+    },
+    channel: {
+      type: "varchar",
+      length: 20,
+      default: FeedbackChannel.WEB_FORM,
     },
     title: {
       type: "varchar",

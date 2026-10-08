@@ -108,6 +108,16 @@ export class FeedbackController {
     }
   }
 
+  // TestMate's own in-app WhatsApp widget, just before its wa.me hand-off.
+  static async testMateSupport(req: any, res: any, next: any) {
+    try {
+      const result = await FeedbackService.Instance.submitTestMateSupport(req.user, req.validated.body);
+      res.status(201).json(ApiResponse.created("Ticket logged", result));
+    } catch (err) {
+      next(err);
+    }
+  }
+
   static async remove(req: any, res: any, next: any) {
     try {
       await FeedbackService.Instance.deleteFeedback(req.user, req.validated.params.id);

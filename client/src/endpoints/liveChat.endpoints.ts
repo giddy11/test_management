@@ -11,11 +11,16 @@ import type {
   LiveChatSettings,
   LiveChatStatus,
 } from "@/types/liveChat.types"
+import type { WhatsAppTicketPayload, WhatsAppTicketResult } from "@/types/feedback.types"
 
 const obj = (p: unknown) => p as Record<string, unknown>
 
 export const LiveChatWidgetEndpoints = {
   getConfig: (token: string) => wrapCall<LiveChatWidgetConfig>("GET", `/api/v1/public/live-chat/${token}`),
+
+  // The WhatsApp embed widget, just before its wa.me hand-off.
+  createWhatsAppTicket: (token: string, payload: WhatsAppTicketPayload) =>
+    wrapCall<WhatsAppTicketResult>("POST", `/api/v1/public/live-chat/${token}/whatsapp-ticket`, obj(payload)),
 
   startVisitor: (
     token: string,

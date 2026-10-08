@@ -24,6 +24,19 @@ export class LiveChatController {
     }
   }
 
+  // The WhatsApp embed widget, just before its wa.me hand-off.
+  static async createWhatsAppTicket(req: any, res: any, next: any) {
+    try {
+      const result = await LiveChatService.Instance.createWhatsAppTicket(
+        req.validated.params.token,
+        req.validated.body
+      );
+      res.status(201).json(ApiResponse.created("Ticket logged", result));
+    } catch (err) {
+      next(err);
+    }
+  }
+
   static async startVisitor(req: any, res: any, next: any) {
     try {
       const visitor = await LiveChatService.Instance.startVisitor(

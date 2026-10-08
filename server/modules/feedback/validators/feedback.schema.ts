@@ -25,6 +25,18 @@ export const submitFeedbackSchema = z.object({
   }),
 });
 
+// TestMate's own in-app WhatsApp widget logs a ticket just before handing
+// the user off to wa.me. Name, email and company come from their account
+// server-side, so only the message and its context are posted.
+export const testMateSupportTicketSchema = z.object({
+  body: z.object({
+    type: z.enum(feedbackTypes),
+    message: z.string().trim().min(1).max(4000),
+    submitterPhone: z.string().regex(/^\+[1-9]\d{6,14}$/, "Invalid phone number").optional(),
+    pageUrl: z.string().trim().max(500).optional(),
+  }),
+});
+
 // A partner's own dashboard listing everything raised against its project's
 // (or client company's) form — same token as submitFeedbackSchema, paginated.
 export const publicCompanyTicketsSchema = z.object({

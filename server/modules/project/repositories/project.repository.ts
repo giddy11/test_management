@@ -113,6 +113,10 @@ export class ProjectRepository {
     await this.repo.softDelete(id);
   }
 
+  async restore(id: string): Promise<void> {
+    await this.repo.restore(id);
+  }
+
   // Project counts per organization for the superadmin's /platform page.
   async countByOrganizationIds(organizationIds: string[]): Promise<Map<string, number>> {
     if (!organizationIds.length) return new Map();

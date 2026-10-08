@@ -1,8 +1,9 @@
 // components/contact-support/ContactSupportWidget.tsx
 // Floating "Contact support" button (bottom-right by default) for every
-// signed-in user. Opens a small WhatsApp-styled chat panel, then hands the
-// message off to TestMate's own support WhatsApp number via a wa.me deep link
-// — the recipient's own WhatsApp client sends it, nothing touches our backend.
+// signed-in user. Opens a small WhatsApp-styled chat panel that logs a ticket
+// in the "TestMate Support" project (created automatically server-side), then
+// hands the message — with the ticket's reference — off to TestMate's own
+// support WhatsApp number via a wa.me deep link. See WhatsAppTicketPanel.
 //
 // This is TestMate's own support line, not a project's: the per-project
 // numbers (see ProjectSupportNumberField) only power the embeddable widget on
@@ -11,35 +12,23 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import type { PointerEvent as ReactPointerEvent } from "react"
 import { MessageCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { WhatsAppChatPanel } from "@/components/contact-support/WhatsAppChatPanel"
+import { WhatsAppTicketPanel } from "@/components/contact-support/WhatsAppTicketPanel"
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/contexts/AuthContext"
+import { useCreateTestMateSupportTicket } from "@/hooks/useFeedback"
 
 // Separates a drag from a click — a release after moving less than this never
 // opens the dialog.
 const DRAG_THRESHOLD = 5
-const MAX_MESSAGE_LEN = 2000
 // TestMate's own support WhatsApp number, in international format.
 const SUPPORT_WHATSAPP_NUMBER = "+2347031170092"
 
-// wa.me (not web.whatsapp.com/send) on every platform — it's WhatsApp's own
-// universal click-to-chat link and redirects correctly on desktop (an
-// interstitial that hands off to WhatsApp Web/Desktop) even when the browser
-// has no WhatsApp Web session yet. web.whatsapp.com/send only works with an
-// already-logged-in session — otherwise it just shows the generic QR login
-// screen and silently drops the phone/text params.
-function buildWhatsAppUrl(phoneNumber: string, message: string) {
-  const digits = phoneNumber.replace(/\D/g, "")
-  const text = encodeURIComponent(message)
-  return `https://wa.me/${digits}?text=${text}`
-}
-
 export function ContactSupportWidget() {
   const { user } = useAuth()
+  const createTicket = useCreateTestMateSupportTicket()
 
   const [open, setOpen] = useState(false)
-  const [message, setMessage] = useState("")
 
   // Lets the launcher button itself be dragged anywhere on screen — it can sit
   // over page controls (e.g. pagination) in the bottom-right corner otherwise.
@@ -114,22 +103,8 @@ export function ContactSupportWidget() {
       hasDragged.current = false
       return
     }
-    setMessage("")
     setOpen(true)
   }, [])
-
-  const handleSend = () => {
-    const trimmed = message.trim()
-    if (!trimmed) return
-
-    // Context so TestMate's support knows who's messaging and from where.
-    const who = user?.name ? (user.email ? `${user.name} (${user.email})` : user.name) : user?.email
-    const context = [who, user?.companyName, "Sent from the TestMate app"].filter(Boolean).join(" — ")
-    const fullMessage = `${context}:\n${trimmed}`
-
-    window.open(buildWhatsAppUrl(SUPPORT_WHATSAPP_NUMBER, fullMessage), "_blank", "noopener,noreferrer")
-    setOpen(false)
-  }
 
   return (
     <>
@@ -162,13 +137,18 @@ export function ContactSupportWidget() {
           <DialogDescription className="sr-only">
             Send a message on WhatsApp. This opens a chat in a new tab.
           </DialogDescription>
-          <WhatsAppChatPanel
+          {/* Mounted only while open (Radix unmounts closed content), so every open starts fresh. */}
+          <WhatsAppTicketPanel
             title="TestMate support"
-            message={message}
-            onMessageChange={setMessage}
-            onSend={handleSend}
+            phoneNumber={SUPPORT_WHATSAPP_NUMBER}
             onClose={() => setOpen(false)}
-            maxLength={MAX_MESSAGE_LEN}
+            createTicket={createTicket.mutateAsync}
+            knownSender={user ? { name: user.name || user.email, email: user.email, phone: user.phoneNumber } : undefined}
+            // Context so TestMate's support knows who's messaging and from where.
+            describeSender={(s) =>
+              [`${s.name} (${s.email})`, user?.companyName, "Sent from the TestMate app"].filter(Boolean).join(" — ")
+            }
+            pageUrl={window.location.href}
           />
         </DialogContent>
       </Dialog>

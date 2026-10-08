@@ -271,6 +271,9 @@ export function FeedbackTab({ projectId, canManage }: Props) {
                       {fb.clientCompanyName && (
                         <Badge variant="secondary" className="text-[10px]">via {fb.clientCompanyName} IT</Badge>
                       )}
+                      {fb.channel === "whatsapp" && (
+                        <Badge variant="secondary" className="text-[10px]">via WhatsApp</Badge>
+                      )}
                       <RepeatBadges summary={linkSummary?.[fb.id]} />
                     </div>
                   </TableCell>

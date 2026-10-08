@@ -11,6 +11,8 @@ import type {
   PublicFeedbackForm,
   SubmitPublicFeedbackPayload,
   SupportQueueParams,
+  WhatsAppTicketPayload,
+  WhatsAppTicketResult,
 } from "@/types/feedback.types"
 import type { Supporter } from "@/types/clientCompany.types"
 
@@ -29,6 +31,14 @@ function commentFields(body: string, parentId?: string, mentionedUserIds?: strin
 export const FeedbackEndpoints = {
   fetchAll: (params: FetchFeedbackParams) =>
     wrapCall<Feedback[]>("GET", "/api/v1/feedback", params as unknown as Record<string, unknown>),
+
+  // TestMate's own in-app WhatsApp widget, just before its wa.me hand-off.
+  createTestMateSupportTicket: (payload: WhatsAppTicketPayload) =>
+    wrapCall<WhatsAppTicketResult>(
+      "POST",
+      "/api/v1/feedback/testmate-support",
+      payload as unknown as Record<string, unknown>
+    ),
 
   manage: (id: string, payload: ManageFeedbackPayload) =>
     wrapCall<Feedback>("PATCH", `/api/v1/feedback/${id}`, payload as unknown as Record<string, unknown>),

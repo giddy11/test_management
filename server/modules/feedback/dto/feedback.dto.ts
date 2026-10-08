@@ -45,6 +45,7 @@ export function toFeedbackResponse(fb: Feedback | null) {
     severity: fb.severity ?? null,
     submitterNotifiedAt: fb.submitterNotifiedAt ?? null,
     type: fb.type,
+    channel: fb.channel,
     title: fb.title,
     description: fb.description,
     suiteName: fb.suiteName ?? null,

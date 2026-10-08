@@ -60,6 +60,14 @@ const FeedbackType = Object.freeze({
   COMPLAINT: "complaint",
 });
 
+// Where a ticket came in from. WHATSAPP = logged by a WhatsApp widget (the
+// embeddable one or TestMate's own in-app one) just before it handed the
+// person off to WhatsApp — the conversation itself continues there.
+const FeedbackChannel = Object.freeze({
+  WEB_FORM: "web_form",
+  WHATSAPP: "whatsapp",
+});
+
 // Lifecycle of external feedback — the submitter is emailed at every stage.
 // No submitter-confirmation gate: the ticket's conversation thread is how
 // they flag a resolution that didn't actually hold.
@@ -205,6 +213,7 @@ module.exports = {
   UserRole,
   ProjectMemberRole,
   FeedbackType,
+  FeedbackChannel,
   FeedbackStatus,
   SupportStatus,
   FeedbackSeverity,
@@ -227,6 +236,7 @@ module.exports = {
     userRole: Object.values(UserRole),
     projectMemberRole: Object.values(ProjectMemberRole),
     feedbackType: Object.values(FeedbackType),
+    feedbackChannel: Object.values(FeedbackChannel),
     feedbackStatus: Object.values(FeedbackStatus),
     supportStatus: Object.values(SupportStatus),
     feedbackSeverity: Object.values(FeedbackSeverity),

@@ -8,12 +8,13 @@ import {
   feedbackLinkSchema,
   fetchFeedbackCommentsSchema,
   addFeedbackCommentSchema,
+  testMateSupportTicketSchema,
 } from "../validators/feedback.schema";
 
 const router = require("express").Router();
 const { validate } = require("../../../shared/middleware/validate.middleware");
 const { authMiddleware } = require("../../../shared/middleware/auth.middleware");
-const { requireProjectAccess } = require("../../../shared/access/can");
+const { requireProjectAccess, requireAuthenticatedOnly } = require("../../../shared/access/can");
 const { uploadCommentAttachments } = require("../../../shared/middleware/upload.middleware");
 
 // projectId omitted => cross-project view (role-scoped in the service).
@@ -69,6 +70,17 @@ router.post(
   uploadCommentAttachments("attachments"),
   validate(addFeedbackCommentSchema),
   FeedbackCommentController.create
+);
+
+// TestMate's own in-app WhatsApp widget — any signed-in user (including
+// external IT supporters) can contact TestMate support, so no permission
+// beyond being authenticated.
+router.post(
+  "/testmate-support",
+  authMiddleware,
+  requireAuthenticatedOnly("Contact TestMate support — own ticket, details from own account"),
+  validate(testMateSupportTicketSchema),
+  FeedbackController.testMateSupport
 );
 
 // Enabling/rotating/disabling a project's public form link — admins only.

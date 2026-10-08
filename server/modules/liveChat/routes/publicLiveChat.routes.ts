@@ -13,6 +13,7 @@ import {
   getVisitorConversationSchema,
   markReadByVisitorSchema,
   updateContactSchema,
+  whatsAppTicketSchema,
 } from "../validators/liveChat.schema";
 
 const router = require("express").Router();
@@ -52,7 +53,25 @@ const accountAuthLimiter = rateLimit({
   message: { success: false, message: "Too many attempts — please try again later", statusCode: 429 },
 });
 
+// One ticket (plus a "received" email) per WhatsApp hand-off — same ceiling
+// as the public feedback form's submitLimiter, since it's the same one-shot
+// ticket creation on the open internet.
+const whatsAppTicketLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: "Too many submissions — please try again later", statusCode: 429 },
+});
+
 router.get("/:token", publicRoute("Token-gated embeddable widget"), sessionLimiter, validate(widgetTokenParamSchema), LiveChatController.widgetConfig);
+
+router.post(
+  "/:token/whatsapp-ticket", publicRoute("Token-gated embeddable widget"),
+  whatsAppTicketLimiter,
+  validate(whatsAppTicketSchema),
+  LiveChatController.createWhatsAppTicket
+);
 
 router.post(
   "/:token/visitors", publicRoute("Token-gated embeddable widget"),

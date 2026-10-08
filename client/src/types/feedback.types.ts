@@ -2,6 +2,27 @@ import type { CommentMention } from "@/lib/commentThreads"
 
 export type FeedbackType = "feature_request" | "bug" | "complaint"
 
+// Where a ticket came in from — the public form, or a WhatsApp widget that
+// logged it just before handing the person off to WhatsApp.
+export type FeedbackChannel = "web_form" | "whatsapp"
+
+// Logged by a WhatsApp widget just before its wa.me hand-off (see
+// WhatsAppTicketPanel). TestMate's own in-app widget leaves out name and
+// email — the server takes them from the signed-in account.
+export interface WhatsAppTicketPayload {
+  type: FeedbackType
+  message: string
+  submitterName?: string
+  submitterEmail?: string
+  submitterPhone?: string
+  pageUrl?: string
+}
+
+export interface WhatsAppTicketResult {
+  id: string
+  ticketCode: string
+}
+
 // No submitter-confirmation gate — the ticket's comment thread is how they
 // flag a resolution that didn't actually hold.
 export type FeedbackStatus =
@@ -53,6 +74,7 @@ export interface Feedback {
   // fixed — a deliberate relay step, not automatic. Null until they do.
   submitterNotifiedAt: string | null
   type: FeedbackType
+  channel: FeedbackChannel
   title: string
   description: string
   suiteName: string | null

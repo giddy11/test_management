@@ -7,6 +7,7 @@ import type {
   FetchFeedbackParams,
   ManageFeedbackPayload,
   SupportQueueParams,
+  WhatsAppTicketPayload,
 } from "@/types/feedback.types"
 
 const FEEDBACK_KEY = "feedback"
@@ -31,6 +32,20 @@ export function useManageFeedback() {
   return useMutation({
     mutationFn: async ({ id, payload }: { id: string; payload: ManageFeedbackPayload }) => {
       const res = await FeedbackEndpoints.manage(id, payload)
+      if (!res.success || !res.data) throw new ApiError(res.message, res.statusCode, res.errors)
+      return res.data
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: [FEEDBACK_KEY] }),
+  })
+}
+
+// TestMate's own in-app WhatsApp widget logs a ticket just before its wa.me
+// hand-off (see WhatsAppTicketPanel).
+export function useCreateTestMateSupportTicket() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (payload: WhatsAppTicketPayload) => {
+      const res = await FeedbackEndpoints.createTestMateSupportTicket(payload)
       if (!res.success || !res.data) throw new ApiError(res.message, res.statusCode, res.errors)
       return res.data
     },

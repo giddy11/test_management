@@ -127,6 +127,7 @@ export function FeedbackManageDialog({
           <DialogDescription>
             {feedback?.title} — from {feedback?.submitterName}
             {feedback?.submitterPhone && <> · {feedback.submitterPhone}</>}
+            {feedback?.channel === "whatsapp" && <> · via WhatsApp</>}
           </DialogDescription>
         </DialogHeader>
 

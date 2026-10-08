@@ -13,6 +13,7 @@ import { ProjectService } from "../../project/services/project.service";
 import { ClientCompanyRepository } from "../../clientCompany/repositories/clientCompany.repository";
 import {
   SubmitterTicketStatus,
+  ticketCode,
   ticketLabel,
   toCompanyTicketResponse,
   toMyTicketResponse,
@@ -40,7 +41,13 @@ const {
   isExternalSupporter,
   seesAllProjects,
 } = require("../../../shared/access/scope");
-const { UserRole, FeedbackStatus, SupportStatus } = require("../../../config/constants");
+const {
+  UserRole,
+  ProjectMemberRole,
+  FeedbackStatus,
+  FeedbackChannel,
+  SupportStatus,
+} = require("../../../config/constants");
 const { env } = require("../../../config/env");
 
 // The lifecycle is strictly ordered — Object.freeze preserves declaration order.
@@ -81,6 +88,38 @@ const STATUS_EMAIL_COPY: Record<string, string> = {
     "Your feedback has been resolved — reply in the conversation below if it isn't fixed.",
   [FeedbackStatus.CLOSED]: "Your feedback has been closed. Thank you for helping us improve!",
 };
+
+export interface WhatsAppTicketInput {
+  type: string;
+  message: string;
+  submitterName: string;
+  submitterEmail: string;
+  submitterPhone?: string | null;
+  // The page the person was on when they wrote in — appended to the ticket's
+  // description as context.
+  pageUrl?: string | null;
+}
+
+// Fixed id of the auto-created "TestMate Support" project — see
+// FeedbackService.resolveTestMateSupportProject.
+const TESTMATE_SUPPORT_PROJECT_ID = "7e570a7e-5a99-4c0b-8d1e-5e1f0a2c3d4e";
+
+// A WhatsApp-widget ticket has no separate subject field — its title is the
+// message's first line, cut to fit.
+const WHATSAPP_TITLE_MAX = 80;
+
+function titleFromMessage(message: string): string {
+  const firstLine = message.trim().split(/\r?\n/)[0].trim();
+  return firstLine.length > WHATSAPP_TITLE_MAX
+    ? `${firstLine.slice(0, WHATSAPP_TITLE_MAX - 1).trimEnd()}…`
+    : firstLine;
+}
+
+// The full message, then any extra context (company, page) under a divider.
+function whatsAppDescription(message: string, context: (string | null)[]): string {
+  const extra = context.filter(Boolean);
+  return extra.length ? `${message.trim()}\n\n---\n${extra.join("\n")}` : message.trim();
+}
 
 export class FeedbackService {
   static Instance = new FeedbackService();
@@ -145,17 +184,19 @@ export class FeedbackService {
     };
   }
 
-  // Creates the row and its first history entry for a public-form submission.
+  // Creates the row and its first history entry for a public-form or
+  // WhatsApp-widget submission.
   private async createFeedbackCore(
     project: Project,
     data: {
       type: string;
+      channel?: string;
       title: string;
       description: string;
       suiteName?: string | null;
       submitterName: string;
       submitterEmail: string;
-      submitterPhone?: string;
+      submitterPhone?: string | null;
       clientCompanyId?: string | null;
       supportStatus?: string | null;
     }
@@ -165,6 +206,7 @@ export class FeedbackService {
       clientCompanyId: data.clientCompanyId ?? null,
       supportStatus: data.supportStatus ?? null,
       type: data.type,
+      channel: data.channel ?? FeedbackChannel.WEB_FORM,
       title: data.title,
       description: data.description,
       suiteName: data.suiteName ?? null,
@@ -286,6 +328,106 @@ export class FeedbackService {
     this.notifyProjectTeamOfNewFeedback(project, fb);
 
     return { id: fb.id };
+  }
+
+  // ── WhatsApp widgets ────────────────────────────────────────────────────────
+  // Both WhatsApp widgets (the embeddable one on a project's own site, and
+  // TestMate's own in-app one) log a ticket the moment the person presses
+  // send, just before handing them off to wa.me — so whatever follows on
+  // WhatsApp already has a ticket here, a reference to quote, and the usual
+  // "received" email. We never see whether the WhatsApp message itself goes
+  // out; that happens in the person's own WhatsApp app. Always a direct,
+  // product-team-facing ticket — neither widget belongs to a client company.
+  async submitViaWhatsApp(
+    project: Project,
+    data: WhatsAppTicketInput,
+    extraContext: string[] = []
+  ): Promise<{ id: string; ticketCode: string }> {
+    const fb = await this.createFeedbackCore(project, {
+      type: data.type,
+      channel: FeedbackChannel.WHATSAPP,
+      title: titleFromMessage(data.message),
+      description: whatsAppDescription(data.message, [
+        ...extraContext,
+        data.pageUrl ? `Sent from: ${data.pageUrl}` : null,
+      ]),
+      submitterName: data.submitterName,
+      submitterEmail: data.submitterEmail,
+      submitterPhone: data.submitterPhone ?? null,
+    });
+
+    sendFeedbackReceivedEmail(
+      fb.submitterEmail,
+      fb.submitterName,
+      project.name,
+      ticketLabel(fb),
+      project.organizationId
+    ).catch((e: Error) => console.error("[feedback] received email failed:", e.message));
+
+    this.notifyProjectTeamOfNewFeedback(project, fb);
+
+    return { id: fb.id, ticketCode: ticketCode(fb) };
+  }
+
+  // TestMate's own in-app widget: a signed-in user contacting TestMate itself
+  // rather than one of their projects. Tickets land in the "TestMate Support"
+  // project (see resolveTestMateSupportProject). Name, email and company come
+  // from the account, never the request.
+  async submitTestMateSupport(
+    actor: Actor,
+    data: { type: string; message: string; submitterPhone?: string; pageUrl?: string }
+  ): Promise<{ id: string; ticketCode: string }> {
+    const project = await this.resolveTestMateSupportProject();
+    const user = await this.authRepo.findUserById(actor.id);
+    if (!user) throw new AppError("User not found", 404);
+
+    return this.submitViaWhatsApp(
+      project,
+      {
+        type: data.type,
+        message: data.message,
+        submitterName: [user.firstName, user.lastName].filter(Boolean).join(" ") || user.email,
+        submitterEmail: user.email,
+        submitterPhone: data.submitterPhone ?? user.phoneNumber ?? null,
+        pageUrl: data.pageUrl,
+      },
+      user.companyName ? [`Company: ${user.companyName}`] : []
+    );
+  }
+
+  // The "TestMate Support" project — nothing to configure: created on the
+  // first in-app ticket under a fixed id, owned and led by the platform's
+  // superadmin, in their organisation. So TestMate's own team sees it in the
+  // project list like any other project and is notified of new tickets the
+  // usual way, while other organisations' admins never see it (projects are
+  // org-scoped). If someone deletes it, the next ticket brings it back.
+  private async resolveTestMateSupportProject(): Promise<Project> {
+    const existing = await this.projectRepo.findById(TESTMATE_SUPPORT_PROJECT_ID);
+    if (existing) return existing;
+
+    const [owner] = await this.authRepo.findByRole(UserRole.SUPERADMIN);
+    if (!owner) throw new AppError("Support tickets aren't available right now", 503);
+
+    try {
+      const project = await this.projectRepo.create({
+        id: TESTMATE_SUPPORT_PROJECT_ID,
+        name: "TestMate Support",
+        description: "Tickets from TestMate's in-app WhatsApp support widget. Created automatically.",
+        ownerId: owner.id,
+        organizationId: owner.organizationId ?? null,
+      });
+      await this.memberRepo.setMembers(project.id, [
+        { userId: owner.id, role: ProjectMemberRole.TEAM_LEAD },
+      ]);
+      return project;
+    } catch {
+      // The row exists already — a concurrent first ticket created it a moment
+      // ago, or it was soft-deleted. Either way, bring it back and use it.
+      await this.projectRepo.restore(TESTMATE_SUPPORT_PROJECT_ID);
+      const project = await this.projectRepo.findById(TESTMATE_SUPPORT_PROJECT_ID);
+      if (!project) throw new AppError("Support tickets aren't available right now", 503);
+      return project;
+    }
   }
 
   // A partner's own dashboard listing everything raised against its form —

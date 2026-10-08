@@ -143,6 +143,30 @@ export class LiveChatService {
     };
   }
 
+  // The WhatsApp embed widget logs a ticket on the widget's project just
+  // before handing the visitor off to wa.me. Refused when the project has no
+  // WhatsApp number — the widget never shows in that case anyway.
+  async createWhatsAppTicket(
+    token: string,
+    data: {
+      type: string;
+      message: string;
+      submitterName: string;
+      submitterEmail: string;
+      submitterPhone?: string;
+      pageUrl?: string;
+    }
+  ): Promise<{ id: string; ticketCode: string }> {
+    const project = await this.resolveProjectByToken(token);
+    if (!project.supportWhatsappNumber) {
+      throw new AppError("This live chat widget is not available", 404);
+    }
+    // Required lazily — the feedback module is otherwise unrelated to this
+    // one, and this keeps their load order independent.
+    const { FeedbackService } = require("../../feedback/services/feedback.service");
+    return FeedbackService.Instance.submitViaWhatsApp(project, data);
+  }
+
   // Called on widget mount. visitorId is omitted on a brand-new browser (the
   // server issues one, persisted client-side); sent back on every later call.
   //

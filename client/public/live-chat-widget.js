@@ -33,7 +33,7 @@
   //   var CLOSED_SIZE = { width: 230, height: 56 }; // wide pill launcher
   //   var OPEN_SIZE = { width: 400, height: 650 };
   var CLOSED_SIZE = { width: 64, height: 64 }; // round WhatsApp launcher button
-  var OPEN_SIZE = { width: 370, height: 520 }; // branded header + greeting bubbles + composer
+  var OPEN_SIZE = { width: 370, height: 600 }; // branded header + greeting bubbles + details form + composer
   var MOBILE_BREAKPOINT = 640;
   var EDGE_OFFSET = 20;
 

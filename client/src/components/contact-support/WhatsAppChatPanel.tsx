@@ -1,11 +1,10 @@
 // components/contact-support/WhatsAppChatPanel.tsx
-// The WhatsApp-styled chat view shared by the internal Contact support widget
-// and the embeddable WhatsAppWidgetPage — a branded header, a couple of
-// static greeting bubbles, and a composer. No real conversation happens here:
-// nothing is stored or sent through our backend. Pressing send just builds a
-// wa.me link and opens it in a new tab — see each caller's buildWhatsAppUrl.
+// The WhatsApp-styled chat view behind both WhatsApp widgets — a branded
+// header, a couple of static greeting bubbles, and a composer. No real
+// conversation happens here; see WhatsAppTicketPanel for what send does
+// (logs a ticket, then hands off to WhatsApp).
 import { useEffect, useRef } from "react"
-import { MessageCircle, Send, X } from "lucide-react"
+import { Loader2, MessageCircle, Send, X } from "lucide-react"
 import { Textarea } from "@/components/ui/textarea"
 
 interface Props {
@@ -19,8 +18,14 @@ interface Props {
   placeholder?: string
   /** True when there's nothing valid to send to yet (e.g. no product chosen). */
   disabled?: boolean
+  /** True while a send is in flight — locks the composer. */
+  sending?: boolean
   /** Extra content between the header and the chat body (e.g. a product picker). */
   topSlot?: React.ReactNode
+  /** Extra chat-body content below the greeting bubbles (e.g. a details form). */
+  children?: React.ReactNode
+  /** Replaces the composer entirely (e.g. once a message has been sent). */
+  footer?: React.ReactNode
   autoFocus?: boolean
 }
 
@@ -34,10 +39,13 @@ export function WhatsAppChatPanel({
   maxLength,
   placeholder = "Type a message",
   disabled = false,
+  sending = false,
   topSlot,
+  children,
+  footer,
   autoFocus = true,
 }: Props) {
-  const canSend = !disabled && Boolean(message.trim())
+  const canSend = !disabled && !sending && Boolean(message.trim())
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
@@ -73,34 +81,38 @@ export function WhatsAppChatPanel({
         <div className="max-w-[80%] rounded-lg rounded-tl-sm bg-white px-3 py-2 text-sm text-neutral-800 shadow-sm">
           How can we help you today?
         </div>
+        {children}
       </div>
 
-      <div className="flex shrink-0 items-end gap-2 bg-[#f0f0f0] p-2">
-        <Textarea
-          ref={textareaRef}
-          value={message}
-          onChange={(e) => onMessageChange(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault()
-              if (canSend) onSend()
-            }
-          }}
-          placeholder={placeholder}
-          rows={1}
-          maxLength={maxLength}
-          className="max-h-32 flex-1 resize-none rounded-3xl border-none bg-white px-4 py-2.5 text-sm text-neutral-900 shadow-sm focus-visible:ring-1 focus-visible:ring-[#25d366]"
-        />
-        <button
-          type="button"
-          onClick={onSend}
-          disabled={!canSend}
-          aria-label="Send on WhatsApp"
-          className="flex size-10 shrink-0 items-center justify-center rounded-full bg-[#25d366] text-white transition-colors hover:bg-[#20bd5a] disabled:opacity-40"
-        >
-          <Send className="size-4.5" />
-        </button>
-      </div>
+      {footer ?? (
+        <div className="flex shrink-0 items-end gap-2 bg-[#f0f0f0] p-2">
+          <Textarea
+            ref={textareaRef}
+            value={message}
+            onChange={(e) => onMessageChange(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault()
+                if (canSend) onSend()
+              }
+            }}
+            placeholder={placeholder}
+            rows={1}
+            maxLength={maxLength}
+            disabled={sending}
+            className="max-h-32 flex-1 resize-none rounded-3xl border-none bg-white px-4 py-2.5 text-sm text-neutral-900 shadow-sm focus-visible:ring-1 focus-visible:ring-[#25d366]"
+          />
+          <button
+            type="button"
+            onClick={onSend}
+            disabled={!canSend}
+            aria-label="Send on WhatsApp"
+            className="flex size-10 shrink-0 items-center justify-center rounded-full bg-[#25d366] text-white transition-colors hover:bg-[#20bd5a] disabled:opacity-40"
+          >
+            {sending ? <Loader2 className="size-4.5 animate-spin" /> : <Send className="size-4.5" />}
+          </button>
+        </div>
+      )}
     </div>
   )
 }
