@@ -9,11 +9,15 @@
 //
 // A failed ticket never blocks the hand-off: WhatsApp still opens, just
 // without a reference — reaching support matters more than the record.
+//
+// "Already have a ticket?" switches to WhatsAppTicketLookup, where someone
+// who's already written in can read and reply to their ticket's conversation.
 import { useEffect, useId, useState } from "react"
 import { CheckCircle2, ExternalLink } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { WhatsAppChatPanel } from "@/components/contact-support/WhatsAppChatPanel"
+import { WhatsAppChatPanel, WHATSAPP_FIELD_CLASS } from "@/components/contact-support/WhatsAppChatPanel"
+import { WhatsAppTicketLookup } from "@/components/contact-support/WhatsAppTicketLookup"
 import { cn } from "@/lib/utils"
 import {
   FEEDBACK_TYPE_LABELS,
@@ -32,10 +36,7 @@ const TOPICS: FeedbackType[] = ["complaint", "bug", "feature_request"]
 // a per-browser convenience only, so every read/write tolerates failure.
 const CONTACT_STORAGE_KEY = "tm_whatsapp_widget_contact"
 
-// The panel is always light (WhatsApp-styled) — pin the field colors so the
-// app's dark theme can't turn them into light text on a white card.
-const FIELD_CLASS =
-  "h-8 border-neutral-300 bg-white text-sm text-neutral-900 placeholder:text-neutral-400 dark:bg-white"
+const FIELD_CLASS = WHATSAPP_FIELD_CLASS
 
 export interface SenderDetails {
   name: string
@@ -99,6 +100,7 @@ export function WhatsAppTicketPanel({
   placeholder = "Type your message",
 }: Props) {
   const fieldId = useId()
+  const [lookingUp, setLookingUp] = useState(false)
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
   const [phone, setPhone] = useState(knownSender?.phone ?? "")
@@ -168,6 +170,17 @@ export function WhatsAppTicketPanel({
     setSent({ message: trimmed, email: sender.email, ticketCode, url, opened: Boolean(waWindow) })
   }
 
+  if (lookingUp) {
+    return (
+      <WhatsAppTicketLookup
+        title={title}
+        onClose={onClose}
+        onBack={() => setLookingUp(false)}
+        initialEmail={knownSender?.email ?? (email.trim() || undefined)}
+      />
+    )
+  }
+
   if (sent) {
     return (
       <WhatsAppChatPanel
@@ -213,6 +226,13 @@ export function WhatsAppTicketPanel({
                 We've emailed a confirmation to {sent.email}. Your message is ready in WhatsApp with this
                 reference — send it there to carry on the conversation.
               </p>
+              <button
+                type="button"
+                onClick={() => setLookingUp(true)}
+                className="mt-1.5 text-xs font-medium text-[#075e54] underline-offset-2 hover:underline"
+              >
+                See replies to your tickets
+              </button>
             </>
           ) : (
             <p>
@@ -325,6 +345,14 @@ export function WhatsAppTicketPanel({
           Type your full message below. We'll log a ticket and email you its reference before WhatsApp opens.
         </p>
       </div>
+
+      <button
+        type="button"
+        onClick={() => setLookingUp(true)}
+        className="mx-auto block rounded-full bg-white/70 px-3 py-1 text-xs font-medium text-[#075e54] shadow-sm transition-colors hover:bg-white"
+      >
+        Already have a ticket? See replies
+      </button>
     </WhatsAppChatPanel>
   )
 }

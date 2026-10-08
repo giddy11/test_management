@@ -7,6 +7,12 @@ import { useEffect, useRef } from "react"
 import { Loader2, MessageCircle, Send, X } from "lucide-react"
 import { Textarea } from "@/components/ui/textarea"
 
+// The panel is always light (WhatsApp-styled) — form fields inside it pin
+// their colors so the app's dark theme can't turn them into light text on a
+// white card.
+export const WHATSAPP_FIELD_CLASS =
+  "h-8 border-neutral-300 bg-white text-sm text-neutral-900 placeholder:text-neutral-400 dark:bg-white"
+
 interface Props {
   title: string
   subtitle?: string
@@ -26,6 +32,8 @@ interface Props {
   children?: React.ReactNode
   /** Replaces the composer entirely (e.g. once a message has been sent). */
   footer?: React.ReactNode
+  /** The two static "Hi there!" bubbles — off when the body is a real conversation. */
+  showGreeting?: boolean
   autoFocus?: boolean
 }
 
@@ -43,6 +51,7 @@ export function WhatsAppChatPanel({
   topSlot,
   children,
   footer,
+  showGreeting = true,
   autoFocus = true,
 }: Props) {
   const canSend = !disabled && !sending && Boolean(message.trim())
@@ -72,15 +81,19 @@ export function WhatsAppChatPanel({
         </button>
       </div>
 
-      {topSlot && <div className="shrink-0 border-b px-3 py-2">{topSlot}</div>}
+      {topSlot && <div className="shrink-0 border-b border-neutral-200 px-3 py-2">{topSlot}</div>}
 
       <div className="flex-1 space-y-2 overflow-y-auto bg-[#e5ddd5] px-3 py-4">
-        <div className="max-w-[80%] rounded-lg rounded-tl-sm bg-white px-3 py-2 text-sm text-neutral-800 shadow-sm">
-          👋 Hi there!
-        </div>
-        <div className="max-w-[80%] rounded-lg rounded-tl-sm bg-white px-3 py-2 text-sm text-neutral-800 shadow-sm">
-          How can we help you today?
-        </div>
+        {showGreeting && (
+          <>
+            <div className="max-w-[80%] rounded-lg rounded-tl-sm bg-white px-3 py-2 text-sm text-neutral-800 shadow-sm">
+              👋 Hi there!
+            </div>
+            <div className="max-w-[80%] rounded-lg rounded-tl-sm bg-white px-3 py-2 text-sm text-neutral-800 shadow-sm">
+              How can we help you today?
+            </div>
+          </>
+        )}
         {children}
       </div>
 
