@@ -223,8 +223,9 @@ export function WhatsAppTicketPanel({
                 Ticket {sent.ticketCode} logged
               </p>
               <p className="mt-1">
-                We've emailed a confirmation to {sent.email}. Your message is ready in WhatsApp with this
-                reference — send it there to carry on the conversation.
+                We've emailed a confirmation to {sent.email} (not in your inbox? check your spam or junk
+                folder). Your message is ready in WhatsApp with this reference — send it there to carry on the
+                conversation.
               </p>
               <button
                 type="button"

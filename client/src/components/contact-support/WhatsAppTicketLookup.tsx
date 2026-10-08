@@ -90,7 +90,7 @@ export function WhatsAppTicketLookup({ title, onClose, onBack, initialEmail }: P
   const bottomRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
     if (step === "thread") bottomRef.current?.scrollIntoView({ block: "end" })
-  }, [step, comments.length])
+  }, [step, comments.length, transcript])
 
   const trimmedEmail = email.trim()
   const canFind = Boolean(ticketInput.trim()) && EMAIL_REGEX.test(trimmedEmail)
@@ -298,6 +298,11 @@ export function WhatsAppTicketLookup({ title, onClose, onBack, initialEmail }: P
             </div>
           )
         })}
+        {transcript === "sent" && (
+          <div className="max-w-[85%] rounded-lg rounded-tl-sm bg-white px-3 py-2 text-sm text-neutral-800 shadow-sm">
+            📧 Transcript sent to {trimmedEmail}. Not in your inbox? Check your spam or junk folder.
+          </div>
+        )}
         {error && <p className="text-center text-xs text-red-600">{error}</p>}
         <div ref={bottomRef} />
       </WhatsAppChatPanel>
@@ -339,7 +344,7 @@ export function WhatsAppTicketLookup({ title, onClose, onBack, initialEmail }: P
       <div className="max-w-[85%] rounded-lg rounded-tl-sm bg-white px-3 py-2 text-sm text-neutral-800 shadow-sm">
         {step === "find"
           ? "Enter your ticket reference and the email you used, and we'll show you the conversation."
-          : `If ${trimmedEmail} has tickets with us, we've just emailed it a 6-digit code. Enter it below.`}
+          : `If ${trimmedEmail} has tickets with us, we've just emailed it a 6-digit code. Enter it below — not in your inbox? Check your spam or junk folder.`}
       </div>
 
       <form
