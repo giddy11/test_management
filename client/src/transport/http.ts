@@ -62,8 +62,13 @@ http.interceptors.response.use(
   async (error: AxiosError) => {
     const original = error.config as (InternalAxiosRequestConfig & { _retried?: boolean }) | undefined
     const isAuthRoute = original?.url?.includes("/auth/")
+    // Public (token- or code-gated) routes never use the session — a 401 there
+    // means "wrong or expired code", not "your login expired". Refreshing (and,
+    // when that fails, signing out) would be wrong: the WhatsApp widget runs on
+    // this same origin, so a bad ticket code there would log a TestMate user out.
+    const isPublicRoute = original?.url?.includes("/api/v1/public/")
 
-    if (error.response?.status === 401 && original && !original._retried && !isAuthRoute) {
+    if (error.response?.status === 401 && original && !original._retried && !isAuthRoute && !isPublicRoute) {
       original._retried = true
       refreshing = refreshing ?? refreshTokens()
       const ok = await refreshing

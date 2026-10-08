@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { WhatsAppChatPanel, WHATSAPP_FIELD_CLASS } from "@/components/contact-support/WhatsAppChatPanel"
 import { FeedbackEndpoints } from "@/endpoints/feedback.endpoints"
+import { ApiError } from "@/transport/http"
 import { useFeedbackCommentThread } from "@/hooks/useFeedbackComments"
 import { cn } from "@/lib/utils"
 import { MY_TICKET_STATUS_LABELS, type MyTicket } from "@/types/feedback.types"
@@ -59,6 +60,16 @@ function saveSession(session: { email: string; code: string } | null) {
   } catch {
     // Storage blocked — the visitor just gets asked for a code again next time.
   }
+}
+
+// The server refused the email + code (wrong, or expired / pushed out by
+// newer codes) — as opposed to a network or server failure.
+function isCodeRefused(e: unknown): boolean {
+  return e instanceof ApiError && e.statusCode === 401
+}
+
+function errorMessage(e: unknown, fallback: string): string {
+  return e instanceof ApiError && e.message ? e.message : fallback
 }
 
 // Accepts the full reference ("TKT-20261008-023", any case) or just its
@@ -105,12 +116,20 @@ export function WhatsAppTicketLookup({ title, onClose, onBack, initialEmail }: P
   const canFind = Boolean(ticketInput.trim()) && EMAIL_REGEX.test(trimmedEmail)
 
   // Trades an email + code for the person's tickets, then picks the one asked
-  // for. "invalid" = the code itself was refused (wrong or expired).
+  // for. "invalid" = the code itself was refused (wrong or expired); any
+  // other failure (network, server) is thrown for the caller to report.
+  // Note every endpoint call throws an ApiError on failure (see wrapCall) —
+  // it never resolves with success: false.
   const openWithCode = async (c: string): Promise<"opened" | "not_found" | "invalid"> => {
-    const res = await FeedbackEndpoints.listMyTickets(trimmedEmail, c)
-    if (!res.success || !res.data) return "invalid"
+    let tickets: MyTicket[]
+    try {
+      tickets = (await FeedbackEndpoints.listMyTickets(trimmedEmail, c)).data ?? []
+    } catch (e) {
+      if (isCodeRefused(e)) return "invalid"
+      throw e
+    }
     saveSession({ email: trimmedEmail, code: c })
-    const found = matchTicket(res.data, ticketInput)
+    const found = matchTicket(tickets, ticketInput)
     if (!found) return "not_found"
     setTicket(found)
     setVerifiedCode(c)
@@ -137,13 +156,11 @@ export function WhatsAppTicketLookup({ title, onClose, onBack, initialEmail }: P
         }
         saveSession(null) // expired — fall through to a fresh code
       }
-      const res = await FeedbackEndpoints.requestMyTicketsCode(trimmedEmail)
-      if (!res.success) {
-        setError(res.message || "Couldn't send a code — try again shortly.")
-        return
-      }
+      await FeedbackEndpoints.requestMyTicketsCode(trimmedEmail)
       setCode("")
       setStep("code")
+    } catch (e) {
+      setError(errorMessage(e, "Couldn't send a code — try again shortly."))
     } finally {
       setBusy(false)
     }
@@ -160,6 +177,8 @@ export function WhatsAppTicketLookup({ title, onClose, onBack, initialEmail }: P
         setStep("find")
         setError(notFoundMessage())
       }
+    } catch (e) {
+      setError(errorMessage(e, "Couldn't check that code — try again shortly."))
     } finally {
       setBusy(false)
     }
@@ -188,18 +207,13 @@ export function WhatsAppTicketLookup({ title, onClose, onBack, initialEmail }: P
     setSending(true)
     setError(null)
     try {
-      const res = await FeedbackEndpoints.publicAddComment(ticket.id, trimmedEmail, verifiedCode, body, files)
-      if (res.success) {
-        // The new message arrives through the live thread listener.
-        setReply("")
-        setFiles([])
-      } else if (res.statusCode === 401) {
-        expireSession()
-      } else {
-        setError(res.message || "Couldn't send your reply — try again.")
-      }
-    } catch {
-      setError("Couldn't send your reply — try again.")
+      await FeedbackEndpoints.publicAddComment(ticket.id, trimmedEmail, verifiedCode, body, files)
+      // The new message arrives through the live thread listener.
+      setReply("")
+      setFiles([])
+    } catch (e) {
+      if (isCodeRefused(e)) expireSession()
+      else setError(errorMessage(e, "Couldn't send your reply — try again."))
     } finally {
       setSending(false)
     }
@@ -224,14 +238,14 @@ export function WhatsAppTicketLookup({ title, onClose, onBack, initialEmail }: P
     } catch {
       timeZone = undefined
     }
-    const res = await FeedbackEndpoints.publicEmailTranscript(ticket.id, trimmedEmail, verifiedCode, timeZone)
-    if (res.success) {
+    try {
+      await FeedbackEndpoints.publicEmailTranscript(ticket.id, trimmedEmail, verifiedCode, timeZone)
       setTranscript("sent")
-      return
+    } catch (e) {
+      setTranscript("idle")
+      if (isCodeRefused(e)) expireSession()
+      else setError(errorMessage(e, "Couldn't send the transcript — try again shortly."))
     }
-    setTranscript("idle")
-    if (res.statusCode === 401) expireSession()
-    else setError(res.message || "Couldn't send the transcript — try again shortly.")
   }
 
   if (step === "thread" && ticket) {
