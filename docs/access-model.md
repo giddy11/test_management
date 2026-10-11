@@ -169,9 +169,16 @@ organisation is a custom role away.
 
 **A supporter who is not a lead has no built-in role.** Support lead is the only built-in role
 carrying `supportqueue.*`, so an `it_support` account that is not a lead has no permissions
-until an admin assigns a role. Organisation administrators do not hold `supportqueue.*`
-themselves, so — under the no-escalation rule — they cannot grant it: assigning Support lead,
-or building a role that carries the queue permissions, is a super administrator's job.
+until an admin assigns a role.
+
+Organisation administrators do not hold `supportqueue.*` themselves, which the no-escalation
+rule would ordinarily read as "cannot grant it" — and at first did, which meant every client
+company's support lead had to be assigned by the vendor. **Assigning the built-in Support lead
+role is an exception** (section 6): the bundle is the catalog's design, not something the
+administrator authored, and they gain nothing themselves by handing it to someone else.
+**Building a role that carries the queue permissions is still a super administrator's job** —
+the exception is for assigning the existing built-in role exactly as the catalog defines it,
+not for authoring a new one that also carries them.
 
 ### 3.1 Super administrator — locked
 One wildcard permission, `*`. Shown with a lock icon. Cannot be edited, renamed,
@@ -388,7 +395,7 @@ token-based access, which is a separate authentication mechanism, and their rout
 | **Last `role.manage` holder** | The last user in an organisation holding a role with `role.manage` cannot have that role removed, be deleted, or be deactivated. |
 | **Last super administrator** | The last user holding the Super administrator role cannot have it removed or be deleted. |
 | **Self-demotion** | A user may not remove their own last `role.manage`-bearing role. |
-| **No privilege escalation** | A holder of `role.manage` who is **not** a super administrator may not grant a permission they do not themselves hold, nor assign a role containing one. Super administrators bypass this (they hold `*`). One bounded exception: a holder of the **built-in** Organisation administrator role (recognised by its seed key, which a custom role cannot carry) may also grant anything that role is designed to hold, which excludes every platform-only and support-desk permission. Without it, unticking a permission on your own role removed it from your own reach, and only a super administrator could restore it. |
+| **No privilege escalation** | A holder of `role.manage` who is **not** a super administrator may not grant a permission they do not themselves hold, nor assign a role containing one. Super administrators bypass this (they hold `*`). Two bounded exceptions: (1) a holder of the **built-in** Organisation administrator role may also grant anything that role is designed to hold, which excludes every platform-only and support-desk permission — without it, unticking a permission on your own role removed it from your own reach, and only a super administrator could restore it; (2) **assigning** an unmodified built-in role (Support lead, say) grants its own catalog-designed permissions regardless of the admin's personal reach — the bundle is the catalog's design, not theirs — but a permission a built-in role carries beyond its catalog definition, or any permission on a custom role, is still checked against what the admin can reach. Neither exception touches *creating*, *cloning* or *editing* a role's permission content: an admin still cannot author a new bundle, built-in or custom, that reaches past what they hold. |
 | **Only what you can reach is shown** | A non-super administrator sees only the permissions they can grant — the ones they hold themselves, plus (for the built-in Organisation administrator alone) the rest of the set that role is designed to hold, so unticking a permission on your own role cannot put it out of your own reach: in the editor's catalog (a category with none left is dropped), and in each role's permission list and count. A role can carry more — Support lead has the client company's `supportqueue.*` — and that remainder is kept when the role is edited, and left out of a copy. Nothing they cannot grant is ever offered. |
 | **Built-in role deletion** | Built-in roles cannot be deleted at any time. |
 | **Custom role deletion** | Only when the role has zero members. |

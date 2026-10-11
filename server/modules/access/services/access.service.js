@@ -23,6 +23,17 @@ const ORG_ADMIN_CEILING = new Set(
   BUILTIN_ROLES.find((r) => r.key === ROLE_KEYS.ORG_ADMIN).permissions
 );
 
+// A role's permissions as the CATALOG defines them for its key -- never as the
+// database happens to hold them, so a built-in role whose stored permissions
+// were later edited past its design still needs the assigning admin's own
+// reach for the difference. Empty for a custom role (no key) or an
+// unrecognised one.
+function catalogPermissionsOf(role) {
+  if (!role.isBuiltin || !role.key) return new Set();
+  const def = BUILTIN_ROLES.find((r) => r.key === role.key);
+  return def ? new Set(def.permissions) : new Set();
+}
+
 class AccessService {
   static Instance = new AccessService();
 
@@ -385,16 +396,24 @@ class AccessService {
       roles.push(role);
     }
 
-    // No escalation: assigning a role is granting every permission in it.
+    // No escalation: assigning a role is granting every permission in it. The
+    // one exception is a built-in role's own catalog-designed permissions (see
+    // catalogPermissionsOf) -- assigning Support lead to someone is not the
+    // admin authoring the client company's queue permissions, the catalog
+    // already did that, so it does not need to be in the admin's own reach.
     const granted = new Set();
+    const trusted = new Set();
     for (const role of roles) {
+      const catalogCodes = catalogPermissionsOf(role);
       for (const code of await this.repo.permissionsForRole(role.id)) {
         granted.add(code);
+        if (catalogCodes.has(code)) trusted.add(code);
       }
     }
     if (!hasWildcard(actor)) {
       const reach = await this.reachOf(actor);
-      this.assertNoEscalation(actor, [...granted].filter((c) => c !== WILDCARD), reach);
+      const toCheck = [...granted].filter((c) => c !== WILDCARD && !trusted.has(c));
+      this.assertNoEscalation(actor, toCheck, reach);
     }
 
     const beforeRoles = await this.repo.rolesForUser(userId);

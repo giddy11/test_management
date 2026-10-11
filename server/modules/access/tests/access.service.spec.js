@@ -598,6 +598,66 @@ describe("AccessService", () => {
     });
   });
 
+  describe("assigning a built-in role carries its own catalog design", () => {
+    // Regression: an Organisation administrator holds no supportqueue.* or
+    // company.autoassign themselves (support-desk-only, section 3), so handing
+    // someone the built-in Support lead role tripped the no-escalation check
+    // on every one of its queue permissions.
+    const { BUILTIN_ROLES } = require("../catalog/permissions.catalog");
+    const supportLeadCodes = BUILTIN_ROLES.find((r) => r.key === "support_lead").permissions;
+    const supportLeadRole = {
+      ...builtinRole,
+      id: "role-support-lead",
+      key: "support_lead",
+      name: "Support lead",
+      organizationId: "org-1",
+    };
+
+    beforeEach(() => {
+      repo.findRoleById.mockResolvedValue(supportLeadRole);
+      repo.permissionsForRole.mockResolvedValue(supportLeadCodes);
+    });
+
+    it("lets an administrator assign Support lead despite holding none of its queue permissions", async () => {
+      await service.setUserRoles(admin, "user-1", ["role-support-lead"]);
+      expect(repo.setUserRoles).toHaveBeenCalledWith(
+        "user-1",
+        ["role-support-lead"],
+        admin.id,
+        expect.anything()
+      );
+    });
+
+    it("still blocks a permission beyond the catalog's own design for that role", async () => {
+      // Simulate the stored role having drifted past what the catalog defines
+      // for "support_lead" -- an edit, by someone else, that added platform.read.
+      repo.permissionsForRole.mockResolvedValue([...supportLeadCodes, "platform.read"]);
+
+      await expect(
+        service.setUserRoles(admin, "user-1", ["role-support-lead"])
+      ).rejects.toMatchObject({
+        statusCode: 403,
+        message: expect.stringContaining("platform.read"),
+      });
+      expect(repo.setUserRoles).not.toHaveBeenCalled();
+    });
+
+    it("does not extend the exemption to a custom role carrying the same codes", async () => {
+      repo.findRoleById.mockResolvedValue({ ...customRole, organizationId: "org-1" });
+      repo.permissionsForRole.mockResolvedValue(supportLeadCodes);
+
+      await expect(
+        service.setUserRoles(admin, "user-1", ["role-custom"])
+      ).rejects.toMatchObject({ statusCode: 403 });
+      expect(repo.setUserRoles).not.toHaveBeenCalled();
+    });
+
+    it("is unaffected for a super administrator, who bypasses escalation entirely", async () => {
+      await service.setUserRoles(superAdmin, "user-1", ["role-support-lead"]);
+      expect(repo.setUserRoles).toHaveBeenCalled();
+    });
+  });
+
   describe("catalog validation", () => {
     it("rejects a permission code that is not in the catalog", async () => {
       repo.validPermissionCodes.mockResolvedValue([]);
