@@ -211,10 +211,10 @@ export class SlaService {
     };
   }
 
-  async filterOptions(actor: Actor) {
+  async filterOptions(actor: Actor, projectId?: string) {
     const scope = this.scopeFor(actor);
     const rules = await this.rulesFor(actor);
-    return this.repo.filterOptions(scope, rules);
+    return this.repo.filterOptions(scope, rules, projectId);
   }
 }
 

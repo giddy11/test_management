@@ -32,11 +32,13 @@ export function useSlaTickets(params: SlaTicketsParams, enabled = true) {
   })
 }
 
-export function useSlaFilterOptions() {
+// projectId narrows the dropdown options to one project — pass it when the
+// SLA view is embedded in that project's own page.
+export function useSlaFilterOptions(projectId?: string) {
   return useQuery({
-    queryKey: [SLA_KEY, "filters"],
+    queryKey: [SLA_KEY, "filters", projectId],
     queryFn: async () => {
-      const res = await SlaEndpoints.filterOptions()
+      const res = await SlaEndpoints.filterOptions(projectId)
       if (!res.success || !res.data) throw new ApiError(res.message, res.statusCode)
       return res.data
     },

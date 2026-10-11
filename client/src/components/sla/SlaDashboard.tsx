@@ -5,8 +5,9 @@
 // (SlaTicketsDialog) — all computed over the same filtered set, so the
 // numbers always agree.
 //
-// Rendered inside the main dashboard (product-org roles) and the IT support
-// portal (scoped server-side to the supporter's company).
+// Rendered inside the main dashboard (product-org roles), the IT support
+// portal (scoped server-side to the supporter's company), and a single
+// project's own page (pass `projectId` to pin it there — see `locked` below).
 import { useMemo, useState } from "react"
 import {
   AlertTriangle,
@@ -177,18 +178,23 @@ function PeopleTable({
   )
 }
 
-export function SlaDashboard() {
+export function SlaDashboard({ projectId: fixedProjectId }: { projectId?: string } = {}) {
   const { user, can } = useAuth()
   // An external supporter is scoped to their own client company; the server
   // decides that from clientCompanyId, and so does this view.
   const isSupporter = Boolean(user?.clientCompanyId)
   const isAdmin = can("sla.configure")
+  // Embedded in a project's own page (ProjectDetailPage): the project is
+  // fixed by the caller, so the Product filter and the cross-project "By
+  // product" breakdown — both redundant once there's only one project to
+  // show — are hidden rather than merely pre-filled.
+  const locked = Boolean(fixedProjectId)
 
   const [range, setRange] = useState<RangePreset>("90d")
   const [from, setFrom] = useState<string>(daysAgo(90))
   const [to, setTo] = useState<string>("")
   const [bucket, setBucket] = useState<SlaInterval | "auto">("auto")
-  const [projectId, setProjectId] = useState("all")
+  const [productFilter, setProductFilter] = useState("all")
   const [companyId, setCompanyId] = useState("all")
   const [status, setStatus] = useState("all")
   const [severity, setSeverity] = useState("all")
@@ -217,7 +223,7 @@ export function SlaDashboard() {
     () => ({
       from: from || undefined,
       to: to || undefined,
-      projectId: projectId === "all" ? undefined : projectId,
+      projectId: fixedProjectId ?? (productFilter === "all" ? undefined : productFilter),
       clientCompanyId: companyId === "all" ? undefined : companyId,
       status: status === "all" ? undefined : (status as SlaStage),
       severity: severity === "all" ? undefined : (severity as SlaSeverityFilter),
@@ -228,22 +234,24 @@ export function SlaDashboard() {
       search: debouncedSearch || undefined,
       interval: bucket === "auto" ? undefined : bucket,
     }),
-    [from, to, projectId, companyId, status, severity, type, source, assigneeId, supporterId, debouncedSearch, bucket]
+    [from, to, fixedProjectId, productFilter, companyId, status, severity, type, source, assigneeId, supporterId, debouncedSearch, bucket]
   )
 
   const { data, isLoading, isError } = useSlaOverview(filters)
-  const { data: options } = useSlaFilterOptions()
+  const { data: options } = useSlaFilterOptions(fixedProjectId)
 
   // Supporters only ever see tickets (no Source filter for them), so the
   // ticket-only filters are always relevant to them.
   const ticketOnlyFilters = isSupporter || source === "ticket"
 
+  // The fixed project (when embedded) is a given, not a filter the user set —
+  // it never toggles the Clear button or gets cleared by it.
   const hasFilters =
-    projectId !== "all" || companyId !== "all" || status !== "all" || severity !== "all" ||
+    productFilter !== "all" || companyId !== "all" || status !== "all" || severity !== "all" ||
     type !== "all" || source !== "all" || assigneeId !== "all" || supporterId !== "all" || search !== ""
 
   const clearFilters = () => {
-    setProjectId("all"); setCompanyId("all"); setStatus("all"); setSeverity("all")
+    setProductFilter("all"); setCompanyId("all"); setStatus("all"); setSeverity("all")
     setType("all"); setSource("all"); setAssigneeId("all"); setSupporterId("all"); setSearch("")
   }
 
@@ -288,8 +296,8 @@ export function SlaDashboard() {
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        {!isSupporter && (
-          <Select value={projectId} onValueChange={setProjectId}>
+        {!locked && !isSupporter && (
+          <Select value={productFilter} onValueChange={setProductFilter}>
             <SelectTrigger className="w-44"><SelectValue placeholder="Product" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All products</SelectItem>
@@ -570,56 +578,60 @@ export function SlaDashboard() {
             }
           />
 
-          {/* ── By product ────────────────────────────────────────────────── */}
-          <div className="grid gap-4">
-            <Card>
-              <CardHeader className="flex flex-row items-center gap-2">
-                <Star className="size-4 text-yellow-500" />
-                <div>
-                  <CardTitle className="text-base">By product</CardTitle>
-                  <CardDescription>
-                    Submitter satisfaction: {k.ratingCount > 0 ? `${(k.avgRating ?? 0).toFixed(1)} / 5 from ${k.ratingCount} ratings` : "no ratings yet"}
-                  </CardDescription>
-                </div>
-              </CardHeader>
-              <CardContent className="p-0">
-                {data.byProject.length === 0 ? (
-                  <p className="px-6 py-4 text-sm text-muted-foreground">No issues yet.</p>
-                ) : (
-                  <div className="max-h-80 overflow-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Product</TableHead>
-                          <TableHead className="text-right">Issues</TableHead>
-                          <TableHead className="text-right">Open</TableHead>
-                          <TableHead className="text-right">Breached</TableHead>
-                          <TableHead className="text-right">Avg resolution</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {data.byProject.map((p) => (
-                          <TableRow
-                            key={p.projectId}
-                            className="cursor-pointer"
-                            onClick={() => setDrill({ metric: "all", extra: { projectId: p.projectId }, title: `${p.projectName} issues` })}
-                          >
-                            <TableCell className="font-medium">{p.projectName}</TableCell>
-                            <TableCell className="text-right tabular-nums">{p.total}</TableCell>
-                            <TableCell className="text-right tabular-nums">{p.open}</TableCell>
-                            <TableCell className="text-right">
-                              <span className={`tabular-nums ${p.breached > 0 ? "text-red-600" : ""}`}>{p.breached}</span>
-                            </TableCell>
-                            <TableCell className="text-right tabular-nums text-muted-foreground">{fmtMs(p.avgResolutionMs)}</TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
+          {/* ── By product — hidden when embedded in a single project, where
+              a one-row breakdown by product adds nothing the KPI cards
+              above don't already show ──────────────────────────────────── */}
+          {!locked && (
+            <div className="grid gap-4">
+              <Card>
+                <CardHeader className="flex flex-row items-center gap-2">
+                  <Star className="size-4 text-yellow-500" />
+                  <div>
+                    <CardTitle className="text-base">By product</CardTitle>
+                    <CardDescription>
+                      Submitter satisfaction: {k.ratingCount > 0 ? `${(k.avgRating ?? 0).toFixed(1)} / 5 from ${k.ratingCount} ratings` : "no ratings yet"}
+                    </CardDescription>
                   </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
+                </CardHeader>
+                <CardContent className="p-0">
+                  {data.byProject.length === 0 ? (
+                    <p className="px-6 py-4 text-sm text-muted-foreground">No issues yet.</p>
+                  ) : (
+                    <div className="max-h-80 overflow-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Product</TableHead>
+                            <TableHead className="text-right">Issues</TableHead>
+                            <TableHead className="text-right">Open</TableHead>
+                            <TableHead className="text-right">Breached</TableHead>
+                            <TableHead className="text-right">Avg resolution</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {data.byProject.map((p) => (
+                            <TableRow
+                              key={p.projectId}
+                              className="cursor-pointer"
+                              onClick={() => setDrill({ metric: "all", extra: { projectId: p.projectId }, title: `${p.projectName} issues` })}
+                            >
+                              <TableCell className="font-medium">{p.projectName}</TableCell>
+                              <TableCell className="text-right tabular-nums">{p.total}</TableCell>
+                              <TableCell className="text-right tabular-nums">{p.open}</TableCell>
+                              <TableCell className="text-right">
+                                <span className={`tabular-nums ${p.breached > 0 ? "text-red-600" : ""}`}>{p.breached}</span>
+                              </TableCell>
+                              <TableCell className="text-right tabular-nums text-muted-foreground">{fmtMs(p.avgResolutionMs)}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          )}
 
           {/* ── People ────────────────────────────────────────────────────── */}
           <div className={`grid gap-4 ${isSupporter ? "" : "lg:grid-cols-2"}`}>

@@ -19,7 +19,10 @@ export const SlaEndpoints = {
   tickets: (params: SlaTicketsParams) =>
     wrapCall<SlaTicket[]>("GET", "/api/v1/sla/tickets", params as unknown as Record<string, unknown>),
 
-  filterOptions: () => wrapCall<SlaFilterOptions>("GET", "/api/v1/sla/filters"),
+  // projectId narrows the options themselves (not just the analytics) to one
+  // project — used when the SLA view is embedded in a project's own page.
+  filterOptions: (projectId?: string) =>
+    wrapCall<SlaFilterOptions>("GET", "/api/v1/sla/filters", projectId ? { projectId } : undefined),
 
   settings: () => wrapCall<SlaSettings>("GET", "/api/v1/sla/settings"),
 

@@ -4,7 +4,7 @@
 // company's tickets — the service narrows each (see SlaService.scopeFor).
 // Editing the SLA rules is admin-only.
 import { SlaController } from "../controllers/sla.controller";
-import { slaFiltersSchema, slaTicketsSchema, updateSlaSettingsSchema } from "../validators/sla.schema";
+import { slaFilterOptionsSchema, slaFiltersSchema, slaTicketsSchema, updateSlaSettingsSchema } from "../validators/sla.schema";
 
 const router = require("express").Router();
 const { validate } = require("../../../shared/middleware/validate.middleware");
@@ -14,7 +14,7 @@ const { requirePermission } = require("../../../shared/access/can");
 
 router.get("/overview", authMiddleware, requirePermission("sla.read"), validate(slaFiltersSchema), SlaController.overview);
 router.get("/tickets", authMiddleware, requirePermission("sla.read"), validate(slaTicketsSchema), SlaController.tickets);
-router.get("/filters", authMiddleware, requirePermission("sla.read"), SlaController.filterOptions);
+router.get("/filters", authMiddleware, requirePermission("sla.read"), validate(slaFilterOptionsSchema), SlaController.filterOptions);
 router.get("/settings", authMiddleware, requirePermission("sla.read"), SlaController.getSettings);
 router.put("/settings", authMiddleware, requirePermission("sla.configure"), validate(updateSlaSettingsSchema), SlaController.updateSettings);
 

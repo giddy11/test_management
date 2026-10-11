@@ -24,7 +24,7 @@ export class SlaController {
 
   static async filterOptions(req: any, res: any, next: any) {
     try {
-      const data = await SlaService.Instance.filterOptions(req.user);
+      const data = await SlaService.Instance.filterOptions(req.user, req.validated.query.projectId);
       res.status(200).json(ApiResponse.ok("SLA filter options", data));
     } catch (err) {
       next(err);

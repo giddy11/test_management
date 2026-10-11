@@ -51,6 +51,15 @@ const filterFields = {
   search: z.string().trim().max(200).optional(),
 };
 
+// /sla/filters: narrows the dropdown options themselves to one project (the
+// SLA tab embedded in a project's own page) — distinct from slaFiltersSchema,
+// whose `projectId` narrows the analytics, not the filter lists.
+export const slaFilterOptionsSchema = z.object({
+  query: z.object({
+    projectId: z.string().uuid().optional(),
+  }),
+});
+
 export const slaFiltersSchema = z.object({
   query: z
     .object({
@@ -123,6 +132,7 @@ export const updateSlaSettingsSchema = z.object({
   }),
 });
 
+export type SlaFilterOptionsQuery = z.infer<typeof slaFilterOptionsSchema>["query"];
 export type SlaFilters = z.infer<typeof slaFiltersSchema>["query"];
 export type SlaTicketsQuery = z.infer<typeof slaTicketsSchema>["query"];
 export type UpdateSlaSettingsBody = z.infer<typeof updateSlaSettingsSchema>["body"];

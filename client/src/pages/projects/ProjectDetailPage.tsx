@@ -1,6 +1,6 @@
 import { useMemo } from "react"
 import { Link, useParams, useSearchParams } from "react-router-dom"
-import { ChevronLeft, Copy, Crown } from "lucide-react"
+import { ChevronLeft, Copy, Crown, Gauge } from "lucide-react"
 import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -11,6 +11,7 @@ import { FeatureRequestsTab } from "@/components/featureRequests/FeatureRequests
 import { BugsTab } from "@/components/bugs/BugsTab"
 import { FeedbackTab } from "@/components/feedback/FeedbackTab"
 import { LiveChatTab } from "@/components/live-chat/LiveChatTab"
+import { SlaDashboard } from "@/components/sla/SlaDashboard"
 import { ProjectSupportNumberField } from "@/components/contact-support/ProjectSupportNumberField"
 import { useProject } from "@/hooks/useProjects"
 import { useDashboard } from "@/hooks/useDashboard"
@@ -23,7 +24,7 @@ import { useAuth } from "@/contexts/AuthContext"
 import { PageLoader } from "@/components/shared/PageLoader"
 import type { SuiteBreakdown } from "@/types/testMgmt.types"
 
-const PROJECT_TABS = ["suites", "runs", "feature-requests", "bugs", "feedback", "live-chat"] as const
+const PROJECT_TABS = ["suites", "runs", "feature-requests", "bugs", "feedback", "sla", "live-chat"] as const
 
 // Small count pill beside a tab label. Hidden until the total has loaded and
 // when there's nothing to count. `pending` (not yet closed/done/completed) is
@@ -61,6 +62,11 @@ export default function ProjectDetailPage() {
   const canManage =
     isAdmin ||
     Boolean(project?.members?.some((m) => m.id === user?.id && m.role === "team_lead"))
+  // SLA reporting is a platform permission (held by org admins, test leads,
+  // and support leads — not every QA engineer/tester), independent of
+  // project membership, so the tab itself is hidden rather than left to
+  // error out behind a permission its own holder might not have.
+  const canSeeSla = can("sla.read")
   const { data: stats } = useDashboard(projectId)
   // Project-wide totals for the tab labels, independent of each tab's own
   // filters — plus, for everything but suites (which have no such status), how
@@ -164,6 +170,11 @@ export default function ProjectDetailPage() {
           <TabsTrigger value="feedback" data-tour="feedback-tab-trigger">
             Tickets <TabCount pending={ticketPending} total={ticketTotal} data-cy="tickets-tab-count" />
           </TabsTrigger>
+          {canSeeSla && (
+            <TabsTrigger value="sla" className="gap-1.5" data-cy="project-tab-sla">
+              <Gauge className="size-3.5" /> SLA
+            </TabsTrigger>
+          )}
           <TabsTrigger value="live-chat">Live Chat</TabsTrigger>
         </TabsList>
         <TabsContent value="suites" className="mt-4">
@@ -186,6 +197,11 @@ export default function ProjectDetailPage() {
         <TabsContent value="feedback" className="mt-4">
           <FeedbackTab projectId={projectId} canManage={canManage} />
         </TabsContent>
+        {canSeeSla && (
+          <TabsContent value="sla" className="mt-4">
+            {activeTab === "sla" && <SlaDashboard projectId={projectId} />}
+          </TabsContent>
+        )}
         <TabsContent value="live-chat" className="mt-4">
           <LiveChatTab projectId={projectId} />
         </TabsContent>

@@ -911,36 +911,66 @@ export class SlaRepository {
   // Filter options. Projects/companies come from the issues the caller can
   // see; people come from the users table directly so every team member and
   // support engineer is selectable, not only those who already hold an issue.
-  async filterOptions(scope: SlaScope, rules: SlaRules) {
-    const { sql, params } = buildBase(scope, {}, rules);
+  //
+  // `projectId` narrows every list to that one project — used when the SLA
+  // view is embedded in a project's own page (see ProjectDetailPage), so the
+  // dropdowns offer only that project's companies and people rather than the
+  // whole organisation's.
+  async filterOptions(scope: SlaScope, rules: SlaRules, projectId?: string) {
+    const { sql, params } = buildBase(scope, { projectId }, rules);
     const people = (where: string, whereParams: unknown[]) =>
       this.ds.query(
         `SELECT u.id, trim(concat(u.first_name, ' ', u.last_name)) AS name
          FROM users u WHERE u.deleted_at IS NULL AND ${where} ORDER BY name`,
         whereParams
       );
+    const projectScope = (sqlFragment: string) =>
+      projectId ? `${sqlFragment} AND EXISTS (SELECT 1 FROM project_members pm WHERE pm.project_id = $2 AND pm.user_id = u.id)` : sqlFragment;
+    const companyProjectScope = (sqlFragment: string) =>
+      projectId
+        ? `${sqlFragment} AND EXISTS (SELECT 1 FROM client_companies cc WHERE cc.id = u.client_company_id AND cc.project_id = $2)`
+        : sqlFragment;
+    const withProjectId = (whereParams: unknown[]) => (projectId ? [...whereParams, projectId] : whereParams);
 
     // Product-team members: the org's internal (non-supporter) accounts. A
     // supporter's dashboard has no team-member filter (see SlaDashboard).
     const assigneesQuery = scope.clientCompanyId
       ? Promise.resolve([])
-      : people(`u.organization_id = $1 AND u.role IN ('superadmin', 'admin', 'user')`, [scope.organizationId]);
-    // Support engineers: the supporter's own company, or every supporter
-    // across the org's client companies.
+      : people(
+          projectScope(`u.organization_id = $1 AND u.role IN ('superadmin', 'admin', 'user')`),
+          withProjectId([scope.organizationId])
+        );
+    // Support engineers: the supporter's own company, every supporter across
+    // the org's client companies, or — narrowed to a project — just that
+    // project's own companies' supporters.
     const supportersQuery = scope.clientCompanyId
       ? people(`u.client_company_id = $1 AND u.role = 'it_support'`, [scope.clientCompanyId])
-      : people(`u.organization_id = $1 AND u.role = 'it_support'`, [scope.organizationId]);
+      : people(
+          companyProjectScope(`u.organization_id = $1 AND u.role = 'it_support'`),
+          withProjectId([scope.organizationId])
+        );
+    // Companies belong to exactly one project, so a project-scoped view can
+    // list them directly — unlike the org-wide list (derived from `t`, so it
+    // only ever shows companies with at least one issue already), this shows
+    // every company for the project, including ones with nothing filed yet.
+    const companiesQuery =
+      projectId && !scope.clientCompanyId
+        ? this.ds.query(
+            `SELECT id, name FROM client_companies WHERE project_id = $1 AND deleted_at IS NULL ORDER BY name`,
+            [projectId]
+          )
+        : this.ds.query(
+            `${sql} SELECT DISTINCT client_company_id AS id, client_company_name AS name
+             FROM t WHERE client_company_id IS NOT NULL ORDER BY name`,
+            params
+          );
 
     const [projects, companies, assignees, supporters] = await Promise.all([
       this.ds.query(
         `${sql} SELECT DISTINCT project_id AS id, project_name AS name FROM t ORDER BY name`,
         params
       ),
-      this.ds.query(
-        `${sql} SELECT DISTINCT client_company_id AS id, client_company_name AS name
-         FROM t WHERE client_company_id IS NOT NULL ORDER BY name`,
-        params
-      ),
+      companiesQuery,
       assigneesQuery,
       supportersQuery,
     ]);
