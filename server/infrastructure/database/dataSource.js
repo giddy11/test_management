@@ -94,6 +94,11 @@ const {
 } = require("../../modules/access/entities/userRole.entity");
 
 const { TicketLink } = require("../../modules/ticketLink/entities/ticketLink.entity");
+const { AiCredential } = require("../../modules/ai/entities/aiCredential.entity");
+const { AiUsageLog } = require("../../modules/ai/entities/aiUsageLog.entity");
+const { AiCreditAccount } = require("../../modules/ai/entities/aiCreditAccount.entity");
+const { AiCreditTransaction } = require("../../modules/ai/entities/aiCreditTransaction.entity");
+const { AiSettings } = require("../../modules/ai/entities/aiSettings.entity");
 
 const AppDataSource = new DataSource({
   type: "postgres",
@@ -149,6 +154,11 @@ const AppDataSource = new DataSource({
     RolePermission,
     UserRoleAssignment,
     TicketLink,
+    AiCredential,
+    AiUsageLog,
+    AiCreditAccount,
+    AiCreditTransaction,
+    AiSettings,
   ],
   migrations: ["infrastructure/database/migrations/*.{js,ts}"],
 });

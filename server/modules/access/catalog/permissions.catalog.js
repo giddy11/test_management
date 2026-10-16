@@ -44,6 +44,11 @@ const CATEGORIES = [
     label: "Reporting & analytics",
     description: "Management reporting.",
   },
+  {
+    key: "ai",
+    label: "AI assistance",
+    description: "AI drafting, and the provider API keys it runs on.",
+  },
 ];
 
 // `warning` renders as the amber note under the checkbox in the role editor.
@@ -109,6 +114,14 @@ const PERMISSIONS = [
   { code: "analytics.team", category: "analytics", label: "View team performance", description: "Per-person performance reporting." },
   { code: "sla.read", category: "analytics", label: "View SLA reports", description: "See SLA attainment and ticket timings." },
   { code: "sla.configure", category: "analytics", label: "Configure SLA targets", description: "Change the SLA rules the whole organisation is measured against." },
+
+  // ── AI assistance ──────────────────────────────────────────────────────────
+  // ai.use is the route gate for every draft; WHICH test case or bug someone
+  // may draft for is still their role in that project, checked in the service.
+  { code: "ai.use", category: "ai", label: "Use AI drafting", description: "Draft test cases and bug reports with AI. Nothing is saved until the person reviews it." },
+  { code: "ai.ownkey", category: "ai", label: "Use my own AI key", description: "Save a personal AI provider API key, used instead of the organisation's." },
+  { code: "ai.managekeys", category: "ai", label: "Manage the organisation's AI keys", description: "Add, change and remove the AI provider keys everyone in the organisation uses.", warning: "Usage on these keys is billed to the organisation's provider account" },
+  { code: "ai.managecredits", category: "ai", label: "Manage AI credits", description: "Set what each AI feature costs on the organisation's key, and give people credits." },
 ];
 
 const ALL_CODES = PERMISSIONS.map((p) => p.code);
@@ -188,6 +201,7 @@ const QA_ENGINEER_PERMISSIONS = [
   "user.read",
   "project.read", "project.export",
   "dashboard.read",
+  "ai.use", "ai.ownkey",
 ];
 
 // A Tester is a QA engineer who does not export projects.
@@ -227,6 +241,7 @@ const BUILTIN_ROLES = [
       "user.read",
       "project.read", "project.export",
       "dashboard.read", "analytics.read", "sla.read",
+      "ai.use", "ai.ownkey",
     ],
   },
   {

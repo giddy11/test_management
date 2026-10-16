@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form"
 import { toast } from "sonner"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "react-router-dom"
-import { User, Lock, LifeBuoy, MessagesSquare, Power, PowerOff, Bell, BellOff, ShieldCheck } from "lucide-react"
+import { User, Lock, LifeBuoy, MessagesSquare, Power, PowerOff, Bell, BellOff, ShieldCheck, Sparkles } from "lucide-react"
 import { Country, State, City } from "country-state-city"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -31,6 +31,7 @@ import { Badge } from "@/components/ui/badge"
 import { type ChangePasswordPayload, type UpdateProfilePayload } from "@/types/auth.types"
 import { useSupportChatSettings, useSetSupportChatEnabled } from "@/hooks/useSupportChat"
 import { RolesAccessTab } from "@/components/access/RolesAccessTab"
+import { AiSettingsTab } from "@/components/ai/AiSettingsTab"
 
 // ── Profile tab ───────────────────────────────────────────────────────────────
 
@@ -550,6 +551,9 @@ export default function SettingsPage() {
   // shows for anyone who may look, and the editor stays read-only without
   // role.manage. The API enforces both regardless.
   const canReadRoles = can("role.read")
+  // AI settings: any one of the AI permissions shows the tab; each section
+  // inside checks its own (see AiSettingsTab).
+  const canSeeAi = ["ai.use", "ai.ownkey", "ai.managekeys", "ai.managecredits"].some((code) => can(code))
 
   return (
     <div className="space-y-6">
@@ -578,6 +582,12 @@ export default function SettingsPage() {
             <Bell className="size-3.5" />
             Notifications
           </TabsTrigger>
+          {canSeeAi && (
+            <TabsTrigger value="ai" className="gap-1.5" data-cy="settings-tab-ai">
+              <Sparkles className="size-3.5" />
+              AI
+            </TabsTrigger>
+          )}
           {canReadRoles && (
             <TabsTrigger value="access" className="gap-1.5" data-cy="settings-tab-access">
               <ShieldCheck className="size-3.5" />
@@ -607,6 +617,12 @@ export default function SettingsPage() {
         <TabsContent value="notifications" className="mt-4">
           <NotificationsTab />
         </TabsContent>
+
+        {canSeeAi && (
+          <TabsContent value="ai" className="mt-4">
+            <AiSettingsTab />
+          </TabsContent>
+        )}
 
         {canReadRoles && (
           <TabsContent value="access" className="mt-4">

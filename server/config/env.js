@@ -19,6 +19,19 @@ function bool(key, fallback = false) {
 
 const isProduction = process.env.NODE_ENV === "production";
 
+// Encrypts stored AI provider API keys (see shared/utils/secretBox.ts). Optional:
+// without it keys can't be saved and AI features stay off. A short secret is a
+// configuration mistake, not a choice, so fail fast rather than run weakened.
+const aiKeysSecret = process.env.AI_KEYS_SECRET || "";
+if (aiKeysSecret && aiKeysSecret.length < 32) {
+  throw new Error(
+    "AI_KEYS_SECRET must be at least 32 characters — generate one with `openssl rand -base64 32`"
+  );
+}
+if (!aiKeysSecret && isProduction) {
+  console.warn("[ai] AI_KEYS_SECRET is not set — AI keys can't be saved and AI features are off");
+}
+
 // How outgoing email is delivered: Gmail SMTP via Nodemailer, or a Google Apps
 // Script web app. Fail fast on a typo — silently falling back would send mail
 // through a different channel than the one the operator asked for.
@@ -93,6 +106,16 @@ const env = {
   firebase: {
     projectId: process.env.FIREBASE_PROJECT_ID || "",
     serviceAccountJson: process.env.FIREBASE_SERVICE_ACCOUNT_JSON || "",
+  },
+
+  // AI drafting. `configured` is what the settings UI reports as storageReady.
+  ai: {
+    keysSecret: aiKeysSecret,
+    configured: Boolean(aiKeysSecret),
+    // Default per-request provider timeout.
+    requestTimeoutMs: Number(process.env.AI_REQUEST_TIMEOUT_MS || 90_000),
+    // Only for the very longest generations (planning a whole suite).
+    longRequestTimeoutMs: Number(process.env.AI_LONG_REQUEST_TIMEOUT_MS || 20 * 60_000),
   },
 
   // Used to build links in emails (e.g. password reset). Falls back to the API host.

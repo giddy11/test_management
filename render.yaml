@@ -115,3 +115,14 @@ services:
         value: testmate-f973c
       - key: FIREBASE_SERVICE_ACCOUNT_JSON
         sync: false
+
+      # ── AI drafting ─────────────────────────────────────────────────────
+      # Encrypts stored provider API keys; at least 32 chars
+      # (`openssl rand -base64 32`). Unset = AI keys can't be saved, AI off.
+      # Changing it later makes every saved key unreadable (re-enter them).
+      - key: AI_KEYS_SECRET
+        sync: false
+      - key: AI_REQUEST_TIMEOUT_MS
+        value: "90000"
+      - key: AI_LONG_REQUEST_TIMEOUT_MS
+        value: "1200000"

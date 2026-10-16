@@ -46,6 +46,11 @@ const WARNING_ACTIONS = new Set([
   "test_case.unassigned",
   "feedback.escalated",
   "sla.settings_updated",
+  // An AI provider key decides whose account pays for AI requests.
+  "ai_key.saved",
+  "ai_key.activated",
+  "ai_credits.granted",
+  "ai_credits.prices_updated",
   "client_company.created",
   "client_company.primary_lead_changed",
   "client_company.supporter_added",

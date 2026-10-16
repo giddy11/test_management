@@ -95,14 +95,26 @@ function normaliseError(err: unknown): never {
   )
 }
 
+export interface CallOptions {
+  // Overrides the client's default 20 s — for calls that wait on a slow third
+  // party (an AI provider checking a key or writing a draft).
+  timeoutMs?: number
+}
+
 export async function wrapCall<T>(
   method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE",
   path: string,
-  payload?: Record<string, unknown>
+  payload?: Record<string, unknown>,
+  options: CallOptions = {}
 ): Promise<ApiResponse<T>> {
   try {
     const config = method === "GET" ? { params: payload } : { data: payload }
-    const response = await http.request<ApiResponse<T>>({ method, url: path, ...config })
+    const response = await http.request<ApiResponse<T>>({
+      method,
+      url: path,
+      ...config,
+      ...(options.timeoutMs ? { timeout: options.timeoutMs } : {}),
+    })
     return response.data
   } catch (err) {
     return normaliseError(err)
