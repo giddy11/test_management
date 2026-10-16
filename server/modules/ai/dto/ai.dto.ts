@@ -41,6 +41,16 @@ export interface AiModelListDTO {
   models: AiModelInfo[];
 }
 
+// A suggestion only: the client puts it in the bug form's Description box.
+export interface BugDescriptionDraftDTO {
+  description: string;
+  // What the AI had to assume or couldn't know — shown under the box.
+  caveats: string[];
+  provider: AiProviderId;
+  model: string;
+  creditsCharged: number;
+}
+
 export interface AiStatusDTO {
   available: boolean;
   source: AiKeySource | null;

@@ -11,6 +11,8 @@ import type {
   AiModelInfo,
   AiProviderId,
   AiStatus,
+  BugDescriptionDraft,
+  BugDescriptionDraftPayload,
   GrantAiCreditsPayload,
   ListAiModelsPayload,
   SaveAiKeyPayload,
@@ -20,10 +22,21 @@ const base = (scope: AiKeyScope) => `/api/v1/ai/${scope === "org" ? "org" : "me"
 
 // Checking a key calls the provider, which can be slow.
 const KEY_CHECK_TIMEOUT = 30_000
+// A draft waits for the model to write (the server allows 90 s, plus one retry).
+const DRAFT_TIMEOUT = 120_000
 
 export const AiEndpoints = {
   status: (feature?: AiFeature) =>
     wrapCall<AiStatus>("GET", "/api/v1/ai/status", feature ? { feature } : undefined),
+
+  // ── Drafts (suggestions only — nothing is saved) ────────────────────────────
+  bugDescriptionDraft: (payload: BugDescriptionDraftPayload) =>
+    wrapCall<BugDescriptionDraft>(
+      "POST",
+      "/api/v1/ai/bug-description-draft",
+      payload as unknown as Record<string, unknown>,
+      { timeoutMs: DRAFT_TIMEOUT }
+    ),
 
   // ── Keys ─────────────────────────────────────────────────────────────────────
   keys: (scope: AiKeyScope) => wrapCall<AiCredentialList>("GET", `${base(scope)}/credentials`),

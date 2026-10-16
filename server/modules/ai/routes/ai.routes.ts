@@ -10,6 +10,7 @@ import { aiCredentialController } from "../controllers/aiCredential.controller";
 import { AiCreditController } from "../controllers/aiCredit.controller";
 import type { AiKeyScope } from "../services/aiCredential.service";
 import {
+  bugDescriptionDraftSchema,
   clearCreditHistorySchema,
   creditAccountsSchema,
   creditPricesSchema,
@@ -30,6 +31,11 @@ const { aiRateLimiter } = require("../../../shared/middleware/rateLimiter.middle
 const { requirePermission } = require("../../../shared/access/can");
 
 router.get("/status", authMiddleware, requirePermission("ai.use"), validate(statusSchema), AiController.status);
+
+// Drafts. ai.use at the route; WHICH project the caller may draft for is their
+// role in it, checked in the feature service (same rule as filing the record).
+// Nothing is saved — the suggestion only fills the form.
+router.post("/bug-description-draft", authMiddleware, requirePermission("ai.use"), aiRateLimiter, validate(bugDescriptionDraftSchema), AiController.bugDescriptionDraft);
 
 function keyRoutes(base: string, permission: string, scope: AiKeyScope) {
   const c = aiCredentialController(scope);

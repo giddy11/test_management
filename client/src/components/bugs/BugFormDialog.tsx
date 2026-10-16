@@ -34,6 +34,11 @@ import { ApiError } from "@/transport/http"
 import { BugAttachmentEndpoints } from "@/endpoints/bug.endpoints"
 import type { Bug } from "@/types/bug.types"
 import type { PendingTicketLink } from "@/types/ticketLink.types"
+import type { BugDescriptionDraft } from "@/types/ai.types"
+import { useBugDescriptionDraft } from "@/hooks/useAi"
+import { AiDisclosure, AiDraftButton } from "@/components/ai/AiDraftButton"
+import { AiDraftNotice } from "@/components/ai/AiDraftNotice"
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog"
 
 interface Props {
   open: boolean
@@ -56,6 +61,12 @@ export function BugFormDialog({ open, onOpenChange, projectId, bug }: Props) {
   // linked once the bug exists.
   const [pendingLinks, setPendingLinks] = useState<PendingTicketLink[]>([])
   const linkPending = useLinkPendingTickets()
+  // AI "Suggest description": the latest suggestion (for the notice), what the
+  // box held before it (for Undo), and the replace-what-you-wrote confirmation.
+  const suggestDescription = useBugDescriptionDraft()
+  const [aiDraft, setAiDraft] = useState<BugDescriptionDraft | null>(null)
+  const [descriptionBeforeAi, setDescriptionBeforeAi] = useState<string | null>(null)
+  const [confirmReplace, setConfirmReplace] = useState(false)
   // Related-test-run picker removed from the form (kept commented below in case
   // it comes back) — so the runs query is disabled too.
   // const { data: runs = [] } = useRuns(projectId)
@@ -66,6 +77,7 @@ export function BugFormDialog({ open, onOpenChange, projectId, bug }: Props) {
     reset,
     watch,
     setValue,
+    getValues,
     formState: { errors },
   } = useForm<BugForm>({ resolver: zodResolver(bugSchema) })
 
@@ -88,6 +100,8 @@ export function BugFormDialog({ open, onOpenChange, projectId, bug }: Props) {
       })
       setFiles([])
       setPendingLinks([])
+      setAiDraft(null)
+      setDescriptionBeforeAi(null)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, reset])
@@ -109,6 +123,51 @@ export function BugFormDialog({ open, onOpenChange, projectId, bug }: Props) {
 
   const { data: casesData } = useCases(suiteId || "")
   const cases = casesData?.data ?? []
+
+  const description = watch("description")
+  const titleReady = (title ?? "").trim().length >= 3
+
+  // Sends what's in the form now. The suggestion only fills the box — the
+  // bug is filed (or not) with the ordinary button below.
+  const runSuggestDescription = () => {
+    setConfirmReplace(false)
+    const v = getValues()
+    const before = v.description ?? ""
+    suggestDescription.mutate(
+      {
+        projectId,
+        title: v.title.trim(),
+        description: before.trim() || undefined,
+        stepsToReproduce: linesToArray(v.stepsToReproduceText ?? ""),
+        expectedBehavior: v.expectedBehavior?.trim() || undefined,
+        actualBehavior: v.actualBehavior?.trim() || undefined,
+        environment: v.environment?.trim() || undefined,
+        testCaseId: v.testCaseId || undefined,
+        suiteId: v.suiteId || undefined,
+        bugId: bug?.id,
+      },
+      {
+        onSuccess: (draft) => {
+          setDescriptionBeforeAi(before)
+          setValue("description", draft.description, { shouldDirty: true, shouldValidate: true })
+          setAiDraft(draft)
+        },
+        onError: (e) => toast.error(e instanceof ApiError ? e.message : "The AI couldn't suggest a description"),
+      }
+    )
+  }
+
+  const onSuggestDescription = () => {
+    // Don't overwrite the tester's own words without asking.
+    if ((getValues("description") ?? "").trim()) setConfirmReplace(true)
+    else runSuggestDescription()
+  }
+
+  const undoSuggestion = () => {
+    setValue("description", descriptionBeforeAi ?? "", { shouldDirty: true, shouldValidate: true })
+    setAiDraft(null)
+    setDescriptionBeforeAi(null)
+  }
 
   const onEdit = async (bugToEdit: Bug, values: BugForm) => {
     try {
@@ -237,9 +296,40 @@ export function BugFormDialog({ open, onOpenChange, projectId, bug }: Props) {
           )}
 
           <div className="grid gap-1.5">
-            <Label htmlFor="description">Description</Label>
-            <Textarea id="description" rows={3} {...register("description")} />
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <Label htmlFor="description">Description</Label>
+              <AiDraftButton
+                feature="bug_report_draft"
+                label={description?.trim() ? "Improve with AI" : "Suggest description"}
+                loading={suggestDescription.isPending}
+                disabled={!titleReady}
+                disabledReason="Type a title first"
+                onClick={onSuggestDescription}
+              />
+            </div>
+            <Textarea
+              id="description"
+              rows={aiDraft ? 8 : 3}
+              // readOnly, not disabled: react-hook-form drops disabled fields' values.
+              readOnly={suggestDescription.isPending}
+              {...register("description")}
+            />
             {errors.description && <p className="text-xs text-destructive">{errors.description.message}</p>}
+            {aiDraft ? (
+              <AiDraftNotice
+                draft={aiDraft}
+                caveats={aiDraft.caveats}
+                reviewHint={isEdit ? "before you save" : "before you report the bug"}
+                onUndo={undoSuggestion}
+                onDismiss={() => setAiDraft(null)}
+              />
+            ) : (
+              <AiDisclosure feature="bug_report_draft">
+                {(provider) =>
+                  `AI suggestions send this form's text, the project and suite descriptions, the related test case and up to 3 similar bugs from this project to ${provider}. Attachments, comments and names are not sent.`
+                }
+              </AiDisclosure>
+            )}
           </div>
 
           <div className="grid gap-1.5">
@@ -329,6 +419,15 @@ export function BugFormDialog({ open, onOpenChange, projectId, bug }: Props) {
           </DialogFooter>
         </form>
       </DialogContent>
+
+      <ConfirmDialog
+        open={confirmReplace}
+        onOpenChange={setConfirmReplace}
+        title="Replace your description?"
+        description="The AI will rewrite what you've typed, keeping its facts. You can undo it afterwards."
+        confirmLabel="Rewrite it"
+        onConfirm={runSuggestDescription}
+      />
     </Dialog>
   )
 }

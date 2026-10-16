@@ -9,6 +9,7 @@ import type {
   AiFeature,
   AiKeyScope,
   AiProviderId,
+  BugDescriptionDraftPayload,
   GrantAiCreditsPayload,
   ListAiModelsPayload,
   SaveAiKeyPayload,
@@ -34,6 +35,17 @@ export function useAiStatus(feature?: AiFeature, enabled = true) {
     queryFn: async () => unwrap(await AiEndpoints.status(feature)),
     staleTime: 60_000,
     enabled,
+  })
+}
+
+// ── Drafts ────────────────────────────────────────────────────────────────────
+
+export function useBugDescriptionDraft() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (payload: BugDescriptionDraftPayload) => unwrap(await AiEndpoints.bugDescriptionDraft(payload)),
+    // A draft may have spent (or refunded) credits either way.
+    onSettled: () => qc.invalidateQueries({ queryKey: [AI_KEY] }),
   })
 }
 

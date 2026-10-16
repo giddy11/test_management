@@ -2,7 +2,7 @@ import { useMemo, useState } from "react"
 import { useForm } from "react-hook-form"
 import { toast } from "sonner"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
-import { useNavigate } from "react-router-dom"
+import { useNavigate, useSearchParams } from "react-router-dom"
 import { User, Lock, LifeBuoy, MessagesSquare, Power, PowerOff, Bell, BellOff, ShieldCheck, Sparkles } from "lucide-react"
 import { Country, State, City } from "country-state-city"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -554,6 +554,10 @@ export default function SettingsPage() {
   // AI settings: any one of the AI permissions shows the tab; each section
   // inside checks its own (see AiSettingsTab).
   const canSeeAi = ["ai.use", "ai.ownkey", "ai.managekeys", "ai.managecredits"].some((code) => can(code))
+  const [searchParams] = useSearchParams()
+  const requestedTab = searchParams.get("tab")
+  const availableTabs = ["profile", "security", "help", "notifications", ...(canSeeAi ? ["ai"] : []), ...(canReadRoles ? ["access"] : []), ...(canManagePlatform ? ["admin"] : [])]
+  const initialTab = requestedTab && availableTabs.includes(requestedTab) ? requestedTab : "profile"
 
   return (
     <div className="space-y-6">
@@ -564,7 +568,8 @@ export default function SettingsPage() {
         </p>
       </div>
 
-      <Tabs defaultValue="profile">
+      {/* ?tab=… opens a tab directly (e.g. "Set up AI" links to ?tab=ai). */}
+      <Tabs defaultValue={initialTab}>
         <TabsList>
           <TabsTrigger value="profile" className="gap-1.5" data-cy="settings-tab-profile">
             <User className="size-3.5" />

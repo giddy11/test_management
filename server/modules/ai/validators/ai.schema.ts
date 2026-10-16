@@ -52,6 +52,32 @@ export const featureParamsSchema = z.object({
   params: z.object({ feature }),
 });
 
+// ── Drafts ────────────────────────────────────────────────────────────────────
+
+// Same limits as the bug form itself (modules/bug/validators/bug.schema), so a
+// form that can be filed can always be drafted from.
+const optionalText = (max: number) => z.string().trim().max(max).optional();
+
+export const bugDescriptionDraftSchema = z.object({
+  body: z.object({
+    projectId: z.string().uuid(),
+    title: z.string().trim().min(3, "Type a title first").max(200),
+    // The description already in the box, if any: improved rather than replaced.
+    description: optionalText(3000),
+    stepsToReproduce: z.array(z.string().trim().max(500)).max(30).optional(),
+    expectedBehavior: optionalText(2000),
+    actualBehavior: optionalText(2000),
+    environment: optionalText(255),
+    testCaseId: z.string().uuid().optional(),
+    // The suite picked in the form when no test case is chosen.
+    suiteId: z.string().uuid().optional(),
+    // Set when editing an existing bug, so it isn't offered as its own "similar bug".
+    bugId: z.string().uuid().optional(),
+  }),
+});
+
+export type BugDescriptionDraftBody = z.infer<typeof bugDescriptionDraftSchema>["body"];
+
 // ── Credits ───────────────────────────────────────────────────────────────────
 
 const pageQuery = {

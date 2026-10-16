@@ -79,6 +79,36 @@ export interface AiStatus {
   credits: { balance: number; price: number } | null
 }
 
+// ── Drafts ────────────────────────────────────────────────────────────────────
+
+export interface BugDescriptionDraftPayload {
+  projectId: string
+  title: string
+  description?: string
+  stepsToReproduce?: string[]
+  expectedBehavior?: string
+  actualBehavior?: string
+  environment?: string
+  testCaseId?: string
+  // The suite picked in the form when no test case is chosen.
+  suiteId?: string
+  // When editing: so the bug isn't offered as its own "similar bug".
+  bugId?: string
+}
+
+// Common to every draft: which model wrote it and what it cost.
+export interface AiDraftMeta {
+  provider: AiProviderId
+  model: string
+  creditsCharged: number
+}
+
+export interface BugDescriptionDraft extends AiDraftMeta {
+  description: string
+  // What the AI had to assume or couldn't know.
+  caveats: string[]
+}
+
 // ── Credits ───────────────────────────────────────────────────────────────────
 
 export type AiCreditTransactionType = "grant" | "adjustment" | "usage" | "refund" | "purchase"

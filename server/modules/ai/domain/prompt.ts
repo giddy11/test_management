@@ -9,7 +9,9 @@
 // Every tag any feature prompt uses. Add a feature's tags here.
 export const PROMPT_TAGS = [
   "intent",
+  "project",
   "suite",
+  "similar_bugs",
   "current_draft",
   "existing_cases",
   "notes",
