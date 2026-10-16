@@ -185,7 +185,7 @@ describe("AiCredentialService — permissions and feature pins", () => {
 
   it("only pins a feature to a provider the owner has a key for", async () => {
     const { service } = setup();
-    await expect(service.setFeatureModel(admin, "org", "test_case_draft", { provider: "gemini", model: "gemini-2.5-pro" })).rejects.toMatchObject({ statusCode: 422 });
+    await expect(service.setFeatureModel(admin, "org", "feature_request_draft", { provider: "gemini", model: "gemini-2.5-pro" })).rejects.toMatchObject({ statusCode: 422 });
   });
 });
 
@@ -229,7 +229,7 @@ describe("AiCredentialService.resolveFor", () => {
       chatModel: null,
     });
     // Other features stay on the active key, chat model included.
-    expect(await service.resolveFor(user, "test_case_draft")).toMatchObject({
+    expect(await service.resolveFor(user, "feature_request_draft")).toMatchObject({
       provider: "anthropic",
       chatModel: "claude-haiku-5-5",
     });

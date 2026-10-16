@@ -54,29 +54,84 @@ export const featureParamsSchema = z.object({
 
 // ── Drafts ────────────────────────────────────────────────────────────────────
 
-// Same limits as the bug form itself (modules/bug/validators/bug.schema), so a
-// form that can be filed can always be drafted from.
+// Same limits as the bug and feature-request forms themselves, so a form that
+// can be filed can always be drafted from.
 const optionalText = (max: number) => z.string().trim().max(max).optional();
 
-export const bugDescriptionDraftSchema = z.object({
-  body: z.object({
-    projectId: z.string().uuid(),
-    title: z.string().trim().min(3, "Type a title first").max(200),
-    // The description already in the box, if any: improved rather than replaced.
-    description: optionalText(3000),
-    stepsToReproduce: z.array(z.string().trim().max(500)).max(30).optional(),
-    expectedBehavior: optionalText(2000),
-    actualBehavior: optionalText(2000),
-    environment: optionalText(255),
-    testCaseId: z.string().uuid().optional(),
-    // The suite picked in the form when no test case is chosen.
-    suiteId: z.string().uuid().optional(),
-    // Set when editing an existing bug, so it isn't offered as its own "similar bug".
-    bugId: z.string().uuid().optional(),
-  }),
+// Answers to the AI's earlier follow-up questions, carried into the next draft.
+const followUpAnswers = z
+  .array(z.object({ question: z.string().trim().min(1).max(300), answer: z.string().trim().max(1000) }))
+  .max(20)
+  .optional();
+
+// "Describe it in your own words" — the assistant's main input.
+const roughDescription = optionalText(3000);
+
+export const bugReportDraftSchema = z.object({
+  body: z
+    .object({
+      projectId: z.string().uuid(),
+      roughDescription,
+      answers: followUpAnswers,
+      // What's already in the form (the tester's own, or an earlier draft they edited).
+      form: z
+        .object({
+          title: optionalText(200),
+          description: optionalText(3000),
+          stepsToReproduce: z.array(z.string().trim().max(500)).max(30).optional(),
+          expectedBehavior: optionalText(2000),
+          actualBehavior: optionalText(2000),
+          environment: optionalText(255),
+        })
+        .default({}),
+      testCaseId: z.string().uuid().optional(),
+      suiteId: z.string().uuid().optional(),
+      bugId: z.string().uuid().optional(),
+    })
+    .refine((b) => Boolean(b.roughDescription || b.form.title || b.form.description), {
+      message: "Describe the problem first",
+      path: ["roughDescription"],
+    }),
 });
 
-export type BugDescriptionDraftBody = z.infer<typeof bugDescriptionDraftSchema>["body"];
+export type BugReportDraftBody = z.infer<typeof bugReportDraftSchema>["body"];
+
+export const featureRequestDraftSchema = z.object({
+  body: z
+    .object({
+      projectId: z.string().uuid(),
+      roughDescription,
+      answers: followUpAnswers,
+      form: z
+        .object({
+          title: optionalText(200),
+          description: optionalText(3000),
+          category: optionalText(50),
+        })
+        .default({}),
+      // The module picked in the form (a suite of the project).
+      suiteId: z.string().uuid().optional(),
+      requestId: z.string().uuid().optional(),
+    })
+    .refine((b) => Boolean(b.roughDescription || b.form.title || b.form.description), {
+      message: "Describe your idea first",
+      path: ["roughDescription"],
+    }),
+});
+
+export type FeatureRequestDraftBody = z.infer<typeof featureRequestDraftSchema>["body"];
+
+// ── Usage report ──────────────────────────────────────────────────────────────
+
+export const usageReportSchema = z.object({
+  query: z.object({
+    days: z.coerce
+      .number()
+      .int()
+      .refine((n): n is 7 | 30 | 90 => n === 7 || n === 30 || n === 90, "Choose 7, 30 or 90 days")
+      .default(30),
+  }),
+});
 
 // ── Credits ───────────────────────────────────────────────────────────────────
 

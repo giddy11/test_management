@@ -11,8 +11,12 @@ import type {
   AiModelInfo,
   AiProviderId,
   AiStatus,
-  BugDescriptionDraft,
-  BugDescriptionDraftPayload,
+  AiUsagePeriod,
+  AiUsageReport,
+  BugReportDraft,
+  BugReportDraftPayload,
+  FeatureRequestDraft,
+  FeatureRequestDraftPayload,
   GrantAiCreditsPayload,
   ListAiModelsPayload,
   SaveAiKeyPayload,
@@ -30,13 +34,20 @@ export const AiEndpoints = {
     wrapCall<AiStatus>("GET", "/api/v1/ai/status", feature ? { feature } : undefined),
 
   // ── Drafts (suggestions only — nothing is saved) ────────────────────────────
-  bugDescriptionDraft: (payload: BugDescriptionDraftPayload) =>
-    wrapCall<BugDescriptionDraft>(
+  bugReportDraft: (payload: BugReportDraftPayload) =>
+    wrapCall<BugReportDraft>("POST", "/api/v1/ai/bug-report-draft", payload as unknown as Record<string, unknown>, {
+      timeoutMs: DRAFT_TIMEOUT,
+    }),
+
+  featureRequestDraft: (payload: FeatureRequestDraftPayload) =>
+    wrapCall<FeatureRequestDraft>(
       "POST",
-      "/api/v1/ai/bug-description-draft",
+      "/api/v1/ai/feature-request-draft",
       payload as unknown as Record<string, unknown>,
       { timeoutMs: DRAFT_TIMEOUT }
     ),
+
+  usage: (days: AiUsagePeriod) => wrapCall<AiUsageReport>("GET", "/api/v1/ai/org/usage", { days }),
 
   // ── Keys ─────────────────────────────────────────────────────────────────────
   keys: (scope: AiKeyScope) => wrapCall<AiCredentialList>("GET", `${base(scope)}/credentials`),

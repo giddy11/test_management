@@ -34,11 +34,11 @@ import { ApiError } from "@/transport/http"
 import { BugAttachmentEndpoints } from "@/endpoints/bug.endpoints"
 import type { Bug } from "@/types/bug.types"
 import type { PendingTicketLink } from "@/types/ticketLink.types"
-import type { BugDescriptionDraft } from "@/types/ai.types"
-import { useBugDescriptionDraft } from "@/hooks/useAi"
-import { AiDisclosure, AiDraftButton } from "@/components/ai/AiDraftButton"
-import { AiDraftNotice } from "@/components/ai/AiDraftNotice"
-import { ConfirmDialog } from "@/components/shared/ConfirmDialog"
+import type { BugReportDraft } from "@/types/ai.types"
+import { useBugReportDraft } from "@/hooks/useAi"
+import { AiAssistantPanel } from "@/components/ai/AiAssistantPanel"
+import { AiFieldMark } from "@/components/ai/AiFieldMark"
+import { marksFor, NO_MARKS, shouldFill, type AssistantMarks } from "@/components/ai/assistantMarks"
 
 interface Props {
   open: boolean
@@ -61,12 +61,9 @@ export function BugFormDialog({ open, onOpenChange, projectId, bug }: Props) {
   // linked once the bug exists.
   const [pendingLinks, setPendingLinks] = useState<PendingTicketLink[]>([])
   const linkPending = useLinkPendingTickets()
-  // AI "Suggest description": the latest suggestion (for the notice), what the
-  // box held before it (for Undo), and the replace-what-you-wrote confirmation.
-  const suggestDescription = useBugDescriptionDraft()
-  const [aiDraft, setAiDraft] = useState<BugDescriptionDraft | null>(null)
-  const [descriptionBeforeAi, setDescriptionBeforeAi] = useState<string | null>(null)
-  const [confirmReplace, setConfirmReplace] = useState(false)
+  // The AI assistant (whole-form drafts) and the fields it filled.
+  const draftReport = useBugReportDraft()
+  const [aiMarks, setAiMarks] = useState<AssistantMarks>(NO_MARKS)
   // Related-test-run picker removed from the form (kept commented below in case
   // it comes back) — so the runs query is disabled too.
   // const { data: runs = [] } = useRuns(projectId)
@@ -100,8 +97,7 @@ export function BugFormDialog({ open, onOpenChange, projectId, bug }: Props) {
       })
       setFiles([])
       setPendingLinks([])
-      setAiDraft(null)
-      setDescriptionBeforeAi(null)
+      setAiMarks(NO_MARKS)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, reset])
@@ -124,49 +120,62 @@ export function BugFormDialog({ open, onOpenChange, projectId, bug }: Props) {
   const { data: casesData } = useCases(suiteId || "")
   const cases = casesData?.data ?? []
 
-  const description = watch("description")
-  const titleReady = (title ?? "").trim().length >= 3
+  // ── The AI assistant: rough description → every field ─────────────────────
+  const hasBugContent = (v: BugForm) =>
+    [v.title, v.description, v.stepsToReproduceText, v.expectedBehavior, v.actualBehavior, v.environment].some((s) => (s ?? "").trim())
 
-  // Sends what's in the form now. The suggestion only fills the box — the
-  // bug is filed (or not) with the ordinary button below.
-  const runSuggestDescription = () => {
-    setConfirmReplace(false)
-    const v = getValues()
-    const before = v.description ?? ""
-    suggestDescription.mutate(
-      {
-        projectId,
-        title: v.title.trim(),
-        description: before.trim() || undefined,
-        stepsToReproduce: linesToArray(v.stepsToReproduceText ?? ""),
-        expectedBehavior: v.expectedBehavior?.trim() || undefined,
-        actualBehavior: v.actualBehavior?.trim() || undefined,
-        environment: v.environment?.trim() || undefined,
-        testCaseId: v.testCaseId || undefined,
-        suiteId: v.suiteId || undefined,
-        bugId: bug?.id,
+  const requestReport = ({ roughDescription, answers, base }: { roughDescription: string; answers: { question: string; answer: string }[]; base: BugForm }) =>
+    draftReport.mutateAsync({
+      projectId,
+      roughDescription: roughDescription || undefined,
+      answers: answers.length ? answers : undefined,
+      form: {
+        title: base.title?.trim() || undefined,
+        description: base.description?.trim() || undefined,
+        stepsToReproduce: linesToArray(base.stepsToReproduceText ?? ""),
+        expectedBehavior: base.expectedBehavior?.trim() || undefined,
+        actualBehavior: base.actualBehavior?.trim() || undefined,
+        environment: base.environment?.trim() || undefined,
       },
-      {
-        onSuccess: (draft) => {
-          setDescriptionBeforeAi(before)
-          setValue("description", draft.description, { shouldDirty: true, shouldValidate: true })
-          setAiDraft(draft)
-        },
-        onError: (e) => toast.error(e instanceof ApiError ? e.message : "The AI couldn't suggest a description"),
-      }
-    )
+      testCaseId: base.testCaseId || undefined,
+      suiteId: base.suiteId || undefined,
+      bugId: bug?.id,
+    })
+
+  const applyReport = (draft: BugReportDraft) => {
+    const v = getValues()
+    const changed: string[] = []
+    const fill = (field: "title" | "description" | "expectedBehavior" | "actualBehavior" | "environment", next: string, mark: string = field) => {
+      if (!shouldFill(next, v[field])) return
+      setValue(field, next, { shouldDirty: true, shouldValidate: true })
+      changed.push(mark)
+    }
+    fill("title", draft.title)
+    fill("description", draft.description)
+    fill("expectedBehavior", draft.expectedBehavior)
+    fill("actualBehavior", draft.actualBehavior)
+    fill("environment", draft.environment)
+    const steps = draft.stepsToReproduce.join("\n")
+    if (shouldFill(steps, v.stepsToReproduceText)) {
+      setValue("stepsToReproduceText", steps, { shouldDirty: true })
+      changed.push("stepsToReproduce")
+    }
+    // Severity and priority are only set when filing (they drive SLA targets),
+    // and only ever as a suggestion — marked for confirmation.
+    if (!isEdit && draft.severity && draft.severity !== v.severity) {
+      setValue("severity", draft.severity, { shouldDirty: true })
+      changed.push("severity")
+    }
+    if (!isEdit && draft.priority && draft.priority !== v.priority) {
+      setValue("priority", draft.priority, { shouldDirty: true })
+      changed.push("priority")
+    }
+    setAiMarks(marksFor(changed, draft.needsConfirmation))
   }
 
-  const onSuggestDescription = () => {
-    // Don't overwrite the tester's own words without asking.
-    if ((getValues("description") ?? "").trim()) setConfirmReplace(true)
-    else runSuggestDescription()
-  }
-
-  const undoSuggestion = () => {
-    setValue("description", descriptionBeforeAi ?? "", { shouldDirty: true, shouldValidate: true })
-    setAiDraft(null)
-    setDescriptionBeforeAi(null)
+  const restoreOriginal = (original: BugForm) => {
+    reset(original)
+    setAiMarks(NO_MARKS)
   }
 
   const onEdit = async (bugToEdit: Bug, values: BugForm) => {
@@ -250,6 +259,32 @@ export function BugFormDialog({ open, onOpenChange, projectId, bug }: Props) {
           </DialogDescription>
         </DialogHeader>
         <form className="grid min-w-0 gap-4" onSubmit={handleSubmit(onSubmit)}>
+          <AiAssistantPanel<BugForm, BugReportDraft>
+            feature="bug_report_draft"
+            resetKey={open}
+            heading="AI assistant — describe the bug in your own words"
+            intro="What happened? Write it however it comes to you; the AI organises it into the form below and asks about anything missing. Pick the related test case first if there is one."
+            placeholder="e.g. When I upload a screenshot to a bug report, nothing happens after I click submit."
+            disclosure={(provider) =>
+              `Sends what you write here, this form's text, the project and suite descriptions, the related test case and up to 3 similar bugs to ${provider}. Attachments, comments and names are not sent.`
+            }
+            reviewHint={isEdit ? "before you save" : "before you report the bug"}
+            pending={draftReport.isPending}
+            snapshot={getValues}
+            hasContent={hasBugContent}
+            restore={restoreOriginal}
+            request={requestReport}
+            apply={applyReport}
+            extra={(draft) =>
+              !isEdit && (draft.severity || draft.priority) ? (
+                <p className="text-muted-foreground" data-cy="ai-severity-reason">
+                  Suggested {[draft.severity && `severity ${draft.severity}`, draft.priority && `priority ${draft.priority}`].filter(Boolean).join(" and ")}
+                  {draft.severityReason ? ` — ${draft.severityReason}` : ""}. Check them against your project's rules before you file.
+                </p>
+              ) : null
+            }
+          />
+
           {/* Related test case first — optional, but the most valuable triage context. */}
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="grid gap-1.5">
@@ -282,7 +317,10 @@ export function BugFormDialog({ open, onOpenChange, projectId, bug }: Props) {
             )}
           </div>
 
-          <FormField id="title" label="Title" error={errors.title?.message} {...register("title")} />
+          <div className="grid gap-1">
+            <FormField id="title" label="Title" error={errors.title?.message} {...register("title")} />
+            <AiFieldMark field="title" marks={aiMarks} />
+          </div>
 
           {/* Only when filing a new bug: has this been reported before? */}
           {!isEdit && (
@@ -296,44 +334,25 @@ export function BugFormDialog({ open, onOpenChange, projectId, bug }: Props) {
           )}
 
           <div className="grid gap-1.5">
-            <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="flex flex-wrap items-center gap-2">
               <Label htmlFor="description">Description</Label>
-              <AiDraftButton
-                feature="bug_report_draft"
-                label={description?.trim() ? "Improve with AI" : "Suggest description"}
-                loading={suggestDescription.isPending}
-                disabled={!titleReady}
-                disabledReason="Type a title first"
-                onClick={onSuggestDescription}
-              />
-            </div>
+              <AiFieldMark field="description" marks={aiMarks} />
+            </span>
             <Textarea
               id="description"
-              rows={aiDraft ? 8 : 3}
+              rows={aiMarks.ai.has("description") ? 8 : 3}
               // readOnly, not disabled: react-hook-form drops disabled fields' values.
-              readOnly={suggestDescription.isPending}
+              readOnly={draftReport.isPending}
               {...register("description")}
             />
             {errors.description && <p className="text-xs text-destructive">{errors.description.message}</p>}
-            {aiDraft ? (
-              <AiDraftNotice
-                draft={aiDraft}
-                caveats={aiDraft.caveats}
-                reviewHint={isEdit ? "before you save" : "before you report the bug"}
-                onUndo={undoSuggestion}
-                onDismiss={() => setAiDraft(null)}
-              />
-            ) : (
-              <AiDisclosure feature="bug_report_draft">
-                {(provider) =>
-                  `AI suggestions send this form's text, the project and suite descriptions, the related test case and up to 3 similar bugs from this project to ${provider}. Attachments, comments and names are not sent.`
-                }
-              </AiDisclosure>
-            )}
           </div>
 
           <div className="grid gap-1.5">
-            <Label htmlFor="stepsToReproduceText">Steps to reproduce (optional, one per line)</Label>
+            <span className="flex flex-wrap items-center gap-2">
+              <Label htmlFor="stepsToReproduceText">Steps to reproduce (optional, one per line)</Label>
+              <AiFieldMark field="stepsToReproduce" marks={aiMarks} />
+            </span>
             <Textarea
               id="stepsToReproduceText"
               rows={3}
@@ -344,26 +363,38 @@ export function BugFormDialog({ open, onOpenChange, projectId, bug }: Props) {
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="grid gap-1.5">
-              <Label htmlFor="expectedBehavior">Expected behavior (optional)</Label>
+              <span className="flex flex-wrap items-center gap-2">
+                <Label htmlFor="expectedBehavior">Expected behavior (optional)</Label>
+                <AiFieldMark field="expectedBehavior" marks={aiMarks} />
+              </span>
               <Textarea id="expectedBehavior" rows={2} {...register("expectedBehavior")} />
             </div>
             <div className="grid gap-1.5">
-              <Label htmlFor="actualBehavior">Actual behavior (optional)</Label>
+              <span className="flex flex-wrap items-center gap-2">
+                <Label htmlFor="actualBehavior">Actual behavior (optional)</Label>
+                <AiFieldMark field="actualBehavior" marks={aiMarks} />
+              </span>
               <Textarea id="actualBehavior" rows={2} {...register("actualBehavior")} />
             </div>
           </div>
 
-          <FormField
-            id="environment"
-            label="Environment (optional)"
-            placeholder="Prod / Chrome 125 / Windows 11"
-            {...register("environment")}
-          />
+          <div className="grid gap-1">
+            <FormField
+              id="environment"
+              label="Environment (optional)"
+              placeholder="Prod / Chrome 125 / Windows 11"
+              {...register("environment")}
+            />
+            <AiFieldMark field="environment" marks={aiMarks} />
+          </div>
 
           {!isEdit && (
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-1.5">
-                <Label>Severity</Label>
+                <span className="flex flex-wrap items-center gap-2">
+                  <Label>Severity</Label>
+                  <AiFieldMark field="severity" marks={aiMarks} confirmText="AI suggestion — check project rules" />
+                </span>
                 <Select value={severity} onValueChange={(v) => setValue("severity", v as BugForm["severity"])}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -372,7 +403,10 @@ export function BugFormDialog({ open, onOpenChange, projectId, bug }: Props) {
                 </Select>
               </div>
               <div className="grid gap-1.5">
-                <Label>Priority</Label>
+                <span className="flex flex-wrap items-center gap-2">
+                  <Label>Priority</Label>
+                  <AiFieldMark field="priority" marks={aiMarks} confirmText="AI suggestion — check project rules" />
+                </span>
                 <Select value={priority} onValueChange={(v) => setValue("priority", v as BugForm["priority"])}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -419,15 +453,6 @@ export function BugFormDialog({ open, onOpenChange, projectId, bug }: Props) {
           </DialogFooter>
         </form>
       </DialogContent>
-
-      <ConfirmDialog
-        open={confirmReplace}
-        onOpenChange={setConfirmReplace}
-        title="Replace your description?"
-        description="The AI will rewrite what you've typed, keeping its facts. You can undo it afterwards."
-        confirmLabel="Rewrite it"
-        onConfirm={runSuggestDescription}
-      />
     </Dialog>
   )
 }

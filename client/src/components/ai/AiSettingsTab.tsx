@@ -1,6 +1,6 @@
 // components/ai/AiSettingsTab.tsx — Settings → AI. Each section shows only
 // for those who hold its permission (the API enforces the same):
-//   ai.managekeys     the organisation's keys + per-feature models
+//   ai.managekeys     the organisation's keys + per-feature models + usage report
 //   ai.ownkey         my own keys + per-feature models
 //   ai.use            my credits
 //   ai.managecredits  prices and everyone's balances
@@ -12,6 +12,7 @@ import { AiKeysCard } from "./AiKeysCard"
 import { AiFeatureModels } from "./AiFeatureModels"
 import { AiCreditsCard } from "./AiCreditsCard"
 import { AiCreditsAdminCard } from "./AiCreditsAdminCard"
+import { AiUsageCard } from "./AiUsageCard"
 
 export function AiSettingsTab() {
   const { can } = useAuth()
@@ -32,6 +33,7 @@ export function AiSettingsTab() {
             description="Used by everyone in the organisation who hasn't added a key of their own. Requests are billed to the organisation's account with the provider."
           />
           <AiFeatureModels scope="org" />
+          <AiUsageCard />
         </section>
       )}
 

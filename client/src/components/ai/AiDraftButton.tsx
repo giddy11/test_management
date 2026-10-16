@@ -73,10 +73,3 @@ export function AiDraftButton({ feature, label, loading, disabled, disabledReaso
   )
 }
 
-// One sentence saying exactly what leaves TestMate, under the field the AI fills.
-export function AiDisclosure({ feature, children }: { feature: AiFeature; children: (providerLabel: string) => string }) {
-  const { can } = useAuth()
-  const { data: status } = useAiStatus(feature, can("ai.use"))
-  if (!status?.available || !status.providerLabel) return null
-  return <p className="text-xs text-muted-foreground" data-cy={`ai-disclosure-${feature}`}>{children(status.providerLabel)}</p>
-}

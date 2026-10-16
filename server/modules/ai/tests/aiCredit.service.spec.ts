@@ -72,21 +72,21 @@ function setup(initial: Record<string, number> = {}, prices: Record<string, numb
 describe("AiCreditService.charge", () => {
   it("charges nothing for an unpriced feature", async () => {
     const { service, repo } = setup({ "user-1": 5 });
-    expect(await service.charge(user, "test_case_draft", {})).toBeNull();
+    expect(await service.charge(user, "feature_request_draft", {})).toBeNull();
     expect(repo.ledger).toHaveLength(0);
   });
 
   it("takes the price and records a usage row", async () => {
-    const { service, repo } = setup({ "user-1": 5 }, { test_case_draft: 2 });
-    const charge = await service.charge(user, "test_case_draft", { projectId: "p-1" });
+    const { service, repo } = setup({ "user-1": 5 }, { feature_request_draft: 2 });
+    const charge = await service.charge(user, "feature_request_draft", { projectId: "p-1" });
     expect(charge?.amount).toBe(2);
     expect(repo.balances.get("user-1")).toBe(3);
-    expect(repo.ledger[0]).toMatchObject({ type: "usage", delta: -2, feature: "test_case_draft", projectId: "p-1", balanceAfter: 3 });
+    expect(repo.ledger[0]).toMatchObject({ type: "usage", delta: -2, feature: "feature_request_draft", projectId: "p-1", balanceAfter: 3 });
   });
 
   it("refuses with 402 no_credits when the balance can't cover it", async () => {
-    const { service, repo } = setup({ "user-1": 1 }, { test_case_draft: 2 });
-    const err = await service.charge(user, "test_case_draft", {}).catch((e) => e);
+    const { service, repo } = setup({ "user-1": 1 }, { feature_request_draft: 2 });
+    const err = await service.charge(user, "feature_request_draft", {}).catch((e) => e);
     expect(err).toBeInstanceOf(AiRequestError);
     expect(err).toMatchObject({ statusCode: 402, reason: "no_credits" });
     expect(repo.balances.get("user-1")).toBe(1);
@@ -94,16 +94,16 @@ describe("AiCreditService.charge", () => {
   });
 
   it("treats a user who never had credits as having none", async () => {
-    const { service } = setup({}, { test_case_draft: 1 });
-    await expect(service.charge(user, "test_case_draft", {})).rejects.toMatchObject({ reason: "no_credits" });
+    const { service } = setup({}, { feature_request_draft: 1 });
+    await expect(service.charge(user, "feature_request_draft", {})).rejects.toMatchObject({ reason: "no_credits" });
   });
 
   it("can't be overspent by parallel requests", async () => {
-    const { service, repo } = setup({ "user-1": 3 }, { test_case_draft: 2 });
+    const { service, repo } = setup({ "user-1": 3 }, { feature_request_draft: 2 });
     const results = await Promise.allSettled([
-      service.charge(user, "test_case_draft", {}),
-      service.charge(user, "test_case_draft", {}),
-      service.charge(user, "test_case_draft", {}),
+      service.charge(user, "feature_request_draft", {}),
+      service.charge(user, "feature_request_draft", {}),
+      service.charge(user, "feature_request_draft", {}),
     ]);
     expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
     expect(results.filter((r) => r.status === "rejected")).toHaveLength(2);
@@ -111,8 +111,8 @@ describe("AiCreditService.charge", () => {
   });
 
   it("refunds exactly once, with a refund row", async () => {
-    const { service, repo } = setup({ "user-1": 5 }, { test_case_draft: 2 });
-    const charge = await service.charge(user, "test_case_draft", {});
+    const { service, repo } = setup({ "user-1": 5 }, { feature_request_draft: 2 });
+    const charge = await service.charge(user, "feature_request_draft", {});
     await charge!.refund();
     await charge!.refund();
     expect(repo.balances.get("user-1")).toBe(5);
@@ -120,8 +120,8 @@ describe("AiCreditService.charge", () => {
   });
 
   it("swallows and logs a refund failure", async () => {
-    const { service, repo } = setup({ "user-1": 5 }, { test_case_draft: 2 });
-    const charge = await service.charge(user, "test_case_draft", {});
+    const { service, repo } = setup({ "user-1": 5 }, { feature_request_draft: 2 });
+    const charge = await service.charge(user, "feature_request_draft", {});
     jest.spyOn(console, "error").mockImplementation(() => undefined);
     repo.applyDelta = jest.fn().mockRejectedValue(new Error("db down"));
     await expect(charge!.refund()).resolves.toBeUndefined();
@@ -132,13 +132,13 @@ describe("AiCreditService.charge", () => {
 describe("AiCreditService.statusFor", () => {
   it("is null when the organisation hasn't priced anything", async () => {
     const { service } = setup({ "user-1": 5 });
-    expect(await service.statusFor(user, "test_case_draft")).toBeNull();
+    expect(await service.statusFor(user, "feature_request_draft")).toBeNull();
   });
 
   it("reports the balance and this feature's price", async () => {
     const { service } = setup({ "user-1": 5 }, { bug_report_draft: 3 });
     expect(await service.statusFor(user, "bug_report_draft")).toEqual({ balance: 5, price: 3 });
-    expect(await service.statusFor(user, "test_case_draft")).toEqual({ balance: 5, price: 0 });
+    expect(await service.statusFor(user, "feature_request_draft")).toEqual({ balance: 5, price: 0 });
   });
 });
 
@@ -167,22 +167,22 @@ describe("AiCreditService.grant", () => {
   it("is only for holders of ai.managecredits", async () => {
     const { service } = setup();
     await expect(service.grant(user, { userId: "user-1", amount: 5 })).rejects.toMatchObject({ statusCode: 403 });
-    await expect(service.updatePrices(user, { test_case_draft: 1 })).rejects.toMatchObject({ statusCode: 403 });
+    await expect(service.updatePrices(user, { feature_request_draft: 1 })).rejects.toMatchObject({ statusCode: 403 });
   });
 });
 
 describe("AiCreditService — prices and history", () => {
   it("stores only known features with a positive price, and lists every feature back", async () => {
     const { service, repo } = setup();
-    const result = await service.updatePrices(admin, { test_case_draft: 2, bug_report_draft: 0, made_up: 9 } as any);
-    expect(repo.prices).toEqual({ test_case_draft: 2 });
-    expect(result).toEqual({ test_case_draft: 2, bug_report_draft: 0 });
+    const result = await service.updatePrices(admin, { feature_request_draft: 2, bug_report_draft: 0, test_case_draft: 4 } as any);
+    expect(repo.prices).toEqual({ feature_request_draft: 2 });
+    expect(result).toEqual({ bug_report_draft: 0, feature_request_draft: 2 });
   });
 
   it("hides history without touching the balance, with a dry-run count", async () => {
-    const { service, repo } = setup({ "user-1": 5 }, { test_case_draft: 1 });
-    await service.charge(user, "test_case_draft", {});
-    await service.charge(user, "test_case_draft", {});
+    const { service, repo } = setup({ "user-1": 5 }, { feature_request_draft: 1 });
+    await service.charge(user, "feature_request_draft", {});
+    await service.charge(user, "feature_request_draft", {});
 
     expect(await service.clearHistory(user, true)).toEqual({ count: 2 });
     expect(repo.ledger.every((l) => !l.hidden)).toBe(true);

@@ -14,14 +14,14 @@ export const providerLabel = (id: AiProviderId) => AI_PROVIDERS.find((p) => p.id
 // Mirrors AI_FEATURES in server/modules/ai/domain/features.ts — keep in step.
 export const AI_FEATURES = [
   {
-    id: "test_case_draft",
-    label: "Test case drafts",
-    description: "Writes a test case's title, steps and expected result from a short description.",
-  },
-  {
     id: "bug_report_draft",
     label: "Bug report drafts",
-    description: "Turns rough notes or a failed test run into a structured bug report.",
+    description: "Turns a rough description into a structured bug report, and suggests bug descriptions.",
+  },
+  {
+    id: "feature_request_draft",
+    label: "Feature request drafts",
+    description: "Turns a rough idea into a clear feature request with acceptance criteria.",
   },
 ] as const
 
@@ -81,21 +81,6 @@ export interface AiStatus {
 
 // ── Drafts ────────────────────────────────────────────────────────────────────
 
-export interface BugDescriptionDraftPayload {
-  projectId: string
-  title: string
-  description?: string
-  stepsToReproduce?: string[]
-  expectedBehavior?: string
-  actualBehavior?: string
-  environment?: string
-  testCaseId?: string
-  // The suite picked in the form when no test case is chosen.
-  suiteId?: string
-  // When editing: so the bug isn't offered as its own "similar bug".
-  bugId?: string
-}
-
 // Common to every draft: which model wrote it and what it cost.
 export interface AiDraftMeta {
   provider: AiProviderId
@@ -103,10 +88,105 @@ export interface AiDraftMeta {
   creditsCharged: number
 }
 
-export interface BugDescriptionDraft extends AiDraftMeta {
+// ── The assistant (whole-form drafts) ─────────────────────────────────────────
+
+export interface FollowUpAnswer {
+  question: string
+  answer: string
+}
+
+// What every assistant draft carries besides the form's own fields.
+export interface AssistantDraftExtras extends AiDraftMeta {
+  evidenceSuggestion: string
+  followUpQuestions: string[]
+  // Fields that are the AI's suggestion rather than what the user said.
+  needsConfirmation: string[]
+}
+
+export const BUG_SEVERITY_VALUES = ["Trivial", "Minor", "Major", "Critical"] as const
+export const BUG_PRIORITY_VALUES = ["Low", "Medium", "High", "Urgent"] as const
+
+export interface BugReportDraft extends AssistantDraftExtras {
+  title: string
   description: string
-  // What the AI had to assume or couldn't know.
-  caveats: string[]
+  stepsToReproduce: string[]
+  expectedBehavior: string
+  actualBehavior: string
+  environment: string
+  severity: (typeof BUG_SEVERITY_VALUES)[number] | null
+  priority: (typeof BUG_PRIORITY_VALUES)[number] | null
+  severityReason: string
+}
+
+export interface BugReportDraftPayload {
+  projectId: string
+  roughDescription?: string
+  answers?: FollowUpAnswer[]
+  form: {
+    title?: string
+    description?: string
+    stepsToReproduce?: string[]
+    expectedBehavior?: string
+    actualBehavior?: string
+    environment?: string
+  }
+  testCaseId?: string
+  suiteId?: string
+  bugId?: string
+}
+
+export interface FeatureRequestDraft extends AssistantDraftExtras {
+  title: string
+  category: string
+  sections: {
+    problemStatement: string
+    proposedSolution: string
+    businessJustification: string
+    expectedOutcome: string
+    acceptanceCriteria: string[]
+  }
+  // The sections as headed Markdown, ready for the Description box.
+  description: string
+}
+
+export interface FeatureRequestDraftPayload {
+  projectId: string
+  roughDescription?: string
+  answers?: FollowUpAnswer[]
+  form: { title?: string; description?: string; category?: string }
+  suiteId?: string
+  requestId?: string
+}
+
+// ── Usage report ──────────────────────────────────────────────────────────────
+
+export type AiUsagePeriod = 7 | 30 | 90
+
+export interface AiUsageReport {
+  days: AiUsagePeriod
+  since: string
+  totals: {
+    requests: number
+    failed: number
+    people: number
+    ownKeyRequests: number
+    teamSize: number
+    failureRate: number // percent
+    adoptionRate: number // percent of the team
+  }
+  byFeature: {
+    feature: string
+    requests: number
+    succeeded: number
+    failed: number
+    avgMs: number | null
+    p95Ms: number | null
+    inputTokens: number
+    outputTokens: number
+    people: number
+  }[]
+  byDay: { day: string; requests: number; failed: number }[]
+  errors: { errorKind: string; count: number }[]
 }
 
 // ── Credits ───────────────────────────────────────────────────────────────────

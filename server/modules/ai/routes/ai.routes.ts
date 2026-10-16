@@ -10,7 +10,9 @@ import { aiCredentialController } from "../controllers/aiCredential.controller";
 import { AiCreditController } from "../controllers/aiCredit.controller";
 import type { AiKeyScope } from "../services/aiCredential.service";
 import {
-  bugDescriptionDraftSchema,
+  bugReportDraftSchema,
+  featureRequestDraftSchema,
+  usageReportSchema,
   clearCreditHistorySchema,
   creditAccountsSchema,
   creditPricesSchema,
@@ -35,7 +37,8 @@ router.get("/status", authMiddleware, requirePermission("ai.use"), validate(stat
 // Drafts. ai.use at the route; WHICH project the caller may draft for is their
 // role in it, checked in the feature service (same rule as filing the record).
 // Nothing is saved — the suggestion only fills the form.
-router.post("/bug-description-draft", authMiddleware, requirePermission("ai.use"), aiRateLimiter, validate(bugDescriptionDraftSchema), AiController.bugDescriptionDraft);
+router.post("/bug-report-draft", authMiddleware, requirePermission("ai.use"), aiRateLimiter, validate(bugReportDraftSchema), AiController.bugReportDraft);
+router.post("/feature-request-draft", authMiddleware, requirePermission("ai.use"), aiRateLimiter, validate(featureRequestDraftSchema), AiController.featureRequestDraft);
 
 function keyRoutes(base: string, permission: string, scope: AiKeyScope) {
   const c = aiCredentialController(scope);
@@ -50,6 +53,8 @@ function keyRoutes(base: string, permission: string, scope: AiKeyScope) {
 }
 
 keyRoutes("/org", "ai.managekeys", "org");
+// Usage report (counts only) for whoever manages the organisation's AI.
+router.get("/org/usage", authMiddleware, requirePermission("ai.managekeys"), validate(usageReportSchema), AiController.usage);
 keyRoutes("/me", "ai.ownkey", "own");
 
 // Credits. Anyone who may use AI sees their own balance and history; the

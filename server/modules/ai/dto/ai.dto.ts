@@ -4,6 +4,8 @@
 import { AI_PROVIDER_LABELS, type AiModelInfo, type AiProviderId } from "../../../infrastructure/ai/aiProvider";
 import type { AiCredential } from "../entities/aiCredential.entity";
 import type { AiKeySource } from "../domain/aiErrors";
+import type { BugReportDraft } from "../domain/bugReportDraft";
+import type { FeatureRequestDraft } from "../domain/featureRequestDraft";
 
 export interface AiCredentialDTO {
   provider: AiProviderId;
@@ -41,11 +43,12 @@ export interface AiModelListDTO {
   models: AiModelInfo[];
 }
 
-// A suggestion only: the client puts it in the bug form's Description box.
-export interface BugDescriptionDraftDTO {
-  description: string;
-  // What the AI had to assume or couldn't know — shown under the box.
-  caveats: string[];
+// The assistant's drafts: every field of the form, plus follow-up questions
+// and which fields are the AI's suggestion rather than the user's statement.
+export type BugReportDraftDTO = BugReportDraft & AiDraftMeta;
+export type FeatureRequestDraftDTO = FeatureRequestDraft & AiDraftMeta;
+
+export interface AiDraftMeta {
   provider: AiProviderId;
   model: string;
   creditsCharged: number;

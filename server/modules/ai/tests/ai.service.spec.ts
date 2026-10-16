@@ -51,12 +51,12 @@ function setup(cred: ResolvedCredential | null = credential()) {
 }
 
 const request = (extra: object = {}) => ({
-  feature: "test_case_draft" as const,
+  feature: "feature_request_draft" as const,
   projectId: "project-1",
   system: "You draft test cases.",
   prompt: "Draft a login test.",
   schema,
-  schemaName: "test_case_draft",
+  schemaName: "feature_request_draft",
   jsonSchema,
   ...extra,
 });
@@ -80,14 +80,14 @@ describe("AiService.generateJson — happy path and billing", () => {
     });
     expect(provider.generate).toHaveBeenCalledWith(
       "sk-test-key-123456",
-      expect.objectContaining({ model: "claude-opus-5-5", maxOutputTokens: 16000, schemaName: "test_case_draft" })
+      expect.objectContaining({ model: "claude-opus-5-5", maxOutputTokens: 16000, schemaName: "feature_request_draft" })
     );
     const row = usage.create.mock.calls[0][0];
     expect(row).toMatchObject({
       organizationId: "org-1",
       userId: "user-1",
       keySource: "organization",
-      feature: "test_case_draft",
+      feature: "feature_request_draft",
       projectId: "project-1",
       inputTokens: 100,
       outputTokens: 40,
@@ -102,7 +102,7 @@ describe("AiService.generateJson — happy path and billing", () => {
     const { service, provider, credits } = setup(credential({ source: "organization" }));
     provider.generate.mockResolvedValue(reply(GOOD));
     await service.generateJson(actor, request());
-    expect(credits.charge).toHaveBeenCalledWith(actor, "test_case_draft", { projectId: "project-1" });
+    expect(credits.charge).toHaveBeenCalledWith(actor, "feature_request_draft", { projectId: "project-1" });
   });
 
   it("never charges a user's own key", async () => {
@@ -254,7 +254,7 @@ describe("AiService.streamText", () => {
 
     const result = await service.streamText(
       actor,
-      { feature: "test_case_draft", system: "s", messages: [{ role: "user", content: "hi" }] },
+      { feature: "feature_request_draft", system: "s", messages: [{ role: "user", content: "hi" }] },
       (d) => deltas.push(d)
     );
 

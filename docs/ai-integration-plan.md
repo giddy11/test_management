@@ -40,7 +40,7 @@ Existing `ai_agent_flow_*.md` files are coding-standard guides for agents, not a
 | D1 | Who owns AI keys? | **User's own key wins, else the organisation's key.** The brief's "platform key" maps to an **organisation key** set by an org admin (`ai.managekeys`). TestMate's super admin is the vendor; a vendor-wide fallback key across all orgs is **not** built unless you want it. |
 | D2 | Credits? | **Yes, behind a flag (Phase 2)**, spent only on the organisation's key, prices default to 0 = free. Granted by the org admin. |
 | D3 | A payer other than the clicker? | **No.** The org key already covers members. (Project team-lead-pays delegation can be added later.) |
-| D4 | First features | **`test_case_draft`** and **`bug_report_draft`** (see §5). Optional third: **`test_suite_plan`** (plan then create). |
+| D4 | First features | **`bug_report_draft`** and **`feature_request_draft`** (see §8). `test_case_draft` was planned and then dropped; optional later: **`test_suite_plan`** (plan then create). |
 | D5 | Background auto-run? | **No.** |
 | D6 | Providers | **Anthropic, OpenAI, Gemini, Ollama** behind one `AiProvider` interface. |
 | D7 | Chat feature | **Not in v1.** |
@@ -200,7 +200,6 @@ These also go into `env.example.yaml` and `render.yaml`.
 
 | Feature id | Fills | Input sent to the model | Not sent |
 |---|---|---|---|
-| `test_case_draft` | Test-case editor: `title`, `description`, `steps[]`, `expectedResult`, `priority` (enum), `tags[]`, `caveats` | the user's intent or the editor's **unsaved** state, suite name/description, titles of up to N sibling cases (so it doesn't duplicate them) | names, emails, assignees, attachments, external ids |
 | `bug_report_draft` | Bug form: `title`, `description`, `stepsToReproduce`, `expectedBehavior`, `actualBehavior`, `environment`, suggested `severity` / `priority` (enums, or `"unknown"`), `caveats` | the tester's rough notes; when filed from a failed run: the case's steps + expected result and the run result's status/notes | reporter/assignee identity, screenshots (v1), project member list |
 | *(optional)* `test_suite_plan` | A plan of N cases from a requirement or feature-request text; `POST /ai/test-suite-plan` (nothing saved) then `POST /ai/test-suite-plan/create` (no AI, creates what the human kept) | requirement text, existing case titles in the suite | as above |
 
@@ -212,7 +211,7 @@ Each follows the brief's recipe: lenient Zod + hand-written strict JSON Schema +
 
 1. **Foundation** — env, `secretBox`, provider contract and four adapters, registry, model tiers, SSRF guard, `AiCredentialService` + routes, `AiService` (attempt / generateJson / streamText / status, refund hooks stubbed until Phase 2), usage log, permissions + migration, `aiRateLimiter`, error mapping, tests.
 2. **Credits** — tables, atomic charge/refund, grant, history (hide-only), price map, admin list.
-3. **Features** — `test_case_draft`, then `bug_report_draft` (backend + `AiDraftButton` + form wiring, one at a time).
+3. **Features** — `bug_report_draft` and `feature_request_draft` (built as the AI Bug & Feature Request Assistant, §8).
 4. **Settings UI** — AI tab: `AiKeysCard` (own + org), `AiFeatureModels`, credits cards.
 5. **Optional** — suite planner, chat, anything else you choose.
 
@@ -226,5 +225,22 @@ Can't be verified without real keys: the four live provider round-trips (save ke
 
 1. **D1:** organisation key + own key only, or also a **vendor-wide fallback key** the super admin sets for every org?
 2. **D2:** build credits now (Phase 2), or skip until there's a vendor key to meter?
-3. **D4:** confirm `test_case_draft` + `bug_report_draft`. Add `test_suite_plan`, or swap one for a **feedback-ticket triage/reply draft**?
+3. **D4:** settled — bug reports and feature requests; test case drafts dropped.
 4. Should **Testers** (not just QA engineers/leads) get `ai.use` by default?
+
+---
+
+## 8. Built: AI Bug & Feature Request Assistant
+
+Covers the "AI-Powered Bug Reporting and Feature Request Assistant" user story.
+
+| Piece | Where |
+|---|---|
+| Assistant panel (own words → whole form, follow-up questions with answers, Draft again, Regenerate, Restore my original) | `client/src/components/ai/AiAssistantPanel.tsx`, wired into `BugFormDialog` and `FeatureRequestFormDialog` |
+| Field markers: "Filled by AI" / "AI suggestion — please confirm" | `client/src/components/ai/AiFieldMark.tsx` |
+| Bug draft: title, description, steps, expected/actual, environment, suggested severity + priority (+ reason), evidence to attach, follow-up questions, fields to confirm | `server/modules/ai/domain/bugReportDraft.ts` · `POST /api/v1/ai/bug-report-draft` |
+| Feature request draft: title, category, and Problem statement / Proposed solution / Business justification / Expected outcome / Acceptance criteria as headed plain-text sections in Description; inferred sections headed "(suggested — please confirm)" | `server/modules/ai/domain/featureRequestDraft.ts` · `POST /api/v1/ai/feature-request-draft` |
+| Project context (access-checked): project description, suite/module, related test case, up to 3 similar bugs or requests. Never customer feedback tickets, names, comments or attachments | `server/modules/ai/services/draftContext.service.ts` |
+| Usage report: requests, failure rate, response times (avg and slowest 5%), adoption, failures by cause | `GET /api/v1/ai/org/usage?days=7|30|90` (`ai.managekeys`) · Settings → AI → AI usage |
+
+Rules the prompts enforce: organise, don't invent; leave unknown fields empty and ask instead; mark inferences for confirmation; severity/priority are suggestions only (and only when filing — they drive SLA targets); user text is treated as material, never instructions. Nothing is submitted, assigned or changed in status by the AI — the form's own button files the ticket, with the form's usual required fields.

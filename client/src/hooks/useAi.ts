@@ -9,7 +9,9 @@ import type {
   AiFeature,
   AiKeyScope,
   AiProviderId,
-  BugDescriptionDraftPayload,
+  AiUsagePeriod,
+  BugReportDraftPayload,
+  FeatureRequestDraftPayload,
   GrantAiCreditsPayload,
   ListAiModelsPayload,
   SaveAiKeyPayload,
@@ -40,12 +42,28 @@ export function useAiStatus(feature?: AiFeature, enabled = true) {
 
 // ── Drafts ────────────────────────────────────────────────────────────────────
 
-export function useBugDescriptionDraft() {
+export function useBugReportDraft() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (payload: BugDescriptionDraftPayload) => unwrap(await AiEndpoints.bugDescriptionDraft(payload)),
-    // A draft may have spent (or refunded) credits either way.
+    mutationFn: async (payload: BugReportDraftPayload) => unwrap(await AiEndpoints.bugReportDraft(payload)),
     onSettled: () => qc.invalidateQueries({ queryKey: [AI_KEY] }),
+  })
+}
+
+export function useFeatureRequestDraft() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (payload: FeatureRequestDraftPayload) => unwrap(await AiEndpoints.featureRequestDraft(payload)),
+    onSettled: () => qc.invalidateQueries({ queryKey: [AI_KEY] }),
+  })
+}
+
+export function useAiUsage(days: AiUsagePeriod, enabled = true) {
+  return useQuery({
+    queryKey: [AI_KEY, "usage", days],
+    queryFn: async () => unwrap(await AiEndpoints.usage(days)),
+    placeholderData: keepPreviousData,
+    enabled,
   })
 }
 
