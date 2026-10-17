@@ -142,11 +142,9 @@ export function AppSidebar() {
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
-      </SidebarHeader>
-
-      <SidebarContent className="tm-scroll gap-0">
+        {/* In the header rather than the list, so it stays put while the sections scroll. */}
         {groups.length > 1 && (
-          <div className="flex justify-end px-3 pt-1 group-data-[collapsible=icon]:hidden">
+          <div className="-mb-1 flex justify-end px-1 group-data-[collapsible=icon]:hidden">
             <button
               type="button"
               onClick={() => setCollapsed(allFolded ? [] : groups.map((g) => g.label))}
@@ -158,6 +156,9 @@ export function AppSidebar() {
             </button>
           </div>
         )}
+      </SidebarHeader>
+
+      <SidebarContent className="tm-scroll gap-0">
         {groups.map((group) => {
           const open = isOpen(group.label)
           // A folded section would hide its pending counts, so they ride on its header.
