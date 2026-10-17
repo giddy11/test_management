@@ -13,6 +13,7 @@ function toUserResponse(user) {
     isEmailVerified: user.isEmailVerified ?? false,
     onboardingCompleted: user.onboardingCompleted ?? false,
     notificationSoundEnabled: user.notificationSoundEnabled ?? true,
+    notificationPreferences: user.notificationPreferences ?? {},
     role: user.role,
     // Roles & access. `permissions` is the flattened union the client uses for
     // can() — for usability only; the API re-checks every one of them.

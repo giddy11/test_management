@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form"
 import { toast } from "sonner"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { useNavigate, useSearchParams } from "react-router-dom"
-import { User, Lock, LifeBuoy, MessagesSquare, Power, PowerOff, Bell, BellOff, ShieldCheck, Sparkles } from "lucide-react"
+import { User, Lock, LifeBuoy, MessagesSquare, Power, PowerOff, Bell, BellOff, ShieldCheck, Sparkles, Mail, MailX } from "lucide-react"
 import { Country, State, City } from "country-state-city"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input"
 import { PhoneNumberInput } from "@/components/shared/PhoneNumberInput"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   Select,
   SelectContent,
@@ -24,11 +25,17 @@ import { ApiError } from "@/transport/http"
 import { useAuth } from "@/contexts/AuthContext"
 import { useGuideTour } from "@/hooks/useGuideTour"
 import { useUpdateOnboardingStatus } from "@/hooks/useOnboarding"
-import { useUpdateNotificationSoundSetting } from "@/hooks/useNotificationSoundSetting"
+import { useUpdateNotificationPreferences, useUpdateNotificationSoundSetting } from "@/hooks/useNotificationSoundSetting"
+import { NOTIFICATION_GROUPS, isChannelOn, type NotificationCategoryInfo } from "@/lib/notificationPreferences"
 import { useProjects } from "@/hooks/useProjects"
 import { ALL_GUIDES, DASHBOARD_GUIDE, type TourGuide } from "@/lib/tourGuides"
 import { Badge } from "@/components/ui/badge"
-import { type ChangePasswordPayload, type UpdateProfilePayload } from "@/types/auth.types"
+import {
+  type ChangePasswordPayload,
+  type NotificationChannel,
+  type NotificationPreferences,
+  type UpdateProfilePayload,
+} from "@/types/auth.types"
 import { useSupportChatSettings, useSetSupportChatEnabled } from "@/hooks/useSupportChat"
 import { RolesAccessTab } from "@/components/access/RolesAccessTab"
 import { AiSettingsTab } from "@/components/ai/AiSettingsTab"
@@ -479,7 +486,129 @@ function NotificationsTab() {
           </Button>
         </CardContent>
       </Card>
+
+      <NotificationPreferencesCard />
     </div>
+  )
+}
+
+function NotificationPreferencesCard() {
+  const { user, can } = useAuth()
+  const updatePrefs = useUpdateNotificationPreferences()
+  const prefs = user?.notificationPreferences
+
+  // Only the areas this user can take part in; support chat emails go to the
+  // support team alone, so everyone else gets the in-app toggle only.
+  const groups = NOTIFICATION_GROUPS.map((group) => ({
+    ...group,
+    categories: group.categories
+      .filter((c) => c.audience.some((code) => can(code)))
+      .map((c) =>
+        c.key === "supportChat" && !can("supportchat.read")
+          ? { ...c, channels: c.channels.filter((ch) => ch !== "email") }
+          : c
+      ),
+  })).filter((group) => group.categories.length)
+
+  const save = (patch: NotificationPreferences, message: string) =>
+    updatePrefs.mutate(patch, {
+      onSuccess: () => toast.success(message),
+      onError: (e) => toast.error(e instanceof ApiError ? e.message : "Couldn't update your notifications"),
+    })
+
+  const setOne = (category: NotificationCategoryInfo, channel: NotificationChannel, on: boolean) =>
+    save(
+      { [category.key]: { [channel]: on } },
+      `${category.label}: ${channel === "email" ? "email" : "in-app"} notifications ${on ? "on" : "off"}`
+    )
+
+  const emailCategories = groups.flatMap((g) => g.categories).filter((c) => c.channels.includes("email"))
+  const anyEmailOn = emailCategories.some((c) => isChannelOn(prefs, c.key, "email"))
+  const setAllEmail = (on: boolean) =>
+    save(
+      Object.fromEntries(emailCategories.map((c) => [c.key, { email: on }])),
+      on ? "Email notifications turned on" : "Email notifications turned off"
+    )
+
+  if (!groups.length) return null
+
+  return (
+    <Card data-cy="notification-preferences">
+      <CardHeader>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <CardTitle>What you're notified about</CardTitle>
+            <CardDescription>
+              Choose which areas show up in your notification bell and which ones also send you an email.
+              Sign-in, password and invitation emails are always sent.
+            </CardDescription>
+          </div>
+          {emailCategories.length > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setAllEmail(!anyEmailOn)}
+              data-cy="notification-email-all"
+            >
+              {anyEmailOn ? (
+                <>
+                  <MailX className="size-4" /> Turn off all email
+                </>
+              ) : (
+                <>
+                  <Mail className="size-4" /> Turn on all email
+                </>
+              )}
+            </Button>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        {groups.map((group) => (
+          <section key={group.title} className="space-y-1">
+            <div className="flex items-end justify-between gap-3 border-b pb-2">
+              <h3 className="text-sm font-semibold">{group.title}</h3>
+              <div className="flex shrink-0 gap-2 text-xs font-medium text-muted-foreground">
+                <span className="w-14 text-center">In-app</span>
+                <span className="w-14 text-center">Email</span>
+              </div>
+            </div>
+            <ul className="divide-y">
+              {group.categories.map((category) => (
+                <li
+                  key={category.key}
+                  className="flex items-center justify-between gap-3 py-3"
+                  data-cy={`notification-pref-${category.key}`}
+                >
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium">{category.label}</p>
+                    <p className="text-sm text-muted-foreground">{category.description}</p>
+                  </div>
+                  <div className="flex shrink-0 gap-2">
+                    {(["inApp", "email"] as const).map((channel) => (
+                      <div key={channel} className="flex w-14 justify-center">
+                        {category.channels.includes(channel) ? (
+                          <Checkbox
+                            checked={isChannelOn(prefs, category.key, channel)}
+                            onCheckedChange={(checked) => setOne(category, channel, checked === true)}
+                            aria-label={`${category.label} — ${channel === "email" ? "email" : "in-app"}`}
+                            data-cy={`notification-pref-${category.key}-${channel}`}
+                          />
+                        ) : (
+                          <span className="text-muted-foreground" title="Not sent for this area">
+                            —
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ))}
+      </CardContent>
+    </Card>
   )
 }
 

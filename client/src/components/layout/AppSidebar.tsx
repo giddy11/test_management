@@ -23,6 +23,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { cn } from "@/lib/utils"
 import { useAuth, PREVIEWABLE_ROLES } from "@/contexts/AuthContext"
 import { useLogout } from "@/hooks/useAuth"
 import {
@@ -108,13 +109,19 @@ export function AppSidebar() {
                     <SidebarMenuItem key={item.to}>
                       <NavLink to={item.to} end={item.end} data-tour={item.tourId} data-cy={`nav-${item.to.slice(1)}`} onClick={closeOnMobile}>
                         {({ isActive }) => (
-                          <SidebarMenuButton tooltip={item.title} isActive={isActive}>
+                          <SidebarMenuButton tooltip={item.title} isActive={isActive} className={cn(badge > 0 && "pr-8")}>
                             <item.icon />
                             <span>{item.title}</span>
                           </SidebarMenuButton>
                         )}
                       </NavLink>
-                      {badge > 0 && <SidebarMenuBadge>{badge}</SidebarMenuBadge>}
+                      {/* The button sits inside the link, so the badge's own "beside the button"
+                          positioning never matches — centre it on this row explicitly. */}
+                      {badge > 0 && (
+                        <SidebarMenuBadge className="top-1/2 -translate-y-1/2 rounded-full bg-primary text-primary-foreground" data-cy={`nav-badge-${item.to.slice(1)}`}>
+                          {badge}
+                        </SidebarMenuBadge>
+                      )}
                     </SidebarMenuItem>
                   )
                 })}

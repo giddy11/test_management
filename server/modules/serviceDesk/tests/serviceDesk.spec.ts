@@ -1,6 +1,7 @@
 // modules/serviceDesk/tests/serviceDesk.spec.ts
 // IT requests: the lifecycle table, form definitions and answers, the default
-// catalog, the approval engine, service levels and information requests.
+// catalog, the approval engine, service levels, information requests and the
+// "Needed by" warning.
 import {
   AGENT_CANCELLABLE,
   REQUESTER_CANCELLABLE,
@@ -26,6 +27,7 @@ import {
   type PolicyStep,
 } from "../domain/approvalPlan";
 import { DEFAULT_SERVICE_LEVELS, escalationLevelAt, fulfilmentTargetHours, serviceLevelsSchema } from "../domain/serviceLevels";
+import { neededByOf } from "../domain/neededBy";
 
 const { AppError } = require("../../../shared/errors/AppError");
 
@@ -310,5 +312,50 @@ describe("waiting for information", () => {
     }
     expect(canTransition("info_requested", "fulfilled")).toBe(false);
     expect(canTransition("info_requested", "rejected")).toBe(false);
+  });
+});
+
+describe("needed by", () => {
+  const schema: FormField[] = [{ key: "needed_by", label: "Needed by", type: "date", required: false }];
+  const now = Date.parse("2026-11-01T09:00:00Z");
+  const req = (over: Partial<Parameters<typeof neededByOf>[0]> = {}) => ({
+    status: "approved" as RequestStatus,
+    formSchema: schema,
+    formValues: { needed_by: "2026-11-10" },
+    approvalDueAt: null,
+    fulfilmentDueAt: "2026-11-05T09:00:00Z",
+    ...over,
+  });
+
+  it("reads the date only from a needed_by date question", () => {
+    expect(neededByOf(req(), now)).toEqual({ date: "2026-11-10", warning: null });
+    expect(neededByOf(req({ formSchema: [{ ...schema[0], type: "text" }] }), now)).toBeNull();
+    expect(neededByOf(req({ formSchema: [] }), now)).toBeNull();
+    expect(neededByOf(req({ formValues: {} }), now)).toBeNull();
+    expect(neededByOf(req({ formValues: { needed_by: "soon" } }), now)).toBeNull();
+  });
+
+  it("warns when the date has gone, counting the whole day", () => {
+    expect(neededByOf(req({ formValues: { needed_by: "2026-10-31" } }), now)?.warning).toBe("passed");
+    expect(neededByOf(req({ formValues: { needed_by: "2026-11-01" } }), now)?.warning).not.toBe("passed");
+  });
+
+  it("warns when the service-level target is later than the date", () => {
+    expect(neededByOf(req({ fulfilmentDueAt: "2026-11-12T09:00:00Z" }), now)?.warning).toBe("after_target");
+    // Waiting for approval: only the approval target is known yet.
+    const pending = req({ status: "pending_approval", fulfilmentDueAt: null, approvalDueAt: "2026-11-11T09:00:00Z" });
+    expect(neededByOf(pending, now)?.warning).toBe("after_target");
+  });
+
+  it("warns when the date is within two days", () => {
+    const early = { fulfilmentDueAt: "2026-11-01T18:00:00Z" };
+    expect(neededByOf(req({ ...early, formValues: { needed_by: "2026-11-02" } }), now)?.warning).toBe("soon");
+    expect(neededByOf(req({ ...early, formValues: { needed_by: "2026-11-04" } }), now)?.warning).toBeNull();
+  });
+
+  it("stays quiet on drafts and finished requests", () => {
+    for (const status of ["draft", "fulfilled", "cancelled", "rejected"] as RequestStatus[]) {
+      expect(neededByOf(req({ status, formValues: { needed_by: "2026-10-01" } }), now)).toEqual({ date: "2026-10-01", warning: null });
+    }
   });
 });

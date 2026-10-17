@@ -32,7 +32,10 @@ export function DashboardLayout() {
     <PresenceProvider>
       <SidebarProvider>
         <AppSidebar />
-        <SidebarInset>
+        {/* min-w-0: the inset is w-full + flex-1, so its automatic minimum width is the
+            whole viewport as soon as any child (e.g. the banner marquee) is wider than that,
+            and with the sidebar beside it the page overflows by the sidebar's width. */}
+        <SidebarInset className="min-w-0">
           <PreviewBanner />
           <SiteBannerBar />
           <header className="sticky top-0 z-10 flex h-14 shrink-0 items-center gap-2 border-b bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/60">

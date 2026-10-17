@@ -1,5 +1,6 @@
 // modules/auth/validators/auth.schema.js
 const { z } = require("zod");
+const { CATEGORIES: NOTIFICATION_CATEGORIES } = require("../../notification/domain/notificationPreferences");
 
 const passwordRule = z
   .string()
@@ -102,6 +103,18 @@ const updateNotificationSoundSchema = z.object({
   }),
 });
 
+// Partial update: only the categories/channels being changed.
+const channelPrefsSchema = z
+  .object({ inApp: z.boolean().optional(), email: z.boolean().optional() })
+  .strict();
+const updateNotificationPreferencesSchema = z.object({
+  body: z.object({
+    preferences: z
+      .object(Object.fromEntries(NOTIFICATION_CATEGORIES.map((c) => [c, channelPrefsSchema.optional()])))
+      .strict(),
+  }),
+});
+
 module.exports = {
   registerSchema,
   loginSchema,
@@ -116,4 +129,5 @@ module.exports = {
   updateProfileSchema,
   updateOnboardingSchema,
   updateNotificationSoundSchema,
+  updateNotificationPreferencesSchema,
 };

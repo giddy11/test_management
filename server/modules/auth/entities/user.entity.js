@@ -50,6 +50,13 @@ const User = new EntitySchema({
       type: "boolean",
       default: true,
     },
+    // Opt-outs per app area and channel, e.g. { bugs: { email: false } }.
+    // Missing means on — see notification/domain/notificationPreferences.
+    notificationPreferences: {
+      name: "notification_preferences",
+      type: "jsonb",
+      default: () => "'{}'::jsonb",
+    },
     // Groups all members of one company. Set to a fresh id when an admin registers;
     // members the admin creates inherit the admin's organizationId.
     organizationId: {

@@ -156,7 +156,7 @@ export class ServiceDeskEscalationService {
       return this.deskRepo.peopleByIds(r.organizationId, await this.repo.pendingApproverIds(r.id));
     }
     if (r.assigneeId) return this.deskRepo.peopleByIds(r.organizationId, [r.assigneeId]);
-    return this.deskRepo.usersWithPermission(r.organizationId, [PERMS.WORK]);
+    return this.deskRepo.queueWatchers(r.organizationId);
   }
 
   private async contacts(organizationId: string, levels: ServiceLevels): Promise<PersonRow[]> {

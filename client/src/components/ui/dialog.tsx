@@ -7,8 +7,25 @@ import { Dialog as DialogPrimitive } from "radix-ui"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 
-const POPUP_CONTENT_SELECTOR =
-  "[data-radix-popper-content-wrapper], [data-slot='select-content']"
+// An open Select, or an open DropdownMenu/Popover (wrapped by Radix's popper).
+const OPEN_POPUP_SELECTOR =
+  "[data-slot='select-content'][data-state='open'], [data-radix-popper-content-wrapper] [data-state='open']"
+
+// Presses that landed while such a popup was open. Radix defers a Dialog's
+// "pointer down outside" until the click, and by then the popup has finished
+// closing, so the click that merely dismissed the popup reads as an outside
+// click on the Dialog and closes it too (the longer the press, the likelier).
+// Recorded in the capture phase, before the popup's own handler closes it.
+const pressesThatDismissedAPopup = new WeakSet<Event>()
+if (typeof document !== "undefined") {
+  document.addEventListener(
+    "pointerdown",
+    (event) => {
+      if (document.querySelector(OPEN_POPUP_SELECTOR)) pressesThatDismissedAPopup.add(event)
+    },
+    true
+  )
+}
 
 function Dialog({
   ...props
@@ -65,13 +82,9 @@ function DialogContent({
       <DialogPrimitive.Content
         data-slot="dialog-content"
         onPointerDownOutside={(event) => {
-          // Radix Select/DropdownMenu/Popover content is portaled outside this Dialog's
-          // DOM subtree and disables pointer-events on the rest of the page while open.
-          // A click meant to just dismiss that popup then "passes through" and looks
-          // like an outside click on the Dialog too, closing it. Ignore it in that case.
-          // Popper-positioned content carries the wrapper attribute; a Select's default
-          // item-aligned content does not (every Select here), so match it by its slot.
-          if (document.querySelector(POPUP_CONTENT_SELECTOR)) {
+          // A press that only dismissed a Select/DropdownMenu/Popover is not meant for
+          // this Dialog; see pressesThatDismissedAPopup above.
+          if (pressesThatDismissedAPopup.has(event.detail.originalEvent)) {
             event.preventDefault()
             return
           }

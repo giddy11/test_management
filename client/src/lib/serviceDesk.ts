@@ -1,6 +1,6 @@
 // lib/serviceDesk.ts — plain helpers for the IT-requests components (kept out
 // of the component files so fast refresh keeps working).
-import type { RequestAutomationRun } from "@/types/serviceDesk.types"
+import type { NeededByWarning, RequestAutomationRun } from "@/types/serviceDesk.types"
 
 // The icon names the server's default catalog uses (CategoryIcon maps them).
 export const CATEGORY_ICON_CHOICES = [
@@ -53,4 +53,17 @@ export function describeRun(r: Pick<RequestAutomationRun, "kind" | "status" | "r
     case "ai_triage":
       return `AI triage${by}`
   }
+}
+
+// A needed_by answer is a plain YYYY-MM-DD; read it as that calendar day here,
+// not as midnight UTC, so it never shows as the day before.
+export function formatNeededBy(date: string, long = false): string {
+  const [y, m, d] = date.split("-").map(Number)
+  return new Date(y, m - 1, d).toLocaleDateString(undefined, long ? { weekday: "short", day: "numeric", month: "long", year: "numeric" } : { day: "numeric", month: "short" })
+}
+
+export const NEEDED_BY_WARNING_TEXT: Record<NeededByWarning, string> = {
+  passed: "This date has passed and the request isn't done yet.",
+  after_target: "The service-level target is later than this date, so finishing on target would still miss it.",
+  soon: "This date is less than two days away.",
 }

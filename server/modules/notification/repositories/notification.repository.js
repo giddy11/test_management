@@ -16,6 +16,18 @@ class NotificationRepository {
     return this.repo.save(this.repo.create(rows));
   }
 
+  // Map of userId → stored notification_preferences. Read here rather than off
+  // the recipient objects, which callers often load as partial rows.
+  async findPreferences(userIds) {
+    const ids = [...new Set(userIds.filter(Boolean))];
+    if (!ids.length) return new Map();
+    const rows = await AppDataSource.query(
+      `SELECT id, notification_preferences AS prefs FROM users WHERE id = ANY($1::uuid[])`,
+      [ids]
+    );
+    return new Map(rows.map((r) => [r.id, r.prefs]));
+  }
+
   async fetchPaginated({ userId, page = 1, limit = 20 }) {
     const offset = getOffset(page, limit);
     const qb = this.repo

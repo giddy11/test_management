@@ -147,6 +147,18 @@ class AuthController {
     }
   }
 
+  static async updateNotificationPreferences(req, res, next) {
+    try {
+      const user = await AuthService.Instance.updateNotificationPreferences(
+        req.user.id,
+        req.validated.body.preferences
+      );
+      res.status(200).json(ApiResponse.ok("Notification preferences updated", toUserResponse(user)));
+    } catch (err) {
+      next(err);
+    }
+  }
+
   static async me(req, res, next) {
     try {
       const user = await AuthService.Instance.authRepo.findUserById(req.user.id);

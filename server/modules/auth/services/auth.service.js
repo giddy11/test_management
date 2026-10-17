@@ -28,6 +28,7 @@ const {
   sendVerificationEmail,
   sendPasswordResetEmail,
 } = require("../../../shared/utils/mailer");
+const { mergePreferences } = require("../../notification/domain/notificationPreferences");
 
 class AuthService {
   static Instance = new AuthService();
@@ -290,6 +291,16 @@ class AuthService {
     const user = await this.authRepo.findUserById(actorId);
     if (!user) throw new AppError("Account not found", 404);
     return this.authRepo.updateUser(actorId, { notificationSoundEnabled: enabled });
+  }
+
+  // ── Notification preferences (in-app / email per app area) ───────────────────
+  // patch: { [category]: { inApp?, email? } } — merged over what's stored.
+  async updateNotificationPreferences(actorId, patch) {
+    const user = await this.authRepo.findUserById(actorId);
+    if (!user) throw new AppError("Account not found", 404);
+    return this.authRepo.updateUser(actorId, {
+      notificationPreferences: mergePreferences(user.notificationPreferences, patch),
+    });
   }
 
   // ── Google Sign In ─────────────────────────────────────────────────────────────

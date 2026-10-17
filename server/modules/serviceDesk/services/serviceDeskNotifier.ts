@@ -8,6 +8,11 @@ import { sendServiceRequestEmail } from "../../../shared/utils/mail/serviceDesk.
 const { NotificationRepository } = require("../../notification/repositories/notification.repository");
 const { NotificationType } = require("../../../config/constants");
 const { env } = require("../../../config/env");
+const {
+  NotificationCategory,
+  NotificationChannel,
+  wants,
+} = require("../../notification/domain/notificationPreferences");
 
 export type DeskNotificationKind = "approval" | "queued" | "update" | "escalated";
 
@@ -16,6 +21,17 @@ const TYPE_OF: Record<DeskNotificationKind, string> = {
   queued: NotificationType.SERVICE_REQUEST_QUEUED,
   update: NotificationType.SERVICE_REQUEST_UPDATE,
   escalated: NotificationType.SERVICE_REQUEST_ESCALATED,
+};
+
+// Settings → Notifications groups decisions apart from progress updates, so an
+// approver can mute the chatter without missing what's waiting on them; and
+// "a new request reached the queue" apart from both, so IT can mute the
+// stream of new work and still hear about their own requests.
+const CATEGORY_OF: Record<DeskNotificationKind, string> = {
+  approval: NotificationCategory.SERVICE_DESK_APPROVALS,
+  escalated: NotificationCategory.SERVICE_DESK_APPROVALS,
+  queued: NotificationCategory.SERVICE_DESK_QUEUE,
+  update: NotificationCategory.SERVICE_DESK_UPDATES,
 };
 
 export interface DeskEvent {
@@ -50,8 +66,18 @@ export class ServiceDeskNotifier {
     if (!people.length) return;
 
     this.notifications
+      .findPreferences(people.map((p) => p.id))
+      .then((prefs: Map<string, unknown>) => this.deliver(people, event, prefs))
+      .catch((e: Error) => console.error("[serviceDesk] notification preferences failed:", e.message));
+  }
+
+  private deliver(people: PersonRow[], event: DeskEvent, prefs: Map<string, unknown>): void {
+    const category = CATEGORY_OF[event.kind];
+    const on = (p: PersonRow, channel: string) => wants(prefs.get(p.id), category, channel);
+
+    this.notifications
       .createMany(
-        people.map((p) => ({
+        people.filter((p) => on(p, NotificationChannel.IN_APP)).map((p) => ({
           userId: p.id,
           type: TYPE_OF[event.kind],
           title: event.title.slice(0, 255),
@@ -62,7 +88,7 @@ export class ServiceDeskNotifier {
       .catch((e: Error) => console.error("[serviceDesk] notification failed:", e.message));
 
     const url = this.urlFor(event.requestId);
-    for (const p of people) {
+    for (const p of people.filter((p) => on(p, NotificationChannel.EMAIL))) {
       sendServiceRequestEmail({
         to: p.email,
         firstName: p.firstName,

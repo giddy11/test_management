@@ -893,11 +893,14 @@ export class ServiceDeskAutomationService {
   }
 
   private notifyAgents(r: RequestRow, heading: string, body: string) {
-    this.deskRepo
-      .usersWithPermission(r.organizationId, [PERMS.WORK])
-      .then((agents) => {
-        const people = r.assigneeId ? agents.filter((a) => a.id === r.assigneeId) : agents;
-        this.notifier.send(people.length ? people : agents, {
+    // The assignee if there is one, else the IT team (or the admins, if
+    // there isn't one yet).
+    const recipients = r.assigneeId
+      ? this.deskRepo.peopleByIds(r.organizationId, [r.assigneeId]).then(async (p) => (p.length ? p : this.deskRepo.queueWatchers(r.organizationId)))
+      : this.deskRepo.queueWatchers(r.organizationId);
+    recipients
+      .then((people) => {
+        this.notifier.send(people, {
           kind: "escalated",
           requestId: r.id,
           organizationId: r.organizationId,

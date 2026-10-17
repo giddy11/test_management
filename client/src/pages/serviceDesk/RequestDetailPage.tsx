@@ -43,6 +43,7 @@ import {
 import { useAuth } from "@/contexts/AuthContext"
 import { can } from "@/lib/can"
 import { cn } from "@/lib/utils"
+import { NEEDED_BY_WARNING_TEXT, formatNeededBy } from "@/lib/serviceDesk"
 import { ApiError } from "@/transport/http"
 import { STATUS_META, type RequestDetail } from "@/types/serviceDesk.types"
 
@@ -120,6 +121,24 @@ function RequestView({ detail }: { detail: RequestDetail }) {
                     <dt className="text-xs text-muted-foreground">Fulfilment target</dt>
                     <dd>
                       {new Date(r.fulfilmentDueAt).toLocaleString()} · <DueText at={r.fulfilmentDueAt} />
+                    </dd>
+                  </div>
+                )}
+                {r.neededBy && (
+                  <div className="min-w-0" data-cy="needed-by-fact">
+                    <dt className="text-xs text-muted-foreground">Needed by</dt>
+                    <dd>
+                      {formatNeededBy(r.neededBy.date, true)}
+                      {r.neededBy.warning && (
+                        <p
+                          className={cn(
+                            "text-xs",
+                            r.neededBy.warning === "passed" ? "text-red-600 dark:text-red-400" : "text-amber-700 dark:text-amber-400"
+                          )}
+                        >
+                          {NEEDED_BY_WARNING_TEXT[r.neededBy.warning]}
+                        </p>
+                      )}
                     </dd>
                   </div>
                 )}

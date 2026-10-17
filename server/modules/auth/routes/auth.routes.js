@@ -18,6 +18,7 @@ const {
   updateProfileSchema,
   updateOnboardingSchema,
   updateNotificationSoundSchema,
+  updateNotificationPreferencesSchema,
 } = require("../validators/auth.schema");
 const { AuthController } = require("../controllers/auth.controller");
 
@@ -40,5 +41,6 @@ router.patch("/change-password", authMiddleware, requireAuthenticatedOnly("Own p
 router.patch("/profile", authMiddleware, requireAuthenticatedOnly("Own profile"), validate(updateProfileSchema), AuthController.updateProfile);
 router.patch("/onboarding", authMiddleware, requireAuthenticatedOnly("Own onboarding state"), validate(updateOnboardingSchema), AuthController.updateOnboarding);
 router.patch("/notification-sound", authMiddleware, requireAuthenticatedOnly("Own preferences"), validate(updateNotificationSoundSchema), AuthController.updateNotificationSound);
+router.patch("/notification-preferences", authMiddleware, requireAuthenticatedOnly("Own preferences"), validate(updateNotificationPreferencesSchema), AuthController.updateNotificationPreferences);
 
 module.exports = router;

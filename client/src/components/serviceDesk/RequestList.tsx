@@ -5,7 +5,7 @@ import { Bot, Flag } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { CategoryIcon, OverdueBadge, RequestPriorityBadge, RequestStatusBadge, When } from "@/components/serviceDesk/RequestBits"
+import { CategoryIcon, NeededByBadge, OverdueBadge, RequestPriorityBadge, RequestStatusBadge, When } from "@/components/serviceDesk/RequestBits"
 import type { PaginationMeta } from "@/types/api.types"
 import type { ServiceRequest } from "@/types/serviceDesk.types"
 
@@ -68,6 +68,8 @@ export function RequestList({
               </div>
               <div className="flex items-center gap-2">
                 <OverdueBadge phase={r.overdue} level={r.escalationLevel} />
+                {/* Approvers and IT see the requester's date; the requester typed it. */}
+                {(showRequester || showAssignee) && <NeededByBadge value={r.neededBy} />}
                 {showAssignee && r.needsReview && !["fulfilled", "rejected", "cancelled"].includes(r.status) && (
                   <Badge className="gap-1 border-transparent bg-orange-100 text-orange-800 dark:bg-orange-950 dark:text-orange-300" title={r.reviewReason ?? undefined}>
                     <Flag className="size-3" /> {r.automationStatus === "failed" ? "Automation failed" : "Needs review"}

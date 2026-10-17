@@ -31,12 +31,14 @@ import {
   type FormValues,
 } from "@/types/serviceDesk.types"
 
-// A field while it's being edited: options as one-per-line text, and whether
-// its key was typed by hand (otherwise it follows the label).
+// A field while it's being edited: options as one-per-line text. The answer
+// key is never typed: a new question's key follows its label (kept unique),
+// and once the item has been saved it's locked — rules and connectors refer
+// to answers by key, so renaming one would quietly break them.
 interface DraftField {
   uid: string
   key: string
-  keyTouched: boolean
+  keyLocked: boolean
   label: string
   type: FieldType
   required: boolean
@@ -52,13 +54,23 @@ const toKey = (label: string) =>
     .replace(/^(\d)/, "f_$1")
     .slice(0, 40) || "field"
 
+// `base`, or base_2, base_3… — whichever no other question uses.
+function uniqueKey(base: string, taken: Set<string>): string {
+  if (!taken.has(base)) return base
+  for (let n = 2; ; n++) {
+    const suffix = `_${n}`
+    const candidate = `${base.slice(0, 40 - suffix.length)}${suffix}`
+    if (!taken.has(candidate)) return candidate
+  }
+}
+
 let uidSeq = 0
 const uid = () => `f${++uidSeq}`
 
 const toDraft = (f: FormField): DraftField => ({
   uid: uid(),
   key: f.key,
-  keyTouched: true,
+  keyLocked: true,
   label: f.label,
   type: f.type,
   required: f.required,
@@ -177,7 +189,10 @@ export function ItemEditorDialog({
       prev.map((f) => {
         if (f.uid !== u) return f
         const next = { ...f, ...patch }
-        if (patch.label !== undefined && !f.keyTouched) next.key = toKey(patch.label)
+        if (patch.label !== undefined && !f.keyLocked) {
+          const taken = new Set(prev.filter((x) => x.uid !== u).map((x) => x.key))
+          next.key = uniqueKey(toKey(patch.label), taken)
+        }
         return next
       })
     )
@@ -499,10 +514,12 @@ export function ItemEditorDialog({
                     <div className="grid gap-2 sm:grid-cols-[1fr_200px_auto] sm:items-center">
                       <Input placeholder="Help text (optional)" value={f.helpText} onChange={(e) => patchField(f.uid, { helpText: e.target.value })} />
                       <Input
-                        className="font-mono text-xs"
-                        title="Stored answer key"
+                        readOnly
+                        tabIndex={-1}
+                        className="cursor-default bg-muted font-mono text-xs text-muted-foreground focus-visible:ring-0"
+                        aria-label="Answer key (read-only)"
+                        title="Answer key — the name this answer is stored under. Set from the question; it can't be edited."
                         value={f.key}
-                        onChange={(e) => patchField(f.uid, { key: e.target.value, keyTouched: true })}
                       />
                       {f.type !== "checkbox" && (
                         <label className="flex items-center gap-2 text-sm whitespace-nowrap">
@@ -511,6 +528,14 @@ export function ItemEditorDialog({
                         </label>
                       )}
                     </div>
+                    <p className="text-xs text-muted-foreground">
+                      <span className="font-medium text-foreground">Answer key</span> — used by automation rules and
+                      connectors (e.g. <code className="rounded bg-muted px-1">{f.key}</code>). People filling in the form never
+                      see it.{" "}
+                      {f.keyLocked
+                        ? "It's fixed, so rules and connectors that use it keep working — reword the question freely."
+                        : "It's made from the question as you type, and fixed once you save."}
+                    </p>
                   </div>
                 ))}
                 <Button
@@ -522,7 +547,16 @@ export function ItemEditorDialog({
                   onClick={() =>
                     setFields((prev) => [
                       ...prev,
-                      { uid: uid(), key: `field_${prev.length + 1}`, keyTouched: false, label: "", type: "text", required: false, optionsText: "", helpText: "" },
+                      {
+                        uid: uid(),
+                        key: uniqueKey(`field_${prev.length + 1}`, new Set(prev.map((x) => x.key))),
+                        keyLocked: false,
+                        label: "",
+                        type: "text",
+                        required: false,
+                        optionsText: "",
+                        helpText: "",
+                      },
                     ])
                   }
                 >

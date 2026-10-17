@@ -10,6 +10,12 @@ import type { DefaultCategory } from "../domain/defaultCatalog";
 import type { ServiceLevels } from "../domain/serviceLevels";
 
 const { ActivityLog } = require("../../activity/entities/activityLog.entity");
+const { ROLE_KEYS } = require("../../access/catalog/permissions.catalog");
+
+const WORK_QUEUE = "servicedesk.work";
+// Roles that hold every permission, so holding the queue one says nothing
+// about being on the IT team.
+const ADMIN_ROLE_KEYS: string[] = [ROLE_KEYS.ORG_ADMIN, ROLE_KEYS.SUPER_ADMIN];
 
 export interface PersonRow {
   id: string;
@@ -242,6 +248,29 @@ export class ServiceDeskRepository {
         ORDER BY "name" ASC`,
       [organizationId, [...codes, "*"]]
     );
+  }
+
+  // Who hears about new and unclaimed IT work: the IT team — people who can
+  // work the queue through a role other than the administrator ones (which
+  // hold every permission). Admins can still work the queue; they're just not
+  // pinged about all of it. With no IT team yet, the admins are told instead,
+  // so new work never lands unseen.
+  async queueWatchers(organizationId: string): Promise<PersonRow[]> {
+    const team: PersonRow[] = await AppDataSource.query(
+      `SELECT ${PERSON_COLUMNS}
+         FROM "users" u
+        WHERE ${INTERNAL_USER}
+          AND EXISTS (
+            SELECT 1 FROM "user_roles" ur
+              JOIN "roles" r ON r."id" = ur."role_id"
+              JOIN "role_permissions" rp ON rp."role_id" = ur."role_id"
+             WHERE ur."user_id" = u."id" AND rp."permission_code" = $2
+               AND (r."key" IS NULL OR r."key" <> ALL($3::varchar[]))
+          )
+        ORDER BY "name" ASC`,
+      [organizationId, WORK_QUEUE, ADMIN_ROLE_KEYS]
+    );
+    return team.length ? team : this.usersWithPermission(organizationId, [WORK_QUEUE]);
   }
 
   // Colleagues for the "requested for" picker.

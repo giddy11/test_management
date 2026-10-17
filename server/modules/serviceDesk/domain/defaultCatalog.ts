@@ -27,7 +27,9 @@ export interface DefaultCategory {
   items: DefaultItem[];
 }
 
-const neededBy: FormField = { key: "needed_by", label: "Needed by", type: "date", required: false, helpText: null };
+// IT reads the answer under this key as the date to beat (see domain/neededBy.ts).
+export const NEEDED_BY_HELP = "When do you need this by? IT will try to have it ready before then.";
+const neededBy: FormField = { key: "needed_by", label: "Needed by", type: "date", required: false, helpText: NEEDED_BY_HELP };
 
 export const DEFAULT_CATALOG: DefaultCategory[] = [
   {

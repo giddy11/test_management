@@ -265,6 +265,9 @@ export interface ServiceRequest {
   currentStep: number | null
   approvalDueAt: string | null
   fulfilmentDueAt: string | null
+  // The requester's "Needed by" answer (a needed_by date question) and
+  // whether it's at risk: gone, later than the target, or within two days.
+  neededBy: { date: string; warning: NeededByWarning | null } | null
   // Which phase is past its service level right now, if any.
   overdue: "approval" | "fulfilment" | null
   escalationLevel: number
@@ -279,6 +282,8 @@ export interface ServiceRequest {
   createdAt: string
   updatedAt: string
 }
+
+export type NeededByWarning = "passed" | "after_target" | "soon"
 
 export interface RequestApproval {
   id: string

@@ -1283,9 +1283,10 @@ export class ServiceRequestService {
     }), exceptUserId);
   }
 
+  // The IT team (or the admins, if there isn't one yet) — see queueWatchers.
   private notifyQueue(r: RequestRow, exceptUserId: string) {
     this.deskRepo
-      .usersWithPermission(r.organizationId, [PERMS.WORK])
+      .queueWatchers(r.organizationId)
       .then((agents) =>
         this.notifier.send(agents, this.event(r, "queued", {
           title: `New IT request: ${formatReference(r.requestNumber)} ${r.title}`,

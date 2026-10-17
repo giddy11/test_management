@@ -174,6 +174,43 @@ function AiExample({ title, you, result, notes }: { title: string; you: string; 
   )
 }
 
+/** A small reference table: first row is the header. */
+function DocTable({ rows }: { rows: ReactNode[][] }) {
+  const [head, ...body] = rows
+  return (
+    <div className="my-3 overflow-x-auto rounded-lg border">
+      <table className="w-full text-sm">
+        <thead className="bg-muted/50">
+          <tr>
+            {head.map((h, i) => (
+              <th key={i} className="px-3 py-2 text-left text-xs font-semibold text-foreground">{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {body.map((r, i) => (
+            <tr key={i} className="border-t align-top">
+              {r.map((c, j) => (
+                <td key={j} className="px-3 py-2 leading-6 text-muted-foreground">{c}</td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+/** A labelled mock-up of what someone sees on screen. */
+function Mock({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <figure className="my-4">
+      <div className="rounded-lg border border-dashed bg-muted/30 p-4">{children}</div>
+      <figcaption className="mt-2 text-center text-xs text-muted-foreground">{label}</figcaption>
+    </figure>
+  )
+}
+
 /** A highlighted note — rules worth remembering. */
 function Note({ children }: { children: ReactNode }) {
   return <div className="rounded-md border-l-4 border-primary bg-primary/5 px-4 py-3 text-sm leading-6 text-muted-foreground">{children}</div>
@@ -1800,7 +1837,11 @@ const ALL_SECTIONS: DocSection[] = [
           <li>
             <Strong>Notifications</Strong> — turn the <Strong>alert sound</Strong> on or off. It
             plays when a new notification or support chat message arrives; the setting follows your
-            account, not the browser.
+            account, not the browser. Below it, choose per area — projects, test cases and runs, bugs,
+            feature requests, feedback, mentions, the IT support queue, live and support chat, and IT
+            requests — whether you get an <Strong>in-app</Strong> notification, an{" "}
+            <Strong>email</Strong>, both or neither. You only see the areas you take part in, and
+            sign-in, password and invitation emails are always sent.
           </li>
           <li>
             <Strong>AI</Strong> — whether AI is set up for you and which key and model it uses; your
@@ -2282,7 +2323,34 @@ const ALL_SECTIONS: DocSection[] = [
             <Strong>Handle it manually</Strong> (automation stops and it’s yours).
           </li>
           <li>Late requests escalate on their own — to you first, then to your escalation contacts.</li>
+          <li>
+            <Strong>New IT request</Strong> alerts go to the IT team: people with the IT service agent
+            role, or a custom role that can work the queue. Administrators can work the queue too but
+            aren’t pinged about every request — unless there’s no IT team yet, in which case they are.
+            Anyone can switch these alerts off under <Strong>Settings → Notifications → New IT requests</Strong>.
+          </li>
         </UL>
+        <H3>The date they need it by</H3>
+        <P>
+          When the requester answers <Strong>Needed by</Strong>, the IT queue and Approvals show a{" "}
+          <Strong>Needed by 10 Nov</Strong> badge, and the request page shows the date next to the{" "}
+          <Strong>Fulfilment target</Strong>. It doesn’t change the target or the priority — it tells
+          you when the request is in danger of missing their date:
+        </P>
+        <DocTable
+          rows={[
+            ["Badge", "What it means"],
+            ["Grey", "Nothing to worry about yet."],
+            ["Amber — target is later", "The service-level target is after their date, so finishing on target would still be late. Pick it up early, or agree a new date in the conversation."],
+            ["Amber — within two days", "Their date is less than two days away."],
+            ["Red — date passed", "Their date has gone and it isn’t done."],
+          ]}
+        />
+        <Note>
+          Hover the badge to see which warning it is. Drafts and finished requests show the date
+          without a warning. The badge reads the date question whose key is <Code>needed_by</Code> —
+          the starter items have one, and a date question you label “Needed by” gets that key.
+        </Note>
       </div>
     ),
   },
@@ -2308,6 +2376,11 @@ const ALL_SECTIONS: DocSection[] = [
           </li>
           <li>Requests already submitted keep the form and approvers they were raised with.</li>
         </UL>
+        <P>
+          Every setting on an item — answer keys, how it’s fulfilled, risk, and the three safety ticks —
+          is explained one by one in{" "}
+          <a href="#it-requests-items" className="font-medium text-primary hover:underline">Catalog item settings explained</a>.
+        </P>
         <H3>Who approves</H3>
         <UL>
           <li><Strong>No approval</Strong>, <Strong>one step — any of these people</Strong>, or <Strong>an approval policy</Strong>.</li>
@@ -2327,6 +2400,179 @@ const ALL_SECTIONS: DocSection[] = [
   at 36h  → also your escalation contacts
   at 48h  → again, marked critical
 Time spent waiting for the requester doesn't count.`}</CodeBlock>
+      </div>
+    ),
+  },
+  {
+    id: "it-requests-items",
+    title: "Catalog item settings explained",
+    icon: ListChecks,
+    summary: "Every setting on an item in plain words: answer keys, fulfilment, risk, safety ticks.",
+    body: (
+      <div className="space-y-4">
+        <P>
+          A catalog item’s settings answer three questions: <Strong>what do we ask?</Strong> (the
+          form), <Strong>who says yes?</Strong> (approval and risk), and <Strong>who does the work,
+          and under what safety rules?</Strong> (fulfilment and the three ticks). Open an item with{" "}
+          <Strong>Catalog setup → Edit</Strong> to see them all.
+        </P>
+
+        <H3>Questions and their answer keys</H3>
+        <P>
+          Each question has a small grey box next to its help text: its <Strong>answer key</Strong>.
+          It’s the internal name the answer is saved under — for the question “Access level”, the
+          answer is stored as <Code>access_level: "Standard user"</Code>. People filling in the form
+          never see it.
+        </P>
+        <UL>
+          <li><Strong>Automation rules</Strong> use it: “when <Code>access_level</Code> is Administrator → flag for review”.</li>
+          <li><Strong>Connectors</Strong> receive answers by key: <Code>{`"answers": { "access_level": "Administrator" }`}</Code>.</li>
+          <li><Strong>AI</Strong> fills answers in by key when it pre-fills a form.</li>
+        </UL>
+        <P>
+          You never type it. A new question’s key is made from its text as you type (“Needed by” →{" "}
+          <Code>needed_by</Code>; a second “Needed by” → <Code>needed_by_2</Code>) and it’s{" "}
+          <Strong>fixed once you save</Strong>. After that you can reword the question as often as you
+          like — rules and connectors keep working because the key never changes.
+        </P>
+        <P>
+          One key means something to IT requests itself: a date question with the key{" "}
+          <Code>needed_by</Code> is the date the requester needs it by. IT and approvers see it as a
+          badge that turns amber or red when the request might miss it (see{" "}
+          <Strong>Working the IT queue</Strong>). It never changes the service-level target.
+        </P>
+
+        <H3>How it’s fulfilled — who does the work</H3>
+        <DocTable
+          rows={[
+            ["Choice", "What happens after it’s approved", "Use it for"],
+            [
+              <Strong key="a">By a person in IT</Strong>,
+              "It lands in the IT queue; an agent does the work by hand and marks it fulfilled with a note.",
+              "Most things — the default.",
+            ],
+            [
+              <Strong key="b">Automatically, by a connector</Strong>,
+              "TestMate sends it to your automation tool (e.g. Power Automate), which does the work in the other system and reports back. If it fails, IT is told and can retry or do it by hand.",
+              "Routine jobs IT does the same way every time — adding someone to a licence group, creating a mailbox.",
+            ],
+            [
+              <Strong key="c">By the requester, through a self-service link</Strong>,
+              "The item shows a link to a page where people can do it themselves. Using it is recorded as done through self-service — nothing for IT to do.",
+              "Things people can do faster on their own — password resets on Microsoft, Google or Okta.",
+            ],
+          ]}
+        />
+        <P>
+          For a <Strong>self-service link</Strong> you fill in two boxes: the{" "}
+          <Strong>link</Strong> (must start with <Code>https://</Code>, e.g.{" "}
+          <Code>https://passwordreset.microsoftonline.com</Code>) and the <Strong>button text</Strong>{" "}
+          people click (e.g. “Reset my password”). For a <Strong>connector</Strong> you pick one from
+          the list — see{" "}
+          <a href="#it-requests-automation" className="font-medium text-primary hover:underline">IT request automation</a>{" "}
+          for setting connectors up.
+        </P>
+
+        <H3>What employees see with a self-service link</H3>
+        <Mock label="The top of the item’s page on the request portal">
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-emerald-300 bg-background p-3 dark:border-emerald-900">
+            <div className="text-sm">
+              <p className="font-medium text-foreground">You can do this yourself — usually faster</p>
+              <p className="text-muted-foreground">Use the self-service page. If it doesn’t sort things out, ask IT below.</p>
+            </div>
+            <div className="flex gap-2 text-sm">
+              <span className="rounded-md bg-primary px-3 py-1.5 text-primary-foreground">Reset my password ↗</span>
+              <span className="rounded-md border px-3 py-1.5 text-foreground">I still need IT</span>
+            </div>
+          </div>
+        </Mock>
+        <UL>
+          <li>
+            <Strong>Reset my password</Strong> opens the page in a new tab, and TestMate records a
+            request as <Chip className={chipGreen}>Fulfilled</Chip> by self-service — it counts in
+            Reports, and IT never has to touch it.
+          </li>
+          <li>
+            <Strong>I still need IT</Strong> reveals the normal form, and the request goes to IT as
+            usual — for when the self-service page doesn’t help (say, the person is locked out of it too).
+          </li>
+        </UL>
+
+        <H3>Risk</H3>
+        <P>
+          Each item has a risk — <Chip className={chipSlate}>Low</Chip>{" "}
+          <Chip className={chipBlue}>Medium</Chip> <Chip className={chipAmber}>High</Chip>{" "}
+          <Chip className={chipRed}>Critical</Chip> — copied onto every request for it. It decides two
+          things: which <Strong>approver groups</Strong> may approve it (a group set to “up to Medium”
+          can’t approve a High-risk request), and whether it could ever be approved automatically
+          (only Low risk can).
+        </P>
+
+        <H3>The three safety ticks</H3>
+        <DocTable
+          rows={[
+            ["Tick", "What it means", "Example"],
+            [
+              <Strong key="a">Requires an identity check</Strong>,
+              "Before any work starts, IT must record how they confirmed who is really asking — a call-back to their known number, their manager confirming, photo ID on a video call. The work buttons stay disabled until they do. The requester never sees IT’s note.",
+              "Password resets and account unlocks — so nobody can get someone else’s password by pretending to be them.",
+            ],
+            [
+              <Strong key="b">Privileged access</Strong>,
+              "Powerful access that must always be approved by a person. Automation can never approve it.",
+              "Admin rights on a server, access to production systems or financial data.",
+            ],
+            [
+              <Strong key="c">Automation rules may approve it</Strong>,
+              "Allows an automation rule to approve the request with no person involved. On its own it does nothing — a rule must also ask for it.",
+              "Cheap, harmless things: a replacement mouse, staff Wi-Fi access.",
+            ],
+          ]}
+        />
+        <Note>
+          A request is only approved automatically when <Strong>all</Strong> of these hold: a rule
+          asks for it, the item allows it, the item is <Strong>Low</Strong> risk, it’s{" "}
+          <Strong>not</Strong> privileged access, it needs <Strong>no</Strong> identity check, and no
+          rule flagged it for review. Otherwise it goes to its approvers as normal, and the reason is
+          recorded on the request. Ticking “Automation rules may approve it” together with either of
+          the other two ticks means it will <Strong>never</Strong> be approved automatically — the
+          editor warns you.
+        </Note>
+
+        <H3>Sensible combinations</H3>
+        <DocTable
+          rows={[
+            ["Item", "Approval", "How it’s fulfilled", "Risk", "Ticks"],
+            ["Password reset", "None", "Self-service link (IT as the fallback)", "Low", "Requires an identity check"],
+            ["Software licence (Figma)", "Line manager", "Connector, or a person", "Medium", "—"],
+            ["Admin rights on a server", "Policy: manager, then Security", "A person", "High", "Privileged access"],
+            ["Replacement mouse", "One step (but a rule approves it)", "A person", "Low", "Automation rules may approve it"],
+            ["New starter accounts", "Line manager", "Connector", "Medium", "—"],
+          ]}
+        />
+
+        <H3>Worked example: setting up password resets</H3>
+        <OL>
+          <li>Open <Strong>Password reset or account unlock</Strong> in Catalog setup (it’s in the starter catalog).</li>
+          <li>Approval: <Strong>No approval</Strong>. Risk: <Strong>Low</Strong>.</li>
+          <li>
+            How it’s fulfilled: <Strong>By the requester, through a self-service link</Strong>; link{" "}
+            <Code>https://passwordreset.microsoftonline.com</Code>; button text “Reset my password”.
+          </li>
+          <li>Keep <Strong>Requires an identity check</Strong> ticked — it protects the people who still need IT.</li>
+          <li>
+            In <Strong>How IT fulfils this</Strong>, note your team’s steps, e.g. “Call back on the number in HR
+            records before resetting. Never send the new password by email.”
+          </li>
+          <li>Save. Most people now reset their own password in seconds; the rest reach IT, who confirm who they are first.</li>
+        </OL>
+
+        <H3>The other settings, briefly</H3>
+        <UL>
+          <li><Strong>Service levels (optional)</Strong> — hours per approval step and hours to fulfil for this item, instead of the organisation’s defaults.</li>
+          <li><Strong>How IT fulfils this (IT only)</Strong> — your team’s own instructions, shown to agents on every request for the item.</li>
+          <li><Strong>Show on the request portal</Strong> — untick to hide the item without losing anything.</li>
+        </UL>
       </div>
     ),
   },
@@ -2493,6 +2739,7 @@ export const DOC_GROUPS: DocGroup[] = [
     "it-requests-approvals",
     "it-requests-queue",
     "it-requests-setup",
+    "it-requests-items",
     "it-requests-automation",
     "it-requests-reports",
   ]),

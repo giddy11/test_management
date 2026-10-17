@@ -4,6 +4,7 @@ import type {
   AuthResult,
   ChangePasswordPayload,
   LoginPayload,
+  NotificationPreferences,
   RegisterPayload,
   UpdateProfilePayload,
   User,
@@ -47,4 +48,7 @@ export const AuthEndpoints = {
 
   updateNotificationSound: (enabled: boolean) =>
     wrapCall<User>("PATCH", "/api/v1/auth/notification-sound", { enabled }),
+
+  updateNotificationPreferences: (preferences: NotificationPreferences) =>
+    wrapCall<User>("PATCH", "/api/v1/auth/notification-preferences", { preferences }),
 }

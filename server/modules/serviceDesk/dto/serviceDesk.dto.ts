@@ -6,6 +6,7 @@ import type { ServiceCatalogItem } from "../entities/serviceCatalogItem.entity";
 import type { PersonRow } from "../repositories/serviceDesk.repository";
 import type { AttachmentRow, RequestRow } from "../repositories/serviceRequest.repository";
 import { formatReference } from "../domain/lifecycle";
+import { neededByOf } from "../domain/neededBy";
 
 export function toCategoryDto(c: ServiceCatalogCategory) {
   return {
@@ -122,6 +123,8 @@ export function toRequestDto(r: RequestRow, { internal = false }: { internal?: b
     currentStep: r.currentStep,
     approvalDueAt: r.approvalDueAt,
     fulfilmentDueAt: r.fulfilmentDueAt,
+    // The requester's "Needed by" answer, and whether it's at risk.
+    neededBy: neededByOf({ ...r, formSchema: r.itemSnapshot.formSchema }),
     overdue,
     escalationLevel: overdue === "approval" ? r.approvalEscalationLevel : overdue === "fulfilment" ? r.fulfilmentEscalationLevel : 0,
     infoRequestedAt: r.infoRequestedAt,

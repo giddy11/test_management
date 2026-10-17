@@ -11,6 +11,26 @@ export const UserRole = {
 
 export type UserRole = (typeof UserRole)[keyof typeof UserRole]
 
+export type NotificationCategory =
+  | "testing"
+  | "projects"
+  | "bugs"
+  | "featureRequests"
+  | "feedback"
+  | "mentions"
+  | "supportQueue"
+  | "serviceDeskApprovals"
+  | "serviceDeskUpdates"
+  | "serviceDeskQueue"
+  | "supportChat"
+  | "liveChat"
+
+export type NotificationChannel = "inApp" | "email"
+
+export type NotificationPreferences = Partial<
+  Record<NotificationCategory, Partial<Record<NotificationChannel, boolean>>>
+>
+
 export interface User {
   id: string
   firstName: string
@@ -21,6 +41,8 @@ export interface User {
   isEmailVerified: boolean
   onboardingCompleted: boolean
   notificationSoundEnabled: boolean
+  // Opt-outs only: a missing category or channel means it's on.
+  notificationPreferences?: NotificationPreferences
   role: UserRole
   // Roles & access. `permissions` is the flattened union of every role the
   // user holds, resolved server-side on every request. FOR USABILITY ONLY —
