@@ -23,6 +23,14 @@ import {
   ShieldCheck,
   Users,
   Webhook,
+  Sparkles,
+  Store,
+  ListChecks,
+  Inbox,
+  Settings2,
+  Bot,
+  BarChart3,
+  ClipboardList,
   type LucideIcon,
 } from "lucide-react"
 import shotDashboard from "@/assets/docs/dashboard.png"
@@ -127,6 +135,50 @@ function Code({ children }: { children: ReactNode }) {
   return <code className="rounded bg-muted px-1.5 py-0.5 text-xs">{children}</code>
 }
 
+/**
+ * A worked AI example: what the person types, and what the AI gives back.
+ * `result` is a list of [field, value] rows; a value ending in " *" is shown
+ * as an AI suggestion the person must confirm.
+ */
+function AiExample({ title, you, result, notes }: { title: string; you: string; result: [string, string][]; notes?: ReactNode }) {
+  return (
+    <div className="my-4 overflow-hidden rounded-lg border">
+      <div className="flex items-center gap-1.5 border-b bg-muted/40 px-3 py-2 text-xs font-medium text-foreground">
+        <Sparkles className="size-3.5 text-primary" aria-hidden /> {title}
+      </div>
+      <div className="grid gap-0 md:grid-cols-2">
+        <div className="border-b p-3 md:border-r md:border-b-0">
+          <p className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">You write</p>
+          <p className="text-sm italic leading-6 text-foreground">“{you}”</p>
+        </div>
+        <div className="p-3">
+          <p className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">The AI fills in</p>
+          <dl className="space-y-1 text-sm">
+            {result.map(([field, value]) => {
+              const suggested = value.endsWith(" *")
+              return (
+                <div key={field} className="grid grid-cols-[minmax(0,9rem)_1fr] gap-2">
+                  <dt className="text-muted-foreground">{field}</dt>
+                  <dd className="text-foreground">
+                    {suggested ? value.slice(0, -2) : value}
+                    {suggested && <span className="ml-1 rounded bg-amber-100 px-1 text-[10px] text-amber-800 dark:bg-amber-950 dark:text-amber-300">suggestion — confirm</span>}
+                  </dd>
+                </div>
+              )
+            })}
+          </dl>
+        </div>
+      </div>
+      {notes && <div className="border-t bg-muted/20 px-3 py-2 text-xs leading-5 text-muted-foreground">{notes}</div>}
+    </div>
+  )
+}
+
+/** A highlighted note — rules worth remembering. */
+function Note({ children }: { children: ReactNode }) {
+  return <div className="rounded-md border-l-4 border-primary bg-primary/5 px-4 py-3 text-sm leading-6 text-muted-foreground">{children}</div>
+}
+
 const chipSlate = "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300"
 const chipBlue = "bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300"
 const chipAmber = "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300"
@@ -174,6 +226,22 @@ const ALL_SECTIONS: DocSection[] = [
           website, a two-tier support model for client companies with their own IT desk, team
           management, an activity log, and a dashboard that rolls all of it up.
         </P>
+        <P>Two more things are built on the same foundation:</P>
+        <UL>
+          <li>
+            <Strong>AI assistance</Strong> — describe a bug or an idea in your own words and the AI
+            fills in the form for you to check. Your organisation brings its own AI provider key.
+            See{" "}
+            <a href="#ai-assistant" className="font-medium text-primary hover:underline">AI assistance</a>.
+          </li>
+          <li>
+            <Strong>IT requests</Strong> — a separate module where employees ask IT for software,
+            hardware, accounts and access; requests are approved, fulfilled (by people or
+            automatically) and tracked. It shares sign-in, people and the activity log with
+            testing, but has its own section in the sidebar and can be switched on or off. See{" "}
+            <a href="#it-requests" className="font-medium text-primary hover:underline">IT requests</a>.
+          </li>
+        </UL>
         <Screenshot caption="TestMate at a glance — the dashboard after signing in" src={shotDashboard} />
       </div>
     ),
@@ -227,41 +295,61 @@ const ALL_SECTIONS: DocSection[] = [
     id: "roles",
     title: "Roles & permissions",
     icon: ShieldCheck,
-    summary: "Company Admin, User, and IT Support — who sees what.",
+    summary: "Built-in and custom roles, project roles, and who sees what.",
     body: (
       <div className="space-y-4">
-        <P>Your organisation’s own people hold one of two roles:</P>
-        <UL>
-          <li>
-            <Strong>User</Strong> — works on testing: sees the dashboard and the projects they are
-            assigned to, executes runs, reports bugs, and submits feature requests.
-          </li>
-          <li>
-            <Strong>Company Admin</Strong> — everything a User can do, plus managing the team,
-            managing client companies, viewing the organisation-wide activity log, and
-            administrative views on the dashboard.
-          </li>
-        </UL>
         <P>
-          There is a third role for people <Strong>outside</Strong> your organisation:
+          What someone can do is decided by <Strong>permissions</Strong>, grouped into{" "}
+          <Strong>roles</Strong>. A person can hold more than one role and gets everything their
+          roles allow. Hiding a button is only a courtesy — the server checks every permission on
+          every request.
         </P>
+        <H3>Built-in roles</H3>
         <UL>
           <li>
-            <Strong>IT Support</Strong> — a supporter account belonging to one of your{" "}
-            <a href="#client-companies" className="font-medium text-primary hover:underline">
-              client companies
-            </a>
-            . They never see your projects, tests, or dashboard — only their own company’s ticket
-            queue, where they triage their users’ tickets and escalate what they can’t fix to you.
+            <Strong>Organisation administrator</Strong> — everything inside your organisation:
+            people, roles, every project, reporting, AI keys and credits, and setting up IT requests
+            and their automation.
+          </li>
+          <li>
+            <Strong>Test lead</Strong>, <Strong>QA engineer</Strong>, <Strong>Tester</Strong> — work
+            in the projects they belong to. They differ in exporting projects and seeing analytics.
+            What they can do <em>inside</em> a project comes from their project role (below). All
+            three can use AI drafting and submit IT requests.
+          </li>
+          <li>
+            <Strong>Employee</Strong> — asks IT for things through{" "}
+            <a href="#it-requests" className="font-medium text-primary hover:underline">IT requests</a>{" "}
+            and follows their own requests. Sees nothing of testing.
+          </li>
+          <li>
+            <Strong>IT service agent</Strong> — works the IT request queue: picks requests up,
+            fulfils them, and sees IT request reports.
+          </li>
+          <li>
+            <Strong>Support lead</Strong> — someone <Strong>outside</Strong> your organisation, at
+            one of your{" "}
+            <a href="#client-companies" className="font-medium text-primary hover:underline">client companies</a>
+            . They see only their own company’s ticket queue — never your projects, tests or
+            dashboard — and escalate what they can’t fix to you.
           </li>
         </UL>
-        <Screenshot caption="The sidebar navigation, with the role preview menu open" src={shotRoles} />
-        <H3>Project visibility is assignment-scoped</H3>
         <P>
-          Regular users only see the projects they have been added to as members. If a project you
-          expect is missing from your list, ask an administrator to add you to it. Within a project,
-          members can hold one of two project roles: <Strong>Member</Strong> or{" "}
-          <Strong>Team Lead</Strong>.
+          Built-in roles keep their names, but an administrator can change what each may do. For
+          anything else, create a <Strong>custom role</Strong> under{" "}
+          <Strong>Settings → Roles &amp; access</Strong> and assign it on the <Strong>Team</Strong>{" "}
+          page. Permissions that are easy to misuse (granting roles, approving automatically,
+          sending data to other systems) carry a warning in the role editor, and nobody can grant
+          a permission they don’t hold themselves.
+        </P>
+        <Screenshot caption="The sidebar navigation, with the role preview menu open" src={shotRoles} />
+        <H3>Project roles: member and team lead</H3>
+        <P>
+          You only see projects you’ve been added to (administrators see all of them). Inside a
+          project you’re a <Strong>Member</Strong> — you take part: run tests, report bugs, raise
+          feature requests — or a <Strong>Team Lead</Strong>, who also manages: cases and suites,
+          triage, assignment, client companies and the project itself. If a project is missing from
+          your list, ask an administrator to add you.
         </P>
         <H3>Previewing as another role</H3>
         <P>
@@ -624,6 +712,17 @@ const ALL_SECTIONS: DocSection[] = [
           <Code>/projects/…/bugs/ref/BF-20260728-014</Code>), so the link stays readable and keeps
           working. Feature requests work the same way with an <Code>FR-</Code> prefix.
         </P>
+        <H3>Write it with AI</H3>
+        <P>
+          Open <Strong>AI assistant — describe the bug in your own words</Strong> at the top of the
+          form, write what happened however it comes to you, and press{" "}
+          <Strong>Draft with AI</Strong>. The AI fills in the title, description, steps, expected
+          and actual behaviour, and environment, suggests a severity and priority with a reason, and
+          asks about anything missing. Nothing is reported until you press the form’s own button.
+          See{" "}
+          <a href="#ai-assistant" className="font-medium text-primary hover:underline">AI assistance</a>{" "}
+          for a worked example.
+        </P>
       </div>
     ),
   },
@@ -661,6 +760,14 @@ const ALL_SECTIONS: DocSection[] = [
           <Code>/projects/…/feature-requests/ref/FR-20260728-014</Code>) — readable enough to paste
           into a roadmap doc or a chat message. Bugs use the same scheme with a <Code>BF-</Code>{" "}
           prefix.
+        </P>
+        <H3>Write it with AI</H3>
+        <P>
+          The form’s <Strong>AI assistant — describe your idea in your own words</Strong> turns a
+          rough idea into a clear request: problem, proposed solution, business justification,
+          expected outcome and acceptance criteria. Parts the AI inferred rather than read from you
+          are marked <Strong>AI suggestion — please confirm</Strong>. See{" "}
+          <a href="#ai-assistant" className="font-medium text-primary hover:underline">AI assistance</a>.
         </P>
       </div>
     ),
@@ -1676,7 +1783,7 @@ const ALL_SECTIONS: DocSection[] = [
     id: "settings",
     title: "Settings",
     icon: Settings,
-    summary: "Profile, security, notifications, guided tours, and theme.",
+    summary: "Profile, security, notifications, AI, roles, guided tours, and theme.",
     body: (
       <div className="space-y-4">
         <UL>
@@ -1694,6 +1801,17 @@ const ALL_SECTIONS: DocSection[] = [
             <Strong>Notifications</Strong> — turn the <Strong>alert sound</Strong> on or off. It
             plays when a new notification or support chat message arrives; the setting follows your
             account, not the browser.
+          </li>
+          <li>
+            <Strong>AI</Strong> — whether AI is set up for you and which key and model it uses; your
+            own AI key (if allowed); your AI credits. Administrators also manage the organisation’s
+            keys, the model for each feature, credit prices and a usage report. See{" "}
+            <a href="#ai-assistant" className="font-medium text-primary hover:underline">AI assistance</a>.
+          </li>
+          <li>
+            <Strong>Roles &amp; access</Strong> (administrators) — the built-in and custom roles and
+            exactly which permissions each holds. See{" "}
+            <a href="#roles" className="font-medium text-primary hover:underline">Roles &amp; permissions</a>.
           </li>
         </UL>
         <P>
@@ -1782,6 +1900,564 @@ const ALL_SECTIONS: DocSection[] = [
             of past runs while excluding them from future work.
           </P>
         </div>
+        <div>
+          <H3>Does the AI submit anything for me?</H3>
+          <P>
+            No. It fills in a form (or suggests the right IT request) and you decide what to keep.
+            AI triage on an IT request is advice to the approver — it can’t approve, reject or
+            change anything.
+          </P>
+        </div>
+        <div>
+          <H3>Who pays for AI?</H3>
+          <P>
+            Your organisation brings its own key from an AI provider and is billed by that provider.
+            Administrators can price AI features in credits so usage stays fair; people with their
+            own key use it at their own cost and spend no credits.
+          </P>
+        </div>
+        <div>
+          <H3>I don’t see IT requests in my sidebar.</H3>
+          <P>
+            Either your organisation hasn’t turned it on yet, or your role can’t submit IT requests.
+            Ask an administrator. See{" "}
+            <a href="#it-requests" className="font-medium text-primary hover:underline">IT requests overview</a>.
+          </P>
+        </div>
+        <div>
+          <H3>My IT request has been “Pending approval” for days.</H3>
+          <P>
+            Open it to see which step it’s on and who it’s waiting for. Late approvals escalate
+            automatically, and if your approver is away their stand-in can decide it.
+          </P>
+        </div>
+        <div>
+          <H3>Can a request be approved without anyone looking at it?</H3>
+          <P>
+            Only if your administrator set up a rule for it and the item allows it — and only for
+            low-risk, non-privileged items that need no identity check. Everything else always goes
+            to a person.
+          </P>
+        </div>
+      </div>
+    ),
+  },
+
+  // ── AI assistance ──────────────────────────────────────────────────────────
+  {
+    id: "ai-assistant",
+    title: "AI assistance",
+    icon: Sparkles,
+    summary: "Drafting bugs, feature requests and IT requests with AI — set-up, examples, and limits.",
+    body: (
+      <div className="space-y-4">
+        <P>
+          TestMate’s AI turns what you write in your own words into a properly filled-in form, and
+          asks about anything that’s missing. It <Strong>never submits or changes anything on its
+          own</Strong>: you read the result, edit it, and press the form’s usual button.
+        </P>
+        <H3>Where you’ll find it</H3>
+        <UL>
+          <li><Strong>Bug drafts</Strong> — in the bug form, from a description of what went wrong.</li>
+          <li><Strong>Feature request drafts</Strong> — in the feature request form, from a rough idea.</li>
+          <li>
+            <Strong>IT request suggestions</Strong> — on the IT request portal: describe what you
+            need and the AI picks the catalog item and pre-fills its form.
+          </li>
+          <li>
+            <Strong>IT request triage</Strong> — for approvers and IT: a summary, risks to weigh and
+            questions worth asking. Advice only.
+          </li>
+        </UL>
+
+        <H3>Setting it up (administrators)</H3>
+        <OL>
+          <li>
+            Open <Strong>Settings → AI → Organisation AI keys</Strong> and add a key from{" "}
+            <Strong>Anthropic</Strong>, <Strong>OpenAI</Strong>, <Strong>Google Gemini</Strong> or{" "}
+            <Strong>Ollama</Strong> (for Ollama, also its server address). The key is checked
+            before it’s saved and stored encrypted; requests are billed to your account with that
+            provider.
+          </li>
+          <li>Optionally choose a <Strong>model for each feature</Strong> — a faster one for drafts, a stronger one for triage.</li>
+          <li>
+            Optionally set <Strong>credit prices</Strong> per feature and give people credits. With
+            no prices set, AI is simply free to use on the organisation’s key.
+          </li>
+          <li>Check the <Strong>usage report</Strong> for requests, failures and who’s using it.</li>
+        </OL>
+        <P>
+          People allowed their own key can add one under <Strong>Settings → AI → My own AI key</Strong>
+          ; it’s used instead of the organisation’s, billed to them, and never costs credits. Your
+          server needs <Code>AI_KEYS_SECRET</Code> set before any key can be saved.
+        </P>
+
+        <H3>Using the assistant on a form</H3>
+        <OL>
+          <li>Open the <Strong>AI assistant</Strong> panel at the top of the bug or feature request form.</li>
+          <li>Describe it however it comes to you, then press <Strong>Draft with AI</Strong>.</li>
+          <li>
+            The form fills in. Fields the AI wrote are marked <Strong>Filled by AI</Strong>; anything
+            it inferred rather than read from you is marked{" "}
+            <Strong>AI suggestion — please confirm</Strong>.
+          </li>
+          <li>
+            Answer any <Strong>follow-up questions</Strong> and press{" "}
+            <Strong>Update the draft with my answers</Strong>. <Strong>Draft again</Strong> starts
+            over from your words; <Strong>Restore my original</Strong> puts the form back exactly as
+            it was.
+          </li>
+          <li>Read every field, then report the bug or submit the request as usual.</li>
+        </OL>
+
+        <AiExample
+          title="Example — a bug report"
+          you="When I attach a screenshot to a bug and click submit nothing happens. Chrome on Windows, it started after yesterday's release."
+          result={[
+            ["Title", "Bug report doesn't submit when a screenshot is attached"],
+            ["Steps", "1. Open Report a bug  2. Attach a screenshot  3. Click Submit"],
+            ["Expected", "The bug is reported with the screenshot attached"],
+            ["Actual", "Nothing happens after clicking Submit"],
+            ["Environment", "Chrome on Windows"],
+            ["Severity", "Major *"],
+            ["Priority", "High *"],
+          ]}
+          notes={
+            <>
+              Follow-up questions: <em>“Does it submit without the attachment?”</em>,{" "}
+              <em>“What type and size was the screenshot?”</em> The severity comes with the reason
+              behind it, so you can disagree with it knowingly.
+            </>
+          }
+        />
+
+        <AiExample
+          title="Example — a feature request"
+          you="It would be great if we could export test runs to PDF so I can send results to clients."
+          result={[
+            ["Title", "Export test runs to PDF"],
+            ["Problem", "Sharing run results with clients means screenshots or spreadsheets"],
+            ["Proposed solution", "An Export to PDF option on a test run, with results case by case"],
+            ["Justification", "Client-ready reports without manual work *"],
+            ["Acceptance criteria", "A completed run can be exported to a PDF listing every case and its result *"],
+          ]}
+          notes={<>Follow-up question: <em>“Should the PDF include failure notes and attachments?”</em></>}
+        />
+
+        <H3>What the AI sees, and what’s kept</H3>
+        <UL>
+          <li>
+            Only what you typed, what’s already in the form, and background from the project (its
+            description, the suite or test case you picked, and similar earlier tickets). The panel
+            names the provider your text goes to before you send it.
+          </li>
+          <li>
+            Text from people is treated as material, never as instructions — writing “ignore your
+            rules” into a bug doesn’t change what the AI does.
+          </li>
+          <li>
+            TestMate records that a request happened (feature, model, time, success, tokens) for the
+            usage report — not the words you wrote or the reply.
+          </li>
+        </UL>
+
+        <H3>If it doesn’t work</H3>
+        <UL>
+          <li><Strong>“AI isn’t set up yet”</Strong> — no key has been added. Use the <Strong>Set up AI to get suggestions</Strong> link, or ask an administrator.</li>
+          <li><Strong>Not enough credits</Strong> — your balance doesn’t cover the feature’s price. An administrator can give you more.</li>
+          <li><Strong>Too many requests</Strong> — there’s a limit of about 30 AI requests per person every 15 minutes.</li>
+          <li>Whatever happens, the form still works by hand — the AI is a shortcut, never a requirement.</li>
+        </UL>
+      </div>
+    ),
+  },
+
+  // ── IT requests ────────────────────────────────────────────────────────────
+  {
+    id: "it-requests",
+    title: "IT requests overview",
+    icon: Store,
+    summary: "What IT requests are, turning them on, and who does what.",
+    body: (
+      <div className="space-y-4">
+        <P>
+          <Strong>IT requests</Strong> is where employees ask IT for what they need — a software
+          licence, a laptop, a new starter’s accounts, a password reset, cloud resources, an access
+          card. Each request follows one route: <Strong>ask → approve → fulfil</Strong>, with
+          everyone notified at each step and every step recorded.
+        </P>
+        <P>
+          It’s a module of its own. It shares sign-in, your <Strong>Team</Strong>, roles, notifications
+          and the activity log with testing, but has its own <Strong>IT requests</Strong> group in the
+          sidebar: <Strong>Request something</Strong>, <Strong>My requests</Strong>,{" "}
+          <Strong>Approvals</Strong>, <Strong>IT queue</Strong>, <Strong>Reports</Strong> and{" "}
+          <Strong>Catalog setup</Strong> — each shown only to the people who can use it.
+        </P>
+        <H3>Turning it on</H3>
+        <OL>
+          <li>An administrator opens <Strong>IT requests → Catalog setup</Strong>. Eight starter categories with an example item each are created for you.</li>
+          <li>Adjust the catalog, approvers and service levels (see <a href="#it-requests-setup" className="font-medium text-primary hover:underline">Setting up IT requests</a>).</li>
+          <li>Press <Strong>Turn on</Strong>. Until then, only people who set it up can see it.</li>
+        </OL>
+        <H3>Who does what</H3>
+        <UL>
+          <li><Strong>Anyone who can request</Strong> (Employees, and testers and leads too) — asks, follows their requests, answers questions.</li>
+          <li><Strong>Approvers</Strong> — anyone a catalog item or approval policy names. Approving isn’t a role: you approve because the item asks you to.</li>
+          <li><Strong>IT service agents</Strong> — work the queue and fulfil requests.</li>
+          <li><Strong>Administrators</Strong> — set up the catalog, approvals, service levels and automation.</li>
+        </UL>
+        <H3>A request’s life</H3>
+        <P>
+          <Chip className={chipSlate}>Draft</Chip> → <Chip className={chipBlue}>Submitted</Chip>{" "}
+          (or <Chip className={chipAmber}>Pending approval</Chip> → <Chip className={chipViolet}>Approved</Chip>) →{" "}
+          <Chip className={chipBlue}>In progress</Chip> → <Chip className={chipGreen}>Fulfilled</Chip>. Along the way it can be{" "}
+          <Chip className={chipAmber}>Waiting for information</Chip> (paused for an answer from you),{" "}
+          <Chip className={chipRed}>Rejected</Chip> by an approver, or <Chip className={chipZinc}>Cancelled</Chip>.
+          Every request gets a reference like <Code>SR-000123</Code>.
+        </P>
+        <Note>
+          Nothing reaches IT before it’s approved, nobody approves their own request, and no
+          automation or AI can skip a required approval.
+        </Note>
+      </div>
+    ),
+  },
+  {
+    id: "it-requests-asking",
+    title: "Asking IT for something",
+    icon: ClipboardList,
+    summary: "The request portal, AI suggestions, forms, files, self-service, and following up.",
+    body: (
+      <div className="space-y-4">
+        <H3>Find what you need</H3>
+        <P>
+          <Strong>Request something</Strong> shows the catalog as tiles. Pick a category, then an
+          item — or search (“laptop”, “Adobe”, “VPN”). Items marked <Strong>Needs approval</Strong>{" "}
+          go to an approver before IT starts.
+        </P>
+        <H3>Or just describe it</H3>
+        <P>
+          If you have AI assistance, the portal shows <Strong>Not sure where to start?</Strong> Write
+          what you need, press <Strong>Suggest a request</Strong>, and then{" "}
+          <Strong>Continue with this</Strong> to open the right form, already filled in from your
+          words.
+        </P>
+        <AiExample
+          title="Example — describing what you need"
+          you="I'm starting on the design team next Monday and need Figma and Adobe Illustrator on my laptop."
+          result={[
+            ["Catalog item", "Software access → Software licence or access"],
+            ["Title", "Figma and Illustrator for the design team"],
+            ["Which software?", "Figma, Adobe Illustrator"],
+            ["Needed by", "next Monday’s date *"],
+            ["Priority", "Medium"],
+          ]}
+          notes={
+            <>
+              Also asked: <em>“Standard user or Administrator access?”</em> — the AI fills in only
+              what you said and leaves the rest for you. A banner on the form reminds you to check
+              every answer.
+            </>
+          }
+        />
+        <H3>Fill in the form</H3>
+        <UL>
+          <li>Each item asks its own questions; the ones marked <Strong>*</Strong> are needed to submit.</li>
+          <li>
+            <Strong>Who is this for?</Strong> — yourself, a colleague, or <Strong>a new starter</Strong>{" "}
+            who has no account yet (name, and email if known).
+          </li>
+          <li><Strong>Business justification</Strong> is what your approver reads — say why.</li>
+          <li><Strong>Attach files</Strong>: screenshots, quotes, signed forms — images, PDF, Word or Excel, up to 10 files of 10 MB.</li>
+          <li><Strong>Save draft</Strong> keeps it to yourself; <Strong>Submit</Strong> sends it.</li>
+        </UL>
+        <H3>Self-service</H3>
+        <P>
+          Some items — a password reset, for example — show a <Strong>You can do this yourself</Strong>{" "}
+          card with a link to a self-service page. Using it is recorded as done; if it doesn’t sort
+          things out, <Strong>I still need IT</Strong> opens the normal form.
+        </P>
+        <H3>Follow it</H3>
+        <UL>
+          <li><Strong>My requests</Strong> — In progress, Drafts and Closed, including requests a colleague raised for you.</li>
+          <li>The request page shows its approval steps, who has it, the due date, files, the conversation and full history.</li>
+          <li>
+            If an approver or IT asks a question, the request shows <Strong>Waiting for information</Strong>{" "}
+            and an answer box. It’s paused until you answer — then it carries on exactly where it was.
+          </li>
+          <li>You can cancel it any time before IT starts work.</li>
+        </UL>
+      </div>
+    ),
+  },
+  {
+    id: "it-requests-approvals",
+    title: "Approving IT requests",
+    icon: ListChecks,
+    summary: "Deciding requests, approval steps and authority, stand-ins, and AI triage.",
+    body: (
+      <div className="space-y-4">
+        <P>
+          When a request needs you, you get a notification and an email, and it appears under{" "}
+          <Strong>Approvals → Waiting for me</Strong>. Open it and choose <Strong>Approve</Strong>{" "}
+          (a comment is optional), <Strong>Reject</Strong> (a reason is required), or{" "}
+          <Strong>Ask the requester a question</Strong>.
+        </P>
+        <H3>Steps</H3>
+        <P>
+          A request can need one approval or several steps in a row — for example the requester’s{" "}
+          <Strong>line manager</Strong>, then <Strong>Finance</Strong>. Within a step, either{" "}
+          <Strong>any one</Strong> person decides, or it needs <Strong>one from each line</Strong>{" "}
+          (say, one from Finance <em>and</em> one from Security). Later steps show as “Not started”
+          until the one before is done; any rejection ends the request.
+        </P>
+        <H3>Authority</H3>
+        <P>
+          Each request carries the risk of the item it’s for (low to critical). An approver group can
+          only decide up to its own level — Finance “up to Medium” can’t approve a high-risk cloud
+          request, and that step goes to an IT request administrator instead.
+        </P>
+        <H3>Away? Set a stand-in</H3>
+        <P>
+          On the Approvals page, <Strong>Set a stand-in</Strong> names a colleague and dates. While
+          you’re away, new approvals go to them and they can decide the ones already waiting for you;
+          the record shows who actually decided. <Strong>I’m back</Strong> ends it early.
+        </P>
+        <H3>AI triage</H3>
+        <P>
+          Approvers and IT can press <Strong>Get AI triage</Strong> on a request for a second pair of
+          eyes. It’s saved on the request so the next approver sees it too, and it’s{" "}
+          <Strong>advice only</Strong> — it never approves, rejects or changes anything.
+        </P>
+        <AiExample
+          title="Example — triage of SR-000214, “Production database access”"
+          you="(No typing — the AI reads the request: item Business application, risk High, role ‘Administrator’, justification ‘Need to fix the reporting job’, and how similar requests went.)"
+          result={[
+            ["Summary", "Asks for administrator access to the production reporting database to fix a failing job."],
+            ["Suggestion", "Suggests asking for more information"],
+            ["Worth weighing", "Administrator rights on production; no end date given"],
+            ["Could ask", "How long is access needed? Would read-only access be enough?"],
+          ]}
+          notes={<>The suggestion explains itself, e.g. “Similar requests were approved for a fixed period.” You still decide.</>}
+        />
+      </div>
+    ),
+  },
+  {
+    id: "it-requests-queue",
+    title: "Working the IT queue",
+    icon: Inbox,
+    summary: "For IT agents: picking up, identity checks, fulfilling, and automation.",
+    body: (
+      <div className="space-y-4">
+        <P>The <Strong>IT queue</Strong> has a tab for each kind of work:</P>
+        <UL>
+          <li><Strong>Ready</Strong> — approved (or needing no approval) and waiting to be picked up.</li>
+          <li><Strong>In progress</Strong>, <Strong>Needs review</Strong>, <Strong>Overdue</Strong>, <Strong>Awaiting approval</Strong>, <Strong>Waiting on requester</Strong> and <Strong>Closed</Strong>.</li>
+          <li>Filter by who has it, and search by title or number (<Code>SR-000123</Code>, <Code>sr-123</Code> or <Code>123</Code>).</li>
+        </UL>
+        <H3>Doing the work</H3>
+        <OL>
+          <li><Strong>Take it</Strong> (or assign it to a colleague), then <Strong>Start work</Strong> — the requester is told.</li>
+          <li>Read <Strong>How IT fulfils this</Strong> (your team’s own notes for the item) and talk to the requester in the conversation; tick <Strong>Internal note</Strong> for things only IT should see.</li>
+          <li><Strong>Mark fulfilled</Strong> with a note saying what was done — the requester gets it word for word.</li>
+          <li>If it can’t be done, <Strong>Cancel request</Strong> with a reason.</li>
+        </OL>
+        <H3>Identity checks</H3>
+        <P>
+          Items like password resets require an <Strong>identity check</Strong>: before you can start,
+          record how you confirmed who’s asking (for example, a call-back to their known number) on
+          the <Strong>Identity check</Strong> card. The requester never sees your note. Never send a
+          new password in the request.
+        </P>
+        <H3>Flags and automation</H3>
+        <UL>
+          <li>
+            <Strong>Needs review</Strong> — a rule flagged it (you see why) or automation failed. Look
+            into it, then <Strong>Mark as reviewed</Strong>.
+          </li>
+          <li>
+            Items fulfilled by a <Strong>connector</Strong> show an <Strong>Automation</Strong> card:
+            what ran, when, and the outcome. If it failed, choose <Strong>Retry</Strong> or{" "}
+            <Strong>Handle it manually</Strong> (automation stops and it’s yours).
+          </li>
+          <li>Late requests escalate on their own — to you first, then to your escalation contacts.</li>
+        </UL>
+      </div>
+    ),
+  },
+  {
+    id: "it-requests-setup",
+    title: "Setting up IT requests",
+    icon: Settings2,
+    summary: "Catalog and forms, approval policies, groups, line managers, service levels.",
+    body: (
+      <div className="space-y-4">
+        <P>Everything lives in <Strong>IT requests → Catalog setup</Strong> (administrators).</P>
+        <H3>Catalog and forms</H3>
+        <UL>
+          <li><Strong>Categories</Strong> are the portal’s tiles; <Strong>items</Strong> are the things people can ask for.</li>
+          <li>
+            Each item has its own <Strong>form</Strong>: short or long text, number, date, pick one,
+            pick several, tick box — with help text and required questions. <Strong>Preview</Strong>{" "}
+            shows it exactly as people will see it.
+          </li>
+          <li>
+            <Strong>Hide</Strong> takes something off the portal and keeps its history.{" "}
+            <Strong>Delete</Strong> only works for things nobody has ever requested — otherwise hide them.
+          </li>
+          <li>Requests already submitted keep the form and approvers they were raised with.</li>
+        </UL>
+        <H3>Who approves</H3>
+        <UL>
+          <li><Strong>No approval</Strong>, <Strong>one step — any of these people</Strong>, or <Strong>an approval policy</Strong>.</li>
+          <li><Strong>Approval policies</Strong> — reusable routes of steps, each “any one” or “one from each line”, naming people, groups, or the requester’s line manager.</li>
+          <li><Strong>Approver groups</Strong> — e.g. Finance, Security — each with the highest risk it may approve.</li>
+          <li><Strong>Line managers</Strong> — who reports to whom (no loops allowed).</li>
+          <li>Each item has a <Strong>risk</Strong> and can be marked <Strong>privileged access</Strong> (never approved automatically).</li>
+          <li>If nobody named can decide, IT request administrators do — a request never skips approval.</li>
+        </UL>
+        <H3>Service levels and escalation</H3>
+        <P>
+          Set hours for each approval step and hours to fulfil by priority (items can override). Late
+          requests escalate in three steps, measured against the target:
+        </P>
+        <CodeBlock>{`Target 24 hours, escalation at 50% and 100%:
+  at 24h  → reminder to whoever is holding it up
+  at 36h  → also your escalation contacts
+  at 48h  → again, marked critical
+Time spent waiting for the requester doesn't count.`}</CodeBlock>
+      </div>
+    ),
+  },
+  {
+    id: "it-requests-automation",
+    title: "IT request automation",
+    icon: Bot,
+    summary: "Rules, automatic approval, connectors (Power Automate…), self-service, the run log.",
+    body: (
+      <div className="space-y-4">
+        <P>
+          <Strong>Catalog setup → Automation</Strong> (for people allowed to set up automation) lets
+          routine work run itself. The principle: <Strong>rules decide, AI advises, and nothing skips
+          a required approval</Strong>. Every automated step is written to the{" "}
+          <Strong>Run log</Strong> and to the request itself.
+        </P>
+        <H3>Rules</H3>
+        <P>
+          A rule says “when a request looks like this, do that”. Rules run once, when a request is
+          submitted, in order; every matching rule applies. <Strong>Try it on the last 50
+          requests</Strong> shows what a rule would have matched before you switch it on.
+        </P>
+        <UL>
+          <li>
+            <Strong>Example — production needs a look:</Strong> when the category is Cloud resources
+            and Environment is “Production” → set priority High, and flag for review with “Production
+            resources need a platform-team check”.
+          </li>
+          <li>
+            <Strong>Example — new starters:</Strong> when it’s for a new starter → assign to Jane,
+            and add the internal note “Order the laptop five working days ahead”.
+          </li>
+          <li>
+            <Strong>Example — straight through:</Strong> when the item is Access card → approve
+            automatically.
+          </li>
+        </UL>
+        <H3>Automatic approval</H3>
+        <P>It only happens when <Strong>all</Strong> of these hold — otherwise the request goes to its approvers and the reason is recorded:</P>
+        <UL>
+          <li>a rule asks for it, and the item allows it (<Strong>Automation rules may approve it</Strong>);</li>
+          <li>the item is <Strong>low risk</Strong>, not <Strong>privileged access</Strong>, and needs no identity check;</li>
+          <li>no rule flagged the request for review.</li>
+        </UL>
+        <H3>Connectors</H3>
+        <P>
+          A connector fulfils requests in another system — adding someone to a group, assigning a
+          licence, creating a resource. Point an item at it under{" "}
+          <Strong>How it’s fulfilled → Automatically, by a connector</Strong>. When a request for that
+          item is approved (and identity-checked, if needed), TestMate sends it to the connector and
+          waits for the result. TestMate never holds passwords or keys for the systems the connector
+          changes.
+        </P>
+        <OL>
+          <li>In your automation tool (e.g. Power Automate), create a flow that starts <Strong>When an HTTP request is received</Strong>, and copy its address.</li>
+          <li>In TestMate, <Strong>New connector</Strong> → paste the address. Copy the <Strong>signing secret</Strong> — it’s shown once.</li>
+          <li>Build the flow’s steps using the request’s answers, then reply with the result (below). <Strong>Send a test</Strong> checks the connection.</li>
+        </OL>
+        <P>What the connector receives:</P>
+        <CodeBlock>{`POST <your connector address>
+X-TestMate-Event:     service_request.fulfil
+X-TestMate-Delivery:  <run id — the same on a retry>
+X-TestMate-Timestamp: 1760695200
+X-TestMate-Signature: sha256=<HMAC-SHA256(secret, "<timestamp>.<raw body>")>
+
+{
+  "event": "service_request.fulfil",
+  "deliveryId": "8d1c…",
+  "callbackUrl": "https://<your TestMate>/api/v1/public/service-desk/callbacks/8d1c…/<token>",
+  "request": {
+    "reference": "SR-000123",
+    "item": "Software licence or access",
+    "answers": { "software": "Figma", "access_level": "Standard user" },
+    "requester": { "name": "Emma Stone", "email": "emma@example.com" },
+    "requestedFor": null,
+    "priority": "medium"
+  }
+}`}</CodeBlock>
+        <P>Reply straight away…</P>
+        <CodeBlock>{`HTTP 200
+{ "status": "succeeded", "note": "Added to the Figma licence group" }`}</CodeBlock>
+        <P>…or answer <Code>202</Code> now and report back later on the <Code>callbackUrl</Code>:</P>
+        <CodeBlock>{`curl -X POST "<callbackUrl>" \\
+  -H "Content-Type: application/json" \\
+  -d '{"status":"failed","note":"No Figma licences left"}'`}</CodeBlock>
+        <P>To be sure a request really came from TestMate, check its signature:</P>
+        <CodeBlock>{`const crypto = require("crypto")
+function fromTestMate(headers, rawBody, secret) {
+  const expected = "sha256=" + crypto
+    .createHmac("sha256", secret)
+    .update(headers["x-testmate-timestamp"] + "." + rawBody)
+    .digest("hex")
+  const given = String(headers["x-testmate-signature"] || "")
+  return given.length === expected.length &&
+    crypto.timingSafeEqual(Buffer.from(given), Buffer.from(expected))
+}`}</CodeBlock>
+        <UL>
+          <li>Network errors, 408, 429 and 5xx are retried after 1, 5 and 15 minutes; other errors fail at once.</li>
+          <li>No result within 24 hours counts as failed.</li>
+          <li>A failure flags the request <Strong>Needs review</Strong> and tells IT, who can <Strong>Retry</Strong> or <Strong>Handle it manually</Strong>.</li>
+        </UL>
+        <H3>Self-service links</H3>
+        <P>
+          An item can instead point people to a self-service page (<Strong>By the requester, through a
+          self-service link</Strong>) — for example your identity provider’s password-reset page.
+          It’s shown before the form, and using it counts as fulfilled by self-service.
+        </P>
+      </div>
+    ),
+  },
+  {
+    id: "it-requests-reports",
+    title: "IT request reports",
+    icon: BarChart3,
+    summary: "Pending work, overdue items, service levels and automation at a glance.",
+    body: (
+      <div className="space-y-4">
+        <P>
+          <Strong>IT requests → Reports</Strong> (IT agents and administrators) answers “where are
+          we, and how are we doing?” for the last 7, 30 or 90 days, or 12 months:
+        </P>
+        <UL>
+          <li><Strong>Right now</Strong> — open requests, waiting for approval, overdue approvals, ready for IT, overdue fulfilment, waiting on requesters.</li>
+          <li><Strong>The period</Strong> — submitted and fulfilled, the share fulfilled on time, average approval and fulfilment times, escalations.</li>
+          <li><Strong>Automation</Strong> — approved automatically, fulfilled automatically or by self-service, connector success rate, what needs review now.</li>
+          <li><Strong>By category</Strong>, <Strong>by person</Strong>, and the <Strong>longest overdue</Strong> requests, each linking to the request.</li>
+        </UL>
+        <P>
+          Every decision, change and automated step is also in the <a href="#activity" className="font-medium text-primary hover:underline">Activity log</a>{" "}
+          — who approved what, when, and with what authority.
+        </P>
       </div>
     ),
   },
@@ -1809,6 +2485,16 @@ export const DOC_GROUPS: DocGroup[] = [
     "live-chat",
     "company-provisioning",
     "ticket-form-api",
+  ]),
+  group("AI", ["ai-assistant"]),
+  group("IT requests", [
+    "it-requests",
+    "it-requests-asking",
+    "it-requests-approvals",
+    "it-requests-queue",
+    "it-requests-setup",
+    "it-requests-automation",
+    "it-requests-reports",
   ]),
   group("Administration", ["team", "activity"]),
   group("Help", ["announcements", "settings", "faq"]),

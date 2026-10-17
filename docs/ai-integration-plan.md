@@ -40,7 +40,7 @@ Existing `ai_agent_flow_*.md` files are coding-standard guides for agents, not a
 | D1 | Who owns AI keys? | **User's own key wins, else the organisation's key.** The brief's "platform key" maps to an **organisation key** set by an org admin (`ai.managekeys`). TestMate's super admin is the vendor; a vendor-wide fallback key across all orgs is **not** built unless you want it. |
 | D2 | Credits? | **Yes, behind a flag (Phase 2)**, spent only on the organisation's key, prices default to 0 = free. Granted by the org admin. |
 | D3 | A payer other than the clicker? | **No.** The org key already covers members. (Project team-lead-pays delegation can be added later.) |
-| D4 | First features | **`bug_report_draft`** and **`feature_request_draft`** (see §8). `test_case_draft` was planned and then dropped; optional later: **`test_suite_plan`** (plan then create). |
+| D4 | First features | **`bug_report_draft`** and **`feature_request_draft`** (see §8). `test_case_draft` was planned and then dropped; optional later: **`test_suite_plan`** (plan then create). **Added later, for IT requests:** `service_request_intake` (portal: suggest the catalog item and pre-fill its form) and `service_request_triage` (advisory summary for approvers and IT, never acted on) — see [`it-service-requests-plan.md`](it-service-requests-plan.md), Phase 3. |
 | D5 | Background auto-run? | **No.** |
 | D6 | Providers | **Anthropic, OpenAI, Gemini, Ollama** behind one `AiProvider` interface. |
 | D7 | Chat feature | **Not in v1.** |

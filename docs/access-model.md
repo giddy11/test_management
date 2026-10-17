@@ -49,7 +49,7 @@
 
 ---
 
-## 2. Permission catalog — 30 permissions in 6 categories
+## 2. Permission catalog — 39 permissions in 8 categories
 
 > Generated from `server/modules/access/catalog/permissions.catalog.js`, which is the
 > single source the seed, the resolver and the tests all read. If this table and the
@@ -136,7 +136,31 @@ the company itself, how *its* queue is routed, which is why no product-team role
 | `sla.read` | View SLA reports | See SLA attainment and ticket timings. |
 | `sla.configure` | Configure SLA targets | Change the SLA rules the whole organisation is measured against. |
 
-### 2.7 The wildcard
+### 2.7 AI assistance — 4
+*AI drafting, and the provider API keys it runs on. Which bug, request or IT request someone may
+draft for is still decided by their access to it, in the service.*
+
+| Code | Label | Description |
+|---|---|---|
+| `ai.use` | Use AI drafting | Bug and feature-request drafts, IT request suggestions and IT request triage. Nothing is saved until the person reviews it. |
+| `ai.ownkey` | Use my own AI key | Save a personal provider key, used instead of the organisation's. |
+| `ai.managekeys` ⚠ | Manage the organisation's AI keys | Add, change and remove the keys everyone uses. **Warning: usage is billed to the organisation's provider account.** |
+| `ai.managecredits` | Manage AI credits | Set what each AI feature costs on the organisation's key, and give people credits. |
+
+### 2.8 IT requests — 5
+*A module of its own (`modules/serviceDesk`), separate from testing. Approving a request is
+deliberately **not** a permission: you approve because a catalog item or approval policy names
+you, checked in the service (and limited by your approver group's authority).*
+
+| Code | Label | Description |
+|---|---|---|
+| `servicerequest.create` | Submit IT requests | Ask IT for software, hardware, accounts and access, and follow your own requests. |
+| `servicedesk.work` | Work the IT request queue | See every submitted request; assign, start, fulfil, cancel; internal notes; identity checks; retry or take over automation. |
+| `servicedesk.report` | View IT request reports | Service-level attainment, overdue work, throughput and automation outcomes. |
+| `servicedesk.manage` ⚠ | Set up IT requests | Turn the module on or off; the catalog, approval policies, approver groups, line managers and service levels. **Warning: decides who approves each kind of request.** |
+| `serviceautomation.manage` ⚠ | Set up IT-request automation | Automation rules, automatic approval, and connectors. **Warning: can make some requests approve themselves, and sends request data to external systems.** |
+
+### 2.9 The wildcard
 
 | Code | Label | Description |
 |---|---|---|
@@ -155,11 +179,13 @@ a **Built-in** badge and the note:
 | Role | Kind | Permissions | Replaces |
 |---|---|---:|---|
 | Super administrator | built-in, **locked** | `*` | `superadmin` |
-| Organisation administrator | built-in | 17 | `admin` |
-| Test lead | built-in | 6 | `user` who leads a project (`project_members.role = team_lead`) |
-| QA engineer | built-in | 4 | `user` |
-| Tester | built-in | 3 | — (new) |
+| Organisation administrator | built-in | 26 | `admin` |
+| Test lead | built-in | 9 | `user` who leads a project (`project_members.role = team_lead`) |
+| QA engineer | built-in | 7 | `user` |
+| Tester | built-in | 6 | — (new) |
 | Support lead | built-in | 9 | `it_support` + `is_support_lead` |
+| Employee | built-in | 2 | — (new: IT requests only) |
+| IT service agent | built-in | 4 | — (new: IT requests only) |
 
 **QA manager, Support manager, Support agent and Viewer are not built-in.** They were in the
 first release and were dropped as unnecessary. An organisation that had them keeps them as ordinary
@@ -189,7 +215,7 @@ It is the vendor's role, not the customer's, so it is **hidden from everyone but
 administrator**: it is absent from an organisation administrator's role list, and fetching,
 cloning or assigning it by id returns 404, as for another organisation's role.
 
-### 3.2 Organisation administrator — 17
+### 3.2 Organisation administrator — 26
 Everything inside one customer's workspace, and nothing outside it.
 
 This is **not** "every permission in the catalog". TestMate is multi-tenant, so
@@ -214,32 +240,36 @@ lead on every project in the organisation (section 5).
 audit.read, role.read, role.manage, role.assign, user.read, user.create,
 user.update, user.delete, project.read, project.readall, project.manageall,
 project.export, dashboard.read, analytics.read, analytics.team, sla.read,
-sla.configure
+sla.configure, ai.use, ai.ownkey, ai.managekeys, ai.managecredits,
+servicerequest.create, servicedesk.work, servicedesk.report, servicedesk.manage,
+serviceautomation.manage
 ```
 
-### 3.3 Test lead — 6
+### 3.3 Test lead — 9
 Exports projects and sees analytics and SLA reporting. What they can do *inside* a
-project comes from their role in that project (section 5), not from this list.
+project comes from their role in that project (section 5), not from this list. Can use AI
+drafting and submit IT requests.
 
 ```
 user.read, project.read, project.export, dashboard.read, analytics.read,
-sla.read
+sla.read, ai.use, ai.ownkey, servicerequest.create
 ```
 
-### 3.4 QA engineer — 4
+### 3.4 QA engineer — 7
 Works in the projects they belong to and can export them. What they can do in each
 comes from their role there.
 
 ```
-user.read, project.read, project.export, dashboard.read
+user.read, project.read, project.export, dashboard.read, ai.use, ai.ownkey,
+servicerequest.create
 ```
 
-### 3.5 Tester — 3
+### 3.5 Tester — 6
 Works in the projects they belong to. What they can do in each comes from their role
 there. A QA engineer without the export permission.
 
 ```
-user.read, project.read, dashboard.read
+user.read, project.read, dashboard.read, ai.use, ai.ownkey, servicerequest.create
 ```
 
 ### 3.6 Support lead — 9
@@ -253,9 +283,26 @@ supportqueue.resolve, supportqueue.escalate, supportqueue.send,
 company.autoassign, audit.read, sla.read
 ```
 
+### 3.7 Employee — 2
+Asks IT for things and follows their own requests. Holds no `project.read`, so someone with
+only this role never sees testing; they land on the IT request portal. `ai.use` is for
+"Describe what you need" on the portal.
+
+```
+servicerequest.create, ai.use
+```
+
+### 3.8 IT service agent — 4
+Works the organisation's IT request queue and sees its reports. `ai.use` is for the advisory
+AI triage. Setting up the catalog or automation is not part of this role.
+
+```
+servicerequest.create, servicedesk.work, servicedesk.report, ai.use
+```
+
 > **Test lead, QA engineer and Tester are now nearly the same role.** With the project-
 > level permissions gone, they differ only in project export and analytics / SLA
-> reporting (6, 4 and 3 permissions). The distinction that used to justify them now
+> reporting (9, 7 and 6 permissions). The distinction that used to justify them now
 > lives on the project (`team_lead` vs `member`). Retiring two of them, as QA manager,
 > Support manager, Support agent and Viewer were retired, is an open decision (section 10).
 
