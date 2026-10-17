@@ -1,6 +1,56 @@
 # IT Service Request Management — study and build plan
 
-**Status:** Phases 1, 1b and 2 built, not yet migrated or tested (decisions in §0 approved 2026-10-17). Phase 3 (automation) next.
+**Status:** Phases 1, 1b, 2 and 3 built, not yet migrated or tested (decisions in §0 approved 2026-10-17).
+
+### Phase 3 (story 2): automation, connectors and AI
+
+The guiding rule (story 2, BR 2.1): **rules decide, AI advises, nothing skips a mandatory approval.**
+
+- **Automation rules** (`domain/automationRules.ts`, pure). These run once, at submit, in
+  order; every matching rule applies.
+  - Conditions: category, item, priority, risk, "for a new starter", form answer equals,
+    title/description contains.
+  - Actions: set priority, assign to an IT agent, flag for review (with a reason), add an
+    internal note, approve automatically.
+  - Every matched rule writes an automation-run row (AC 2.9).
+- **Automatic approval** needs *both* a rule that asks for it *and* an item that allows it. Even
+  then it only happens for **low-risk**, **non-privileged** items that need **no identity check**
+  and aren't flagged for review. Otherwise the request goes to its approvers as normal, and the
+  run records why automation stepped aside. Auto-approved requests are marked and audited.
+- **Flag for review** (AC 2.6): a "Needs review" badge in the queue. While flagged, a request
+  can't be approved or fulfilled automatically. An agent clears the flag.
+- **Fulfilment connectors** (per catalog item):
+  - **Manual:** what Phase 1 does.
+  - **Webhook:** when a request reaches IT, the item checks pass, approvals are complete and the
+    identity check is done (if required), TestMate POSTs a signed payload
+    (`X-TestMate-Signature: sha256=HMAC(secret, "<timestamp>.<body>")`) to the connector, for
+    example Power Automate, Logic Apps or n8n, along with a one-time callback URL.
+    - The endpoint either replies `{ "status": "succeeded" | "failed" }` straight away, or calls
+      back later.
+    - Network errors, 408, 429 and 5xx are retried after 1, 5 and 15 minutes. Other 4xx responses
+      fail at once.
+    - No result within 24 hours counts as failed.
+    - A failure flags the request for review, tells IT (AC 2.11), and an agent can **retry** or
+      **handle it manually** (AC 2.10).
+    - Connector URLs and secrets are sealed with `secretBox`. TestMate never holds credentials for
+      the target systems; those stay in the customer's automation tool (least privilege).
+  - **Self-service link (deflect):** the item shows a link (for example, the identity provider's
+    password reset). Using it records the request as *fulfilled by self-service*. "I still need
+    IT" falls back to the normal form.
+- **Identity check** (BR 1.5 / 2.5): an item can require one. IT records how identity was
+  confirmed (method and note) before work can start or automation can run. Requesters never see
+  the note. The starter "Password reset" item requires it.
+- **AI** (advisory only, on the existing AI layer, with its keys, credits, usage log and rate
+  limit):
+  - `service_request_intake`: a "Describe what you need" box on the portal suggests the catalog
+    item and pre-fills its form. The person still reviews and submits.
+  - `service_request_triage`: approvers and IT can ask for a summary, risk notes, missing
+    information and a suggestion. It's stored on the request, labelled as AI, and has no write
+    path to approvals.
+- **Reporting** (AC 2.12): automation runs by outcome, auto-approved, fulfilled automatically,
+  self-service, failed, and needing review now.
+- **Permission:** `serviceautomation.manage` (rules and connectors), held by the Organisation
+  administrator.
 **Date:** 2026-10-16, revised 2026-10-17
 **Inputs:** the three IT Service Request user stories (submission, approval and automated fulfilment,
 approval and status tracking) and the ALVAO ITSM/ITAM brochure collected at a conference.

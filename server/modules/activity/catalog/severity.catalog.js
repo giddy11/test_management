@@ -61,6 +61,15 @@ const WARNING_ACTIONS = new Set([
   "service_catalog.item_approvers_changed",
   // A line manager is who approves "line manager" steps for that person.
   "user.manager_changed",
+  // Automation: what runs without a person, and where request data is sent.
+  "service_automation_rule.created",
+  "service_automation_rule.updated",
+  "service_webhook_endpoint.created",
+  "service_webhook_endpoint.updated",
+  "service_webhook_endpoint.secret_rotated",
+  "service_request.auto_approved",
+  "service_request.automation_failed",
+  "service_request.identity_verified",
 ]);
 
 function severityFor(action) {

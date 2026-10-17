@@ -3,8 +3,9 @@
 // draft. "Save draft" keeps it to yourself; "Submit" sends it for approval
 // (if the item needs it) or straight to IT.
 import { useEffect, useMemo, useState } from "react"
-import { Link, useNavigate, useParams } from "react-router-dom"
-import { ArrowLeft, ShieldCheck } from "lucide-react"
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom"
+import { ArrowLeft, ExternalLink, ShieldCheck, Sparkles } from "lucide-react"
+import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -25,6 +26,7 @@ import {
   useSubmitRequest,
   useUpdateDraft,
   useUploadRequestFiles,
+  useSelfService,
 } from "@/hooks/useServiceDesk"
 import { useAuth } from "@/contexts/AuthContext"
 import { can } from "@/lib/can"
@@ -34,11 +36,16 @@ import {
   REQUEST_PRIORITIES,
   type FormValue,
   type FormValues,
+  type RequestPrefill,
   type RequestPriority,
 } from "@/types/serviceDesk.types"
 
 export default function RequestFormPage() {
   const { itemId: newItemId, id: draftId } = useParams()
+  // Set when arriving from the AI suggestion on the portal.
+  const prefill = (useLocation().state as { prefill?: RequestPrefill } | null)?.prefill
+  const selfService = useSelfService()
+  const [showForm, setShowForm] = useState(false)
   const navigate = useNavigate()
   const { user, permissions } = useAuth()
   const { data: settings, isLoading: loadingSettings } = useServiceDeskSettings()
@@ -83,10 +90,13 @@ export default function RequestFormPage() {
       )
       setHydrated(true)
     } else if (!draftId && found) {
-      setTitle(found.item.name)
+      setTitle(prefill?.title || found.item.name)
+      if (prefill?.formValues) setValues(prefill.formValues)
+      if (prefill?.priority) setPriority(prefill.priority)
+      if (prefill?.description) setDescription(prefill.description)
       setHydrated(true)
     }
-  }, [draftId, draft, found, hydrated])
+  }, [draftId, draft, found, hydrated, prefill])
 
   const create = useCreateRequest()
   const update = useUpdateDraft()
@@ -243,7 +253,39 @@ export default function RequestFormPage() {
         </div>
       </div>
 
-      <Card>
+      {item.selfService && !draftId && (
+        <Card className="border-emerald-300 dark:border-emerald-900">
+          <CardContent className="flex flex-wrap items-center justify-between gap-3 py-4">
+            <div className="text-sm">
+              <p className="font-medium">You can do this yourself — usually faster</p>
+              <p className="text-muted-foreground">Use the self-service page. If it doesn't sort things out, ask IT below.</p>
+            </div>
+            <div className="flex gap-2">
+              <Button asChild>
+                <a
+                  href={item.selfService.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={() => selfService.mutate(item.id, { onSuccess: () => toast.success("Recorded — hope that sorted it") })}
+                >
+                  {item.selfService.label} <ExternalLink className="ml-1 size-3.5" />
+                </a>
+              </Button>
+              {!showForm && (
+                <Button variant="outline" onClick={() => setShowForm(true)} data-cy="still-need-it">I still need IT</Button>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {prefill?.fromAi && (
+        <p className="flex items-center gap-1.5 rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-sm">
+          <Sparkles className="size-4 text-primary" /> Filled in from your description. Check every answer before you submit.
+        </p>
+      )}
+
+      <Card className={cn(item.selfService && !draftId && !showForm && "hidden")}>
         <CardHeader>
           <CardTitle className="text-base">Your request</CardTitle>
           <CardDescription>Fields marked * are required to submit. You can save a draft any time.</CardDescription>

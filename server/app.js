@@ -51,6 +51,7 @@ const searchRoutes = require("./modules/search/routes/search.routes");
 const ticketLinkRoutes = require("./modules/ticketLink/routes/ticketLink.routes");
 const aiRoutes = require("./modules/ai/routes/ai.routes");
 const serviceDeskRoutes = require("./modules/serviceDesk/routes/serviceDesk.routes");
+const publicServiceDeskRoutes = require("./modules/serviceDesk/routes/publicServiceDesk.routes");
 
 function createApp() {
   const app = express();
@@ -126,6 +127,7 @@ function createApp() {
   api.use("/live-chat", liveChatRoutes); // operator inbox for the embeddable widget
   api.use("/public/feedback", publicFeedbackRoutes); // unauthenticated, token-gated
   api.use("/public/live-chat", publicLiveChatRoutes); // unauthenticated, token-gated (widget)
+  api.use("/public/service-desk", publicServiceDeskRoutes); // connector callbacks, token-gated
   api.use("/integrations/companies", integrationClientCompanyRoutes); // server-to-server, unauthenticated
   app.use("/api/v1", api);
 

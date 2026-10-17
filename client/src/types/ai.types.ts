@@ -23,6 +23,16 @@ export const AI_FEATURES = [
     label: "Feature request drafts",
     description: "Turns a rough idea into a clear feature request with acceptance criteria.",
   },
+  {
+    id: "service_request_intake",
+    label: "IT request suggestions",
+    description: "On the IT request portal, suggests the catalog item and fills in its form from a description.",
+  },
+  {
+    id: "service_request_triage",
+    label: "IT request triage",
+    description: "Gives approvers and IT an advisory summary, risks and missing information for a request.",
+  },
 ] as const
 
 export type AiFeature = (typeof AI_FEATURES)[number]["id"]

@@ -134,6 +134,7 @@ const PERMISSIONS = [
   // catalog item names you as an approver, checked in ServiceRequestService.
   { code: "servicerequest.create", category: "servicedesk", label: "Submit IT requests", description: "Ask IT for software, hardware, accounts and access, and follow your own requests." },
   { code: "servicedesk.work", category: "servicedesk", label: "Work the IT request queue", description: "See every submitted IT request in the organisation, and assign, progress, fulfil or cancel it." },
+  { code: "serviceautomation.manage", category: "servicedesk", label: "Set up IT-request automation", description: "Automation rules, automatic approval, and the connectors that fulfil requests in other systems.", warning: "Can make some requests approve themselves, and sends request data to external systems" },
   { code: "servicedesk.report", category: "servicedesk", label: "View IT request reports", description: "Service-level attainment, overdue approvals and fulfilment, and throughput by category and person." },
   { code: "servicedesk.manage", category: "servicedesk", label: "Set up IT requests", description: "Turn IT requests on or off, and manage the catalog: what people can ask for, its form, and who approves it.", warning: "Decides who approves each kind of request" },
 ];
@@ -288,13 +289,15 @@ const BUILTIN_ROLES = [
     key: ROLE_KEYS.EMPLOYEE,
     name: "Employee",
     description: "Asks IT for software, hardware, accounts and access, and follows their own requests. Sees nothing of testing.",
-    permissions: ["servicerequest.create"],
+    // ai.use: "Describe what you need" on the request portal.
+    permissions: ["servicerequest.create", "ai.use"],
   },
   {
     key: ROLE_KEYS.IT_AGENT,
     name: "IT service agent",
     description: "Works the organisation's IT request queue: picks up, progresses and fulfils requests, and sees how the queue is doing.",
-    permissions: ["servicerequest.create", "servicedesk.work", "servicedesk.report"],
+    // ai.use: the advisory AI triage on a request.
+    permissions: ["servicerequest.create", "servicedesk.work", "servicedesk.report", "ai.use"],
   },
 ];
 

@@ -86,6 +86,7 @@ export interface RequestListFilter {
   scope: "mine" | "queue" | "approvals";
   statuses?: readonly RequestStatus[];
   overdue?: boolean;
+  needsReview?: boolean;
   assignee?: "me" | "unassigned" | string;
   approvalState?: "pending" | "decided";
   requestNumber?: number | null;
@@ -135,6 +136,10 @@ const REQUEST_SELECT = `
   r."fulfilment_escalation_level" AS "fulfilmentEscalationLevel",
   r."info_requested_at" AS "infoRequestedAt", r."info_requested_from" AS "infoRequestedFrom",
   r."info_requested_by_id" AS "infoRequestedById",
+  r."needs_review" AS "needsReview", r."review_reason" AS "reviewReason", r."auto_approved" AS "autoApproved",
+  r."automation_status" AS "automationStatus", r."fulfilled_by" AS "fulfilledBy",
+  r."identity_verified_at" AS "identityVerifiedAt", r."identity_verified_by_id" AS "identityVerifiedById",
+  r."identity_method" AS "identityMethod", r."identity_note" AS "identityNote", r."ai_triage" AS "aiTriage",
   r."created_at" AS "createdAt", r."updated_at" AS "updatedAt",
   COALESCE(${name("rq")}, rq."email") AS "requesterName", rq."email" AS "requesterEmail",
   COALESCE(${name("rf")}, rf."email") AS "requestedForUserName", rf."email" AS "requestedForUserEmail",
@@ -311,6 +316,7 @@ export class ServiceRequestRepository {
       where.push(`r."status" = ANY($${params.length}::varchar[])`);
     }
     if (f.overdue) where.push(OVERDUE);
+    if (f.needsReview) where.push(`r."needs_review" = true AND r."status" NOT IN ('fulfilled', 'rejected', 'cancelled')`);
     if (f.assignee === "me") where.push(`r."assignee_id" = $2`);
     else if (f.assignee === "unassigned") where.push(`r."assignee_id" IS NULL`);
     else if (f.assignee) {
@@ -358,7 +364,8 @@ export class ServiceRequestRepository {
               COUNT(*) FILTER (WHERE r."status" = 'in_progress' AND r."assignee_id" = $2)::int AS "mine",
               COUNT(*) FILTER (WHERE r."status" = 'pending_approval')::int AS "awaitingApproval",
               COUNT(*) FILTER (WHERE r."status" = 'info_requested')::int AS "waitingOnRequester",
-              COUNT(*) FILTER (WHERE ${OVERDUE})::int AS "overdue"
+              COUNT(*) FILTER (WHERE ${OVERDUE})::int AS "overdue",
+              COUNT(*) FILTER (WHERE r."needs_review" AND r."status" NOT IN ('fulfilled', 'rejected', 'cancelled'))::int AS "needsReview"
          FROM "service_requests" r WHERE r."organization_id" = $1`,
       [organizationId, userId]
     );
@@ -420,6 +427,21 @@ export class ServiceRequestRepository {
       [requestId, userId]
     );
     return rows.length > 0;
+  }
+
+  // How earlier requests for the same item went — background for AI triage.
+  async pastForItem(organizationId: string, catalogItemId: string, excludeId: string, limit = 10) {
+    return AppDataSource.query(
+      `SELECT r."request_number" AS "requestNumber", r."title", r."status", r."resolution_note" AS "resolutionNote",
+              (SELECT ap."comment" FROM "service_request_approvals" ap
+                WHERE ap."request_id" = r."id" AND ap."decision" = 'rejected' LIMIT 1) AS "rejectionComment"
+         FROM "service_requests" r
+        WHERE r."organization_id" = $1 AND r."catalog_item_id" = $2 AND r."id" <> $3
+          AND r."status" IN ('approved', 'rejected', 'in_progress', 'fulfilled', 'cancelled')
+        ORDER BY r."status_updated_at" DESC NULLS LAST
+        LIMIT $4`,
+      [organizationId, catalogItemId, excludeId, limit]
+    ) as Promise<{ requestNumber: number; title: string; status: string; resolutionNote: string | null; rejectionComment: string | null }[]>;
   }
 
   // ── Escalation ─────────────────────────────────────────────────────────────

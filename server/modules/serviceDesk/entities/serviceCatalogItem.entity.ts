@@ -9,6 +9,7 @@
 import { EntitySchema } from "typeorm";
 import type { FormField } from "../domain/formSchema";
 import type { ApprovalMode, RiskLevel } from "../domain/lifecycle";
+import type { FulfilmentConfig, FulfilmentType } from "../domain/fulfilment";
 
 export interface ServiceCatalogItem {
   id: string;
@@ -26,6 +27,18 @@ export interface ServiceCatalogItem {
   // Service-level overrides, in hours. Null = the organisation's defaults.
   approvalHours: number | null;
   fulfilmentHours: number | null;
+  // ── Phase 3 ──────────────────────────────────────────────────────────────
+  // How it's fulfilled: by a person, by a webhook connector, or by sending
+  // the person to a self-service link (see domain/fulfilment.ts).
+  fulfilmentType: FulfilmentType;
+  fulfilmentConfig: FulfilmentConfig;
+  // An automation rule may approve it without a person — only ever when the
+  // item is also low-risk, not privileged and needs no identity check.
+  autoApprove: boolean;
+  // Privileged access (admin rights, production): never approved automatically.
+  isPrivileged: boolean;
+  // IT must record how they confirmed the person's identity before working it.
+  requiresIdentityCheck: boolean;
   // Instructions for whoever fulfils it — shown to IT only, never the requester.
   fulfilmentNotes: string | null;
   isActive: boolean;
@@ -55,6 +68,11 @@ const ServiceCatalogItem = new EntitySchema<ServiceCatalogItem>({
     riskLevel: { name: "risk_level", type: "varchar", length: 10, default: "low" },
     approvalHours: { name: "approval_hours", type: "int", nullable: true },
     fulfilmentHours: { name: "fulfilment_hours", type: "int", nullable: true },
+    fulfilmentType: { name: "fulfilment_type", type: "varchar", length: 10, default: "manual" },
+    fulfilmentConfig: { name: "fulfilment_config", type: "jsonb", default: () => "'{}'::jsonb" },
+    autoApprove: { name: "auto_approve", type: "boolean", default: false },
+    isPrivileged: { name: "is_privileged", type: "boolean", default: false },
+    requiresIdentityCheck: { name: "requires_identity_check", type: "boolean", default: false },
     fulfilmentNotes: { name: "fulfilment_notes", type: "text", nullable: true },
     isActive: { name: "is_active", type: "boolean", default: true },
     sortOrder: { name: "sort_order", type: "int", default: 0 },

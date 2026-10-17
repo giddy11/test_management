@@ -15,6 +15,7 @@ export interface DefaultItem {
   description: string;
   approvalMode: ApprovalMode;
   riskLevel: RiskLevel;
+  requiresIdentityCheck?: boolean;
   formSchema: FormField[];
 }
 
@@ -99,6 +100,8 @@ export const DEFAULT_CATALOG: DefaultCategory[] = [
         description: "IT will confirm who you are before resetting anything. A new password is never sent in this request.",
         approvalMode: "none",
         riskLevel: "low",
+        // BR 1.5: IT confirms who is asking before resetting anything.
+        requiresIdentityCheck: true,
         formSchema: [
           { key: "system", label: "Which account?", type: "select", required: true, options: ["Email / Microsoft 365", "Laptop sign-in", "VPN", "Business application", "Other"], helpText: null },
           { key: "locked_out", label: "The account is locked", type: "checkbox", required: false, helpText: null },

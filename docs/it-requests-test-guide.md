@@ -1,8 +1,8 @@
 # IT Requests: user stories and test guide
 
-**Covers:** Phase 1 (catalog and requests), Phase 1b (attachments) and Phase 2 (approval engine,
-information requests, service levels, escalation, reports).
-**Not covered:** Phase 3 automation (story 2), which isn't built yet.
+**Covers:** Phase 1 (catalog and requests), Phase 1b (attachments), Phase 2 (approval engine,
+information requests, service levels, escalation, reports) and Phase 3 (automation rules,
+automatic approval, connectors, identity checks, self-service and AI). Phase 3 is in section 9b.
 **Design reference:** [it-service-requests-plan.md](it-service-requests-plan.md)
 
 Each story has the **user story**, then **checks** to tick as you test. ✅ checks are things that
@@ -22,7 +22,9 @@ cd server && npm run migration:run
 cd server && npx jest modules/serviceDesk shared/access/tests/roleMatrix.spec.js
 ```
 
-- [ ] All three migrations ran: `1783530000000-AddServiceDesk`, `1783540000000-AddServiceDeskApprovalsAndAttachments` and `1783550000000-AddServiceCatalogSeededFlag`
+- [ ] All four migrations ran: `1783530000000-AddServiceDesk`, `1783540000000-AddServiceDeskApprovalsAndAttachments`, `1783550000000-AddServiceCatalogSeededFlag` and `1783560000000-AddServiceDeskAutomation`
+- [ ] `serviceDeskAutomation.spec.ts` passes
+- [ ] `AI_KEYS_SECRET` is set on the server. Connectors can't be added without it, and AI features need an AI key under Settings → AI
 - [ ] `serviceDesk.spec.ts` passes
 - [ ] `roleMatrix.spec.js` passes
 - [ ] The full `npm test` passes
@@ -37,6 +39,7 @@ names are used throughout the guide.
 | **Admin** | Organisation administrator | Setup, fallback approver, reports |
 | **Agent** | IT service agent | IT queue, fulfilment, reports |
 | **Agent 2** | IT service agent | Reassigning between agents |
+| **Setup-only** | A custom role with only *Set up IT requests* | Confirms automation needs its own permission (US-40) |
 | **Emma** (employee) | Employee | Requester who sees nothing of testing |
 | **Ben** (employee) | Employee | Colleague: "requested for", stand-in |
 | **Mary** (manager) | Employee | Emma's line manager; approver |
@@ -420,6 +423,126 @@ that needs approval, wait just over an hour, then open the app (opening it trigg
 
 ---
 
+## 9b. Automation, connectors and AI (Phase 3, story 2)
+
+**Rule of thumb for this section:** rules decide, AI advises, and nothing skips a required approval.
+
+**Local test connector.** Start the fake connector in a second terminal:
+```bash
+cd server && node scripts/fakeConnector.js
+```
+It listens on `http://localhost:4010/hook` and prints every delivery it receives. Set `MODE` to change
+how it answers: `succeed`, `fail`, `accept` (answers 202, then calls back after `DELAY` ms), `error`
+(answers 503) or `slow`. Set `SECRET` to the connector's signing secret so it checks signatures.
+
+### US-40 Who can set up automation
+- [ ] ✅ Admin sees **Catalog setup → Automation**, with **Rules**, **Connectors** and **Run log**
+- [ ] 🚫 A custom role with only *Set up IT requests* (no automation permission) sees no Automation tab, and can't tick "Automation rules may approve it" or choose a connector on an item (*"…need the 'Set up IT-request automation' permission"*)
+- [ ] ✅ **Roles & access** lists **Set up IT-request automation** with its warning
+
+### US-41 Automation rules
+**As an** IT administrator, **I want** rules that shape requests as they come in, **so that** routine work routes itself.
+- [ ] ✅ **New rule:** a name, an order, conditions (category, item, priority, risk, new starter, answer equals, text mentions) and at least one action
+- [ ] 🚫 A rule with no action is refused
+- [ ] ✅ **Try it on the last 50 requests** shows which requests would match, and for auto-approve rules whether each *would* auto-approve or why not
+- [ ] ✅ The list reads as a sentence: *"When … then …"*. **Switch off**, **Edit** and **Delete** work
+- [ ] ✅ Activity logs rule changes, at **critical** level for a rule that approves automatically
+
+### US-42 What rules do at submit
+Create the rule *"Cloud → Agent"*: when the category is Cloud resources, set priority **High**, assign
+to **Agent**, and add the internal note "Check the budget code".
+- [ ] ✅ Emma submits a cloud request. Once it's approved it reaches IT already **High** priority and assigned to **Agent**
+- [ ] ✅ IT sees the internal note *"Automation — Cloud → Agent: Check the budget code"*. Emma doesn't
+- [ ] ✅ The request's **Automation** card (IT only) shows *Rule "Cloud → Agent" applied*
+- [ ] ✅ Rules apply in order: with two rules setting priority, the higher **order** number wins
+- [ ] ✅ A rule that would assign to someone who isn't an IT agent is refused when saved
+
+### US-43 Automatic approval
+Make the "Access card" item **low** risk and tick **Automation rules may approve it**. Create the rule
+*"Cards auto-approve"*: when the item is Access card, approve automatically.
+- [ ] ✅ Emma submits an access-card request. It goes straight to **Approved** with an *"Approved automatically"* badge. Emma is told; IT gets it in **Ready**
+- [ ] ✅ The history notes *Approved automatically by the rule "Cards auto-approve"*, and Activity logs it (warning)
+- [ ] 🚫 Set the item to **medium** risk and submit again: it goes to its approvers. The Automation card says *Not approved automatically: only low-risk items…*
+- [ ] 🚫 Tick **Privileged access**: refused (*privileged access always needs a person*)
+- [ ] 🚫 Tick **Requires an identity check**: refused
+- [ ] 🚫 Untick **Automation rules may approve it** on the item: refused (*the catalog item doesn't allow automatic approval*)
+- [ ] 🚫 Add another rule that flags these requests for review: refused (*a rule flagged it for review*)
+
+### US-44 Flagged for review (AC 2.6)
+Create the rule *"Prod needs a look"*: when the text mentions "production", flag for review with the reason "Production access".
+- [ ] ✅ A matching request shows an orange **Needs review** banner. IT sees the reason; Emma sees only *"IT is taking a closer look"*
+- [ ] ✅ IT queue → **Needs review** (with a count) lists it, and the row badge shows the reason on hover
+- [ ] ✅ **Mark as reviewed** clears it, and Activity logs "Reviewed … and cleared the flag"
+- [ ] 🚫 A flagged request is never approved or fulfilled automatically while flagged
+
+### US-45 Identity check (BR 1.5 / 2.5)
+- [ ] ✅ The starter **Password reset** item already has **Requires an identity check** ticked
+- [ ] ✅ On a password-reset request, IT sees the **Identity check** card. **Start work** is disabled with *"Record the identity check first"*
+- [ ] 🚫 Calling start or fulfil directly without it: *"Record how you confirmed the requester's identity first"*
+- [ ] ✅ Choose a method (e.g. "Call-back to their known phone number"), add a note, then **Record identity check**. Work can now start, and the card shows who confirmed it, how, and when
+- [ ] ✅ Emma never sees the method or the note. Activity logs it at warning level
+
+### US-46 Connectors
+- [ ] ✅ **New connector:** a name, plus the address `http://localhost:4010/hook` (allowed in development). The **signing secret is shown once**; copy it and restart the fake connector with `SECRET=…`
+- [ ] 🚫 In production, `http://…`, private-network addresses and addresses with a user name or password are refused
+- [ ] ✅ **Send a test:** *"It answered 200 in N ms"*, and the fake connector prints `event=ping` with `signature: valid`
+- [ ] ✅ **Replace secret:** the old one stops working at once (the fake connector shows `INVALID` until you restart it with the new secret)
+- [ ] ✅ **Switch off** / **Switch on** work. The card shows "last worked" and "last failed" with the reason
+- [ ] 🚫 Deleting a connector used by an item is refused
+- [ ] ✅ The address is stored encrypted. The card shows only the origin and path, never a query string
+
+### US-47 Automatic fulfilment: immediate answer
+Point **Software licence or access** at the connector (How it's fulfilled → **Automatically, by a connector**). Run the fake connector with `MODE=succeed`.
+- [ ] ✅ Submit and approve a software request. Within seconds it moves **In progress → Fulfilled**, with *"Done automatically by …: Fake connector: licence assigned"*. Emma is notified
+- [ ] ✅ The fake connector printed the request's reference, title, item and answers, with `signature: valid`
+- [ ] ✅ The Automation card shows *Sent to …* as **Succeeded**. Reports → **Fulfilled automatically** goes up
+
+### US-48 Automatic fulfilment: callback
+Run the fake connector with `MODE=accept DELAY=10000`.
+- [ ] ✅ After approval, the request is **In progress** and the Automation card shows **Waiting for result**
+- [ ] ✅ About 10 seconds later the connector calls back and the request becomes **Fulfilled**
+- [ ] ✅ Calling the same callback URL again is harmless (`"recorded": false`)
+- [ ] 🚫 A callback with a wrong token gets 404 (or 422 if it's not 64 hex characters) and changes nothing
+- [ ] ✅ With `RESULT=failed`, the request is flagged **Automation failed** (see US-49)
+
+### US-49 Failures, retries and IT stepping in (AC 2.10–2.11)
+- [ ] ✅ `MODE=fail`: the request stays **In progress**, gets **Needs review / Automation failed**, an internal note gives the reason, and IT agents get *"Automation failed"*
+- [ ] ✅ `MODE=error`: the Automation card shows **Retrying** with the next attempt time. Retries come after about 1, 5 and 15 minutes (the sweeper runs every 5 minutes, or when someone opens the app). After the last one it fails as above
+- [ ] ✅ `MODE=accept` with the fake connector stopped before it calls back: after 24 hours the run fails with *"No result reported within 24 hours"* (optional: shorten this by editing `CALLBACK_TIMEOUT_HOURS`)
+- [ ] ✅ **Retry** (on a failed request) sends it again as a new run
+- [ ] ✅ **Handle it manually** stops automation: pending retries become *Stepped aside — taken over by …*, the request is assigned to you, and you finish it with **Mark fulfilled** as usual
+- [ ] 🚫 **Mark fulfilled** while the connector is working: *"Automation is working on this request — take it over first"*
+- [ ] ✅ Turning the connector **off** before a request reaches IT: the run is *Stepped aside* and the request is flagged for review with the reason
+
+### US-50 Self-service link
+Set **Password reset or account unlock** to *By the requester, through a self-service link*, with your
+identity provider's reset page and the button text "Reset my password".
+- [ ] ✅ Opening the item shows a green card, *"You can do this yourself"*, with the button. The form is hidden
+- [ ] ✅ Clicking the button opens the link in a new tab, and a request is recorded as **Fulfilled** (*Done through self-service*) in My requests → Closed
+- [ ] ✅ **I still need IT** reveals the normal form
+- [ ] ✅ Reports → **Self-service** counts it
+
+### US-51 AI: describe what you need
+Needs an AI key (Settings → AI) and `ai.use` (Employees and IT agents have it).
+- [ ] ✅ The portal shows **Not sure where to start?** Type: *"I'm starting on the design team next week and need Figma and Illustrator"*
+- [ ] ✅ **Suggest a request** shows a catalog item, why it fits, and what else you'll need to say
+- [ ] ✅ **Continue with this** opens the item's form with the title, answers it could tell, priority and your description filled in, plus a banner: *"Filled in from your description. Check every answer"*
+- [ ] ✅ Nothing is submitted until you press Submit
+- [ ] ✅ A description that matches nothing says so, and points to browsing or "Something else"
+- [ ] 🚫 Someone without AI assistance doesn't see the box
+
+### US-52 AI triage (advisory)
+- [ ] ✅ An approver, or IT, sees **AI triage → Get AI triage** on a request
+- [ ] ✅ It shows a summary, a suggestion ("Leans towards approving", …) with its reason, risks to weigh, questions to ask, and possibly a suggested priority. Each is labelled *"Advice only — it never approves, rejects or changes anything"*
+- [ ] ✅ It's saved on the request (the next approver sees it) and can be refreshed. Emma (the requester) never sees it
+- [ ] 🚫 Getting a triage changes no approval, status or priority. Activity logs "Asked AI to triage…"
+
+### US-53 Run log and reports (AC 2.9, 2.12)
+- [ ] ✅ **Run log** lists every automated step (rule applied, automatic approval or refusal, connector delivery, self-service, AI triage), filterable by kind and outcome, each linking to its request
+- [ ] ✅ **Reports → Automation**: approved automatically (and how many were left to people), fulfilled automatically versus by people, self-service, connector success rate, failures and in-flight runs, needs review now, and failed automation still open
+
+---
+
 ## 10. Notifications, audit and security
 
 ### US-37 Notifications
@@ -481,7 +604,20 @@ Check **Activity** for these entries after your tests:
 | Story 3 TN2 Sequential or parallel approvals | US-20, US-21 |
 | Story 3 TN3 Timestamps | US-13 (History), US-36 |
 | Story 3 TN4 Dashboards and reports | US-36 |
-| Story 2 (automation) | Not built yet (Phase 3) |
+| Story 2 AC1–3 Analyse against rules, find routine requests, route to approvers | US-41, US-42, US-20 |
+| Story 2 AC4 Automatic approval only where authorised | US-43 |
+| Story 2 AC5 Automatic fulfilment of eligible requests | US-47, US-48, US-50 |
+| Story 2 AC6 Flag for information, review or more approval | US-44, US-25 |
+| Story 2 AC7 Block automation until approvals, identity and checks are satisfied | US-43, US-45, US-49 |
+| Story 2 AC8 Notify of automatic outcomes | US-43, US-47, US-49 |
+| Story 2 AC9 Record automated actions, rules, decisions, results, errors | US-53, US-42 |
+| Story 2 AC10 IT can review and intervene | US-44, US-49 |
+| Story 2 AC11 Escalate failed automation | US-49 |
+| Story 2 AC12 Automation reports | US-53 |
+| Story 2 BR1 AI never overrides approvals | US-52 |
+| Story 2 BR5 Identity verification for password resets | US-45, US-50 |
+| Story 2 TN1 AI-assisted classification and routing | US-51, US-52 |
+| Story 2 TN4 Secured connectors | US-46, US-48 |
 
 ---
 

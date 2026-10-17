@@ -93,6 +93,7 @@ export class ServiceDeskRepository {
             approvalMode: item.approvalMode,
             approverIds: [],
             riskLevel: item.riskLevel,
+            requiresIdentityCheck: item.requiresIdentityCheck ?? false,
             isActive: true,
             sortOrder: j,
             createdById,

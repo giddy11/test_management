@@ -176,7 +176,7 @@ describe("AiCreditService — prices and history", () => {
     const { service, repo } = setup();
     const result = await service.updatePrices(admin, { feature_request_draft: 2, bug_report_draft: 0, test_case_draft: 4 } as any);
     expect(repo.prices).toEqual({ feature_request_draft: 2 });
-    expect(result).toEqual({ bug_report_draft: 0, feature_request_draft: 2 });
+    expect(result).toEqual({ bug_report_draft: 0, feature_request_draft: 2, service_request_intake: 0, service_request_triage: 0 });
   });
 
   it("hides history without touching the balance, with a dry-run count", async () => {

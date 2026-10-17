@@ -8,6 +8,8 @@ import { formSchemaSchema } from "../domain/formSchema";
 import { APPROVAL_MODES, REQUEST_PRIORITIES, REQUEST_STATUSES, RISK_LEVELS } from "../domain/lifecycle";
 import { policyStepsSchema } from "../domain/approvalPlan";
 import { serviceLevelsSchema } from "../domain/serviceLevels";
+import { FULFILMENT_TYPES, callbackBodySchema } from "../domain/fulfilment";
+import { ruleActionsSchema, ruleConditionsSchema } from "../domain/automationRules";
 
 // An item's own service level, in hours; null = the organisation's default.
 const hoursOverride = z.number().int().min(1).max(24 * 90).nullable();
@@ -61,6 +63,15 @@ const itemFields = {
   riskLevel: z.enum(RISK_LEVELS),
   approvalHours: hoursOverride,
   fulfilmentHours: hoursOverride,
+  fulfilmentType: z.enum(FULFILMENT_TYPES),
+  fulfilmentConfig: z.object({
+    endpointId: id.nullish(),
+    url: z.string().trim().max(500).nullish(),
+    label: z.string().trim().max(80).nullish(),
+  }),
+  autoApprove: z.boolean(),
+  isPrivileged: z.boolean(),
+  requiresIdentityCheck: z.boolean(),
 };
 
 export const createItemSchema = z.object({
@@ -76,6 +87,11 @@ export const createItemSchema = z.object({
       riskLevel: itemFields.riskLevel.default("low"),
       approvalHours: itemFields.approvalHours.default(null),
       fulfilmentHours: itemFields.fulfilmentHours.default(null),
+      fulfilmentType: itemFields.fulfilmentType.default("manual"),
+      fulfilmentConfig: itemFields.fulfilmentConfig.default({}),
+      autoApprove: itemFields.autoApprove.default(false),
+      isPrivileged: itemFields.isPrivileged.default(false),
+      requiresIdentityCheck: itemFields.requiresIdentityCheck.default(false),
     })
     .refine((b) => b.approvalMode !== "policy" || !!b.approvalPolicyId, {
       message: "Pick the approval policy this item follows",
@@ -100,6 +116,11 @@ export const updateItemSchema = z.object({
       riskLevel: itemFields.riskLevel.optional(),
       approvalHours: itemFields.approvalHours.optional(),
       fulfilmentHours: itemFields.fulfilmentHours.optional(),
+      fulfilmentType: itemFields.fulfilmentType.optional(),
+      fulfilmentConfig: itemFields.fulfilmentConfig.optional(),
+      autoApprove: itemFields.autoApprove.optional(),
+      isPrivileged: itemFields.isPrivileged.optional(),
+      requiresIdentityCheck: itemFields.requiresIdentityCheck.optional(),
     })
     .refine((b) => Object.keys(b).length > 0, { message: "Nothing to update" }),
 });
@@ -157,7 +178,8 @@ export const listRequestsSchema = z.object({
     status: z.enum(REQUEST_STATUSES).optional(),
     // "ready" = waiting for IT to pick up (submitted or approved).
     // overdue = past its approval or fulfilment service level right now.
-    view: z.enum(["ready", "open", "closed", "overdue"]).optional(),
+    // review = flagged for review (by a rule or a failed automation).
+    view: z.enum(["ready", "open", "closed", "overdue", "review"]).optional(),
     assignee: z.union([z.enum(["me", "unassigned"]), id]).optional(),
     search: z.string().trim().min(1).max(120).optional(),
     page,
@@ -291,7 +313,88 @@ export const reportSchema = z.object({
     .refine((q) => !q.from || !q.to || q.from <= q.to, { message: "'from' must be on or before 'to'", path: ["from"] }),
 });
 
-export type GroupBody = Partial<z.infer<typeof groupFields>>;
+// ── Automation (Phase 3) ─────────────────────────────────────────────────────
+const ruleFields = {
+  name: z.string().trim().min(1).max(80),
+  description: optionalText(300),
+  sortOrder: z.number().int().min(0).max(10000),
+  isActive: z.boolean(),
+  conditions: ruleConditionsSchema,
+  actions: ruleActionsSchema,
+};
+
+export const createRuleSchema = z.object({
+  body: z.object({
+    ...ruleFields,
+    sortOrder: ruleFields.sortOrder.default(100),
+    isActive: ruleFields.isActive.default(true),
+  }),
+});
+
+export const updateRuleSchema = z.object({
+  params: idParams,
+  body: z
+    .object({
+      name: ruleFields.name.optional(),
+      description: ruleFields.description.optional(),
+      sortOrder: ruleFields.sortOrder.optional(),
+      isActive: ruleFields.isActive.optional(),
+      conditions: ruleFields.conditions.optional(),
+      actions: ruleFields.actions.optional(),
+    })
+    .refine((b) => Object.keys(b).length > 0, { message: "Nothing to update" }),
+});
+
+export const dryRunSchema = z.object({
+  body: z.object({ conditions: ruleConditionsSchema, actions: ruleActionsSchema }),
+});
+
+export const createEndpointSchema = z.object({
+  body: z.object({ name: z.string().trim().min(1).max(80), url: z.string().trim().min(1).max(2000) }),
+});
+
+export const updateEndpointSchema = z.object({
+  params: idParams,
+  body: z
+    .object({
+      name: z.string().trim().min(1).max(80).optional(),
+      url: z.string().trim().min(1).max(2000).optional(),
+      isActive: z.boolean().optional(),
+    })
+    .refine((b) => Object.keys(b).length > 0, { message: "Nothing to update" }),
+});
+
+export const runsSchema = z.object({
+  query: z.object({
+    status: z.enum(["succeeded", "failed", "skipped", "pending", "retrying"]).optional(),
+    kind: z.enum(["rule", "auto_approve", "webhook", "deflect", "ai_triage"]).optional(),
+    page,
+    limit,
+  }),
+});
+
+export const identityCheckSchema = z.object({
+  params: idParams,
+  body: z.object({
+    method: z.string().trim().min(1, "Say how you confirmed who they are").max(60),
+    note: optionalText(1000),
+  }),
+});
+
+export const deflectSchema = z.object({ params: idParams });
+
+// The connector's callback: /public/service-desk/callbacks/:runId/:token
+export const callbackSchema = z.object({
+  params: z.object({ runId: id, token: z.string().regex(/^[a-f0-9]{64}$/, "Invalid callback") }),
+  body: callbackBodySchema,
+});
+
+// ── AI (Phase 3) ─────────────────────────────────────────────────────────────
+export const intakeSchema = z.object({
+  body: z.object({ description: z.string().trim().min(10, "Describe what you need in a sentence or two").max(3000) }),
+});
+
+export type GroupBody =Partial<z.infer<typeof groupFields>>;
 export type PolicyBody = { name?: string; description?: string | null; steps?: z.infer<typeof policyStepsSchema> };
 export type DelegationBody = z.infer<typeof delegationSchema>["body"];
 export type ReportQuery = z.infer<typeof reportSchema>["query"];

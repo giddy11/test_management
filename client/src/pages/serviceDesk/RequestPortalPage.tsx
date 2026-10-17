@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { CategoryIcon, ModuleOffNotice } from "@/components/serviceDesk/RequestBits"
+import { AiIntakeBox } from "@/components/serviceDesk/AiIntakeBox"
 import { usePortalCatalog, useServiceDeskSettings } from "@/hooks/useServiceDesk"
 import { useAuth } from "@/contexts/AuthContext"
 import { can } from "@/lib/can"
@@ -69,6 +70,8 @@ export default function RequestPortalPage() {
           </div>
 
           {isLoading && <p className="text-sm text-muted-foreground">Loading the catalog…</p>}
+
+          {!term && !category && can(permissions, "ai.use") && <AiIntakeBox />}
 
           {term ? (
             <section className="space-y-2">

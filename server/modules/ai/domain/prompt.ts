@@ -22,6 +22,10 @@ export const PROMPT_TAGS = [
   "test_case",
   "run_result",
   "not_visible_to_you",
+  // IT requests
+  "catalog",
+  "request",
+  "past_requests",
 ] as const;
 
 const TAG_PATTERN = new RegExp(`<\\/?(${PROMPT_TAGS.join("|")})\\b`, "gi");

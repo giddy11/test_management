@@ -1,6 +1,17 @@
 // endpoints/serviceDesk.endpoints.ts — IT requests (/api/v1/service-desk).
 import { uploadCall, wrapCall } from "@/transport/http"
 import type {
+  AiTriage,
+  AutomationRule,
+  AutomationRunRow,
+  DryRunResult,
+  IntakeSuggestion,
+  RuleActions,
+  RuleConditions,
+  RulePayload,
+  RunKind,
+  RunStatus,
+  WebhookEndpoint,
   AdminCategory,
   AdminItem,
   ApprovalPolicy,
@@ -106,7 +117,43 @@ export const ServiceDeskEndpoints = {
 
   // Reports
   reports: (range: { from?: string; to?: string }) => wrapCall<ServiceDeskReport>("GET", `${BASE}/reports`, body(range)),
+
+  // Automation setup
+  rules: () => wrapCall<AutomationRule[]>("GET", `${BASE}/automation/rules`),
+  createRule: (payload: RulePayload) => wrapCall<AutomationRule>("POST", `${BASE}/automation/rules`, body(payload)),
+  updateRule: (id: string, payload: RulePayload) => wrapCall<AutomationRule>("PATCH", `${BASE}/automation/rules/${id}`, body(payload)),
+  deleteRule: (id: string) => wrapCall<null>("DELETE", `${BASE}/automation/rules/${id}`),
+  dryRun: (conditions: RuleConditions, actions: RuleActions) =>
+    wrapCall<DryRunResult>("POST", `${BASE}/automation/rules/dry-run`, { conditions, actions }),
+  endpoints: () => wrapCall<WebhookEndpoint[]>("GET", `${BASE}/automation/endpoints`),
+  createEndpoint: (payload: { name: string; url: string }) =>
+    wrapCall<{ endpoint: WebhookEndpoint; secret: string }>("POST", `${BASE}/automation/endpoints`, payload),
+  updateEndpoint: (id: string, payload: { name?: string; url?: string; isActive?: boolean }) =>
+    wrapCall<WebhookEndpoint>("PATCH", `${BASE}/automation/endpoints/${id}`, payload),
+  rotateEndpointSecret: (id: string) => wrapCall<{ secret: string }>("POST", `${BASE}/automation/endpoints/${id}/rotate-secret`, {}),
+  testEndpoint: (id: string) =>
+    wrapCall<{ ok: boolean; status: number; error: string | null; ms: number }>("POST", `${BASE}/automation/endpoints/${id}/test`, {}, { timeoutMs: 30_000 }),
+  deleteEndpoint: (id: string) => wrapCall<null>("DELETE", `${BASE}/automation/endpoints/${id}`),
+  runs: (params: { status?: RunStatus; kind?: RunKind; page?: number }) =>
+    wrapCall<AutomationRunRow[]>("GET", `${BASE}/automation/runs`, body({ limit: 30, ...params })),
+
+  // IT interventions
+  runAutomation: (id: string) => wrapCall<ServiceRequest>("POST", `${BASE}/requests/${id}/run-automation`, {}, { timeoutMs: 30_000 }),
+  takeOver: (id: string) => wrapCall<ServiceRequest>("POST", `${BASE}/requests/${id}/take-over`, {}),
+  clearReview: (id: string) => wrapCall<ServiceRequest>("POST", `${BASE}/requests/${id}/clear-review`, {}, { timeoutMs: 30_000 }),
+  recordIdentityCheck: (id: string, method: string, note: string | null) =>
+    wrapCall<ServiceRequest>("POST", `${BASE}/requests/${id}/identity-check`, { method, note }, { timeoutMs: 30_000 }),
+
+  // Self-service
+  selfService: (itemId: string) => wrapCall<{ url: string }>("POST", `${BASE}/catalog/items/${itemId}/self-service`, {}),
+
+  // AI — the model can take a while (the server allows 90 s plus a retry).
+  aiIntake: (description: string) =>
+    wrapCall<IntakeSuggestion>("POST", `${BASE}/ai/intake`, { description }, { timeoutMs: AI_TIMEOUT }),
+  aiTriage: (id: string) => wrapCall<AiTriage>("POST", `${BASE}/requests/${id}/ai-triage`, {}, { timeoutMs: AI_TIMEOUT }),
 }
+
+const AI_TIMEOUT = 200_000
 
 export interface GroupPayload {
   name?: string

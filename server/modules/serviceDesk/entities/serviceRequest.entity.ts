@@ -8,6 +8,7 @@
 import { EntitySchema } from "typeorm";
 import type { FormField, FormValues } from "../domain/formSchema";
 import type { ApprovalMode, RequestPriority, RequestStatus, RiskLevel } from "../domain/lifecycle";
+import type { FulfilmentType } from "../domain/fulfilment";
 
 export interface ItemSnapshot {
   itemId: string;
@@ -22,6 +23,25 @@ export interface ItemSnapshot {
   approvalPolicyName?: string | null;
   approvalHours?: number | null;
   fulfilmentHours?: number | null;
+  // Phase 3 — how it's fulfilled, frozen at submit with everything else.
+  fulfilmentType?: FulfilmentType;
+  endpointId?: string | null;
+  requiresIdentityCheck?: boolean;
+  isPrivileged?: boolean;
+}
+
+// The AI triage shown to approvers and IT — advisory, never acted on.
+export interface AiTriage {
+  summary: string;
+  riskNotes: string[];
+  missingInfo: string[];
+  suggestedPriority: string | null;
+  suggestion: "approve" | "reject" | "ask_for_info" | "no_view";
+  suggestionReason: string;
+  generatedAt: string;
+  generatedById: string;
+  generatedByName: string;
+  model: string;
 }
 
 export interface ServiceRequest {
@@ -65,10 +85,26 @@ export interface ServiceRequest {
   infoRequestedAt: Date | null;
   infoRequestedFrom: RequestStatus | null;
   infoRequestedById: string | null;
+  // ── Phase 3: automation ────────────────────────────────────────────────────
+  // Flagged by a rule or a failed automation; blocks automatic approval and
+  // fulfilment until IT clears it.
+  needsReview: boolean;
+  reviewReason: string | null;
+  autoApproved: boolean;
+  // Webhook fulfilment: running | succeeded | failed | manual (IT took over).
+  automationStatus: "running" | "succeeded" | "failed" | "manual" | null;
+  // person | automation | self_service — set when fulfilled.
+  fulfilledBy: "person" | "automation" | "self_service" | null;
+  identityVerifiedAt: Date | null;
+  identityVerifiedById: string | null;
+  identityMethod: string | null;
+  identityNote: string | null;
+  aiTriage: AiTriage | null;
   createdAt: Date;
   updatedAt: Date;
   catalogItem?: object;
   infoRequestedBy?: object;
+  identityVerifiedBy?: object;
   requester?: object;
   requestedFor?: object;
   assignee?: object;
@@ -112,6 +148,16 @@ const ServiceRequest = new EntitySchema<ServiceRequest>({
     infoRequestedAt: { name: "info_requested_at", type: "timestamptz", nullable: true },
     infoRequestedFrom: { name: "info_requested_from", type: "varchar", length: 20, nullable: true },
     infoRequestedById: { name: "info_requested_by_id", type: "uuid", nullable: true },
+    needsReview: { name: "needs_review", type: "boolean", default: false },
+    reviewReason: { name: "review_reason", type: "varchar", length: 500, nullable: true },
+    autoApproved: { name: "auto_approved", type: "boolean", default: false },
+    automationStatus: { name: "automation_status", type: "varchar", length: 12, nullable: true },
+    fulfilledBy: { name: "fulfilled_by", type: "varchar", length: 12, nullable: true },
+    identityVerifiedAt: { name: "identity_verified_at", type: "timestamptz", nullable: true },
+    identityVerifiedById: { name: "identity_verified_by_id", type: "uuid", nullable: true },
+    identityMethod: { name: "identity_method", type: "varchar", length: 60, nullable: true },
+    identityNote: { name: "identity_note", type: "text", nullable: true },
+    aiTriage: { name: "ai_triage", type: "jsonb", nullable: true },
     createdAt: { name: "created_at", type: "timestamptz", createDate: true },
     updatedAt: { name: "updated_at", type: "timestamptz", updateDate: true },
   },
@@ -121,6 +167,7 @@ const ServiceRequest = new EntitySchema<ServiceRequest>({
     requestedFor: { type: "many-to-one", target: "User", joinColumn: { name: "requested_for_id" }, nullable: true, onDelete: "SET NULL" },
     assignee: { type: "many-to-one", target: "User", joinColumn: { name: "assignee_id" }, nullable: true, onDelete: "SET NULL" },
     infoRequestedBy: { type: "many-to-one", target: "User", joinColumn: { name: "info_requested_by_id" }, nullable: true, onDelete: "SET NULL" },
+    identityVerifiedBy: { type: "many-to-one", target: "User", joinColumn: { name: "identity_verified_by_id" }, nullable: true, onDelete: "SET NULL" },
   },
   indices: [
     { name: "idx_service_requests_org_status", columns: ["organizationId", "status", "createdAt"] },
@@ -128,6 +175,7 @@ const ServiceRequest = new EntitySchema<ServiceRequest>({
     { name: "idx_service_requests_requested_for", columns: ["requestedForId"] },
     { name: "idx_service_requests_assignee", columns: ["assigneeId"] },
     { name: "idx_service_requests_approval_due", columns: ["approvalDueAt"], where: `"status" = 'pending_approval'` },
+    { name: "idx_service_requests_needs_review", columns: ["organizationId"], where: `"needs_review" = true` },
     {
       name: "idx_service_requests_fulfilment_due",
       columns: ["fulfilmentDueAt"],
