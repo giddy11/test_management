@@ -1,5 +1,6 @@
+import { useEffect, useState } from "react"
 import { NavLink } from "react-router-dom"
-import { ChevronsUpDown, LogOut, FlaskConical, Eye } from "lucide-react"
+import { ChevronDown, ChevronsDownUp, ChevronsUpDown, LogOut, FlaskConical, Eye } from "lucide-react"
 import {
   Sidebar,
   SidebarContent,
@@ -12,6 +13,7 @@ import {
   SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarSeparator,
   useSidebar,
 } from "@/components/ui/sidebar"
 import {
@@ -37,11 +39,46 @@ import {
 } from "@/components/layout/nav"
 import { canAny } from "@/lib/can"
 import { useServiceDeskCounts, useServiceDeskSettings } from "@/hooks/useServiceDesk"
+import { TOUR_EXPAND_NAV_EVENT } from "@/lib/tourGuides"
+
+// Which sections the person has folded away, kept per browser.
+const COLLAPSED_KEY = "tm_nav_collapsed"
+
+function loadCollapsed(): string[] {
+  try {
+    const saved = JSON.parse(localStorage.getItem(COLLAPSED_KEY) ?? "[]")
+    return Array.isArray(saved) ? saved.filter((s): s is string => typeof s === "string") : []
+  } catch {
+    return []
+  }
+}
+
+function saveCollapsed(labels: string[]) {
+  try {
+    localStorage.setItem(COLLAPSED_KEY, JSON.stringify(labels))
+  } catch {
+    // Private mode or blocked storage: the sections still fold, just not across visits.
+  }
+}
 
 export function AppSidebar() {
   const { user, realUser, permissions, isPreviewing, startPreview, exitPreview } = useAuth()
   const logout = useLogout()
-  const { isMobile, setOpenMobile } = useSidebar()
+  const { isMobile, setOpenMobile, state } = useSidebar()
+  const [collapsed, setCollapsedState] = useState<string[]>(loadCollapsed)
+  const setCollapsed = (labels: string[]) => {
+    setCollapsedState(labels)
+    saveCollapsed(labels)
+  }
+  // Tours point at nav items, which a folded section would hide.
+  useEffect(() => {
+    const expandAll = () => {
+      setCollapsedState([])
+      saveCollapsed([])
+    }
+    window.addEventListener(TOUR_EXPAND_NAV_EVENT, expandAll)
+    return () => window.removeEventListener(TOUR_EXPAND_NAV_EVENT, expandAll)
+  }, [])
   // IT requests is a separate module: its section depends on the permissions
   // AND on the organisation having it turned on.
   const inItRequests = canAny(permissions, IT_REQUEST_PERMISSIONS)
@@ -77,6 +114,13 @@ export function AppSidebar() {
     { label: "Workspace", items: workspaceNavFor(permissions) },
   ].filter((g) => g.items.length > 0)
 
+  // In icon mode the labels are hidden, so folding a section would only hide icons.
+  const iconMode = state === "collapsed" && !isMobile
+  const isOpen = (label: string) => iconMode || !collapsed.includes(label)
+  const allFolded = groups.every((g) => collapsed.includes(g.label))
+  const toggleGroup = (label: string) =>
+    setCollapsed(collapsed.includes(label) ? collapsed.filter((l) => l !== label) : [...collapsed, label])
+
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader>
@@ -97,67 +141,103 @@ export function AppSidebar() {
         </SidebarMenu>
       </SidebarHeader>
 
-      <SidebarContent>
-        {groups.map((group) => (
-          <SidebarGroup key={group.label}>
-            <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {group.items.map((item) => {
-                  const badge = badgeFor(item)
-                  return (
-                    <SidebarMenuItem key={item.to}>
-                      <NavLink to={item.to} end={item.end} data-tour={item.tourId} data-cy={`nav-${item.to.slice(1)}`} onClick={closeOnMobile}>
-                        {({ isActive }) => (
-                          <SidebarMenuButton tooltip={item.title} isActive={isActive} className={cn(badge > 0 && "pr-8")}>
-                            <item.icon />
-                            <span>{item.title}</span>
-                          </SidebarMenuButton>
-                        )}
-                      </NavLink>
-                      {/* The button sits inside the link, so the badge's own "beside the button"
-                          positioning never matches — centre it on this row explicitly. */}
-                      {badge > 0 && (
-                        <SidebarMenuBadge className="top-1/2 -translate-y-1/2 rounded-full bg-primary text-primary-foreground" data-cy={`nav-badge-${item.to.slice(1)}`}>
-                          {badge}
-                        </SidebarMenuBadge>
-                      )}
-                    </SidebarMenuItem>
-                  )
-                })}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        ))}
-
-        <SidebarGroup className="mt-auto">
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {bottomItems.map((item) => (
-                <SidebarMenuItem key={item.to}>
-                  <NavLink
-                    to={item.to}
-                    target={item.newTab ? "_blank" : undefined}
-                    rel={item.newTab ? "noreferrer" : undefined}
-                    data-tour={item.tourId}
-                    data-cy={`nav-${item.to.slice(1)}`}
-                    onClick={closeOnMobile}
-                  >
-                    {({ isActive }) => (
-                      <SidebarMenuButton tooltip={item.title} isActive={isActive && !item.newTab}>
-                        <item.icon />
-                        <span>{item.title}</span>
-                      </SidebarMenuButton>
+      <SidebarContent className="tm-scroll gap-0">
+        {groups.length > 1 && (
+          <div className="flex justify-end px-3 pt-1 group-data-[collapsible=icon]:hidden">
+            <button
+              type="button"
+              onClick={() => setCollapsed(allFolded ? [] : groups.map((g) => g.label))}
+              className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs text-sidebar-foreground/60 transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"
+              data-cy="nav-toggle-all"
+            >
+              {allFolded ? <ChevronsUpDown className="size-3.5" /> : <ChevronsDownUp className="size-3.5" />}
+              {allFolded ? "Expand all" : "Collapse all"}
+            </button>
+          </div>
+        )}
+        {groups.map((group) => {
+          const open = isOpen(group.label)
+          // A folded section would hide its pending counts, so they ride on its header.
+          const foldedCount = open ? 0 : group.items.reduce((n, item) => n + badgeFor(item), 0)
+          return (
+            <SidebarGroup key={group.label} className="py-1.5">
+              <SidebarGroupLabel asChild>
+                <button
+                  type="button"
+                  onClick={() => toggleGroup(group.label)}
+                  aria-expanded={open}
+                  tabIndex={iconMode ? -1 : undefined}
+                  className="w-full cursor-pointer transition-colors hover:text-sidebar-foreground group-data-[collapsible=icon]:pointer-events-none"
+                  data-cy={`nav-group-${group.label.toLowerCase().replace(/\s+/g, "-")}`}
+                >
+                  <span>{group.label}</span>
+                  <span className="ml-auto flex items-center gap-1.5">
+                    {foldedCount > 0 && (
+                      <span className="rounded-full bg-primary px-1.5 text-[10px] leading-4 font-medium text-primary-foreground">
+                        {foldedCount}
+                      </span>
                     )}
-                  </NavLink>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+                    <ChevronDown className={cn("size-3.5 transition-transform", !open && "-rotate-90")} />
+                  </span>
+                </button>
+              </SidebarGroupLabel>
+              {open && (
+                <SidebarGroupContent>
+                  <SidebarMenu>
+                    {group.items.map((item) => {
+                      const badge = badgeFor(item)
+                      return (
+                        <SidebarMenuItem key={item.to}>
+                          <NavLink to={item.to} end={item.end} data-tour={item.tourId} data-cy={`nav-${item.to.slice(1)}`} onClick={closeOnMobile}>
+                            {({ isActive }) => (
+                              <SidebarMenuButton tooltip={item.title} isActive={isActive} className={cn(badge > 0 && "pr-8")}>
+                                <item.icon />
+                                <span>{item.title}</span>
+                              </SidebarMenuButton>
+                            )}
+                          </NavLink>
+                          {/* The button sits inside the link, so the badge's own "beside the button"
+                              positioning never matches — centre it on this row explicitly. */}
+                          {badge > 0 && (
+                            <SidebarMenuBadge className="top-1/2 -translate-y-1/2 rounded-full bg-primary text-primary-foreground" data-cy={`nav-badge-${item.to.slice(1)}`}>
+                              {badge}
+                            </SidebarMenuBadge>
+                          )}
+                        </SidebarMenuItem>
+                      )
+                    })}
+                  </SidebarMenu>
+                </SidebarGroupContent>
+              )}
+            </SidebarGroup>
+          )
+        })}
       </SidebarContent>
 
-      <SidebarFooter>
+      <SidebarFooter className="gap-1">
+        {/* Pinned outside the scrolling list so Settings and the rest never scroll away. */}
+        <SidebarMenu>
+          {bottomItems.map((item) => (
+            <SidebarMenuItem key={item.to}>
+              <NavLink
+                to={item.to}
+                target={item.newTab ? "_blank" : undefined}
+                rel={item.newTab ? "noreferrer" : undefined}
+                data-tour={item.tourId}
+                data-cy={`nav-${item.to.slice(1)}`}
+                onClick={closeOnMobile}
+              >
+                {({ isActive }) => (
+                  <SidebarMenuButton tooltip={item.title} isActive={isActive && !item.newTab}>
+                    <item.icon />
+                    <span>{item.title}</span>
+                  </SidebarMenuButton>
+                )}
+              </NavLink>
+            </SidebarMenuItem>
+          ))}
+        </SidebarMenu>
+        <SidebarSeparator className="mx-0" />
         <SidebarMenu>
           <SidebarMenuItem>
             <DropdownMenu>

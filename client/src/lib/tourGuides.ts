@@ -2,6 +2,9 @@
 import { Compass, FolderKanban, Layers, MessageSquareHeart, Users, type LucideIcon } from "lucide-react"
 import { UserRole } from "@/types/auth.types"
 
+// Fired when a tour starts, so the sidebar opens every section a step may point into.
+export const TOUR_EXPAND_NAV_EVENT = "tm:expand-nav"
+
 export interface TourStep {
   id: string
   route?: string // navigate here before highlighting, if not already there

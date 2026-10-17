@@ -5,7 +5,7 @@ import { useCallback, useRef } from "react"
 import { useNavigate } from "react-router-dom"
 import { driver, type Driver, type DriveStep, type AllowedButtons } from "driver.js"
 import { useIsMobile } from "@/hooks/use-mobile"
-import type { TourGuide } from "@/lib/tourGuides"
+import { TOUR_EXPAND_NAV_EVENT, type TourGuide } from "@/lib/tourGuides"
 
 // Polls the DOM (via MutationObserver) until `selector` appears or `timeout` elapses.
 // Needed because dialogs, tabs, and route changes mount elements asynchronously.
@@ -107,6 +107,8 @@ export function useGuideTour() {
 
   const startTour = useCallback(
     (guide: TourGuide, onComplete?: () => void) => {
+      // A section the user collapsed would hide the nav items the steps point at.
+      window.dispatchEvent(new Event(TOUR_EXPAND_NAV_EVENT))
       const steps = guide.steps.filter((s) => !isMobile || !s.target?.startsWith('[data-tour="nav-'))
       const filteredGuide: TourGuide = { ...guide, steps }
 
