@@ -6,6 +6,7 @@ import "./index.css"
 import App from "./App.tsx"
 import { queryClient } from "@/lib/queryClient"
 import { Toaster } from "@/components/ui/sonner"
+import { PwaUpdatePrompt } from "@/components/pwa/PwaUpdatePrompt"
 import { ThemeProvider } from "@/contexts/ThemeContext"
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID ?? ""
@@ -17,6 +18,7 @@ createRoot(document.getElementById("root")!).render(
         <QueryClientProvider client={queryClient}>
           <App />
           <Toaster richColors position="top-right" />
+          <PwaUpdatePrompt />
         </QueryClientProvider>
       </GoogleOAuthProvider>
     </ThemeProvider>

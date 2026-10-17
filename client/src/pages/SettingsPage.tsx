@@ -4,7 +4,9 @@ import { toast } from "sonner"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { useNavigate, useSearchParams } from "react-router-dom"
 import { User, Lock, LifeBuoy, MessagesSquare, Power, PowerOff, Bell, BellOff, ShieldCheck, Sparkles, Mail, MailX } from "lucide-react"
-import { Country, State, City } from "country-state-city"
+import Country from "country-state-city/lib/country"
+import State from "country-state-city/lib/state"
+import { useCities } from "@/hooks/useCities"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -92,12 +94,11 @@ function ProfileTab() {
 
   const selectedState = states.find((s) => s.name === stateName)
 
+  // Loaded on demand once a country is picked (see useCities). A free-text
+  // country or state (isoCode "") has no city list.
+  const cityList = useCities(selectedCountry?.isoCode || undefined, selectedState?.isoCode || undefined)
   const cities = useMemo(() => {
-    const raw = selectedState?.isoCode && selectedCountry?.isoCode
-      ? City.getCitiesOfState(selectedCountry.isoCode, selectedState.isoCode)
-      : selectedCountry?.isoCode
-        ? (City.getCitiesOfCountry(selectedCountry.isoCode) ?? [])
-        : []
+    const raw = cityList
     // The same city name can appear under multiple states/regions (e.g. Nigeria
     // has two towns named "Daura") — dedupe by name since only the name is stored.
     const list = Array.from(new Map(raw.map((c) => [c.name, c])).values())
@@ -105,7 +106,7 @@ function ProfileTab() {
       return [{ name: cityName, countryCode: "", stateCode: "" }, ...list]
     }
     return list
-  }, [selectedCountry, selectedState, cityName])
+  }, [cityList, cityName])
 
   const handleCountryChange = (name: string) => {
     setValue("country", name, { shouldDirty: true })

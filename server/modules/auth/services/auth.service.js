@@ -73,7 +73,10 @@ class AuthService {
   // Attaches the caller's roles and effective permissions to a user about to
   // be returned in an auth response. The client builds its can() from these,
   // and routes its post-login redirect on them — without this a fresh login
-  // would look permissionless until /me resolved.
+  // would look permissionless until /me resolved. Every method that returns the
+  // caller's own user goes through this too: the client writes those responses
+  // straight into its current-user cache, so a user without permissions there
+  // hides every permission-gated screen until the next /me.
   async withAccess(user) {
     const [roles, permissions] = await Promise.all([
       this.accessRepo.rolesForUser(user.id),
@@ -141,7 +144,7 @@ class AuthService {
   async verifyEmail({ email, code }) {
     const user = await this.authRepo.findUserByEmail(email);
     if (!user) throw new AppError("Account not found", 404);
-    if (user.isEmailVerified) return user;
+    if (user.isEmailVerified) return this.withAccess(user);
 
     const otp = await this.authRepo.findActiveOtp(
       email,
@@ -151,7 +154,7 @@ class AuthService {
     if (!otp) throw new AppError("Invalid or expired code", 400);
 
     await this.authRepo.consumeOtp(otp.id);
-    return this.authRepo.updateUser(user.id, { isEmailVerified: true });
+    return this.withAccess(await this.authRepo.updateUser(user.id, { isEmailVerified: true }));
   }
 
   async resendVerification({ email }) {
@@ -276,21 +279,21 @@ class AuthService {
     if (data.state !== undefined) patch.state = data.state;
     if (data.country !== undefined) patch.country = data.country;
 
-    return this.authRepo.updateUser(actorId, patch);
+    return this.withAccess(await this.authRepo.updateUser(actorId, patch));
   }
 
   // ── Onboarding tour status ────────────────────────────────────────────────────
   async setOnboardingStatus(actorId, completed) {
     const user = await this.authRepo.findUserById(actorId);
     if (!user) throw new AppError("Account not found", 404);
-    return this.authRepo.updateUser(actorId, { onboardingCompleted: completed });
+    return this.withAccess(await this.authRepo.updateUser(actorId, { onboardingCompleted: completed }));
   }
 
   // ── Notification sound preference ─────────────────────────────────────────────
   async setNotificationSoundEnabled(actorId, enabled) {
     const user = await this.authRepo.findUserById(actorId);
     if (!user) throw new AppError("Account not found", 404);
-    return this.authRepo.updateUser(actorId, { notificationSoundEnabled: enabled });
+    return this.withAccess(await this.authRepo.updateUser(actorId, { notificationSoundEnabled: enabled }));
   }
 
   // ── Notification preferences (in-app / email per app area) ───────────────────
@@ -298,9 +301,11 @@ class AuthService {
   async updateNotificationPreferences(actorId, patch) {
     const user = await this.authRepo.findUserById(actorId);
     if (!user) throw new AppError("Account not found", 404);
-    return this.authRepo.updateUser(actorId, {
-      notificationPreferences: mergePreferences(user.notificationPreferences, patch),
-    });
+    return this.withAccess(
+      await this.authRepo.updateUser(actorId, {
+        notificationPreferences: mergePreferences(user.notificationPreferences, patch),
+      })
+    );
   }
 
   // ── Google Sign In ─────────────────────────────────────────────────────────────

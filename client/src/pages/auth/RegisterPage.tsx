@@ -3,7 +3,9 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { Link } from "react-router-dom"
 import { toast } from "sonner"
-import { Country, State, City } from "country-state-city"
+import Country from "country-state-city/lib/country"
+import State from "country-state-city/lib/state"
+import { useCities } from "@/hooks/useCities"
 import {
   Card,
   CardContent,
@@ -51,16 +53,14 @@ export default function RegisterPage() {
   )
   const selectedState = states.find((s) => s.name === stateName)
 
+  // Loaded on demand once a country is picked (see useCities).
+  const cityList = useCities(selectedCountry?.isoCode, selectedState?.isoCode)
   const cities = useMemo(() => {
-    const list = selectedState && selectedCountry
-      ? City.getCitiesOfState(selectedCountry.isoCode, selectedState.isoCode)
-      : selectedCountry
-        ? (City.getCitiesOfCountry(selectedCountry.isoCode) ?? [])
-        : []
+    const list = cityList
     // The same city name can appear under multiple states/regions (e.g. Nigeria
     // has two towns named "Daura") — dedupe by name since only the name is stored.
     return Array.from(new Map(list.map((c) => [c.name, c])).values())
-  }, [selectedCountry, selectedState])
+  }, [cityList])
 
   const handleCountryChange = (name: string) => {
     setValue("country", name, { shouldDirty: true })

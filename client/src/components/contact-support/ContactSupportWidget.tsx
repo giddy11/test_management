@@ -8,15 +8,21 @@
 // This is TestMate's own support line, not a project's: the per-project
 // numbers (see ProjectSupportNumberField) only power the embeddable widget on
 // a project's external site (see WhatsAppWidgetPage).
-import { useCallback, useEffect, useRef, useState } from "react"
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react"
 import type { PointerEvent as ReactPointerEvent } from "react"
 import { MessageCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { WhatsAppTicketPanel } from "@/components/contact-support/WhatsAppTicketPanel"
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/contexts/AuthContext"
 import { useCreateTestMateSupportTicket } from "@/hooks/useFeedback"
+import { PageLoader } from "@/components/shared/PageLoader"
+
+// The button is on every page, but the panel (and the Firestore client its
+// ticket thread uses) is only fetched the first time someone opens it.
+const WhatsAppTicketPanel = lazy(() =>
+  import("@/components/contact-support/WhatsAppTicketPanel").then((m) => ({ default: m.WhatsAppTicketPanel }))
+)
 
 // Separates a drag from a click — a release after moving less than this never
 // opens the dialog.
@@ -138,18 +144,20 @@ export function ContactSupportWidget() {
             Send a message on WhatsApp. This opens a chat in a new tab.
           </DialogDescription>
           {/* Mounted only while open (Radix unmounts closed content), so every open starts fresh. */}
-          <WhatsAppTicketPanel
-            title="TestMate support"
-            phoneNumber={SUPPORT_WHATSAPP_NUMBER}
-            onClose={() => setOpen(false)}
-            createTicket={createTicket.mutateAsync}
-            knownSender={user ? { name: user.name || user.email, email: user.email, phone: user.phoneNumber } : undefined}
-            // Context so TestMate's support knows who's messaging and from where.
-            describeSender={(s) =>
-              [`${s.name} (${s.email})`, user?.companyName, "Sent from the TestMate app"].filter(Boolean).join(" — ")
-            }
-            pageUrl={window.location.href}
-          />
+          <Suspense fallback={<PageLoader className="min-h-0 h-full rounded-xl bg-background" />}>
+            <WhatsAppTicketPanel
+              title="TestMate support"
+              phoneNumber={SUPPORT_WHATSAPP_NUMBER}
+              onClose={() => setOpen(false)}
+              createTicket={createTicket.mutateAsync}
+              knownSender={user ? { name: user.name || user.email, email: user.email, phone: user.phoneNumber } : undefined}
+              // Context so TestMate's support knows who's messaging and from where.
+              describeSender={(s) =>
+                [`${s.name} (${s.email})`, user?.companyName, "Sent from the TestMate app"].filter(Boolean).join(" — ")
+              }
+              pageUrl={window.location.href}
+            />
+          </Suspense>
         </DialogContent>
       </Dialog>
     </>

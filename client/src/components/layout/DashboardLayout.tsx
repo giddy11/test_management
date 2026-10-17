@@ -1,3 +1,4 @@
+import { Suspense } from "react"
 import { Outlet } from "react-router-dom"
 import {
   SidebarInset,
@@ -14,6 +15,8 @@ import { SiteBannerBar } from "@/components/layout/SiteBannerBar"
 import { PreviewBanner } from "@/components/layout/PreviewBanner"
 import { PresenceProvider } from "@/contexts/PresenceContext"
 import { useAuth } from "@/contexts/AuthContext"
+import { PageLoader } from "@/components/shared/PageLoader"
+import { InstallAppButton } from "@/components/pwa/InstallAppButton"
 // The old in-app support chat stays commented out, not deleted. TestMate's own
 // support goes through WhatsApp instead: ContactSupportWidget hands the message
 // off to TestMate's support number. (A project's own number is separate — it
@@ -43,6 +46,7 @@ export function DashboardLayout() {
             <Separator orientation="vertical" className="mr-2 h-4" />
             <span className="hidden text-sm font-medium sm:inline">TestMate</span>
             <div className="ml-auto flex items-center gap-1">
+              <InstallAppButton className="mr-1" />
               {can("project.read") && <GlobalSearch />}
               <NotificationBell />
               <ThemeToggle />
@@ -51,7 +55,11 @@ export function DashboardLayout() {
           {/* pb-24 keeps the end of a page (e.g. a right-aligned pager) scrollable
               clear of the floating WhatsApp button, which sits fixed bottom-right. */}
           <main className="flex-1 p-4 pb-24 md:p-6 md:pb-24">
-            <Outlet />
+            {/* Pages load as separate chunks (App.tsx); the sidebar and header
+                stay on screen while one is fetched. */}
+            <Suspense fallback={<PageLoader />}>
+              <Outlet />
+            </Suspense>
           </main>
           <WhatsNewDialog />
           {/* <SupportChatWidget /> */}

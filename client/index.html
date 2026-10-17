@@ -2,7 +2,15 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <!-- favicon.ico and apple-touch-icon are generated at build (pwa-assets.config.ts);
+         the manifest <link> is injected by vite-plugin-pwa. -->
+    <link rel="icon" href="/favicon.ico" sizes="48x48" />
+    <link rel="icon" href="/favicon.svg" sizes="any" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon-180x180.png" />
+    <meta name="description" content="Test case management — suites, runs, bugs, feature requests and support tickets in one place." />
+    <!-- Browser/installed-app title bar colour, matching the app's background. -->
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0a0a0a" />
     <!-- viewport-fit=cover: lets pages opt into env(safe-area-inset-*) so
          fixed-to-the-edge UI (e.g. the live-chat widget's composer) can clear
          a device's notch/home-indicator instead of sitting under it. -->

@@ -3,7 +3,9 @@
 // country-state-city data already used for the address fields) — combines the
 // selected dial code and the typed local digits into a single E.164 value.
 import { useEffect, useMemo, useState } from "react"
-import { Country } from "country-state-city"
+// Only the country list (~100 KB) — not the package index, which also pulls
+// in the ~8 MB city data.
+import Country from "country-state-city/lib/country"
 import {
   Select,
   SelectContent,

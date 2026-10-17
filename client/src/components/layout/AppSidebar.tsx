@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 import { NavLink } from "react-router-dom"
-import { ChevronDown, ChevronsDownUp, ChevronsUpDown, LogOut, FlaskConical, Eye } from "lucide-react"
+import { ChevronDown, ChevronsDownUp, ChevronsUpDown, LogOut, FlaskConical, Eye, MonitorDown } from "lucide-react"
 import {
   Sidebar,
   SidebarContent,
@@ -28,6 +28,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
 import { useAuth, PREVIEWABLE_ROLES } from "@/contexts/AuthContext"
 import { useLogout } from "@/hooks/useAuth"
+import { useInstallPrompt } from "@/hooks/useInstallPrompt"
 import {
   navFor,
   navBottomFor,
@@ -64,6 +65,8 @@ function saveCollapsed(labels: string[]) {
 export function AppSidebar() {
   const { user, realUser, permissions, isPreviewing, startPreview, exitPreview } = useAuth()
   const logout = useLogout()
+  // Only once the browser says the app can be installed (never in Safari).
+  const { canInstall, install } = useInstallPrompt()
   const { isMobile, setOpenMobile, state } = useSidebar()
   const [collapsed, setCollapsedState] = useState<string[]>(loadCollapsed)
   const setCollapsed = (labels: string[]) => {
@@ -281,6 +284,12 @@ export function AppSidebar() {
                   ))
                 )}
                 <DropdownMenuSeparator />
+                {canInstall && (
+                  <DropdownMenuItem onClick={() => void install()} data-cy="install-app">
+                    <MonitorDown className="mr-2 size-4" />
+                    Install app
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem onClick={logout} data-cy="logout">
                   <LogOut className="mr-2 size-4" />
                   Log out

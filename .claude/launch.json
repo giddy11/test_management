@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "client-preview-pwa",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["--prefix", "client", "vite", "preview", "client", "--port", "4174", "--strictPort"],
+      "port": 4174
+    },
+    {
+      "name": "client-dev-e2e",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["--prefix", "client", "vite", "client", "--mode", "e2e", "--port", "5198", "--strictPort"],
+      "port": 5198
+    }
+  ]
+}
