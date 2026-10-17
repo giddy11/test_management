@@ -3,7 +3,7 @@
 // categories, the items in each, their forms and who approves them. The
 // eight starter categories are created the first time this page opens.
 import { useState } from "react"
-import { Eye, EyeOff, Pencil, Plus, Power, Settings2, ShieldCheck } from "lucide-react"
+import { Eye, EyeOff, Pencil, Plus, Power, Settings2, ShieldCheck, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -17,10 +17,18 @@ import { ConfirmDialog } from "@/components/shared/ConfirmDialog"
 import { CategoryIcon } from "@/components/serviceDesk/RequestBits"
 import { CATEGORY_ICON_CHOICES } from "@/lib/serviceDesk"
 import { ItemEditorDialog } from "@/components/serviceDesk/ItemEditorDialog"
+import { ApproverGroupsTab } from "@/components/serviceDesk/setup/ApproverGroupsTab"
+import { ApprovalPoliciesTab } from "@/components/serviceDesk/setup/ApprovalPoliciesTab"
+import { LineManagersTab } from "@/components/serviceDesk/setup/LineManagersTab"
+import { ServiceLevelsTab } from "@/components/serviceDesk/setup/ServiceLevelsTab"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { useSearchParams } from "react-router-dom"
 import {
   useAdminCatalog,
   useCreateCategory,
   useServiceDeskSettings,
+  useDeleteCategory,
+  useDeleteItem,
   useUpdateCategory,
   useUpdateItem,
   useUpdateServiceDeskSettings,
@@ -40,7 +48,14 @@ export default function CatalogSetupPage() {
   const [confirmToggle, setConfirmToggle] = useState(false)
   const [editingItem, setEditingItem] = useState<{ item: AdminItem | null; categoryId?: string } | null>(null)
   const [editingCategory, setEditingCategory] = useState<AdminCategory | "new" | null>(null)
+  const [deleting, setDeleting] = useState<{ kind: "category" | "item"; id: string; name: string; itemCount?: number } | null>(null)
+  const deleteCategory = useDeleteCategory()
+  const deleteItem = useDeleteItem()
   const enabled = Boolean(settings?.enabled)
+  // The tab lives in the URL (?tab=policies) so a link can open it directly.
+  const [params, setParams] = useSearchParams()
+  const tab = params.get("tab") ?? "catalog"
+  const setTab = (t: string) => setParams(t === "catalog" ? {} : { tab: t }, { replace: true })
 
   return (
     <div className="space-y-4">
@@ -49,11 +64,8 @@ export default function CatalogSetupPage() {
           <h1 className="flex items-center gap-2 text-2xl font-semibold">
             <Settings2 className="size-6 text-primary" /> Catalog setup
           </h1>
-          <p className="text-sm text-muted-foreground">What people can ask IT for, the questions each asks, and who approves it.</p>
+          <p className="text-sm text-muted-foreground">What people can ask IT for, the questions each asks, who approves it, and how fast.</p>
         </div>
-        <Button size="sm" variant="outline" onClick={() => setEditingCategory("new")}>
-          <Plus className="mr-1 size-3.5" /> Add category
-        </Button>
       </div>
 
       <Card className={cn(enabled ? "border-emerald-300 dark:border-emerald-900" : "border-amber-300 dark:border-amber-900")}>
@@ -74,6 +86,25 @@ export default function CatalogSetupPage() {
           </Button>
         </CardContent>
       </Card>
+
+      <Tabs value={tab} onValueChange={setTab}>
+        <TabsList className="h-auto flex-wrap">
+          <TabsTrigger value="catalog">Catalog</TabsTrigger>
+          <TabsTrigger value="groups">Approver groups</TabsTrigger>
+          <TabsTrigger value="policies">Approval policies</TabsTrigger>
+          <TabsTrigger value="managers">Line managers</TabsTrigger>
+          <TabsTrigger value="levels">Service levels</TabsTrigger>
+        </TabsList>
+        <TabsContent value="groups" className="pt-2"><ApproverGroupsTab /></TabsContent>
+        <TabsContent value="policies" className="pt-2"><ApprovalPoliciesTab /></TabsContent>
+        <TabsContent value="managers" className="pt-2"><LineManagersTab /></TabsContent>
+        <TabsContent value="levels" className="pt-2"><ServiceLevelsTab /></TabsContent>
+        <TabsContent value="catalog" className="space-y-4 pt-2">
+      <div className="flex justify-end">
+        <Button size="sm" variant="outline" onClick={() => setEditingCategory("new")}>
+          <Plus className="mr-1 size-3.5" /> Add category
+        </Button>
+      </div>
 
       {isLoading && <p className="text-sm text-muted-foreground">Loading the catalog…</p>}
 
@@ -112,6 +143,15 @@ export default function CatalogSetupPage() {
               <Button size="sm" variant="outline" onClick={() => setEditingItem({ item: null, categoryId: c.id })}>
                 <Plus className="mr-1 size-3.5" /> Item
               </Button>
+              <Button
+                size="icon-sm"
+                variant="ghost"
+                aria-label={`Delete ${c.name}`}
+                title="Delete (only if nothing in it was ever requested)"
+                onClick={() => setDeleting({ kind: "category", id: c.id, name: c.name, itemCount: c.items.length })}
+              >
+                <Trash2 className="size-3.5" />
+              </Button>
             </div>
           </CardHeader>
           <CardContent className="space-y-2">
@@ -130,11 +170,14 @@ export default function CatalogSetupPage() {
                     ) : (
                       <span className="inline-flex items-center gap-1">
                         <ShieldCheck className="size-3" />
-                        {i.approvers.length
-                          ? `approved by ${i.approvers.map((a) => a.name).join(", ")}`
-                          : "approved by IT request administrators (no one named)"}
+                        {i.approvalMode === "policy"
+                          ? `follows "${i.approvalPolicyName ?? "a missing policy"}"`
+                          : i.approvers.length
+                            ? `approved by ${i.approvers.map((a) => a.name).join(", ")}`
+                            : "approved by IT request administrators (no one named)"}
                       </span>
                     )}
+                    {i.riskLevel !== "low" && <> · {i.riskLevel} risk</>}
                   </p>
                 </div>
                 <Button
@@ -152,11 +195,46 @@ export default function CatalogSetupPage() {
                 <Button size="sm" variant="outline" onClick={() => setEditingItem({ item: i })}>
                   <Pencil className="mr-1 size-3.5" /> Edit
                 </Button>
+                <Button
+                  size="icon-sm"
+                  variant="ghost"
+                  aria-label={`Delete ${i.name}`}
+                  title="Delete (only if it was never requested)"
+                  onClick={() => setDeleting({ kind: "item", id: i.id, name: i.name })}
+                >
+                  <Trash2 className="size-3.5" />
+                </Button>
               </div>
             ))}
           </CardContent>
         </Card>
       ))}
+
+        </TabsContent>
+      </Tabs>
+
+      <ConfirmDialog
+        open={deleting !== null}
+        onOpenChange={(o) => !o && setDeleting(null)}
+        title={`Delete "${deleting?.name}"?`}
+        description={
+          deleting?.kind === "category"
+            ? `This permanently deletes the category${deleting.itemCount ? ` and its ${deleting.itemCount} item${deleting.itemCount === 1 ? "" : "s"}` : ""}. It's only allowed if nothing in it was ever requested — otherwise, hide it instead.`
+            : "This permanently deletes the item and its form. It's only allowed if nobody ever requested it — otherwise, hide it instead."
+        }
+        confirmLabel="Delete"
+        loading={deleteCategory.isPending || deleteItem.isPending}
+        onConfirm={() => {
+          if (!deleting) return
+          const done = {
+            onSuccess: () => toast.success(`"${deleting.name}" deleted`),
+            onError: fail,
+            onSettled: () => setDeleting(null),
+          }
+          if (deleting.kind === "category") deleteCategory.mutate(deleting.id, done)
+          else deleteItem.mutate(deleting.id, done)
+        }}
+      />
 
       <ConfirmDialog
         open={confirmToggle}

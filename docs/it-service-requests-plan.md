@@ -1,6 +1,6 @@
 # IT Service Request Management — study and build plan
 
-**Status:** Phase 1 in progress (decisions in §0 were approved on 2026-10-17).
+**Status:** Phases 1, 1b and 2 built, not yet migrated or tested (decisions in §0 approved 2026-10-17). Phase 3 (automation) next.
 **Date:** 2026-10-16, revised 2026-10-17
 **Inputs:** the three IT Service Request user stories (submission, approval and automated fulfilment,
 approval and status tracking) and the ALVAO ITSM/ITAM brochure collected at a conference.
@@ -59,7 +59,54 @@ portal after sign-in. They never see a project.
 - Built-in roles: **Employee** (submit only) and **IT service agent** (submit and work the queue).
   Every existing internal built-in role can submit, and Organisation administrator gets all three
   permissions.
-- **Deferred to Phase 1b:** attachments on requests.
+- **Deleting from the catalog.** A category or item can be deleted only if nothing in it was ever
+  requested, drafts included. Otherwise the server refuses and points to **Hide**, so request
+  history stays intact. The check runs on locked rows. The starter catalog is seeded once per
+  organisation (`service_desk_settings.catalog_seeded`), so deleting every category doesn't
+  bring it back.
+- **Phase 1b (built):** attachments on requests — images, PDF, Word and Excel, up to 10 files of
+  10 MB each. Anyone involved can add files until the request is finished; people remove their
+  own, and IT can remove any. A request submitted with files is saved as a draft first, so
+  approvers never see it before its files arrive.
+
+### Phase 2 as built (story 3)
+
+- **Approval engine** (`domain/approvalPlan.ts`, pure and tested). An item's approval is one of:
+  none; one step where any named person decides; or an **approval policy**. A policy is
+  ordered steps that run one after another. Each step lists approver rules (a person, an
+  **approver group**, or the **line manager**) and needs either *any one* of them, or *one from
+  each line*. Within a step everyone is asked at once, and any rejection ends the request. The
+  whole plan is written at submit (later steps are "waiting"), so the route a request started
+  with is the route it finishes.
+- **Authority.** Each approver group has a maximum risk level, and each catalog item a risk level
+  that travels onto its requests. A group below a request's risk contributes nobody. Its members
+  are also refused at decision time, and the authority level is recorded on the decision.
+- **Who never approves:** the requester, or the person the request is for, including as a
+  delegate. A rule that ends up with nobody falls back to `servicedesk.manage` holders. A step
+  that still has nobody refuses the submission, so a request never skips approval by accident.
+- **Line managers:** `users.manager_id`, set in *Catalog setup → Line managers*, with no reporting
+  loops allowed. The rule means the manager of the person the request is for. For a new starter,
+  it means the requester's manager.
+- **Delegation:** each person sets their own stand-in and dates on the Approvals page. New
+  approvals go straight to the stand-in. The stand-in can also decide approvals already waiting
+  for the absent person, and the record shows who actually decided.
+- **Waiting for information** (`info_requested`). An approver on a live step, or IT, asks the
+  requester a question. The request pauses and returns to exactly where it was when they answer,
+  and the paused time is added back to its due dates.
+- **Service levels and escalation** (`domain/serviceLevels.ts`). Each approval step has hours per
+  step, and fulfilment has hours by priority (from reaching IT to fulfilled); items may override
+  both. Escalation has three levels: a reminder at the due time, then the escalation contacts at
+  +50% and at +100% (critical), both percentages configurable. A sweeper runs on a five-minute
+  timer and also whenever anyone's sidebar loads its counts. A Postgres advisory lock and the
+  unique escalation row make it safe to run on several servers and to re-run.
+- **Reporting** (`servicedesk.report`, held by Org admin and IT service agent):
+  - Right now: open requests, pending and overdue approvals, ready for IT, overdue fulfilment,
+    waiting on the requester.
+  - For the period: submitted, fulfilled, on-time rate, average approval and fulfilment times,
+    and escalations.
+  - Breakdowns by category and by person, and the longest-overdue requests.
+- **IT queue** gains *Overdue* and *Waiting on requester* tabs. Rows and the request page show an
+  overdue badge with the escalation level.
 
 ---
 

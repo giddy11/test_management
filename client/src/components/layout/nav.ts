@@ -12,7 +12,6 @@ import {
   MessageSquareHeart,
   MessagesSquare,
   Headset,
-  Gauge,
   Settings,
   Activity,
   BookOpen,
@@ -21,6 +20,7 @@ import {
   ListChecks,
   Inbox,
   Settings2,
+  BarChart3,
   type LucideIcon,
 } from "lucide-react"
 import { can, canAny } from "@/lib/can"
@@ -50,9 +50,6 @@ export const NAV_ITEMS: NavItem[] = [
   { title: "Projects", to: "/projects", icon: FolderKanban, permission: "project.read", tourId: "nav-projects" },
   { title: "All tickets", to: "/all-feedback", icon: MessageSquareHeart, permission: "project.read" },
   { title: "Ticket queue", to: "/support", icon: Headset, permission: "supportqueue.read" },
-  // Not sla.read: administrators hold that for the SLA tab on the dashboard.
-  // This item is the supporter portal's own SLA page.
-  { title: "SLA reports", to: "/support/sla", icon: Gauge, permission: "supportqueue.read" },
 ]
 
 // IT requests. Everything here also depends on the organisation having the
@@ -62,6 +59,7 @@ export const IT_NAV_ITEMS: NavItem[] = [
   { title: "My requests", to: "/requests/mine", icon: ClipboardList, permission: "servicerequest.create" },
   { title: "Approvals", to: "/requests/approvals", icon: ListChecks, anyOf: ["servicerequest.create", "servicedesk.manage"], badge: "approvals" },
   { title: "IT queue", to: "/requests/queue", icon: Inbox, permission: "servicedesk.work", badge: "queue" },
+  { title: "Reports", to: "/requests/reports", icon: BarChart3, permission: "servicedesk.report" },
   { title: "Catalog setup", to: "/requests/catalog", icon: Settings2, permission: "servicedesk.manage" },
 ]
 
@@ -104,7 +102,7 @@ export function workspaceNavFor(permissions: string[]): NavItem[] {
 }
 
 // Anyone holding one of these may see the IT-requests section at all.
-export const IT_REQUEST_PERMISSIONS = ["servicerequest.create", "servicedesk.work", "servicedesk.manage"]
+export const IT_REQUEST_PERMISSIONS = ["servicerequest.create", "servicedesk.work", "servicedesk.manage", "servicedesk.report"]
 
 export function navBottomFor(permissions: string[]): NavItem[] {
   return NAV_BOTTOM_ITEMS.filter((item) => visible(item, permissions))

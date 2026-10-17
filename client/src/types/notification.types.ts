@@ -22,6 +22,7 @@ export type NotificationType =
   | "service_request_approval"
   | "service_request_queued"
   | "service_request_update"
+  | "service_request_escalated"
 
 export interface AppNotification {
   id: string

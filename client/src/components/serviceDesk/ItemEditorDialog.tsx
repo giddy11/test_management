@@ -13,13 +13,16 @@ import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { DynamicFormFields } from "@/components/serviceDesk/DynamicFormFields"
-import { useApproverCandidates, useCreateItem, useUpdateItem } from "@/hooks/useServiceDesk"
+import { useApprovalPolicies, useApproverCandidates, useCreateItem, useUpdateItem } from "@/hooks/useServiceDesk"
 import { ApiError } from "@/transport/http"
 import {
   FIELD_TYPES,
   FIELD_TYPE_LABELS,
   type AdminCategory,
   type AdminItem,
+  RISK_LEVELS,
+  RISK_META,
+  type RiskLevel,
   type ApprovalMode,
   type FieldType,
   type FormField,
@@ -63,6 +66,12 @@ const toDraft = (f: FormField): DraftField => ({
 })
 
 const isChoice = (t: FieldType) => t === "select" || t === "multiselect"
+
+// Blank or invalid = use the organisation's default.
+const hoursOrNull = (v: string) => {
+  const n = Math.round(Number(v))
+  return v.trim() && Number.isFinite(n) && n >= 1 ? Math.min(n, 24 * 90) : null
+}
 
 function toField(d: DraftField): FormField {
   const options = d.optionsText.split("\n").map((o) => o.trim()).filter(Boolean)
@@ -119,6 +128,11 @@ export function ItemEditorDialog({
   const [approverSearch, setApproverSearch] = useState("")
   const [fulfilmentNotes, setFulfilmentNotes] = useState("")
   const [isActive, setIsActive] = useState(true)
+  const [approvalPolicyId, setApprovalPolicyId] = useState("")
+  const [riskLevel, setRiskLevel] = useState<RiskLevel>("low")
+  const [approvalHours, setApprovalHours] = useState("")
+  const [fulfilmentHours, setFulfilmentHours] = useState("")
+  const { data: policies = [] } = useApprovalPolicies(open)
   const [fields, setFields] = useState<DraftField[]>([])
   const [preview, setPreview] = useState(false)
   const [previewValues, setPreviewValues] = useState<FormValues>({})
@@ -133,6 +147,10 @@ export function ItemEditorDialog({
     setApproverSearch("")
     setFulfilmentNotes(item?.fulfilmentNotes ?? "")
     setIsActive(item?.isActive ?? true)
+    setApprovalPolicyId(item?.approvalPolicyId ?? "")
+    setRiskLevel(item?.riskLevel ?? "low")
+    setApprovalHours(item?.approvalHours ? String(item.approvalHours) : "")
+    setFulfilmentHours(item?.fulfilmentHours ? String(item.fulfilmentHours) : "")
     setFields((item?.formSchema ?? []).map(toDraft))
     setPreview(false)
     setPreviewValues({})
@@ -166,6 +184,7 @@ export function ItemEditorDialog({
     if (!name.trim()) return toast.error("Give the item a name")
     if (!categoryId) return toast.error("Pick a category")
     if (problems.length) return toast.error(problems[0])
+    if (approvalMode === "policy" && !approvalPolicyId) return toast.error("Pick the approval policy this item follows")
     const payload = {
       categoryId,
       name: name.trim(),
@@ -173,6 +192,10 @@ export function ItemEditorDialog({
       formSchema: fields.map(toField),
       approvalMode,
       approverIds: approvalMode === "approvers" ? approverIds : [],
+      approvalPolicyId: approvalMode === "policy" ? approvalPolicyId || null : null,
+      riskLevel,
+      approvalHours: hoursOrNull(approvalHours),
+      fulfilmentHours: hoursOrNull(fulfilmentHours),
       fulfilmentNotes: fulfilmentNotes.trim() || null,
       isActive,
     }
@@ -226,9 +249,27 @@ export function ItemEditorDialog({
               <SelectTrigger className="w-full sm:w-80"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="none">No approval — straight to IT</SelectItem>
-                <SelectItem value="approvers">Needs approval before IT starts</SelectItem>
+                <SelectItem value="approvers">One step — any of these people</SelectItem>
+                <SelectItem value="policy">An approval policy (several steps, groups, line manager)</SelectItem>
               </SelectContent>
             </Select>
+            {approvalMode === "policy" && (
+              <div className="grid gap-1.5">
+                <Select value={approvalPolicyId} onValueChange={setApprovalPolicyId}>
+                  <SelectTrigger className="w-full sm:w-80"><SelectValue placeholder="Choose a policy" /></SelectTrigger>
+                  <SelectContent>
+                    {policies.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.name} ({p.steps.length} step{p.steps.length === 1 ? "" : "s"})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {policies.length === 0 && (
+                  <p className="text-xs text-muted-foreground">No policies yet — create one on the Approval policies tab.</p>
+                )}
+              </div>
+            )}
             {approvalMode === "approvers" && (
               <div className="grid gap-2">
                 <p className="text-xs text-muted-foreground">
@@ -254,6 +295,36 @@ export function ItemEditorDialog({
                 <p className="text-xs text-muted-foreground">{approverIds.length} selected</p>
               </div>
             )}
+            <div className="grid gap-1.5 border-t pt-3 sm:max-w-xs">
+              <Label>Risk</Label>
+              <Select value={riskLevel} onValueChange={(v) => setRiskLevel(v as RiskLevel)}>
+                <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {RISK_LEVELS.map((r) => (
+                    <SelectItem key={r} value={r}>{RISK_META[r].label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Approver groups can only approve up to their own risk level — use this for privileged access and costly resources.
+              </p>
+            </div>
+          </section>
+
+          {/* Service levels */}
+          <section className="grid gap-2 rounded-md border p-3">
+            <Label>Service levels (optional)</Label>
+            <p className="text-xs text-muted-foreground">Leave blank to use the organisation's defaults from the Service levels tab.</p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid gap-1.5">
+                <Label htmlFor="item-approval-hours" className="text-xs font-normal">Hours per approval step</Label>
+                <Input id="item-approval-hours" type="number" min={1} value={approvalHours} onChange={(e) => setApprovalHours(e.target.value)} />
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="item-fulfilment-hours" className="text-xs font-normal">Hours to fulfil (any priority)</Label>
+                <Input id="item-fulfilment-hours" type="number" min={1} value={fulfilmentHours} onChange={(e) => setFulfilmentHours(e.target.value)} />
+              </div>
+            </div>
           </section>
 
           {/* Form builder */}

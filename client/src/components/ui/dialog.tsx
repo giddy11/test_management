@@ -7,6 +7,9 @@ import { Dialog as DialogPrimitive } from "radix-ui"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 
+const POPUP_CONTENT_SELECTOR =
+  "[data-radix-popper-content-wrapper], [data-slot='select-content']"
+
 function Dialog({
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Root>) {
@@ -66,7 +69,9 @@ function DialogContent({
           // DOM subtree and disables pointer-events on the rest of the page while open.
           // A click meant to just dismiss that popup then "passes through" and looks
           // like an outside click on the Dialog too, closing it. Ignore it in that case.
-          if (document.querySelector("[data-radix-popper-content-wrapper]")) {
+          // Popper-positioned content carries the wrapper attribute; a Select's default
+          // item-aligned content does not (every Select here), so match it by its slot.
+          if (document.querySelector(POPUP_CONTENT_SELECTOR)) {
             event.preventDefault()
             return
           }

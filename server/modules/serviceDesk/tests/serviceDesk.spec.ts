@@ -1,6 +1,6 @@
 // modules/serviceDesk/tests/serviceDesk.spec.ts
 // IT requests: the lifecycle table, form definitions and answers, the default
-// catalog, and who gets to approve.
+// catalog, the approval engine, service levels and information requests.
 import {
   AGENT_CANCELLABLE,
   REQUESTER_CANCELLABLE,
@@ -10,11 +10,22 @@ import {
   formatReference,
   parseReference,
   statusOnSubmit,
+  coversRisk,
   type RequestStatus,
 } from "../domain/lifecycle";
 import { formSchemaSchema, validateFormValues, type FormField } from "../domain/formSchema";
 import { DEFAULT_CATALOG } from "../domain/defaultCatalog";
-import { ServiceRequestService } from "../services/serviceRequest.service";
+import {
+  NoApproverError,
+  buildPlan,
+  policyStepsSchema,
+  rowsMadeRedundant,
+  stepState,
+  stepsForApprovers,
+  type PlanContext,
+  type PolicyStep,
+} from "../domain/approvalPlan";
+import { DEFAULT_SERVICE_LEVELS, escalationLevelAt, fulfilmentTargetHours, serviceLevelsSchema } from "../domain/serviceLevels";
 
 const { AppError } = require("../../../shared/errors/AppError");
 
@@ -142,44 +153,162 @@ describe("form answers", () => {
   });
 });
 
-describe("who approves", () => {
-  const person = (id: string) => ({ id, name: id, email: `${id}@example.com`, firstName: id });
+describe("approval plan — who approves", () => {
+  const ctx = (over: Partial<PlanContext> = {}): PlanContext => ({
+    risk: "medium",
+    excluded: new Set(["req"]),
+    eligible: new Set(["mgr", "fin1", "fin2", "sec1", "admin", "req", "deputy", "boss"]),
+    lineManagerId: "boss",
+    groups: new Map([
+      ["finance", { name: "Finance", maxRiskLevel: "high", memberIds: ["fin1", "fin2"] }],
+      ["security", { name: "Security", maxRiskLevel: "low", memberIds: ["sec1"] }],
+    ]),
+    delegateOf: () => null,
+    fallbackIds: ["admin"],
+    ...over,
+  });
+  const ids = (step: { approvers: { userId: string }[] }) => step.approvers.map((a) => a.userId);
 
-  function serviceWith(holders: Record<string, string[]>) {
-    const deskRepo = {
-      usersWithPermission: jest.fn(async (_org: string, codes: string[]) => {
-        const ids = new Set(codes.flatMap((c) => holders[c] ?? []));
-        return [...ids].map(person);
-      }),
-    };
-    return new ServiceRequestService({} as never, {} as never, deskRepo as never, {} as never, {} as never);
-  }
-
-  const item = (approverIds: string[], approvalMode: "none" | "approvers" = "approvers") => ({
-    name: "Software licence",
-    approvalMode,
-    approverIds,
+  it("asks any one named approver, never the requester", () => {
+    const [step] = buildPlan(stepsForApprovers(["mgr", "req"]), ctx());
+    expect(ids(step)).toEqual(["mgr"]);
+    expect(step.mode).toBe("any");
   });
 
-  it("asks nobody when the item needs no approval", async () => {
-    const svc = serviceWith({});
-    await expect(svc.resolveApprovers("org-1", item(["mgr"], "none"), "req", null)).resolves.toEqual([]);
+  it("falls back to the catalog managers when the item names nobody eligible", () => {
+    const [step] = buildPlan(stepsForApprovers(["req"]), ctx());
+    expect(step.approvers).toEqual([{ userId: "admin", ruleIndex: 0, groupId: null, onBehalfOfId: null, isFallback: true }]);
   });
 
-  it("uses the item's named approvers, never the requester or the person it's for", async () => {
-    const svc = serviceWith({ "servicerequest.create": ["mgr", "req", "colleague"] });
-    const approvers = await svc.resolveApprovers("org-1", item(["mgr", "req", "colleague"]), "req", "colleague");
-    expect(approvers.map((p) => p.id)).toEqual(["mgr"]);
+  it("refuses rather than letting a request skip approval", () => {
+    expect(() => buildPlan(stepsForApprovers([]), ctx({ fallbackIds: ["req"] }))).toThrow(NoApproverError);
   });
 
-  it("falls back to the catalog managers when the item names nobody eligible", async () => {
-    const svc = serviceWith({ "servicerequest.create": ["req"], "servicedesk.manage": ["admin", "req"] });
-    const approvers = await svc.resolveApprovers("org-1", item(["req"]), "req", null);
-    expect(approvers.map((p) => p.id)).toEqual(["admin"]);
+  it("keeps steps in order and resolves the line manager", () => {
+    const steps: PolicyStep[] = [
+      { name: "Manager", mode: "any", approvers: [{ type: "line_manager" }] },
+      { name: "Finance", mode: "any", approvers: [{ type: "group", groupId: "finance" }] },
+    ];
+    const plan = buildPlan(steps, ctx());
+    expect(plan.map((s) => [s.order, s.name, ids(s)])).toEqual([
+      [1, "Manager", ["boss"]],
+      [2, "Finance", ["fin1", "fin2"]],
+    ]);
   });
 
-  it("refuses the submission rather than letting it skip approval", async () => {
-    const svc = serviceWith({ "servicedesk.manage": ["req"] });
-    await expect(svc.resolveApprovers("org-1", item([]), "req", null)).rejects.toMatchObject({ statusCode: 409 });
+  it("gives a group no say above its authority", () => {
+    const steps: PolicyStep[] = [{ name: "Security", mode: "any", approvers: [{ type: "group", groupId: "security" }] }];
+    // Security may approve up to low; this request is medium — so the admins decide.
+    expect(ids(buildPlan(steps, ctx())[0])).toEqual(["admin"]);
+    expect(ids(buildPlan(steps, ctx({ risk: "low" }))[0])).toEqual(["sec1"]);
+  });
+
+  it("fills an unstaffable rule of an all-step from the fallback, keeping the others", () => {
+    const steps: PolicyStep[] = [
+      {
+        name: "Both",
+        mode: "all",
+        approvers: [
+          { type: "group", groupId: "finance" },
+          { type: "line_manager" },
+        ],
+      },
+    ];
+    const [step] = buildPlan(steps, ctx({ lineManagerId: null }));
+    expect(step.approvers.map((a) => [a.userId, a.ruleIndex, a.isFallback])).toEqual([
+      ["fin1", 0, false],
+      ["fin2", 0, false],
+      ["admin", 1, true],
+    ]);
+  });
+
+  it("hands an absent approver's place to their delegate", () => {
+    const [step] = buildPlan(stepsForApprovers(["mgr"]), ctx({ delegateOf: (u) => (u === "mgr" ? "deputy" : null) }));
+    expect(step.approvers).toEqual([{ userId: "deputy", ruleIndex: 0, groupId: null, onBehalfOfId: "mgr", isFallback: false }]);
+  });
+
+  it("never lets the requester stand in as a delegate", () => {
+    const [step] = buildPlan(stepsForApprovers(["mgr"]), ctx({ delegateOf: () => "req" }));
+    expect(step.approvers.map((a) => [a.userId, a.onBehalfOfId])).toEqual([["mgr", null]]);
+  });
+
+  it("validates policy definitions", () => {
+    expect(policyStepsSchema.safeParse([]).success).toBe(false);
+    expect(policyStepsSchema.safeParse([{ name: "x", mode: "any", approvers: [] }]).success).toBe(false);
+    expect(policyStepsSchema.safeParse([{ mode: "all", approvers: [{ type: "line_manager" }] }]).success).toBe(true);
+  });
+});
+
+describe("approval steps — deciding", () => {
+  it("completes an any-step on the first approval", () => {
+    expect(stepState("any", [{ ruleIndex: 0, decision: "approved" }, { ruleIndex: 0, decision: "pending" }])).toBe("approved");
+  });
+
+  it("completes an all-step only when every rule has an approval", () => {
+    const rows = [
+      { ruleIndex: 0, decision: "approved" },
+      { ruleIndex: 0, decision: "pending" },
+      { ruleIndex: 1, decision: "pending" },
+    ];
+    expect(stepState("all", rows)).toBe("pending");
+    expect(stepState("all", [...rows.slice(0, 2), { ruleIndex: 1, decision: "approved" }])).toBe("approved");
+  });
+
+  it("rejects the step on any rejection", () => {
+    expect(stepState("all", [{ ruleIndex: 0, decision: "approved" }, { ruleIndex: 1, decision: "rejected" }])).toBe("rejected");
+  });
+
+  it("skips the rows an approval made unnecessary", () => {
+    const rows = [
+      { id: "a", ruleIndex: 0, decision: "approved" },
+      { id: "b", ruleIndex: 0, decision: "pending" },
+      { id: "c", ruleIndex: 1, decision: "pending" },
+    ];
+    expect(rowsMadeRedundant("any", rows, rows[0]).map((r) => r.id)).toEqual(["b", "c"]);
+    expect(rowsMadeRedundant("all", rows, rows[0]).map((r) => r.id)).toEqual(["b"]);
+  });
+
+  it("checks authority against risk", () => {
+    expect(coversRisk("high", "medium")).toBe(true);
+    expect(coversRisk("medium", "high")).toBe(false);
+    expect(coversRisk("critical", "critical")).toBe(true);
+  });
+});
+
+describe("service levels and escalation", () => {
+  const rules = DEFAULT_SERVICE_LEVELS.escalation; // level 2 at +50%, level 3 at +100%
+  const due = new Date("2026-10-01T12:00:00Z");
+  const at = (hoursAfterDue: number) => new Date(due.getTime() + hoursAfterDue * 3_600_000);
+
+  it("is not late before the due time", () => {
+    expect(escalationLevelAt(at(-1), due, 24, rules)).toBe(0);
+  });
+
+  it("climbs through the three levels against the target", () => {
+    expect(escalationLevelAt(at(0), due, 24, rules)).toBe(1);
+    expect(escalationLevelAt(at(11), due, 24, rules)).toBe(1);
+    expect(escalationLevelAt(at(12), due, 24, rules)).toBe(2);
+    expect(escalationLevelAt(at(24), due, 24, rules)).toBe(3);
+  });
+
+  it("uses an item's own hours over the organisation's", () => {
+    expect(fulfilmentTargetHours(DEFAULT_SERVICE_LEVELS, "high", null)).toBe(24);
+    expect(fulfilmentTargetHours(DEFAULT_SERVICE_LEVELS, "high", 4)).toBe(4);
+  });
+
+  it("insists the third escalation comes after the second", () => {
+    const bad = { ...DEFAULT_SERVICE_LEVELS, escalation: { level2Pct: 100, level3Pct: 50, contactIds: [] } };
+    expect(serviceLevelsSchema.safeParse(bad).success).toBe(false);
+    expect(serviceLevelsSchema.safeParse(DEFAULT_SERVICE_LEVELS).success).toBe(true);
+  });
+});
+
+describe("waiting for information", () => {
+  it("pauses from any working state and returns to it", () => {
+    for (const s of ["submitted", "pending_approval", "approved", "in_progress"] as RequestStatus[]) {
+      expect({ s, out: canTransition(s, "info_requested"), back: canTransition("info_requested", s) }).toEqual({ s, out: true, back: true });
+    }
+    expect(canTransition("info_requested", "fulfilled")).toBe(false);
+    expect(canTransition("info_requested", "rejected")).toBe(false);
   });
 });

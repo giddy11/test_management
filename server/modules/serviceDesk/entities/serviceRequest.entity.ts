@@ -7,7 +7,7 @@
 // the request is still a draft and frozen once it is submitted.
 import { EntitySchema } from "typeorm";
 import type { FormField, FormValues } from "../domain/formSchema";
-import type { ApprovalMode, RequestPriority, RequestStatus } from "../domain/lifecycle";
+import type { ApprovalMode, RequestPriority, RequestStatus, RiskLevel } from "../domain/lifecycle";
 
 export interface ItemSnapshot {
   itemId: string;
@@ -17,6 +17,11 @@ export interface ItemSnapshot {
   formSchema: FormField[];
   approvalMode: ApprovalMode;
   version: number;
+  // Phase 2 — absent on requests raised before it.
+  riskLevel?: RiskLevel;
+  approvalPolicyName?: string | null;
+  approvalHours?: number | null;
+  fulfilmentHours?: number | null;
 }
 
 export interface ServiceRequest {
@@ -44,9 +49,26 @@ export interface ServiceRequest {
   fulfilledAt: Date | null;
   cancelledAt: Date | null;
   statusUpdatedAt: Date | null;
+  // ── Phase 2: approval engine, service levels, information requests ────────
+  riskLevel: RiskLevel;
+  // The approval step currently waiting for decisions (1-based), or null.
+  currentStep: number | null;
+  approvalDueAt: Date | null;
+  approvalTargetHours: number | null;
+  approvalEscalationLevel: number;
+  // From reaching IT to fulfilled.
+  fulfilmentDueAt: Date | null;
+  fulfilmentTargetHours: number | null;
+  fulfilmentEscalationLevel: number;
+  // While status is info_requested: when, from which status (it returns
+  // there), and who asked.
+  infoRequestedAt: Date | null;
+  infoRequestedFrom: RequestStatus | null;
+  infoRequestedById: string | null;
   createdAt: Date;
   updatedAt: Date;
   catalogItem?: object;
+  infoRequestedBy?: object;
   requester?: object;
   requestedFor?: object;
   assignee?: object;
@@ -79,6 +101,17 @@ const ServiceRequest = new EntitySchema<ServiceRequest>({
     fulfilledAt: { name: "fulfilled_at", type: "timestamptz", nullable: true },
     cancelledAt: { name: "cancelled_at", type: "timestamptz", nullable: true },
     statusUpdatedAt: { name: "status_updated_at", type: "timestamptz", nullable: true },
+    riskLevel: { name: "risk_level", type: "varchar", length: 10, default: "low" },
+    currentStep: { name: "current_step", type: "int", nullable: true },
+    approvalDueAt: { name: "approval_due_at", type: "timestamptz", nullable: true },
+    approvalTargetHours: { name: "approval_target_hours", type: "int", nullable: true },
+    approvalEscalationLevel: { name: "approval_escalation_level", type: "int", default: 0 },
+    fulfilmentDueAt: { name: "fulfilment_due_at", type: "timestamptz", nullable: true },
+    fulfilmentTargetHours: { name: "fulfilment_target_hours", type: "int", nullable: true },
+    fulfilmentEscalationLevel: { name: "fulfilment_escalation_level", type: "int", default: 0 },
+    infoRequestedAt: { name: "info_requested_at", type: "timestamptz", nullable: true },
+    infoRequestedFrom: { name: "info_requested_from", type: "varchar", length: 20, nullable: true },
+    infoRequestedById: { name: "info_requested_by_id", type: "uuid", nullable: true },
     createdAt: { name: "created_at", type: "timestamptz", createDate: true },
     updatedAt: { name: "updated_at", type: "timestamptz", updateDate: true },
   },
@@ -87,12 +120,19 @@ const ServiceRequest = new EntitySchema<ServiceRequest>({
     requester: { type: "many-to-one", target: "User", joinColumn: { name: "requester_id" } },
     requestedFor: { type: "many-to-one", target: "User", joinColumn: { name: "requested_for_id" }, nullable: true, onDelete: "SET NULL" },
     assignee: { type: "many-to-one", target: "User", joinColumn: { name: "assignee_id" }, nullable: true, onDelete: "SET NULL" },
+    infoRequestedBy: { type: "many-to-one", target: "User", joinColumn: { name: "info_requested_by_id" }, nullable: true, onDelete: "SET NULL" },
   },
   indices: [
     { name: "idx_service_requests_org_status", columns: ["organizationId", "status", "createdAt"] },
     { name: "idx_service_requests_requester", columns: ["requesterId", "createdAt"] },
     { name: "idx_service_requests_requested_for", columns: ["requestedForId"] },
     { name: "idx_service_requests_assignee", columns: ["assigneeId"] },
+    { name: "idx_service_requests_approval_due", columns: ["approvalDueAt"], where: `"status" = 'pending_approval'` },
+    {
+      name: "idx_service_requests_fulfilment_due",
+      columns: ["fulfilmentDueAt"],
+      where: `"status" IN ('submitted', 'approved', 'in_progress')`,
+    },
   ],
 });
 

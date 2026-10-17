@@ -9,12 +9,13 @@ const { NotificationRepository } = require("../../notification/repositories/noti
 const { NotificationType } = require("../../../config/constants");
 const { env } = require("../../../config/env");
 
-export type DeskNotificationKind = "approval" | "queued" | "update";
+export type DeskNotificationKind = "approval" | "queued" | "update" | "escalated";
 
 const TYPE_OF: Record<DeskNotificationKind, string> = {
   approval: NotificationType.SERVICE_REQUEST_APPROVAL,
   queued: NotificationType.SERVICE_REQUEST_QUEUED,
   update: NotificationType.SERVICE_REQUEST_UPDATE,
+  escalated: NotificationType.SERVICE_REQUEST_ESCALATED,
 };
 
 export interface DeskEvent {

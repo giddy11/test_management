@@ -7,6 +7,7 @@ import { ServiceDeskSettings } from "../entities/serviceDeskSettings.entity";
 import { ServiceCatalogCategory } from "../entities/serviceCatalogCategory.entity";
 import { ServiceCatalogItem } from "../entities/serviceCatalogItem.entity";
 import type { DefaultCategory } from "../domain/defaultCatalog";
+import type { ServiceLevels } from "../domain/serviceLevels";
 
 const { ActivityLog } = require("../../activity/entities/activityLog.entity");
 
@@ -45,6 +46,21 @@ export class ServiceDeskRepository {
     });
   }
 
+  async saveServiceLevels(organizationId: string, levels: ServiceLevels, userId: string, audit: Record<string, unknown>) {
+    return AppDataSource.transaction(async (m: EntityManager) => {
+      await m.query(
+        `INSERT INTO "service_desk_settings" ("organization_id", "approval_hours", "fulfilment_hours", "escalation", "updated_by_id", "updated_at")
+         VALUES ($1, $2, $3, $4, $5, now())
+         ON CONFLICT ("organization_id") DO UPDATE
+           SET "approval_hours" = EXCLUDED."approval_hours", "fulfilment_hours" = EXCLUDED."fulfilment_hours",
+               "escalation" = EXCLUDED."escalation", "updated_by_id" = EXCLUDED."updated_by_id", "updated_at" = now()`,
+        [organizationId, levels.approvalHours, JSON.stringify(levels.fulfilmentHours), JSON.stringify(levels.escalation), userId]
+      );
+      await m.insert(ActivityLog, audit);
+      return m.getRepository(ServiceDeskSettings).findOneOrFail({ where: { organizationId } });
+    });
+  }
+
   // ── Catalog ────────────────────────────────────────────────────────────────
   async hasCatalog(organizationId: string): Promise<boolean> {
     const rows = await AppDataSource.query(
@@ -76,6 +92,7 @@ export class ServiceDeskRepository {
             formSchema: item.formSchema,
             approvalMode: item.approvalMode,
             approverIds: [],
+            riskLevel: item.riskLevel,
             isActive: true,
             sortOrder: j,
             createdById,
@@ -105,6 +122,60 @@ export class ServiceDeskRepository {
 
   async findItem(organizationId: string, id: string): Promise<ServiceCatalogItem | null> {
     return AppDataSource.getRepository(ServiceCatalogItem).findOne({ where: { organizationId, id } });
+  }
+
+  // The starter catalog is seeded once per organisation, ever — so deleting
+  // every category doesn't bring it back.
+  async markCatalogSeeded(organizationId: string): Promise<void> {
+    await AppDataSource.query(
+      `INSERT INTO "service_desk_settings" ("organization_id", "catalog_seeded") VALUES ($1, true)
+       ON CONFLICT ("organization_id") DO UPDATE SET "catalog_seeded" = true`,
+      [organizationId]
+    );
+  }
+
+  // Deleting is only for things nobody ever used: an item no request (not even
+  // a draft) was raised against, or a category whose items are all like that.
+  // The rows are locked first, so a request created at the same moment either
+  // lands before (and blocks the delete) or waits until after (and finds the
+  // item gone). Returns how many requests block it; 0 means it was deleted.
+  async deleteItemIfUnused(organizationId: string, id: string, audit: Record<string, unknown>): Promise<number> {
+    return AppDataSource.transaction(async (m: EntityManager) => {
+      await m.query(`SELECT 1 FROM "service_catalog_items" WHERE "organization_id" = $1 AND "id" = $2 FOR UPDATE`, [organizationId, id]);
+      const [{ n }] = await m.query(`SELECT COUNT(*)::int AS "n" FROM "service_requests" WHERE "catalog_item_id" = $1`, [id]);
+      if (n > 0) return n as number;
+      await m.getRepository(ServiceCatalogItem).delete({ organizationId, id });
+      await m.insert(ActivityLog, audit);
+      return 0;
+    });
+  }
+
+  // Deleting a category deletes its items with it (FK cascade).
+  async deleteCategoryIfUnused(
+    organizationId: string,
+    id: string,
+    audit: Record<string, unknown>
+  ): Promise<{ blockedBy: number; items: number }> {
+    return AppDataSource.transaction(async (m: EntityManager) => {
+      await m.query(`SELECT 1 FROM "service_catalog_categories" WHERE "organization_id" = $1 AND "id" = $2 FOR UPDATE`, [
+        organizationId,
+        id,
+      ]);
+      const items: { id: string }[] = await m.query(
+        `SELECT "id" FROM "service_catalog_items" WHERE "organization_id" = $1 AND "category_id" = $2 FOR UPDATE`,
+        [organizationId, id]
+      );
+      if (items.length) {
+        const [{ n }] = await m.query(
+          `SELECT COUNT(*)::int AS "n" FROM "service_requests" WHERE "catalog_item_id" = ANY($1::uuid[])`,
+          [items.map((i) => i.id)]
+        );
+        if (n > 0) return { blockedBy: n as number, items: items.length };
+      }
+      await m.getRepository(ServiceCatalogCategory).delete({ organizationId, id });
+      await m.insert(ActivityLog, { ...audit, metadata: { ...((audit.metadata as object) ?? {}), itemsDeleted: items.length } });
+      return { blockedBy: 0, items: items.length };
+    });
   }
 
   async categoryKeyExists(organizationId: string, key: string): Promise<boolean> {

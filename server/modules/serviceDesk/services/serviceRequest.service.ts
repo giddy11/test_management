@@ -1,46 +1,84 @@
 // modules/serviceDesk/services/serviceRequest.service.ts
-// The life of an IT request: draft → submit → (approve | reject) → start →
-// fulfil, or cancel along the way. See domain/lifecycle.ts for the table.
+// The life of an IT request: draft → submit → approval steps → IT → fulfilled,
+// with cancel and "waiting for information" along the way. See
+// domain/lifecycle.ts for the status table and domain/approvalPlan.ts for how
+// approval steps are staffed and decided.
 //
 // Who may do what:
-//   requester            create, edit a draft, submit, cancel before IT starts
-//   requested-for person read and comment (it's about them)
-//   approver             decide — because the item named them, not because of
-//                        a role (approving is deliberately not a permission)
-//   servicedesk.work     see the queue, assign, start, fulfil, cancel with a
-//                        reason, write internal notes
+//   requester            create, edit a draft, submit, answer questions,
+//                        cancel before IT starts, attach files
+//   requested-for person read, comment, answer questions (it's about them)
+//   approver             decide their step, or ask a question — because a
+//                        policy or item named them (or they stand in for
+//                        someone who was), never because of a role. Their
+//                        group's authority must cover the request's risk.
+//   servicedesk.work     the queue: assign, start, fulfil, ask a question,
+//                        cancel with a reason, internal notes
 // A requester never approves their own request, nor one raised for them.
 import type { EntityManager } from "typeorm";
 import { ServiceRequestRepository, type RequestRow } from "../repositories/serviceRequest.repository";
 import { ServiceDeskRepository, type PersonRow } from "../repositories/serviceDesk.repository";
+import { ApprovalSetupRepository } from "../repositories/approvalSetup.repository";
 import { ServiceDeskService, PERMS, type DeskActor } from "./serviceDesk.service";
 import { ServiceDeskNotifier, type DeskEvent } from "./serviceDeskNotifier";
+import { ServiceDeskEscalationService } from "./serviceDeskEscalation.service";
 import type { ItemSnapshot, ServiceRequest } from "../entities/serviceRequest.entity";
 import type { ServiceCatalogItem } from "../entities/serviceCatalogItem.entity";
+import type { ServiceRequestApproval } from "../entities/serviceRequestApproval.entity";
 import { validateFormValues } from "../domain/formSchema";
 import {
+  NoApproverError,
+  buildPlan,
+  rowsMadeRedundant,
+  stepState,
+  stepsForApprovers,
+  type PlannedStep,
+  type PolicyStep,
+} from "../domain/approvalPlan";
+import {
+  addHours,
+  approvalTargetHours,
+  fulfilmentTargetHours,
+  type ServiceLevels,
+} from "../domain/serviceLevels";
+import {
   AGENT_CANCELLABLE,
+  AGENT_CAN_ASK,
   READY_FOR_FULFILMENT,
   REQUESTER_CANCELLABLE,
   STATUS_LABELS,
   TERMINAL_STATUSES,
   assertTransition,
+  coversRisk,
   formatReference,
-  outcomeOfDecision,
+  isRequestStatus,
   parseReference,
   statusOnSubmit,
+  type RequestPriority,
   type RequestStatus,
+  type RiskLevel,
 } from "../domain/lifecycle";
-import { toRequestDto } from "../dto/serviceDesk.dto";
+import { toAttachmentDto, toRequestDto } from "../dto/serviceDesk.dto";
 import type { CreateRequestBody, ListApprovalsQuery, ListRequestsQuery, UpdateDraftBody } from "../validators/serviceDesk.schema";
 
 const { AppError } = require("../../../shared/errors/AppError");
 const { can } = require("../../../shared/access/can");
 const { ActivityService } = require("../../activity/services/activity.service");
+const { StorageService } = require("../../../shared/services/storage.service");
+const { ALLOWED_IMAGE_TYPES } = require("../../../shared/middleware/upload.middleware");
 
 type RequestedFor = Pick<ServiceRequest, "requestedForId" | "requestedForName" | "requestedForEmail">;
 
-const OPEN_VIEW: RequestStatus[] = ["submitted", "pending_approval", "approved", "in_progress"];
+interface UploadedFile {
+  buffer: Buffer;
+  originalname: string;
+  mimetype: string;
+  size: number;
+}
+
+const OPEN_VIEW: RequestStatus[] = ["submitted", "pending_approval", "approved", "info_requested", "in_progress"];
+export const MAX_ATTACHMENTS = 10;
+const ATTACHMENT_FOLDER = "testmate/service-requests";
 
 export class ServiceRequestService {
   static Instance = new ServiceRequestService();
@@ -50,7 +88,9 @@ export class ServiceRequestService {
     private readonly desk = ServiceDeskService.Instance,
     private readonly deskRepo = ServiceDeskRepository.Instance,
     private readonly notifier = ServiceDeskNotifier.Instance,
-    private readonly activity = ActivityService.Instance
+    private readonly activity = ActivityService.Instance,
+    private readonly approvalRepo = ApprovalSetupRepository.Instance,
+    private readonly storage = StorageService.Instance
   ) {}
 
   // ── Creating and submitting ────────────────────────────────────────────────
@@ -63,8 +103,9 @@ export class ServiceRequestService {
     const { values, errors } = validateFormValues(item.formSchema, body.formValues, { partial: !body.submit });
     if (errors.length) throw new AppError("Some answers need another look", 422, errors);
 
-    const approvers = body.submit ? await this.resolveApprovers(organizationId, item, actor.id, requestedFor.requestedForId) : [];
-    const status: RequestStatus = body.submit ? statusOnSubmit(approvers.length > 0) : "draft";
+    const plan = body.submit ? await this.planFor(organizationId, item, actor.id, requestedFor.requestedForId) : [];
+    const levels = body.submit ? await this.desk.serviceLevels(organizationId) : null;
+    const status: RequestStatus = body.submit ? statusOnSubmit(plan.length > 0) : "draft";
     const now = new Date();
 
     const saved = await this.repo.run(async (m) => {
@@ -78,18 +119,19 @@ export class ServiceRequestService {
         description: body.description,
         businessJustification: body.businessJustification,
         priority: body.priority,
+        riskLevel: item.riskLevel,
         formValues: values,
         status,
         submittedAt: body.submit ? now : null,
         statusUpdatedAt: now,
       });
       await this.repo.addHistory(m, { requestId: row.id, fromStatus: null, toStatus: status, actorId: actor.id });
-      if (body.submit) await this.recordSubmission(m, actor, row, approvers);
+      if (body.submit && levels) await this.recordSubmission(m, actor, row, plan, levels, now);
       return row;
     });
 
     const fresh = await this.mustFindRow(organizationId, saved.id);
-    if (body.submit) this.announceSubmission(actor, fresh, approvers);
+    if (body.submit) await this.announceSubmission(actor, fresh);
     return toRequestDto(fresh);
   }
 
@@ -111,13 +153,15 @@ export class ServiceRequestService {
     const requestedFor = await this.requestedFor(organizationId, actor, merged);
     const { values, errors } = validateFormValues(item.formSchema, body.formValues ?? current.formValues, { partial: true });
     if (errors.length) throw new AppError("Some answers need another look", 422, errors);
+    const snapshot = await this.snapshotOf(organizationId, item);
 
     await this.repo.run(async (m) => {
       const locked = await this.repo.lock(m, organizationId, id);
       if (!locked || locked.status !== "draft") throw new AppError("Only a draft can be edited", 409);
       await this.repo.update(m, id, {
         catalogItemId: item.id,
-        itemSnapshot: await this.snapshotOf(organizationId, item),
+        itemSnapshot: snapshot,
+        riskLevel: item.riskLevel,
         ...requestedFor,
         ...(body.title !== undefined && { title: body.title }),
         ...(body.description !== undefined && { description: body.description }),
@@ -138,12 +182,13 @@ export class ServiceRequestService {
     if (!current.catalogItemId) throw new AppError("This request's catalog item no longer exists — start a new request", 409);
 
     // Judged by the item as it stands NOW — a draft may have sat for weeks
-    // while the form or its approvers changed.
+    // while the form, its approvers or its risk changed.
     const item = await this.activeItem(organizationId, current.catalogItemId);
     const { values, errors } = validateFormValues(item.formSchema, current.formValues);
     if (errors.length) throw new AppError("Some answers need another look", 422, errors);
-    const approvers = await this.resolveApprovers(organizationId, item, actor.id, current.requestedForId);
-    const status = statusOnSubmit(approvers.length > 0);
+    const plan = await this.planFor(organizationId, item, actor.id, current.requestedForId);
+    const levels = await this.desk.serviceLevels(organizationId);
+    const status = statusOnSubmit(plan.length > 0);
     const snapshot = await this.snapshotOf(organizationId, item);
 
     await this.repo.run(async (m) => {
@@ -151,18 +196,37 @@ export class ServiceRequestService {
       if (!locked || locked.status !== "draft") throw new AppError("This request has already been submitted", 409);
       assertTransition("draft", status);
       const now = new Date();
-      await this.repo.update(m, id, { status, itemSnapshot: snapshot, formValues: values, submittedAt: now, statusUpdatedAt: now });
+      await this.repo.update(m, id, {
+        status,
+        itemSnapshot: snapshot,
+        riskLevel: item.riskLevel,
+        formValues: values,
+        submittedAt: now,
+        statusUpdatedAt: now,
+      });
       await this.repo.addHistory(m, { requestId: id, fromStatus: "draft", toStatus: status, actorId: actor.id });
-      await this.recordSubmission(m, actor, { ...locked, status }, approvers);
+      await this.recordSubmission(m, actor, { ...locked, status, itemSnapshot: snapshot }, plan, levels, now);
     });
 
     const fresh = await this.mustFindRow(organizationId, id);
-    this.announceSubmission(actor, fresh, approvers);
+    await this.announceSubmission(actor, fresh);
     return toRequestDto(fresh);
   }
 
-  private async recordSubmission(m: EntityManager, actor: DeskActor, row: ServiceRequest, approvers: PersonRow[]) {
-    await this.repo.addApprovals(m, row.id, approvers.map((a) => a.id));
+  private async recordSubmission(
+    m: EntityManager,
+    actor: DeskActor,
+    row: ServiceRequest,
+    plan: PlannedStep[],
+    levels: ServiceLevels,
+    now: Date
+  ) {
+    await this.repo.insertPlan(m, row.id, plan);
+    await this.repo.update(
+      m,
+      row.id,
+      plan.length ? this.approvalStepPatch(levels, row.itemSnapshot, 1, now) : this.fulfilmentPatch(levels, row, now)
+    );
     await this.repo.addAudit(
       m,
       this.activity.buildEntry(actor, {
@@ -170,25 +234,45 @@ export class ServiceRequestService {
         summary: `Submitted IT request ${formatReference(row.requestNumber)} "${row.title}"`,
         entityType: "service_request",
         entityId: row.id,
-        metadata: { status: row.status, approverIds: approvers.map((a) => a.id) },
+        metadata: {
+          status: row.status,
+          steps: plan.map((s) => ({ name: s.name, mode: s.mode, approverIds: s.approvers.map((a) => a.userId) })),
+        },
       })
     );
   }
 
-  private announceSubmission(actor: DeskActor, r: RequestRow, approvers: PersonRow[]) {
-    const ref = formatReference(r.requestNumber);
+  private async announceSubmission(actor: DeskActor, r: RequestRow) {
     if (r.status === "pending_approval") {
-      this.notifier.send(approvers, this.event(r, "approval", {
-        title: `Approval needed: ${ref} ${r.title}`,
-        heading: "An IT request needs your approval",
-        body: `${r.requesterName} asked for "${r.itemSnapshot.name}" (${r.title}). You can approve or reject it.`,
-        note: r.businessJustification,
-        noteLabel: "Business justification",
-        ctaLabel: "Review the request",
-      }), actor.id);
+      await this.notifyApprovers(r, actor.id);
       return;
     }
     this.notifyQueue(r, actor.id);
+  }
+
+  // ── Service levels ─────────────────────────────────────────────────────────
+
+  // An approval step starts: its own clock, escalation from zero.
+  private approvalStepPatch(levels: ServiceLevels, snapshot: ItemSnapshot, step: number, now: Date): Partial<ServiceRequest> {
+    const hours = approvalTargetHours(levels, snapshot.approvalHours);
+    return {
+      currentStep: step,
+      approvalDueAt: addHours(now, hours),
+      approvalTargetHours: hours,
+      approvalEscalationLevel: 0,
+    };
+  }
+
+  // The request reaches IT: the fulfilment clock starts.
+  private fulfilmentPatch(levels: ServiceLevels, row: Pick<ServiceRequest, "priority" | "itemSnapshot">, now: Date): Partial<ServiceRequest> {
+    const hours = fulfilmentTargetHours(levels, row.priority as RequestPriority, row.itemSnapshot.fulfilmentHours);
+    return {
+      currentStep: null,
+      approvalDueAt: null,
+      fulfilmentDueAt: addHours(now, hours),
+      fulfilmentTargetHours: hours,
+      fulfilmentEscalationLevel: 0,
+    };
   }
 
   // ── Deciding ───────────────────────────────────────────────────────────────
@@ -203,31 +287,106 @@ export class ServiceRequestService {
   private async decide(actor: DeskActor, id: string, decision: "approved" | "rejected", comment: string | null) {
     const organizationId = this.desk.orgOf(actor);
     await this.desk.assertEnabled(organizationId);
-    const next = outcomeOfDecision(decision);
+    const [levels, delegations] = await Promise.all([
+      this.desk.serviceLevels(organizationId),
+      this.approvalRepo.activeDelegations(organizationId),
+    ]);
+    // Assigned inside the transaction; the cast stops TS narrowing it to the initial value.
+    let outcome = "step_pending" as "rejected" | "approved" | "next_step" | "step_pending";
+    let stepName = "";
 
     await this.repo.run(async (m) => {
       const locked = await this.repo.lock(m, organizationId, id);
       if (!locked) throw new AppError("Request not found", 404);
-      const mine = (await this.repo.approvalsOf(m, id)).filter((a) => a.approverId === actor.id);
-      if (!mine.length) throw new AppError("You are not an approver for this request", 403);
-      const pending = mine.find((a) => a.decision === "pending");
-      if (locked.status !== "pending_approval" || !pending) {
-        throw new AppError(`This request is already ${STATUS_LABELS[locked.status].toLowerCase()}`, 409);
+      const rows = await this.repo.approvalsOf(m, id);
+      const step = locked.currentStep ?? 1;
+      const stepRows = rows.filter((r) => r.stepOrder === step);
+      const actsFor = (r: ServiceRequestApproval) => r.approverId === actor.id || delegations.get(r.approverId) === actor.id;
+      const mine = stepRows.find((r) => r.decision === "pending" && actsFor(r));
+
+      if (locked.status !== "pending_approval" || !mine) {
+        if (!rows.some((r) => actsFor(r) || r.decidedById === actor.id)) {
+          throw new AppError("You are not an approver for this request", 403);
+        }
+        if (locked.status !== "pending_approval") {
+          throw new AppError(`This request is already ${STATUS_LABELS[locked.status].toLowerCase()}`, 409);
+        }
+        throw new AppError(
+          rows.some((r) => actsFor(r) && r.decision === "waiting")
+            ? "Your step hasn't started yet — an earlier approver decides first"
+            : "You've already given your decision on this request",
+          409
+        );
       }
-      assertTransition(locked.status, next);
+      // A delegate might be the requester; nobody approves their own request.
+      if (actor.id === locked.requesterId || actor.id === locked.requestedForId) {
+        throw new AppError("You can't approve a request raised by or for you", 403);
+      }
+
+      // Authority: a group member may only decide up to the group's level,
+      // checked now — the group may have changed since the request was raised.
+      let authorityLevel: RiskLevel | null = null;
+      if (mine.groupId) {
+        const group = await this.approvalRepo.findGroup(organizationId, mine.groupId);
+        if (group && !coversRisk(group.maxRiskLevel, locked.riskLevel)) {
+          throw new AppError(
+            `This is a ${locked.riskLevel}-risk request, beyond the authority of ${group.name} (up to ${group.maxRiskLevel})`,
+            403
+          );
+        }
+        authorityLevel = group?.maxRiskLevel ?? null;
+      }
+
       const now = new Date();
-      await this.repo.decide(m, pending.id, decision, comment);
-      await this.repo.skipPending(m, id);
-      await this.repo.update(m, id, { status: next, statusUpdatedAt: now, ...(decision === "approved" && { approvedAt: now }) });
-      await this.repo.addHistory(m, { requestId: id, fromStatus: locked.status, toStatus: next, actorId: actor.id, note: comment });
+      stepName = mine.stepName ?? `Step ${step}`;
+      await this.repo.decide(m, mine.id, { decision, comment, decidedById: actor.id, authorityLevel });
+      const ref = formatReference(locked.requestNumber);
+      const onBehalf = mine.approverId !== actor.id ? { onBehalfOf: mine.approverId } : {};
+
+      if (decision === "rejected") {
+        assertTransition(locked.status, "rejected");
+        await this.repo.skipUndecided(m, id);
+        await this.repo.update(m, id, { status: "rejected", statusUpdatedAt: now, currentStep: null, approvalDueAt: null });
+        await this.repo.addHistory(m, { requestId: id, fromStatus: locked.status, toStatus: "rejected", actorId: actor.id, note: comment });
+        outcome = "rejected";
+      } else {
+        const updated = stepRows.map((r) => (r.id === mine.id ? { ...r, decision: "approved" as const } : r));
+        await this.repo.skipRows(m, rowsMadeRedundant(mine.stepMode, updated, { ...mine, decision: "approved" }).map((r) => r.id));
+        if (stepState(mine.stepMode, updated) === "approved") {
+          const nextRows = rows.filter((r) => r.stepOrder === step + 1);
+          if (nextRows.length) {
+            await this.repo.activateStep(m, id, step + 1);
+            await this.repo.update(m, id, this.approvalStepPatch(levels, locked.itemSnapshot, step + 1, now));
+            await this.repo.addHistory(m, {
+              requestId: id,
+              fromStatus: locked.status,
+              toStatus: "pending_approval",
+              actorId: actor.id,
+              note: `${stepName} approved${comment ? `: ${comment}` : ""}. Now with ${nextRows[0].stepName ?? `step ${step + 1}`}.`,
+            });
+            outcome = "next_step";
+          } else {
+            assertTransition(locked.status, "approved");
+            await this.repo.update(m, id, {
+              status: "approved",
+              approvedAt: now,
+              statusUpdatedAt: now,
+              ...this.fulfilmentPatch(levels, locked, now),
+            });
+            await this.repo.addHistory(m, { requestId: id, fromStatus: locked.status, toStatus: "approved", actorId: actor.id, note: comment });
+            outcome = "approved";
+          }
+        }
+      }
+
       await this.repo.addAudit(
         m,
         this.activity.buildEntry(actor, {
           action: `service_request.${decision}`,
-          summary: `${decision === "approved" ? "Approved" : "Rejected"} IT request ${formatReference(locked.requestNumber)} "${locked.title}"`,
+          summary: `${decision === "approved" ? "Approved" : "Rejected"} ${stepName} of IT request ${ref} "${locked.title}"`,
           entityType: "service_request",
           entityId: id,
-          metadata: { comment },
+          metadata: { step, stepName, comment, authorityLevel, riskLevel: locked.riskLevel, ...onBehalf },
         })
       );
     });
@@ -235,24 +394,150 @@ export class ServiceRequestService {
     const r = await this.mustFindRow(organizationId, id);
     const ref = formatReference(r.requestNumber);
     const decider = nameOf(actor);
-    this.notifier.send(await this.requesterSide(r), this.event(r, "update", decision === "approved"
-      ? {
-          title: `Approved: ${ref} ${r.title}`,
-          heading: "Your IT request was approved",
-          body: `${decider} approved your request "${r.title}". It's now with IT.`,
-          note: comment,
-          noteLabel: "Comment",
-          ctaLabel: "View the request",
-        }
-      : {
-          title: `Rejected: ${ref} ${r.title}`,
-          heading: "Your IT request was rejected",
-          body: `${decider} rejected your request "${r.title}".`,
-          note: comment,
-          noteLabel: "Reason",
-          ctaLabel: "View the request",
-        }), actor.id);
-    if (decision === "approved") this.notifyQueue(r, actor.id);
+    if (outcome === "rejected") {
+      this.notifier.send(await this.requesterSide(r), this.event(r, "update", {
+        title: `Rejected: ${ref} ${r.title}`,
+        heading: "Your IT request was rejected",
+        body: `${decider} rejected your request "${r.title}" at ${stepName}.`,
+        note: comment,
+        noteLabel: "Reason",
+        ctaLabel: "View the request",
+      }), actor.id);
+    } else if (outcome === "next_step") {
+      await this.notifyApprovers(r, actor.id);
+    } else if (outcome === "approved") {
+      this.notifier.send(await this.requesterSide(r), this.event(r, "update", {
+        title: `Approved: ${ref} ${r.title}`,
+        heading: "Your IT request was approved",
+        body: `${decider} gave the final approval for "${r.title}". It's now with IT.`,
+        note: comment,
+        noteLabel: "Comment",
+        ctaLabel: "View the request",
+      }), actor.id);
+      this.notifyQueue(r, actor.id);
+    }
+    return toRequestDto(r);
+  }
+
+  // ── Waiting for information ────────────────────────────────────────────────
+
+  // An approver (on their live step) or IT asks the requester something. The
+  // request pauses, and its service-level clock with it.
+  async askForInfo(actor: DeskActor, id: string, question: string) {
+    const organizationId = this.desk.orgOf(actor);
+    await this.desk.assertEnabled(organizationId);
+    const delegations = await this.approvalRepo.activeDelegations(organizationId);
+
+    await this.repo.run(async (m) => {
+      const locked = await this.repo.lock(m, organizationId, id);
+      if (!locked || locked.status === "draft") throw new AppError("Request not found", 404);
+      let allowed = false;
+      if (locked.status === "pending_approval") {
+        const step = locked.currentStep ?? 1;
+        allowed = (await this.repo.approvalsOf(m, id)).some(
+          (r) =>
+            r.stepOrder === step &&
+            r.decision === "pending" &&
+            (r.approverId === actor.id || delegations.get(r.approverId) === actor.id)
+        );
+      } else if (AGENT_CAN_ASK.includes(locked.status)) {
+        allowed = can(actor, PERMS.WORK);
+      }
+      if (!allowed) {
+        throw new AppError(
+          locked.status === "info_requested"
+            ? "A question is already waiting for an answer"
+            : `You can't ask for information on a request that is ${STATUS_LABELS[locked.status].toLowerCase()}`,
+          409
+        );
+      }
+      assertTransition(locked.status, "info_requested");
+      const now = new Date();
+      await this.repo.update(m, id, {
+        status: "info_requested",
+        statusUpdatedAt: now,
+        infoRequestedAt: now,
+        infoRequestedFrom: locked.status,
+        infoRequestedById: actor.id,
+      });
+      await this.repo.addComment({ requestId: id, authorId: actor.id, body: question, isInternal: false }, m);
+      await this.repo.addHistory(m, { requestId: id, fromStatus: locked.status, toStatus: "info_requested", actorId: actor.id, note: question });
+      await this.repo.addAudit(
+        m,
+        this.activity.buildEntry(actor, {
+          action: "service_request.info_requested",
+          summary: `Asked for more information on IT request ${formatReference(locked.requestNumber)}`,
+          entityType: "service_request",
+          entityId: id,
+        })
+      );
+    });
+
+    const r = await this.mustFindRow(organizationId, id);
+    this.notifier.send(await this.requesterSide(r), this.event(r, "update", {
+      title: `Question about ${formatReference(r.requestNumber)} ${r.title}`,
+      heading: "IT needs more information",
+      body: `${nameOf(actor)} has a question about "${r.title}". It's on hold until you answer.`,
+      note: question,
+      noteLabel: "Question",
+      ctaLabel: "Answer",
+    }), actor.id);
+    return toRequestDto(r);
+  }
+
+  // The requester (or the person it's for) answers; the request goes back to
+  // exactly where it was, with the paused time added back to its due dates.
+  async provideInfo(actor: DeskActor, id: string, answer: string) {
+    const organizationId = this.desk.orgOf(actor);
+    await this.desk.assertEnabled(organizationId);
+    let askerId: string | null = null;
+
+    await this.repo.run(async (m) => {
+      const locked = await this.repo.lock(m, organizationId, id);
+      if (!locked) throw new AppError("Request not found", 404);
+      if (locked.requesterId !== actor.id && locked.requestedForId !== actor.id) {
+        throw new AppError("Only the requester can answer", 403);
+      }
+      if (locked.status !== "info_requested") throw new AppError("Nothing is waiting for an answer", 409);
+      const back = locked.infoRequestedFrom;
+      if (!back || !isRequestStatus(back)) throw new AppError("This request can't be resumed — ask IT to look at it", 409);
+      assertTransition("info_requested", back);
+      const now = new Date();
+      const paused = now.getTime() - new Date(locked.infoRequestedAt ?? now).getTime();
+      const shift = (d: Date | null) => (d ? new Date(new Date(d).getTime() + paused) : null);
+      askerId = locked.infoRequestedById;
+      await this.repo.update(m, id, {
+        status: back,
+        statusUpdatedAt: now,
+        infoRequestedAt: null,
+        infoRequestedFrom: null,
+        infoRequestedById: null,
+        approvalDueAt: shift(locked.approvalDueAt),
+        fulfilmentDueAt: shift(locked.fulfilmentDueAt),
+      });
+      await this.repo.addComment({ requestId: id, authorId: actor.id, body: answer, isInternal: false }, m);
+      await this.repo.addHistory(m, { requestId: id, fromStatus: "info_requested", toStatus: back, actorId: actor.id, note: answer });
+      await this.repo.addAudit(
+        m,
+        this.activity.buildEntry(actor, {
+          action: "service_request.info_provided",
+          summary: `Answered the question on IT request ${formatReference(locked.requestNumber)}`,
+          entityType: "service_request",
+          entityId: id,
+        })
+      );
+    });
+
+    const r = await this.mustFindRow(organizationId, id);
+    const ids = [askerId, r.assigneeId].filter(Boolean) as string[];
+    this.notifier.send(await this.deskRepo.peopleByIds(organizationId, ids), this.event(r, "update", {
+      title: `Answered: ${formatReference(r.requestNumber)} ${r.title}`,
+      heading: "Your question was answered",
+      body: `${nameOf(actor)} answered on "${r.title}". It's back to ${STATUS_LABELS[r.status].toLowerCase()}.`,
+      note: answer,
+      noteLabel: "Answer",
+      ctaLabel: "Open the request",
+    }), actor.id);
     return toRequestDto(r);
   }
 
@@ -317,8 +602,8 @@ export class ServiceRequestService {
       // Belt and braces for BR 1.2: the status table already forbids it, but
       // never start work while any approval is outstanding or was refused.
       const approvals = await this.repo.approvalsOf(m, id);
-      if (approvals.some((a) => a.decision === "pending" || a.decision === "rejected")) {
-        throw new AppError("This request has not been approved", 409);
+      if (approvals.some((a) => a.decision === "pending" || a.decision === "waiting" || a.decision === "rejected")) {
+        throw new AppError("This request has not been fully approved", 409);
       }
       assertTransition(locked.status, "in_progress");
       const now = new Date();
@@ -369,6 +654,9 @@ export class ServiceRequestService {
           summary: `Fulfilled IT request ${formatReference(locked.requestNumber)} "${locked.title}"`,
           entityType: "service_request",
           entityId: id,
+          metadata: {
+            onTime: locked.fulfilmentDueAt ? now.getTime() <= new Date(locked.fulfilmentDueAt).getTime() : null,
+          },
         })
       );
     });
@@ -398,7 +686,8 @@ export class ServiceRequestService {
       const isRequester = locked.requesterId === actor.id;
       const isAgent = can(actor, PERMS.WORK) && locked.status !== "draft";
       byRequester = isRequester && REQUESTER_CANCELLABLE.includes(locked.status);
-      const byAgent = !byRequester && isAgent && AGENT_CANCELLABLE.includes(locked.status);
+      const agentMay = canAgentCancel(locked);
+      const byAgent = !byRequester && isAgent && agentMay;
       if (!isRequester && !isAgent) throw new AppError("Request not found", 404);
       if (!byRequester && !byAgent) {
         throw new AppError(
@@ -413,11 +702,15 @@ export class ServiceRequestService {
       }
       assertTransition(locked.status, "cancelled");
       const now = new Date();
-      await this.repo.skipPending(m, id);
+      await this.repo.skipUndecided(m, id);
       await this.repo.update(m, id, {
         status: "cancelled",
         cancelledAt: now,
         statusUpdatedAt: now,
+        currentStep: null,
+        infoRequestedAt: null,
+        infoRequestedFrom: null,
+        infoRequestedById: null,
         ...(byAgent && { resolutionNote: reason }),
       });
       await this.repo.addHistory(m, { requestId: id, fromStatus: locked.status, toStatus: "cancelled", actorId: actor.id, note: reason });
@@ -491,6 +784,80 @@ export class ServiceRequestService {
     };
   }
 
+  // ── Attachments ────────────────────────────────────────────────────────────
+
+  // Anyone involved may add files until the request is finished. Images go up
+  // as images; PDFs and Office files as raw files.
+  async uploadAttachments(actor: DeskActor, id: string, files: UploadedFile[]) {
+    const organizationId = this.desk.orgOf(actor);
+    await this.desk.assertEnabled(organizationId);
+    const r = await this.mustFindRow(organizationId, id);
+    const viewer = await this.viewerOf(actor, r);
+    if (!viewer.visible) throw new AppError("Request not found", 404);
+    if (TERMINAL_STATUSES.includes(r.status)) {
+      throw new AppError(`This request is ${STATUS_LABELS[r.status].toLowerCase()} — no more files can be added`, 409);
+    }
+    if (!files?.length) throw new AppError("No files provided", 400);
+    const existing = await this.repo.countAttachments(id);
+    if (existing + files.length > MAX_ATTACHMENTS) {
+      throw new AppError(`A request can have at most ${MAX_ATTACHMENTS} files`, 422);
+    }
+
+    const rows = [];
+    for (const file of files) {
+      const isImage = ALLOWED_IMAGE_TYPES.includes(file.mimetype);
+      const result = isImage
+        ? await this.storage.uploadImage(file.buffer, { folder: ATTACHMENT_FOLDER })
+        : await this.storage.uploadRaw(file.buffer, { folder: ATTACHMENT_FOLDER });
+      rows.push({
+        requestId: id,
+        fileName: file.originalname.slice(0, 255),
+        fileUrl: result.url,
+        filePublicId: result.publicId,
+        resourceType: (isImage ? "image" : "raw") as "image" | "raw",
+        mimeType: file.mimetype,
+        fileSizeBytes: file.size,
+        uploadedById: actor.id,
+      });
+    }
+    await this.repo.addAttachments(rows);
+    if (r.status !== "draft") {
+      this.activity.log(actor, {
+        action: "service_request.files_added",
+        summary: `Added ${rows.length} file${rows.length === 1 ? "" : "s"} to IT request ${formatReference(r.requestNumber)}`,
+        entityType: "service_request",
+        entityId: id,
+      });
+    }
+    return (await this.repo.attachmentRows(id)).map(toAttachmentDto);
+  }
+
+  // Your own file while the request is open; IT may remove any file.
+  async deleteAttachment(actor: DeskActor, id: string, attachmentId: string) {
+    const organizationId = this.desk.orgOf(actor);
+    await this.desk.assertEnabled(organizationId);
+    const r = await this.mustFindRow(organizationId, id);
+    const viewer = await this.viewerOf(actor, r);
+    if (!viewer.visible) throw new AppError("Request not found", 404);
+    const file = await this.repo.findAttachment(id, attachmentId);
+    if (!file) throw new AppError("File not found", 404);
+    const own = file.uploadedById === actor.id && !TERMINAL_STATUSES.includes(r.status);
+    if (!own && !viewer.isAgent) throw new AppError("You can only remove files you added", 403);
+
+    // Remove from Cloudinary first, then drop the row.
+    const remove = file.resourceType === "raw" ? this.storage.deleteRaw(file.filePublicId) : this.storage.deleteImage(file.filePublicId);
+    await remove.catch(() => {});
+    await this.repo.deleteAttachment(file.id);
+    if (r.status !== "draft") {
+      this.activity.log(actor, {
+        action: "service_request.file_removed",
+        summary: `Removed "${file.fileName}" from IT request ${formatReference(r.requestNumber)}`,
+        entityType: "service_request",
+        entityId: id,
+      });
+    }
+  }
+
   // ── Reading ────────────────────────────────────────────────────────────────
   async list(actor: DeskActor, q: ListRequestsQuery) {
     const organizationId = this.desk.orgOf(actor);
@@ -510,6 +877,7 @@ export class ServiceRequestService {
       userId: actor.id,
       scope: q.scope,
       statuses,
+      overdue: q.view === "overdue",
       assignee: q.scope === "queue" ? q.assignee : undefined,
       search: q.search,
       requestNumber: q.search ? parseReference(q.search) : null,
@@ -537,6 +905,9 @@ export class ServiceRequestService {
   async counts(actor: DeskActor) {
     const organizationId = this.desk.orgOf(actor);
     if (!(await this.desk.isEnabled(organizationId))) return { pendingApprovals: 0, queue: null };
+    // Everyone's sidebar polls this, which makes it a good heartbeat for the
+    // escalation sweep on a server that sleeps between requests.
+    ServiceDeskEscalationService.Instance.kick();
     return this.repo.counts(organizationId, actor.id, can(actor, PERMS.WORK));
   }
 
@@ -547,20 +918,31 @@ export class ServiceRequestService {
     const viewer = await this.viewerOf(actor, r);
     if (!viewer.visible) throw new AppError("Request not found", 404);
 
-    const [approvals, history, comments, item] = await Promise.all([
+    const [approvals, history, comments, attachments, item, delegations] = await Promise.all([
       this.repo.approvalRows(id),
       this.repo.historyRows(id),
       this.repo.commentRows(id, viewer.isAgent),
+      this.repo.attachmentRows(id),
       viewer.isAgent && r.catalogItemId ? this.deskRepo.findItem(organizationId, r.catalogItemId) : Promise.resolve(null),
+      this.approvalRepo.activeDelegations(organizationId),
     ]);
-    const myPending = approvals.find((a) => a.approverId === actor.id && a.decision === "pending");
+    const step = r.currentStep ?? 1;
+    const myPending = approvals.find(
+      (a) =>
+        a.stepOrder === step &&
+        a.decision === "pending" &&
+        (a.approverId === actor.id || delegations.get(a.approverId) === actor.id)
+    );
     const isRequesterSelf = r.requesterId === actor.id;
+    const canDecide = !!myPending && r.status === "pending_approval" && actor.id !== r.requesterId && actor.id !== r.requestedForId;
+    const isRequesterSide = r.requesterId === actor.id || r.requestedForId === actor.id;
 
     return {
       request: toRequestDto(r),
       approvals,
       history,
       comments,
+      attachments: attachments.map(toAttachmentDto),
       // IT's own instructions for this kind of request — agents only.
       fulfilmentNotes: viewer.isAgent ? item?.fulfilmentNotes ?? null : null,
       viewer: {
@@ -568,16 +950,19 @@ export class ServiceRequestService {
         isApprover: viewer.isApprover,
         isAgent: viewer.isAgent,
         canEdit: isRequesterSelf && r.status === "draft",
-        canDecide: !!myPending && r.status === "pending_approval",
+        canDecide,
+        canAskInfo: canDecide || (viewer.isAgent && AGENT_CAN_ASK.includes(r.status)),
+        canProvideInfo: isRequesterSide && r.status === "info_requested",
         canCancel:
-          (isRequesterSelf && REQUESTER_CANCELLABLE.includes(r.status)) ||
-          (viewer.isAgent && AGENT_CANCELLABLE.includes(r.status)),
+          (isRequesterSelf && REQUESTER_CANCELLABLE.includes(r.status)) || (viewer.isAgent && canAgentCancel(r)),
         cancelNeedsReason: !(isRequesterSelf && REQUESTER_CANCELLABLE.includes(r.status)),
         canAssign: viewer.isAgent && r.status !== "draft" && !TERMINAL_STATUSES.includes(r.status),
         canStart: viewer.isAgent && READY_FOR_FULFILMENT.includes(r.status),
         canFulfil: viewer.isAgent && r.status === "in_progress",
         canComment: viewer.visible && r.status !== "draft",
         canAddInternalNote: viewer.isAgent && r.status !== "draft",
+        canAttach: !TERMINAL_STATUSES.includes(r.status),
+        myUserId: actor.id,
       },
     };
   }
@@ -608,7 +993,12 @@ export class ServiceRequestService {
   }
 
   private async snapshotOf(organizationId: string, item: ServiceCatalogItem): Promise<ItemSnapshot> {
-    const category = await this.deskRepo.findCategory(organizationId, item.categoryId);
+    const [category, policy] = await Promise.all([
+      this.deskRepo.findCategory(organizationId, item.categoryId),
+      item.approvalMode === "policy" && item.approvalPolicyId
+        ? this.approvalRepo.findPolicy(organizationId, item.approvalPolicyId)
+        : Promise.resolve(null),
+    ]);
     return {
       itemId: item.id,
       name: item.name,
@@ -617,6 +1007,10 @@ export class ServiceRequestService {
       formSchema: item.formSchema ?? [],
       approvalMode: item.approvalMode,
       version: item.version,
+      riskLevel: item.riskLevel,
+      approvalPolicyName: policy?.name ?? null,
+      approvalHours: item.approvalHours,
+      fulfilmentHours: item.fulfilmentHours,
     };
   }
 
@@ -641,35 +1035,78 @@ export class ServiceRequestService {
     return { requestedForId: null, requestedForName: name, requestedForEmail: email };
   }
 
-  // Who decides. Any one of the item's named approvers — minus the requester
-  // and the person it's for — or, when the item names nobody eligible, the
-  // organisation's servicedesk.manage holders. Never empty for an item that
-  // needs approval: better to refuse the submission than to let it through.
-  async resolveApprovers(
+  // Turns the item's approval route into people (see domain/approvalPlan.ts).
+  // Empty = no approval needed. Refuses the submission rather than letting a
+  // request skip a step nobody can staff.
+  async planFor(
     organizationId: string,
-    item: Pick<ServiceCatalogItem, "approvalMode" | "approverIds" | "name">,
+    item: Pick<ServiceCatalogItem, "approvalMode" | "approverIds" | "approvalPolicyId" | "name" | "riskLevel">,
     requesterId: string,
     requestedForId: string | null
-  ): Promise<PersonRow[]> {
-    if (item.approvalMode !== "approvers") return [];
-    const excluded = new Set([requesterId, requestedForId].filter(Boolean) as string[]);
-    const named = new Set(item.approverIds ?? []);
-    const eligible = (await this.deskRepo.usersWithPermission(organizationId, [PERMS.CREATE, PERMS.MANAGE])).filter(
-      (p) => named.has(p.id) && !excluded.has(p.id)
-    );
-    if (eligible.length) return eligible;
-    const fallback = (await this.deskRepo.usersWithPermission(organizationId, [PERMS.MANAGE])).filter((p) => !excluded.has(p.id));
-    if (fallback.length) return fallback;
-    throw new AppError(
-      `Nobody can approve "${item.name}" yet. Ask an administrator to name approvers for it in Catalog setup.`,
-      409
-    );
+  ): Promise<PlannedStep[]> {
+    if (item.approvalMode === "none") return [];
+    let steps: PolicyStep[];
+    if (item.approvalMode === "policy") {
+      const policy = item.approvalPolicyId ? await this.approvalRepo.findPolicy(organizationId, item.approvalPolicyId) : null;
+      if (!policy) {
+        throw new AppError(`"${item.name}" has no approval policy any more. Ask an administrator to fix it in Catalog setup.`, 409);
+      }
+      steps = policy.steps;
+    } else {
+      steps = stepsForApprovers(item.approverIds ?? []);
+    }
+
+    const usesManager = steps.some((s) => s.approvers.some((a) => a.type === "line_manager"));
+    const [eligible, fallback, groups, delegations, lineManagerId] = await Promise.all([
+      this.deskRepo.usersWithPermission(organizationId, [PERMS.CREATE, PERMS.MANAGE]),
+      this.deskRepo.usersWithPermission(organizationId, [PERMS.MANAGE]),
+      this.approvalRepo.listGroups(organizationId),
+      this.approvalRepo.activeDelegations(organizationId),
+      // The manager of whoever the request is for; for a new starter (no
+      // account yet), the manager of the person asking on their behalf.
+      usesManager ? this.approvalRepo.managerOf(organizationId, requestedForId ?? requesterId) : Promise.resolve(null),
+    ]);
+
+    try {
+      return buildPlan(steps, {
+        risk: item.riskLevel ?? "low",
+        excluded: new Set([requesterId, requestedForId].filter(Boolean) as string[]),
+        eligible: new Set(eligible.map((p) => p.id)),
+        lineManagerId,
+        groups: new Map(groups.map((g) => [g.id, { name: g.name, maxRiskLevel: g.maxRiskLevel, memberIds: g.memberIds }])),
+        delegateOf: (userId) => delegations.get(userId) ?? null,
+        fallbackIds: fallback.map((p) => p.id),
+      });
+    } catch (e) {
+      if (e instanceof NoApproverError) {
+        throw new AppError(
+          `Nobody can approve "${item.name}" (${e.stepName}) yet. Ask an administrator to name approvers for it in Catalog setup.`,
+          409
+        );
+      }
+      throw e;
+    }
   }
 
   // The people a request is about: who raised it, and who it's for.
   private async requesterSide(r: RequestRow): Promise<PersonRow[]> {
     const ids = [r.requesterId, r.requestedForId].filter(Boolean) as string[];
     return this.deskRepo.peopleByIds(r.organizationId, ids);
+  }
+
+  // Whoever the live approval step is waiting on (delegates included).
+  private async notifyApprovers(r: RequestRow, exceptUserId: string) {
+    const ids = await this.repo.pendingApproverIds(r.id);
+    const people = await this.deskRepo.peopleByIds(r.organizationId, ids);
+    const ref = formatReference(r.requestNumber);
+    this.notifier.send(people, this.event(r, "approval", {
+      title: `Approval needed: ${ref} ${r.title}`,
+      heading: "An IT request needs your approval",
+      body: `${r.requesterName} asked for "${r.itemSnapshot.name}" (${r.title}). You can approve it, reject it, or ask a question.`,
+      note: r.businessJustification,
+      noteLabel: "Business justification",
+      ctaLabel: "Review the request",
+    }), exceptUserId);
   }
 
   private notifyQueue(r: RequestRow, exceptUserId: string) {
@@ -691,7 +1128,13 @@ export class ServiceRequestService {
   }
 }
 
+// IT may cancel what has reached it — and a request paused for information
+// only if it had reached IT before the pause (not while still with approvers).
+function canAgentCancel(r: Pick<ServiceRequest, "status" | "infoRequestedFrom">): boolean {
+  if (!AGENT_CANCELLABLE.includes(r.status)) return false;
+  return r.status !== "info_requested" || (!!r.infoRequestedFrom && AGENT_CANCELLABLE.includes(r.infoRequestedFrom));
+}
+
 function nameOf(actor: DeskActor): string {
   return [actor.firstName, actor.lastName].filter(Boolean).join(" ").trim() || actor.email || "Someone";
 }
-

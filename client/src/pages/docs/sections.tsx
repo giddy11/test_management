@@ -353,8 +353,7 @@ const ALL_SECTIONS: DocSection[] = [
           Filter by date range, product, client company, status, severity, type, team member,
           support engineer, or ticket code. Administrators set the targets per severity and pick
           which stages pause the clock under <Strong>SLA rules</Strong>; QA users see the projects
-          they belong to, and IT support engineers see the same reports for their own company under{" "}
-          <Strong>SLA reports</Strong>.
+          they belong to.
         </P>
       </div>
     ),

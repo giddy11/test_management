@@ -79,6 +79,13 @@ const User = new EntitySchema({
       type: "boolean",
       default: false,
     },
+    // The person's line manager (another user in the same organisation). Used
+    // by IT requests' "line manager" approval rule; set in Catalog setup.
+    managerId: {
+      name: "manager_id",
+      type: "uuid",
+      nullable: true,
+    },
     // International format (e.g. "+2348012345678") — a general profile field.
     phoneNumber: {
       name: "phone_number",
@@ -161,6 +168,15 @@ const User = new EntitySchema({
       nullable: true,
     },
   },
+  relations: {
+    manager: {
+      type: "many-to-one",
+      target: "User",
+      joinColumn: { name: "manager_id" },
+      nullable: true,
+      onDelete: "SET NULL",
+    },
+  },
   indices: [
     // Partial: only active users. A removed user's email must be reusable
     // (e.g. re-adding a client company supporter with the same address).
@@ -168,6 +184,7 @@ const User = new EntitySchema({
     { name: "idx_users_google_id", columns: ["googleId"] },
     { name: "idx_users_organization_id", columns: ["organizationId"] },
     { name: "idx_users_client_company_id", columns: ["clientCompanyId"] },
+    { name: "idx_users_manager_id", columns: ["managerId"] },
   ],
 });
 

@@ -145,6 +145,8 @@ const NotificationType = Object.freeze({
   SERVICE_REQUEST_APPROVAL: "service_request_approval",
   SERVICE_REQUEST_QUEUED: "service_request_queued",
   SERVICE_REQUEST_UPDATE: "service_request_update",
+  // An approval or fulfilment ran past its service level (the sweeper).
+  SERVICE_REQUEST_ESCALATED: "service_request_escalated",
 });
 
 // Lifecycle of an in-app support-chat conversation.

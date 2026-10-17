@@ -3,7 +3,7 @@
 // block (requester, approver, IT), never from guessing on the client.
 import { useState } from "react"
 import { Link, useNavigate, useParams } from "react-router-dom"
-import { ArrowLeft, CheckCircle2, CircleDashed, Lock, MessageSquare, Play, ShieldCheck, XCircle } from "lucide-react"
+import { ArrowLeft, CheckCircle2, HelpCircle, Lock, MessageSquare, Play, ShieldCheck, XCircle } from "lucide-react"
 import { toast } from "sonner"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -12,9 +12,21 @@ import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { FormAnswers } from "@/components/serviceDesk/DynamicFormFields"
-import { ModuleOffNotice, RequestPriorityBadge, RequestStatusBadge, When } from "@/components/serviceDesk/RequestBits"
+import {
+  DueText,
+  ModuleOffNotice,
+  OverdueBadge,
+  RequestPriorityBadge,
+  RequestStatusBadge,
+  RiskBadge,
+  When,
+} from "@/components/serviceDesk/RequestBits"
+import { ApprovalSteps } from "@/components/serviceDesk/ApprovalSteps"
+import { RequestAttachments } from "@/components/serviceDesk/RequestFiles"
 import {
   useApproveRequest,
+  useAskForInfo,
+  useProvideInfo,
   useAssignRequest,
   useCancelRequest,
   useCommentOnRequest,
@@ -79,6 +91,8 @@ function RequestView({ detail }: { detail: RequestDetail }) {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <OverdueBadge phase={r.overdue} level={r.escalationLevel} />
+          {r.riskLevel !== "low" && <RiskBadge value={r.riskLevel} />}
           <RequestPriorityBadge value={r.priority} />
           <RequestStatusBadge value={r.status} />
         </div>
@@ -96,6 +110,14 @@ function RequestView({ detail }: { detail: RequestDetail }) {
                 <Fact label="For" value={r.requestedFor ? `${r.requestedFor.name}${r.requestedFor.id ? "" : " (new starter)"}` : r.requester.name} />
                 <Fact label="Submitted" value={r.submittedAt ? new Date(r.submittedAt).toLocaleString() : "Not yet — this is a draft"} />
                 <Fact label="Handled by" value={r.assignee?.name ?? (r.status === "draft" ? "—" : "Not assigned yet")} />
+                {(r.status === "submitted" || r.status === "approved" || r.status === "in_progress") && r.fulfilmentDueAt && (
+                  <div className="min-w-0">
+                    <dt className="text-xs text-muted-foreground">Fulfilment target</dt>
+                    <dd>
+                      {new Date(r.fulfilmentDueAt).toLocaleString()} · <DueText at={r.fulfilmentDueAt} />
+                    </dd>
+                  </div>
+                )}
               </dl>
               <FormAnswers fields={r.item.formSchema} values={r.formValues} />
               {r.description && <Prose label="Anything else" text={r.description} />}
@@ -110,6 +132,14 @@ function RequestView({ detail }: { detail: RequestDetail }) {
             </CardContent>
           </Card>
 
+          <RequestAttachments
+            requestId={r.id}
+            files={detail.attachments}
+            canAttach={viewer.canAttach}
+            canRemoveAny={viewer.isAgent}
+            myUserId={viewer.myUserId}
+          />
+
           <Conversation detail={detail} />
         </div>
 
@@ -123,7 +153,7 @@ function RequestView({ detail }: { detail: RequestDetail }) {
               <CardContent className="text-sm whitespace-pre-wrap">{detail.fulfilmentNotes}</CardContent>
             </Card>
           )}
-          {detail.approvals.length > 0 && <Approvals detail={detail} />}
+          {detail.approvals.length > 0 && <ApprovalSteps approvals={detail.approvals} request={r} />}
           <Timeline detail={detail} />
         </div>
       </div>
@@ -174,8 +204,22 @@ function Actions({ detail }: { detail: RequestDetail }) {
   const fulfil = useFulfilRequest()
   const cancel = useCancelRequest()
 
+  const [question, setQuestion] = useState("")
+  const [asking, setAsking] = useState(false)
+  const [answer, setAnswer] = useState("")
+  const askInfo = useAskForInfo()
+  const provideInfo = useProvideInfo()
+  const lastQuestion = [...detail.history].reverse().find((h) => h.toStatus === "info_requested")
+
   const nothingToDo =
-    !viewer.canEdit && !viewer.canDecide && !viewer.canAssign && !viewer.canStart && !viewer.canFulfil && !viewer.canCancel
+    !viewer.canEdit &&
+    !viewer.canDecide &&
+    !viewer.canAssign &&
+    !viewer.canStart &&
+    !viewer.canFulfil &&
+    !viewer.canCancel &&
+    !viewer.canAskInfo &&
+    !viewer.canProvideInfo
 
   if (nothingToDo) {
     return (
@@ -192,6 +236,26 @@ function Actions({ detail }: { detail: RequestDetail }) {
         <CardDescription>{waitingCopy(detail)}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        {viewer.canProvideInfo && (
+          <div className="space-y-2 rounded-md border border-yellow-300 bg-yellow-50/70 p-3 dark:border-yellow-900 dark:bg-yellow-950/30">
+            <p className="flex items-center gap-1.5 text-sm font-medium"><HelpCircle className="size-4" /> {lastQuestion?.actorName ?? "IT"} asked</p>
+            {lastQuestion?.note && <p className="text-sm whitespace-pre-wrap">{lastQuestion.note}</p>}
+            <Textarea rows={3} placeholder="Your answer" value={answer} onChange={(e) => setAnswer(e.target.value)} data-cy="provide-info" />
+            <Button
+              size="sm"
+              disabled={!answer.trim() || provideInfo.isPending}
+              onClick={() =>
+                provideInfo.mutate(
+                  { id: r.id, answer: answer.trim() },
+                  { onSuccess: () => { toast.success("Answer sent — the request is moving again"); setAnswer("") }, onError: fail }
+                )
+              }
+            >
+              Send answer
+            </Button>
+          </div>
+        )}
+
         {viewer.canEdit && (
           <div className="flex flex-wrap gap-2">
             <Button size="sm" variant="outline" onClick={() => navigate(`/requests/${r.id}/edit`)}>
@@ -251,6 +315,46 @@ function Actions({ detail }: { detail: RequestDetail }) {
             </div>
           </div>
         )}
+
+        {viewer.canAskInfo &&
+          (asking ? (
+            <div className="space-y-2">
+              <Label htmlFor="ask-info">What do you need to know?</Label>
+              <Textarea
+                id="ask-info"
+                rows={3}
+                placeholder="The request pauses (and its clock stops) until the requester answers."
+                value={question}
+                onChange={(e) => setQuestion(e.target.value)}
+              />
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  disabled={!question.trim() || askInfo.isPending}
+                  onClick={() =>
+                    askInfo.mutate(
+                      { id: r.id, question: question.trim() },
+                      {
+                        onSuccess: () => {
+                          toast.success("Question sent")
+                          setQuestion("")
+                          setAsking(false)
+                        },
+                        onError: fail,
+                      }
+                    )
+                  }
+                >
+                  Send question
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => setAsking(false)}>Never mind</Button>
+              </div>
+            </div>
+          ) : (
+            <Button size="sm" variant="outline" className="w-full" onClick={() => setAsking(true)} data-cy="ask-info">
+              <HelpCircle className="mr-1 size-3.5" /> Ask the requester a question
+            </Button>
+          ))}
 
         {viewer.canAssign && (
           <div className="grid gap-1.5">
@@ -360,12 +464,20 @@ function Actions({ detail }: { detail: RequestDetail }) {
   )
 }
 
-function waitingCopy({ request: r, viewer }: RequestDetail): string {
+function waitingCopy({ request: r, viewer, approvals }: RequestDetail): string {
   switch (r.status) {
     case "draft":
       return "Only you can see this draft. Submit it when it's ready."
-    case "pending_approval":
-      return viewer.canDecide ? "Approve it to send it to IT, or reject it with a reason." : "Waiting for an approver."
+    case "pending_approval": {
+      const step = approvals.find((a) => a.stepOrder === (r.currentStep ?? 1))?.stepName
+      return viewer.canDecide
+        ? "Approve it to move it on, reject it with a reason, or ask the requester a question."
+        : `Waiting for approval${step ? ` — ${step}` : ""}.`
+    }
+    case "info_requested":
+      return viewer.canProvideInfo
+        ? "A question is waiting for your answer. The request is on hold until you reply."
+        : "Waiting for the requester to answer a question."
     case "submitted":
     case "approved":
       return viewer.isAgent ? "Ready for IT to pick up." : "With IT — waiting for someone to pick it up."
@@ -380,41 +492,7 @@ function waitingCopy({ request: r, viewer }: RequestDetail): string {
   }
 }
 
-// ── Approvals and history ────────────────────────────────────────────────────
-function Approvals({ detail }: { detail: RequestDetail }) {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-sm">Approval</CardTitle>
-        <CardDescription>Any one approver can decide.</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-2">
-        {detail.approvals.map((a) => (
-          <div key={a.id} className="flex items-start gap-2 text-sm">
-            {a.decision === "approved" ? (
-              <CheckCircle2 className="mt-0.5 size-4 text-emerald-600" />
-            ) : a.decision === "rejected" ? (
-              <XCircle className="mt-0.5 size-4 text-red-600" />
-            ) : (
-              <CircleDashed className="mt-0.5 size-4 text-muted-foreground" />
-            )}
-            <div className="min-w-0">
-              <p>
-                {a.approverName}{" "}
-                <span className="text-xs text-muted-foreground">
-                  {a.decision === "pending" ? "waiting" : a.decision === "skipped" ? "not needed" : a.decision}
-                  {a.decidedAt && <> · <When at={a.decidedAt} /></>}
-                </span>
-              </p>
-              {a.comment && <p className="text-xs whitespace-pre-wrap text-muted-foreground">“{a.comment}”</p>}
-            </div>
-          </div>
-        ))}
-      </CardContent>
-    </Card>
-  )
-}
-
+// ── History ──────────────────────────────────────────────────────────────────
 function Timeline({ detail }: { detail: RequestDetail }) {
   return (
     <Card>

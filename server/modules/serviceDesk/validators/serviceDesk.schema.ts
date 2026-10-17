@@ -5,7 +5,13 @@
 // form is data, not code.
 import { z } from "zod";
 import { formSchemaSchema } from "../domain/formSchema";
-import { APPROVAL_MODES, REQUEST_PRIORITIES, REQUEST_STATUSES } from "../domain/lifecycle";
+import { APPROVAL_MODES, REQUEST_PRIORITIES, REQUEST_STATUSES, RISK_LEVELS } from "../domain/lifecycle";
+import { policyStepsSchema } from "../domain/approvalPlan";
+import { serviceLevelsSchema } from "../domain/serviceLevels";
+
+// An item's own service level, in hours; null = the organisation's default.
+const hoursOverride = z.number().int().min(1).max(24 * 90).nullable();
+const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Expected YYYY-MM-DD");
 
 const id = z.string().uuid();
 const idParams = z.object({ id });
@@ -51,17 +57,30 @@ const itemFields = {
   fulfilmentNotes: optionalText(5000),
   isActive: z.boolean(),
   sortOrder: z.number().int().min(0).max(1000),
+  approvalPolicyId: id.nullable(),
+  riskLevel: z.enum(RISK_LEVELS),
+  approvalHours: hoursOverride,
+  fulfilmentHours: hoursOverride,
 };
 
 export const createItemSchema = z.object({
-  body: z.object({
-    ...itemFields,
-    formSchema: itemFields.formSchema.default([]),
-    approvalMode: itemFields.approvalMode.default("none"),
-    approverIds: itemFields.approverIds.default([]),
-    isActive: itemFields.isActive.default(true),
-    sortOrder: itemFields.sortOrder.optional(),
-  }),
+  body: z
+    .object({
+      ...itemFields,
+      formSchema: itemFields.formSchema.default([]),
+      approvalMode: itemFields.approvalMode.default("none"),
+      approverIds: itemFields.approverIds.default([]),
+      isActive: itemFields.isActive.default(true),
+      sortOrder: itemFields.sortOrder.optional(),
+      approvalPolicyId: itemFields.approvalPolicyId.default(null),
+      riskLevel: itemFields.riskLevel.default("low"),
+      approvalHours: itemFields.approvalHours.default(null),
+      fulfilmentHours: itemFields.fulfilmentHours.default(null),
+    })
+    .refine((b) => b.approvalMode !== "policy" || !!b.approvalPolicyId, {
+      message: "Pick the approval policy this item follows",
+      path: ["approvalPolicyId"],
+    }),
 });
 
 export const updateItemSchema = z.object({
@@ -77,6 +96,10 @@ export const updateItemSchema = z.object({
       fulfilmentNotes: itemFields.fulfilmentNotes.optional(),
       isActive: itemFields.isActive.optional(),
       sortOrder: itemFields.sortOrder.optional(),
+      approvalPolicyId: itemFields.approvalPolicyId.optional(),
+      riskLevel: itemFields.riskLevel.optional(),
+      approvalHours: itemFields.approvalHours.optional(),
+      fulfilmentHours: itemFields.fulfilmentHours.optional(),
     })
     .refine((b) => Object.keys(b).length > 0, { message: "Nothing to update" }),
 });
@@ -133,7 +156,8 @@ export const listRequestsSchema = z.object({
     scope: z.enum(["mine", "queue"]).default("mine"),
     status: z.enum(REQUEST_STATUSES).optional(),
     // "ready" = waiting for IT to pick up (submitted or approved).
-    view: z.enum(["ready", "open", "closed"]).optional(),
+    // overdue = past its approval or fulfilment service level right now.
+    view: z.enum(["ready", "open", "closed", "overdue"]).optional(),
     assignee: z.union([z.enum(["me", "unassigned"]), id]).optional(),
     search: z.string().trim().min(1).max(120).optional(),
     page,
@@ -184,7 +208,95 @@ export const commentSchema = z.object({
   }),
 });
 
-export type CreateCategoryBody = z.infer<typeof createCategorySchema>["body"];
+// ── Information requests ─────────────────────────────────────────────────────
+export const askInfoSchema = z.object({
+  params: idParams,
+  body: z.object({ question: z.string().trim().min(1, "Say what you need to know").max(2000) }),
+});
+
+export const provideInfoSchema = z.object({
+  params: idParams,
+  body: z.object({ answer: z.string().trim().min(1, "Answer the question").max(5000) }),
+});
+
+// ── Attachments ──────────────────────────────────────────────────────────────
+export const attachmentParamsSchema = z.object({
+  params: z.object({ id, attachmentId: id }),
+});
+
+// ── Service levels ───────────────────────────────────────────────────────────
+export const serviceLevelsBodySchema = z.object({ body: serviceLevelsSchema });
+
+// ── Approver groups, policies, managers, delegation ──────────────────────────
+const groupFields = z.object({
+  name: z.string().trim().min(1).max(80),
+  description: optionalText(300),
+  maxRiskLevel: z.enum(RISK_LEVELS),
+  memberIds: z.array(id).max(100).transform((ids) => [...new Set(ids)]),
+});
+
+export const createGroupSchema = z.object({
+  body: groupFields.extend({
+    maxRiskLevel: groupFields.shape.maxRiskLevel.default("medium"),
+    memberIds: groupFields.shape.memberIds.default([]),
+  }),
+});
+
+export const updateGroupSchema = z.object({
+  params: idParams,
+  body: groupFields.partial().refine((b) => Object.keys(b).length > 0, { message: "Nothing to update" }),
+});
+
+export const createPolicySchema = z.object({
+  body: z.object({
+    name: z.string().trim().min(1).max(80),
+    description: optionalText(300),
+    steps: policyStepsSchema,
+  }),
+});
+
+export const updatePolicySchema = z.object({
+  params: idParams,
+  body: z
+    .object({
+      name: z.string().trim().min(1).max(80).optional(),
+      description: optionalText(300).optional(),
+      steps: policyStepsSchema.optional(),
+    })
+    .refine((b) => Object.keys(b).length > 0, { message: "Nothing to update" }),
+});
+
+export const idOnlySchema = z.object({ params: idParams });
+
+export const setManagerSchema = z.object({
+  params: z.object({ userId: id }),
+  body: z.object({ managerId: id.nullable() }),
+});
+
+export const delegationSchema = z.object({
+  body: z
+    .object({
+      delegateId: id,
+      startsOn: isoDate,
+      endsOn: isoDate,
+      note: optionalText(200),
+    })
+    .refine((b) => b.endsOn >= b.startsOn, { message: "The last day can't be before the first", path: ["endsOn"] }),
+});
+
+// ── Reports ──────────────────────────────────────────────────────────────────
+export const reportSchema = z.object({
+  query: z
+    .object({ from: isoDate.optional(), to: isoDate.optional() })
+    .refine((q) => !q.from || !q.to || q.from <= q.to, { message: "'from' must be on or before 'to'", path: ["from"] }),
+});
+
+export type GroupBody = Partial<z.infer<typeof groupFields>>;
+export type PolicyBody = { name?: string; description?: string | null; steps?: z.infer<typeof policyStepsSchema> };
+export type DelegationBody = z.infer<typeof delegationSchema>["body"];
+export type ReportQuery = z.infer<typeof reportSchema>["query"];
+
+export type CreateCategoryBody =z.infer<typeof createCategorySchema>["body"];
 export type UpdateCategoryBody = z.infer<typeof updateCategorySchema>["body"];
 export type CreateItemBody = z.infer<typeof createItemSchema>["body"];
 export type UpdateItemBody = z.infer<typeof updateItemSchema>["body"];

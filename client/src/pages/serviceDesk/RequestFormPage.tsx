@@ -16,6 +16,7 @@ import { DynamicFormFields } from "@/components/serviceDesk/DynamicFormFields"
 import { RequestedForField } from "@/components/serviceDesk/RequestedForField"
 import { formFieldErrors, requestedForPayload, type RequestedFor } from "@/lib/serviceDesk"
 import { CategoryIcon, ModuleOffNotice } from "@/components/serviceDesk/RequestBits"
+import { FilePicker } from "@/components/serviceDesk/RequestFiles"
 import {
   useCreateRequest,
   usePortalCatalog,
@@ -23,6 +24,7 @@ import {
   useServiceRequest,
   useSubmitRequest,
   useUpdateDraft,
+  useUploadRequestFiles,
 } from "@/hooks/useServiceDesk"
 import { useAuth } from "@/contexts/AuthContext"
 import { can } from "@/lib/can"
@@ -89,7 +91,9 @@ export default function RequestFormPage() {
   const create = useCreateRequest()
   const update = useUpdateDraft()
   const submit = useSubmitRequest()
-  const busy = create.isPending || update.isPending || submit.isPending
+  const upload = useUploadRequestFiles()
+  const [files, setFiles] = useState<File[]>([])
+  const busy = create.isPending || update.isPending || submit.isPending || upload.isPending
 
   const setValue = (key: string, value: FormValue | undefined) => {
     setValues((prev) => {
@@ -154,19 +158,39 @@ export default function RequestFormPage() {
         return
       }
     }
+    // With files, the request is saved as a draft first and submitted only once
+    // they're uploaded — so approvers never see it without its attachments.
+    let savedId = draftId ?? null
     try {
+      let reference = ""
       if (draftId) {
         await update.mutateAsync({ id: draftId, catalogItemId: found.item.id, ...payload() })
-        if (andSubmit) await submit.mutateAsync(draftId)
-        toast.success(andSubmit ? "Request submitted" : "Draft saved")
-        navigate(`/requests/${draftId}`)
       } else {
-        const saved = await create.mutateAsync({ catalogItemId: found.item.id, ...payload(), submit: andSubmit })
-        toast.success(andSubmit ? `Request ${saved.reference} submitted` : `Draft ${saved.reference} saved`)
-        navigate(`/requests/${saved.id}`)
+        const saved = await create.mutateAsync({
+          catalogItemId: found.item.id,
+          ...payload(),
+          submit: andSubmit && files.length === 0,
+        })
+        savedId = saved.id
+        reference = saved.reference
       }
+      if (files.length && savedId) {
+        try {
+          await upload.mutateAsync({ id: savedId, files })
+        } catch (e) {
+          toast.error(`Saved as a draft, but the files couldn't be uploaded${e instanceof ApiError ? `: ${e.message}` : ""}`)
+          navigate(`/requests/${savedId}`)
+          return
+        }
+      }
+      if (andSubmit && savedId && (draftId || files.length)) await submit.mutateAsync(savedId)
+      const ref = reference ? ` ${reference}` : ""
+      toast.success(andSubmit ? `Request${ref} submitted` : `Draft${ref} saved`)
+      navigate(`/requests/${savedId}`)
     } catch (e) {
       showError(e)
+      // Created but not submitted (e.g. no approver yet) — it's safe as a draft.
+      if (!draftId && savedId) navigate(`/requests/${savedId}/edit`)
     }
   }
 
@@ -260,6 +284,13 @@ export default function RequestFormPage() {
               onChange={(e) => setJustification(e.target.value)}
             />
           </div>
+
+          <FilePicker files={files} onChange={setFiles} disabled={busy} />
+          {draftId && (draft?.attachments.length ?? 0) > 0 && (
+            <p className="-mt-3 text-xs text-muted-foreground">
+              Already attached: {draft?.attachments.map((a) => a.fileName).join(", ")}
+            </p>
+          )}
 
           <div className="grid gap-1.5 sm:max-w-xs">
             <Label>Priority</Label>

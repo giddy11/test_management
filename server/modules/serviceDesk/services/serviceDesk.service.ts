@@ -6,6 +6,8 @@
 // testing module. See docs/it-service-requests-plan.md §0.
 import { ServiceDeskRepository, type PersonRow } from "../repositories/serviceDesk.repository";
 import { DEFAULT_CATALOG } from "../domain/defaultCatalog";
+import { DEFAULT_SERVICE_LEVELS, type ServiceLevels } from "../domain/serviceLevels";
+import { ApprovalSetupRepository } from "../repositories/approvalSetup.repository";
 import type { ServiceCatalogItem } from "../entities/serviceCatalogItem.entity";
 import type { CreateCategoryBody, CreateItemBody, UpdateCategoryBody, UpdateItemBody } from "../validators/serviceDesk.schema";
 import { toAdminItemDto, toCategoryDto, toPersonDto, toPortalItemDto } from "../dto/serviceDesk.dto";
@@ -43,7 +45,8 @@ export class ServiceDeskService {
 
   constructor(
     private readonly repo = ServiceDeskRepository.Instance,
-    private readonly activity = ActivityService.Instance
+    private readonly activity = ActivityService.Instance,
+    private readonly approvalRepo = ApprovalSetupRepository.Instance
   ) {}
 
   // Every IT-requests call is about the caller's own organisation, and only
@@ -66,10 +69,46 @@ export class ServiceDeskService {
     }
   }
 
+  // The organisation's service levels, or the defaults when never set.
+  async serviceLevels(organizationId: string): Promise<ServiceLevels> {
+    const s = await this.repo.getSettings(organizationId);
+    if (!s) return DEFAULT_SERVICE_LEVELS;
+    return {
+      approvalHours: s.approvalHours ?? DEFAULT_SERVICE_LEVELS.approvalHours,
+      fulfilmentHours: { ...DEFAULT_SERVICE_LEVELS.fulfilmentHours, ...(s.fulfilmentHours ?? {}) },
+      escalation: { ...DEFAULT_SERVICE_LEVELS.escalation, ...(s.escalation ?? {}) },
+    };
+  }
+
   // ── Settings ───────────────────────────────────────────────────────────────
   async getSettings(actor: DeskActor) {
     const organizationId = this.orgOf(actor);
-    return { enabled: await this.isEnabled(organizationId) };
+    const [enabled, serviceLevels] = await Promise.all([this.isEnabled(organizationId), this.serviceLevels(organizationId)]);
+    return { enabled, serviceLevels };
+  }
+
+  async updateServiceLevels(actor: DeskActor, levels: ServiceLevels) {
+    const organizationId = this.orgOf(actor);
+    if (levels.escalation.contactIds.length) {
+      const pool = new Set((await this.repo.usersWithPermission(organizationId, [PERMS.CREATE, PERMS.WORK, PERMS.MANAGE])).map((p) => p.id));
+      if (levels.escalation.contactIds.some((id) => !pool.has(id))) {
+        throw new AppError("Escalation contacts must be colleagues who use IT requests", 422, [
+          { field: "escalation.contactIds", message: "Pick contacts from the list" },
+        ]);
+      }
+    }
+    await this.repo.saveServiceLevels(
+      organizationId,
+      levels,
+      actor.id,
+      this.activity.buildEntry(actor, {
+        action: "service_desk.settings_updated",
+        summary: "Changed IT-request service levels and escalation",
+        entityType: "service_desk",
+        metadata: levels,
+      })
+    );
+    return this.getSettings(actor);
   }
 
   async updateSettings(actor: DeskActor, enabled: boolean) {
@@ -87,14 +126,18 @@ export class ServiceDeskService {
         metadata: { enabled },
       })
     );
-    return { enabled: saved.enabled };
+    return { enabled: saved.enabled, serviceLevels: await this.serviceLevels(organizationId) };
   }
 
   // ── Catalog ────────────────────────────────────────────────────────────────
+  // Seeds the starter catalog the first time only. An organisation that has
+  // since deleted every category keeps its empty catalog.
   private async ensureCatalog(organizationId: string, actorId: string | null): Promise<void> {
+    if ((await this.repo.getSettings(organizationId))?.catalogSeeded) return;
     if (!(await this.repo.hasCatalog(organizationId))) {
       await this.repo.seedDefaults(organizationId, DEFAULT_CATALOG, actorId);
     }
+    await this.repo.markCatalogSeeded(organizationId);
   }
 
   // The request portal: active categories that have at least one active item.
@@ -122,10 +165,16 @@ export class ServiceDeskService {
       this.repo.listCategories(organizationId, false),
       this.repo.listItems(organizationId, false),
     ]);
-    const people = await this.peopleMap(organizationId, items.flatMap((i) => i.approverIds ?? []));
+    const [people, policies] = await Promise.all([
+      this.peopleMap(organizationId, items.flatMap((i) => i.approverIds ?? [])),
+      this.approvalRepo.listPolicies(organizationId),
+    ]);
+    const policyName = new Map(policies.map((p) => [p.id, p.name]));
     return categories.map((c) => ({
       ...toCategoryDto(c),
-      items: items.filter((i) => i.categoryId === c.id).map((i) => toAdminItemDto(i, people)),
+      items: items
+        .filter((i) => i.categoryId === c.id)
+        .map((i) => toAdminItemDto(i, people, i.approvalPolicyId ? policyName.get(i.approvalPolicyId) ?? null : null)),
     }));
   }
 
@@ -175,6 +224,7 @@ export class ServiceDeskService {
     const organizationId = this.orgOf(actor);
     if (!(await this.repo.findCategory(organizationId, body.categoryId))) throw new AppError("Category not found", 404);
     const approverIds = await this.validApprovers(organizationId, body.approverIds);
+    const approvalPolicyId = await this.validPolicy(organizationId, body.approvalMode, body.approvalPolicyId);
     const saved = await this.repo.createItem(
       {
         organizationId,
@@ -184,6 +234,10 @@ export class ServiceDeskService {
         formSchema: body.formSchema,
         approvalMode: body.approvalMode,
         approverIds,
+        approvalPolicyId,
+        riskLevel: body.riskLevel,
+        approvalHours: body.approvalHours,
+        fulfilmentHours: body.fulfilmentHours,
         fulfilmentNotes: body.fulfilmentNotes,
         isActive: body.isActive,
         sortOrder: body.sortOrder ?? 100,
@@ -193,10 +247,74 @@ export class ServiceDeskService {
         action: "service_catalog.item_created",
         summary: `Added "${body.name}" to the IT-request catalog`,
         entityType: "service_catalog_item",
-        metadata: { approvalMode: body.approvalMode, approverIds },
+        metadata: { approvalMode: body.approvalMode, approverIds, approvalPolicyId, riskLevel: body.riskLevel },
       })
     );
-    return toAdminItemDto(saved, await this.peopleMap(organizationId, saved.approverIds));
+    return this.adminItem(organizationId, saved);
+  }
+
+  // A policy is required in "policy" mode and meaningless otherwise.
+  private async validPolicy(organizationId: string, mode: string, policyId: string | null | undefined): Promise<string | null> {
+    if (mode !== "policy") return null;
+    if (!policyId || !(await this.approvalRepo.findPolicy(organizationId, policyId))) {
+      throw new AppError("Pick the approval policy this item follows", 422, [
+        { field: "approvalPolicyId", message: "Pick a policy from the list" },
+      ]);
+    }
+    return policyId;
+  }
+
+  private async adminItem(organizationId: string, item: ServiceCatalogItem) {
+    const policy = item.approvalPolicyId ? await this.approvalRepo.findPolicy(organizationId, item.approvalPolicyId) : null;
+    return toAdminItemDto(item, await this.peopleMap(organizationId, item.approverIds), policy?.name ?? null);
+  }
+
+  // Only something nobody ever requested can be deleted; anything else is
+  // hidden instead, so the requests raised against it keep their history.
+  async deleteItem(actor: DeskActor, id: string) {
+    const organizationId = this.orgOf(actor);
+    const existing = await this.repo.findItem(organizationId, id);
+    if (!existing) throw new AppError("Catalog item not found", 404);
+    const blockedBy = await this.repo.deleteItemIfUnused(
+      organizationId,
+      id,
+      this.activity.buildEntry(actor, {
+        action: "service_catalog.item_deleted",
+        summary: `Deleted "${existing.name}" from the IT-request catalog`,
+        entityType: "service_catalog_item",
+        entityId: id,
+        severity: "warning",
+      })
+    );
+    if (blockedBy > 0) {
+      throw new AppError(
+        `${blockedBy} request${blockedBy === 1 ? " was" : "s were"} raised for "${existing.name}". Hide it instead, so their history stays intact.`,
+        409
+      );
+    }
+  }
+
+  async deleteCategory(actor: DeskActor, id: string) {
+    const organizationId = this.orgOf(actor);
+    const existing = await this.repo.findCategory(organizationId, id);
+    if (!existing) throw new AppError("Category not found", 404);
+    const { blockedBy } = await this.repo.deleteCategoryIfUnused(
+      organizationId,
+      id,
+      this.activity.buildEntry(actor, {
+        action: "service_catalog.category_deleted",
+        summary: `Deleted the IT-request category "${existing.name}"`,
+        entityType: "service_catalog_category",
+        entityId: id,
+        severity: "warning",
+      })
+    );
+    if (blockedBy > 0) {
+      throw new AppError(
+        `${blockedBy} request${blockedBy === 1 ? " was" : "s were"} raised for items in "${existing.name}". Hide the category instead, so their history stays intact.`,
+        409
+      );
+    }
   }
 
   async updateItem(actor: DeskActor, id: string, body: UpdateItemBody) {
@@ -208,12 +326,22 @@ export class ServiceDeskService {
     }
     const patch: Partial<ServiceCatalogItem> = { ...body };
     if (body.approverIds) patch.approverIds = await this.validApprovers(organizationId, body.approverIds);
+    const mode = body.approvalMode ?? existing.approvalMode;
+    if (body.approvalMode !== undefined || body.approvalPolicyId !== undefined) {
+      patch.approvalPolicyId = await this.validPolicy(
+        organizationId,
+        mode,
+        body.approvalPolicyId !== undefined ? body.approvalPolicyId : existing.approvalPolicyId
+      );
+    }
 
     // Who approves is the security-relevant part of an item, so a change to it
     // gets its own (warning-level) entry rather than hiding in "updated".
     const approversChanged =
       (patch.approvalMode !== undefined && patch.approvalMode !== existing.approvalMode) ||
-      (patch.approverIds !== undefined && !sameSet(patch.approverIds, existing.approverIds ?? []));
+      (patch.approverIds !== undefined && !sameSet(patch.approverIds, existing.approverIds ?? [])) ||
+      (patch.approvalPolicyId !== undefined && patch.approvalPolicyId !== existing.approvalPolicyId) ||
+      (patch.riskLevel !== undefined && patch.riskLevel !== existing.riskLevel);
     const audits = [
       this.activity.buildEntry(actor, {
         action: "service_catalog.item_updated",
@@ -231,14 +359,24 @@ export class ServiceDeskService {
           entityType: "service_catalog_item",
           entityId: id,
           metadata: {
-            from: { approvalMode: existing.approvalMode, approverIds: existing.approverIds },
-            to: { approvalMode: patch.approvalMode ?? existing.approvalMode, approverIds: patch.approverIds ?? existing.approverIds },
+            from: {
+              approvalMode: existing.approvalMode,
+              approverIds: existing.approverIds,
+              approvalPolicyId: existing.approvalPolicyId,
+              riskLevel: existing.riskLevel,
+            },
+            to: {
+              approvalMode: patch.approvalMode ?? existing.approvalMode,
+              approverIds: patch.approverIds ?? existing.approverIds,
+              approvalPolicyId: patch.approvalPolicyId !== undefined ? patch.approvalPolicyId : existing.approvalPolicyId,
+              riskLevel: patch.riskLevel ?? existing.riskLevel,
+            },
           },
         })
       );
     }
     const saved = await this.repo.updateItem(organizationId, id, patch, audits);
-    return toAdminItemDto(saved, await this.peopleMap(organizationId, saved.approverIds));
+    return this.adminItem(organizationId, saved);
   }
 
   // An approver must be an internal colleague who can reach the approvals

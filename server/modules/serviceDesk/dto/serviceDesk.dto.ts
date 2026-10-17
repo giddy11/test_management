@@ -4,7 +4,7 @@
 import type { ServiceCatalogCategory } from "../entities/serviceCatalogCategory.entity";
 import type { ServiceCatalogItem } from "../entities/serviceCatalogItem.entity";
 import type { PersonRow } from "../repositories/serviceDesk.repository";
-import type { RequestRow } from "../repositories/serviceRequest.repository";
+import type { AttachmentRow, RequestRow } from "../repositories/serviceRequest.repository";
 import { formatReference } from "../domain/lifecycle";
 
 export function toCategoryDto(c: ServiceCatalogCategory) {
@@ -26,11 +26,11 @@ export function toPortalItemDto(i: ServiceCatalogItem) {
     name: i.name,
     description: i.description,
     formSchema: i.formSchema ?? [],
-    needsApproval: i.approvalMode === "approvers",
+    needsApproval: i.approvalMode !== "none",
   };
 }
 
-export function toAdminItemDto(i: ServiceCatalogItem, people: Map<string, PersonRow>) {
+export function toAdminItemDto(i: ServiceCatalogItem, people: Map<string, PersonRow>, policyName: string | null = null) {
   return {
     ...toPortalItemDto(i),
     approvalMode: i.approvalMode,
@@ -39,6 +39,11 @@ export function toAdminItemDto(i: ServiceCatalogItem, people: Map<string, Person
       .map((id) => people.get(id))
       .filter((p): p is PersonRow => !!p)
       .map((p) => ({ id: p.id, name: p.name || p.email, email: p.email })),
+    approvalPolicyId: i.approvalPolicyId,
+    approvalPolicyName: policyName,
+    riskLevel: i.riskLevel,
+    approvalHours: i.approvalHours,
+    fulfilmentHours: i.fulfilmentHours,
     fulfilmentNotes: i.fulfilmentNotes,
     isActive: i.isActive,
     sortOrder: i.sortOrder,
@@ -51,12 +56,26 @@ export function toPersonDto(p: PersonRow) {
   return { id: p.id, name: p.name || p.email, email: p.email };
 }
 
+// Which phase, if any, is past its service level right now.
+function overdueOf(r: RequestRow, now = Date.now()): "approval" | "fulfilment" | null {
+  if (r.status === "pending_approval" && r.approvalDueAt && new Date(r.approvalDueAt).getTime() < now) return "approval";
+  if (
+    (r.status === "submitted" || r.status === "approved" || r.status === "in_progress") &&
+    r.fulfilmentDueAt &&
+    new Date(r.fulfilmentDueAt).getTime() < now
+  ) {
+    return "fulfilment";
+  }
+  return null;
+}
+
 export function toRequestDto(r: RequestRow) {
   const requestedFor = r.requestedForId
     ? { id: r.requestedForId, name: r.requestedForUserName ?? r.requestedForUserEmail ?? "", email: r.requestedForUserEmail }
     : r.requestedForName || r.requestedForEmail
       ? { id: null, name: r.requestedForName ?? r.requestedForEmail ?? "", email: r.requestedForEmail }
       : null;
+  const overdue = overdueOf(r);
   return {
     id: r.id,
     reference: formatReference(r.requestNumber),
@@ -66,7 +85,8 @@ export function toRequestDto(r: RequestRow) {
       categoryKey: r.itemSnapshot.categoryKey,
       categoryName: r.itemSnapshot.categoryName,
       formSchema: r.itemSnapshot.formSchema ?? [],
-      needsApproval: r.itemSnapshot.approvalMode === "approvers",
+      needsApproval: r.itemSnapshot.approvalMode !== "none",
+      approvalPolicyName: r.itemSnapshot.approvalPolicyName ?? null,
     },
     requester: { id: r.requesterId, name: r.requesterName, email: r.requesterEmail },
     requestedFor,
@@ -74,10 +94,18 @@ export function toRequestDto(r: RequestRow) {
     description: r.description,
     businessJustification: r.businessJustification,
     priority: r.priority,
+    riskLevel: r.riskLevel ?? "low",
     formValues: r.formValues ?? {},
     status: r.status,
     assignee: r.assigneeId ? { id: r.assigneeId, name: r.assigneeName ?? "" } : null,
     resolutionNote: r.resolutionNote,
+    currentStep: r.currentStep,
+    approvalDueAt: r.approvalDueAt,
+    fulfilmentDueAt: r.fulfilmentDueAt,
+    overdue,
+    escalationLevel: overdue === "approval" ? r.approvalEscalationLevel : overdue === "fulfilment" ? r.fulfilmentEscalationLevel : 0,
+    infoRequestedAt: r.infoRequestedAt,
+    infoRequestedFrom: r.infoRequestedFrom,
     submittedAt: r.submittedAt,
     approvedAt: r.approvedAt,
     startedAt: r.startedAt,
@@ -86,5 +114,18 @@ export function toRequestDto(r: RequestRow) {
     statusUpdatedAt: r.statusUpdatedAt,
     createdAt: r.createdAt,
     updatedAt: r.updatedAt,
+  };
+}
+
+export function toAttachmentDto(a: AttachmentRow) {
+  return {
+    id: a.id,
+    fileName: a.fileName,
+    fileUrl: a.fileUrl,
+    isImage: a.resourceType === "image",
+    mimeType: a.mimeType,
+    fileSizeBytes: a.fileSizeBytes,
+    uploadedBy: a.uploadedById ? { id: a.uploadedById, name: a.uploadedByName ?? "" } : null,
+    createdAt: a.createdAt,
   };
 }

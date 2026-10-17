@@ -7,13 +7,14 @@
 // Starter items that cost money or grant access ask for approval. They name no
 // approvers, so until an administrator picks some, the decision falls to
 // whoever holds servicedesk.manage (see ServiceRequestService.resolveApprovers).
-import type { ApprovalMode } from "./lifecycle";
+import type { ApprovalMode, RiskLevel } from "./lifecycle";
 import type { FormField } from "./formSchema";
 
 export interface DefaultItem {
   name: string;
   description: string;
   approvalMode: ApprovalMode;
+  riskLevel: RiskLevel;
   formSchema: FormField[];
 }
 
@@ -38,6 +39,7 @@ export const DEFAULT_CATALOG: DefaultCategory[] = [
         name: "Software licence or access",
         description: "Ask for a software licence, or access to software that's already installed.",
         approvalMode: "approvers",
+        riskLevel: "medium",
         formSchema: [
           { key: "software", label: "Which software?", type: "text", required: true, helpText: "For example: Adobe Acrobat Pro, Figma, Visual Studio" },
           { key: "access_level", label: "Access level", type: "select", required: true, options: ["Standard user", "Administrator"], helpText: null },
@@ -56,6 +58,7 @@ export const DEFAULT_CATALOG: DefaultCategory[] = [
         name: "Request hardware",
         description: "A new or replacement device or accessory.",
         approvalMode: "approvers",
+        riskLevel: "medium",
         formSchema: [
           { key: "item_type", label: "What do you need?", type: "select", required: true, options: ["Laptop", "Monitor", "Keyboard and mouse", "Headset", "Mobile phone", "Docking station", "Other"], helpText: null },
           { key: "replacement", label: "This replaces a broken or lost device", type: "checkbox", required: false, helpText: null },
@@ -75,6 +78,7 @@ export const DEFAULT_CATALOG: DefaultCategory[] = [
         name: "New starter accounts",
         description: "Set up accounts for someone joining. Use 'Requested for' to name them.",
         approvalMode: "approvers",
+        riskLevel: "medium",
         formSchema: [
           { key: "start_date", label: "Start date", type: "date", required: true, helpText: null },
           { key: "job_title", label: "Job title", type: "text", required: true, helpText: null },
@@ -94,6 +98,7 @@ export const DEFAULT_CATALOG: DefaultCategory[] = [
         name: "Password reset or account unlock",
         description: "IT will confirm who you are before resetting anything. A new password is never sent in this request.",
         approvalMode: "none",
+        riskLevel: "low",
         formSchema: [
           { key: "system", label: "Which account?", type: "select", required: true, options: ["Email / Microsoft 365", "Laptop sign-in", "VPN", "Business application", "Other"], helpText: null },
           { key: "locked_out", label: "The account is locked", type: "checkbox", required: false, helpText: null },
@@ -111,6 +116,7 @@ export const DEFAULT_CATALOG: DefaultCategory[] = [
         name: "Access to a business application",
         description: "For example the CRM, HR, finance or reporting systems.",
         approvalMode: "approvers",
+        riskLevel: "medium",
         formSchema: [
           { key: "application", label: "Application", type: "text", required: true, helpText: null },
           { key: "role", label: "Role or access level needed", type: "text", required: true, helpText: "For example: read-only, editor, approver" },
@@ -129,6 +135,7 @@ export const DEFAULT_CATALOG: DefaultCategory[] = [
         name: "Cloud resource",
         description: "A new cloud environment, service or account.",
         approvalMode: "approvers",
+        riskLevel: "high",
         formSchema: [
           { key: "provider", label: "Provider", type: "select", required: true, options: ["AWS", "Microsoft Azure", "Google Cloud", "Other"], helpText: null },
           { key: "resource", label: "What do you need?", type: "text", required: true, helpText: "For example: a staging database, a storage bucket" },
@@ -148,6 +155,7 @@ export const DEFAULT_CATALOG: DefaultCategory[] = [
         name: "Access card",
         description: "A new, replacement or extended access card.",
         approvalMode: "approvers",
+        riskLevel: "medium",
         formSchema: [
           { key: "card_request", label: "Request", type: "select", required: true, options: ["New card", "Replacement (lost or damaged)", "Access to another area"], helpText: null },
           { key: "area", label: "Building or area", type: "text", required: true, helpText: null },
@@ -165,6 +173,7 @@ export const DEFAULT_CATALOG: DefaultCategory[] = [
         name: "Something else",
         description: "Describe what you need and IT will take it from there.",
         approvalMode: "none",
+        riskLevel: "low",
         formSchema: [],
       },
     ],

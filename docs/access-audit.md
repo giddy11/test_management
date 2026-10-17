@@ -292,7 +292,7 @@ on mismatch:
 |---|---|
 | `/settings` | any authenticated |
 | `/dashboard`, `/projects/*`, `/all-feedback` | `superadmin`, `admin`, `user` |
-| `/support`, `/support/activity`, `/support/sla` | `it_support` |
+| `/support`, `/support/activity` | `it_support` |
 | `/team`, `/activity` | `superadmin`, `admin` |
 | `/platform`, `/announcements`, `/support-inbox` | `superadmin` |
 

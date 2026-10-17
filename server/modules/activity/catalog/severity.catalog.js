@@ -59,6 +59,8 @@ const WARNING_ACTIONS = new Set([
   // IT requests: who approves what, and whether the module is on at all.
   "service_desk.settings_updated",
   "service_catalog.item_approvers_changed",
+  // A line manager is who approves "line manager" steps for that person.
+  "user.manager_changed",
 ]);
 
 function severityFor(action) {

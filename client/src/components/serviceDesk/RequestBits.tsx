@@ -2,6 +2,7 @@
 // page shares: status and priority badges, category icons, the "module is
 // off" notice, and a relative date.
 import {
+  AlarmClock,
   AppWindow,
   Briefcase,
   Cloud,
@@ -20,7 +21,14 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { timeAgo } from "@/lib/timeAgo"
-import { PRIORITY_META, STATUS_META, type RequestPriority, type RequestStatus } from "@/types/serviceDesk.types"
+import {
+  PRIORITY_META,
+  RISK_META,
+  STATUS_META,
+  type RequestPriority,
+  type RequestStatus,
+  type RiskLevel,
+} from "@/types/serviceDesk.types"
 
 export function RequestStatusBadge({ value }: { value: RequestStatus }) {
   const meta = STATUS_META[value]
@@ -30,6 +38,35 @@ export function RequestStatusBadge({ value }: { value: RequestStatus }) {
 export function RequestPriorityBadge({ value }: { value: RequestPriority }) {
   const meta = PRIORITY_META[value]
   return <Badge className={cn("border-transparent", meta.badge)}>{meta.label}</Badge>
+}
+
+export function RiskBadge({ value }: { value: RiskLevel }) {
+  const meta = RISK_META[value] ?? RISK_META.low
+  return <Badge className={cn("border-transparent", meta.badge)}>{meta.label}</Badge>
+}
+
+// Past its approval or fulfilment service level right now.
+export function OverdueBadge({ phase, level }: { phase: "approval" | "fulfilment" | null; level?: number }) {
+  if (!phase) return null
+  return (
+    <Badge className="gap-1 border-transparent bg-red-600 text-white" title={level ? `Escalation level ${level} of 3` : undefined}>
+      <AlarmClock className="size-3" />
+      {phase === "approval" ? "Approval overdue" : "Overdue"}
+    </Badge>
+  )
+}
+
+// "due in 5h", "due tomorrow", "12h overdue".
+export function DueText({ at, className }: { at: string | null | undefined; className?: string }) {
+  if (!at) return null
+  const ms = new Date(at).getTime() - Date.now()
+  const h = Math.round(Math.abs(ms) / 3_600_000)
+  const span = h < 1 ? "under an hour" : h < 48 ? `${h}h` : `${Math.round(h / 24)} days`
+  return (
+    <span className={cn(ms < 0 && "font-medium text-red-600 dark:text-red-400", className)} title={new Date(at).toLocaleString()}>
+      {ms < 0 ? `${span} overdue` : `due in ${span}`}
+    </span>
+  )
 }
 
 // The icon names the server's default catalog uses; anything else gets a box.

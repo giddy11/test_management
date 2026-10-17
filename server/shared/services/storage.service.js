@@ -71,6 +71,13 @@ class StorageService {
     await cloudinary.uploader.destroy(publicId, { resource_type: "image" });
   }
 
+  // The counterpart of uploadRaw — Cloudinary only finds a raw file when asked
+  // for the raw resource type.
+  async deleteRaw(publicId) {
+    if (!publicId) return;
+    await cloudinary.uploader.destroy(publicId, { resource_type: "raw" });
+  }
+
   // Upload new → then delete old. A failed upload never leaves the record imageless.
   async replaceImage(buffer, options, oldPublicId) {
     const result = await this.uploadImage(buffer, options);

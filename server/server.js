@@ -4,6 +4,7 @@ const { createApp } = require("./app");
 const { AppDataSource } = require("./infrastructure/database/dataSource");
 const { initSocketServer } = require("./infrastructure/realtime/socketServer");
 const { env } = require("./config/env");
+const { ServiceDeskEscalationService } = require("./modules/serviceDesk/services/serviceDeskEscalation.service");
 
 async function bootstrap() {
   try {
@@ -17,6 +18,10 @@ async function bootstrap() {
     httpServer.listen(env.port, () => {
       console.info(`[Server] Listening on http://localhost:${env.port} (${env.nodeEnv})`);
     });
+
+    // IT requests: escalate approvals and fulfilment that run past their
+    // service level. Safe on several servers (advisory lock + idempotent).
+    ServiceDeskEscalationService.Instance.start();
   } catch (err) {
     console.error("[Startup] Failed to start server:", err);
     process.exit(1);

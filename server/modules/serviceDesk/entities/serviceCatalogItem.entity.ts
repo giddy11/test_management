@@ -8,7 +8,7 @@
 // judged by the form and approvers it was raised under.
 import { EntitySchema } from "typeorm";
 import type { FormField } from "../domain/formSchema";
-import type { ApprovalMode } from "../domain/lifecycle";
+import type { ApprovalMode, RiskLevel } from "../domain/lifecycle";
 
 export interface ServiceCatalogItem {
   id: string;
@@ -19,6 +19,13 @@ export interface ServiceCatalogItem {
   formSchema: FormField[];
   approvalMode: ApprovalMode;
   approverIds: string[];
+  // approvalMode "policy": the approval policy whose steps it follows.
+  approvalPolicyId: string | null;
+  // Travels onto each request; approver groups may only decide up to their own level.
+  riskLevel: RiskLevel;
+  // Service-level overrides, in hours. Null = the organisation's defaults.
+  approvalHours: number | null;
+  fulfilmentHours: number | null;
   // Instructions for whoever fulfils it — shown to IT only, never the requester.
   fulfilmentNotes: string | null;
   isActive: boolean;
@@ -29,6 +36,7 @@ export interface ServiceCatalogItem {
   updatedAt: Date;
   category?: object;
   createdBy?: object;
+  approvalPolicy?: object;
 }
 
 const ServiceCatalogItem = new EntitySchema<ServiceCatalogItem>({
@@ -43,6 +51,10 @@ const ServiceCatalogItem = new EntitySchema<ServiceCatalogItem>({
     formSchema: { name: "form_schema", type: "jsonb", default: () => "'[]'::jsonb" },
     approvalMode: { name: "approval_mode", type: "varchar", length: 20, default: "none" },
     approverIds: { name: "approver_ids", type: "uuid", array: true, default: () => "'{}'" },
+    approvalPolicyId: { name: "approval_policy_id", type: "uuid", nullable: true },
+    riskLevel: { name: "risk_level", type: "varchar", length: 10, default: "low" },
+    approvalHours: { name: "approval_hours", type: "int", nullable: true },
+    fulfilmentHours: { name: "fulfilment_hours", type: "int", nullable: true },
     fulfilmentNotes: { name: "fulfilment_notes", type: "text", nullable: true },
     isActive: { name: "is_active", type: "boolean", default: true },
     sortOrder: { name: "sort_order", type: "int", default: 0 },
@@ -54,6 +66,13 @@ const ServiceCatalogItem = new EntitySchema<ServiceCatalogItem>({
   relations: {
     category: { type: "many-to-one", target: "ServiceCatalogCategory", joinColumn: { name: "category_id" }, onDelete: "CASCADE" },
     createdBy: { type: "many-to-one", target: "User", joinColumn: { name: "created_by_id" }, nullable: true, onDelete: "SET NULL" },
+    approvalPolicy: {
+      type: "many-to-one",
+      target: "ServiceApprovalPolicy",
+      joinColumn: { name: "approval_policy_id" },
+      nullable: true,
+      onDelete: "SET NULL",
+    },
   },
   indices: [{ name: "idx_service_catalog_items_org_category", columns: ["organizationId", "categoryId"] }],
 });

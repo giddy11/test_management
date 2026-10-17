@@ -108,6 +108,16 @@ const {
   ServiceRequestStatusHistory,
 } = require("../../modules/serviceDesk/entities/serviceRequestStatusHistory.entity");
 const { ServiceRequestComment } = require("../../modules/serviceDesk/entities/serviceRequestComment.entity");
+const { ServiceRequestAttachment } = require("../../modules/serviceDesk/entities/serviceRequestAttachment.entity");
+const { ServiceApproverGroup } = require("../../modules/serviceDesk/entities/serviceApproverGroup.entity");
+const {
+  ServiceApproverGroupMember,
+} = require("../../modules/serviceDesk/entities/serviceApproverGroupMember.entity");
+const { ServiceApprovalPolicy } = require("../../modules/serviceDesk/entities/serviceApprovalPolicy.entity");
+const {
+  ServiceApprovalDelegation,
+} = require("../../modules/serviceDesk/entities/serviceApprovalDelegation.entity");
+const { ServiceRequestEscalation } = require("../../modules/serviceDesk/entities/serviceRequestEscalation.entity");
 
 const AppDataSource = new DataSource({
   type: "postgres",
@@ -175,6 +185,12 @@ const AppDataSource = new DataSource({
     ServiceRequestApproval,
     ServiceRequestStatusHistory,
     ServiceRequestComment,
+    ServiceRequestAttachment,
+    ServiceApproverGroup,
+    ServiceApproverGroupMember,
+    ServiceApprovalPolicy,
+    ServiceApprovalDelegation,
+    ServiceRequestEscalation,
   ],
   migrations: ["infrastructure/database/migrations/*.{js,ts}"],
 });

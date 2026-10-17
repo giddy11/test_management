@@ -3,7 +3,7 @@
 import { Link } from "react-router-dom"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { CategoryIcon, RequestPriorityBadge, RequestStatusBadge, When } from "@/components/serviceDesk/RequestBits"
+import { CategoryIcon, OverdueBadge, RequestPriorityBadge, RequestStatusBadge, When } from "@/components/serviceDesk/RequestBits"
 import type { PaginationMeta } from "@/types/api.types"
 import type { ServiceRequest } from "@/types/serviceDesk.types"
 
@@ -65,6 +65,7 @@ export function RequestList({
                 </p>
               </div>
               <div className="flex items-center gap-2">
+                <OverdueBadge phase={r.overdue} level={r.escalationLevel} />
                 {r.priority !== "medium" && <RequestPriorityBadge value={r.priority} />}
                 <RequestStatusBadge value={r.status} />
                 <span className="w-16 text-right text-xs text-muted-foreground">

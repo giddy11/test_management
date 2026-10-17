@@ -8,6 +8,7 @@ export const REQUEST_STATUSES = [
   "pending_approval",
   "approved",
   "rejected",
+  "info_requested",
   "in_progress",
   "fulfilled",
   "cancelled",
@@ -17,8 +18,18 @@ export type RequestStatus = (typeof REQUEST_STATUSES)[number]
 export const REQUEST_PRIORITIES = ["low", "medium", "high", "critical"] as const
 export type RequestPriority = (typeof REQUEST_PRIORITIES)[number]
 
-export type ApprovalMode = "none" | "approvers"
-export type ApprovalDecision = "pending" | "approved" | "rejected" | "skipped"
+export type ApprovalMode = "none" | "approvers" | "policy"
+export type ApprovalDecision = "waiting" | "pending" | "approved" | "rejected" | "skipped"
+
+export const RISK_LEVELS = ["low", "medium", "high", "critical"] as const
+export type RiskLevel = (typeof RISK_LEVELS)[number]
+
+export const RISK_META: Record<RiskLevel, { label: string; badge: string }> = {
+  low: { label: "Low risk", badge: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300" },
+  medium: { label: "Medium risk", badge: "bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300" },
+  high: { label: "High risk", badge: "bg-orange-100 text-orange-800 dark:bg-orange-950 dark:text-orange-300" },
+  critical: { label: "Critical risk", badge: "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300" },
+}
 
 export const STATUS_META: Record<RequestStatus, { label: string; badge: string }> = {
   draft: { label: "Draft", badge: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300" },
@@ -26,6 +37,7 @@ export const STATUS_META: Record<RequestStatus, { label: string; badge: string }
   pending_approval: { label: "Pending approval", badge: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300" },
   approved: { label: "Approved", badge: "bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-300" },
   rejected: { label: "Rejected", badge: "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300" },
+  info_requested: { label: "Waiting for information", badge: "bg-yellow-100 text-yellow-800 dark:bg-yellow-950 dark:text-yellow-300" },
   in_progress: { label: "In progress", badge: "bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300" },
   fulfilled: { label: "Fulfilled", badge: "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300" },
   cancelled: { label: "Cancelled", badge: "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400" },
@@ -93,6 +105,11 @@ export interface PortalItem {
 export interface AdminItem extends PortalItem {
   approvalMode: ApprovalMode
   approvers: Person[]
+  approvalPolicyId: string | null
+  approvalPolicyName: string | null
+  riskLevel: RiskLevel
+  approvalHours: number | null
+  fulfilmentHours: number | null
   fulfilmentNotes: string | null
   isActive: boolean
   sortOrder: number
@@ -103,8 +120,69 @@ export interface AdminItem extends PortalItem {
 export type PortalCategory = CatalogCategory & { items: PortalItem[] }
 export type AdminCategory = CatalogCategory & { items: AdminItem[] }
 
+export interface EscalationRules {
+  level2Pct: number
+  level3Pct: number
+  contactIds: string[]
+}
+
+export interface ServiceLevels {
+  approvalHours: number
+  fulfilmentHours: Record<RequestPriority, number>
+  escalation: EscalationRules
+}
+
 export interface ServiceDeskSettings {
   enabled: boolean
+  serviceLevels: ServiceLevels
+}
+
+// ── Approval setup ───────────────────────────────────────────────────────────
+export type ApproverRule =
+  | { type: "line_manager" }
+  | { type: "group"; groupId: string }
+  | { type: "user"; userId: string }
+
+export type StepMode = "any" | "all"
+
+export interface PolicyStep {
+  name: string
+  mode: StepMode
+  approvers: ApproverRule[]
+}
+
+export interface ApprovalPolicy {
+  id: string
+  name: string
+  description: string | null
+  steps: PolicyStep[]
+  itemCount: number
+  updatedAt: string
+}
+
+export interface ApproverGroup {
+  id: string
+  name: string
+  description: string | null
+  maxRiskLevel: RiskLevel
+  members: Person[]
+}
+
+export interface ManagerRow {
+  id: string
+  name: string
+  email: string
+  managerId: string | null
+  managerName: string | null
+}
+
+export interface Delegation {
+  userId: string
+  delegateId: string
+  delegateName: string
+  startsOn: string
+  endsOn: string
+  note: string | null
 }
 
 export interface CategoryPayload {
@@ -125,6 +203,10 @@ export interface ItemPayload {
   fulfilmentNotes?: string | null
   isActive?: boolean
   sortOrder?: number
+  approvalPolicyId?: string | null
+  riskLevel?: RiskLevel
+  approvalHours?: number | null
+  fulfilmentHours?: number | null
 }
 
 // ── Requests ─────────────────────────────────────────────────────────────────
@@ -138,6 +220,7 @@ export interface ServiceRequest {
     categoryName: string
     formSchema: FormField[]
     needsApproval: boolean
+    approvalPolicyName: string | null
   }
   requester: { id: string; name: string; email: string }
   requestedFor: { id: string | null; name: string; email: string | null } | null
@@ -149,6 +232,15 @@ export interface ServiceRequest {
   status: RequestStatus
   assignee: { id: string; name: string } | null
   resolutionNote: string | null
+  riskLevel: RiskLevel
+  currentStep: number | null
+  approvalDueAt: string | null
+  fulfilmentDueAt: string | null
+  // Which phase is past its service level right now, if any.
+  overdue: "approval" | "fulfilment" | null
+  escalationLevel: number
+  infoRequestedAt: string | null
+  infoRequestedFrom: RequestStatus | null
   submittedAt: string | null
   approvedAt: string | null
   startedAt: string | null
@@ -162,11 +254,33 @@ export interface ServiceRequest {
 export interface RequestApproval {
   id: string
   stepOrder: number
+  stepName: string | null
+  stepMode: StepMode
+  ruleIndex: number
   approverId: string
   approverName: string
+  groupId: string | null
+  groupName: string | null
+  isFallback: boolean
+  onBehalfOfId: string | null
+  onBehalfOfName: string | null
   decision: ApprovalDecision
   comment: string | null
   decidedAt: string | null
+  decidedById: string | null
+  decidedByName: string | null
+  authorityLevel: RiskLevel | null
+}
+
+export interface RequestAttachment {
+  id: string
+  fileName: string
+  fileUrl: string
+  isImage: boolean
+  mimeType: string | null
+  fileSizeBytes: number | null
+  uploadedBy: { id: string; name: string } | null
+  createdAt: string
 }
 
 export interface RequestHistoryEntry {
@@ -193,6 +307,10 @@ export interface RequestViewer {
   isAgent: boolean
   canEdit: boolean
   canDecide: boolean
+  canAskInfo: boolean
+  canProvideInfo: boolean
+  canAttach: boolean
+  myUserId: string
   canCancel: boolean
   cancelNeedsReason: boolean
   canAssign: boolean
@@ -207,6 +325,7 @@ export interface RequestDetail {
   approvals: RequestApproval[]
   history: RequestHistoryEntry[]
   comments: RequestComment[]
+  attachments: RequestAttachment[]
   fulfilmentNotes: string | null
   viewer: RequestViewer
 }
@@ -223,7 +342,7 @@ export interface RequestPayload {
   requestedForEmail?: string | null
 }
 
-export type QueueView = "ready" | "open" | "closed"
+export type QueueView = "ready" | "open" | "closed" | "overdue"
 
 export interface ListRequestsParams {
   scope: "mine" | "queue"
@@ -237,5 +356,59 @@ export interface ListRequestsParams {
 
 export interface ServiceDeskCounts {
   pendingApprovals: number
-  queue: { ready: number; unassigned: number; mine: number; awaitingApproval: number } | null
+  queue: {
+    ready: number
+    unassigned: number
+    mine: number
+    awaitingApproval: number
+    waitingOnRequester: number
+    overdue: number
+  } | null
+}
+
+// ── Reports ──────────────────────────────────────────────────────────────────
+export interface ServiceDeskReport {
+  range: { from: string; to: string }
+  now: {
+    open: number
+    pendingApproval: number
+    overdueApproval: number
+    readyForIt: number
+    inProgress: number
+    overdueFulfilment: number
+    waitingOnRequester: number
+  }
+  throughput: {
+    submitted: number
+    fulfilled: number
+    rejected: number
+    cancelled: number
+    avgApprovalHours: number | null
+    avgFulfilmentHours: number | null
+    fulfilledWithTarget: number
+    fulfilledOnTime: number
+    onTimeRate: number | null
+  }
+  escalations: Record<"approval" | "fulfilment", { level1: number; level2: number; level3: number }>
+  byCategory: {
+    category: string
+    submitted: number
+    fulfilled: number
+    open: number
+    avgFulfilmentHours: number | null
+    fulfilledLate: number
+  }[]
+  byAssignee: { id: string; name: string; fulfilled: number; inProgress: number; avgWorkHours: number | null }[]
+  overdue: {
+    id: string
+    reference: string
+    title: string
+    status: RequestStatus
+    priority: RequestPriority
+    phase: "approval" | "fulfilment"
+    dueAt: string
+    escalationLevel: number
+    assigneeName: string | null
+  }[]
+  serviceLevels: ServiceLevels
 }

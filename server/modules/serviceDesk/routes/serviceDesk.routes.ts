@@ -11,6 +11,18 @@
 import { ServiceDeskController as C } from "../controllers/serviceDesk.controller";
 import {
   approveSchema,
+  askInfoSchema,
+  attachmentParamsSchema,
+  createGroupSchema,
+  createPolicySchema,
+  delegationSchema,
+  idOnlySchema,
+  provideInfoSchema,
+  reportSchema,
+  serviceLevelsBodySchema,
+  setManagerSchema,
+  updateGroupSchema,
+  updatePolicySchema,
   assignSchema,
   cancelSchema,
   commentSchema,
@@ -33,10 +45,12 @@ const router = require("express").Router();
 const { validate } = require("../../../shared/middleware/validate.middleware");
 const { authMiddleware } = require("../../../shared/middleware/auth.middleware");
 const { requirePermission, requireAny } = require("../../../shared/access/can");
+const { uploadCommentAttachments } = require("../../../shared/middleware/upload.middleware");
 
 const CREATE = "servicerequest.create";
 const WORK = "servicedesk.work";
 const MANAGE = "servicedesk.manage";
+const REPORT = "servicedesk.report";
 
 // Settings — everyone in the module reads whether it's on (it decides the sidebar).
 router.get("/settings", authMiddleware, requireAny(CREATE, WORK, MANAGE), C.getSettings);
@@ -49,6 +63,9 @@ router.post("/catalog/categories", authMiddleware, requirePermission(MANAGE), va
 router.patch("/catalog/categories/:id", authMiddleware, requirePermission(MANAGE), validate(updateCategorySchema), C.updateCategory);
 router.post("/catalog/items", authMiddleware, requirePermission(MANAGE), validate(createItemSchema), C.createItem);
 router.patch("/catalog/items/:id", authMiddleware, requirePermission(MANAGE), validate(updateItemSchema), C.updateItem);
+// Only for things nobody ever requested — anything used is hidden instead (409).
+router.delete("/catalog/categories/:id", authMiddleware, requirePermission(MANAGE), validate(idOnlySchema), C.deleteCategory);
+router.delete("/catalog/items/:id", authMiddleware, requirePermission(MANAGE), validate(idOnlySchema), C.deleteItem);
 
 // People pickers
 router.get("/people/approvers", authMiddleware, requirePermission(MANAGE), C.approverCandidates);
@@ -71,5 +88,50 @@ router.post("/requests/:id/assign", authMiddleware, requirePermission(WORK), val
 router.post("/requests/:id/start", authMiddleware, requirePermission(WORK), validate(requestIdSchema), C.start);
 router.post("/requests/:id/fulfil", authMiddleware, requirePermission(WORK), validate(fulfilSchema), C.fulfil);
 router.post("/requests/:id/comments", authMiddleware, requireAny(CREATE, WORK, MANAGE), validate(commentSchema), C.comment);
+// An approver (on their live step) or IT asks; the requester answers.
+router.post("/requests/:id/ask-info", authMiddleware, requireAny(CREATE, WORK, MANAGE), validate(askInfoSchema), C.askForInfo);
+router.post("/requests/:id/provide-info", authMiddleware, requirePermission(CREATE), validate(provideInfoSchema), C.provideInfo);
+// Files (multipart/form-data, field "files", up to 10 images or PDF/Word/Excel, 10 MB each).
+router.post(
+  "/requests/:id/attachments",
+  authMiddleware,
+  requireAny(CREATE, WORK, MANAGE),
+  uploadCommentAttachments("files", 10, 10),
+  validate(requestIdSchema),
+  C.uploadAttachments
+);
+router.delete(
+  "/requests/:id/attachments/:attachmentId",
+  authMiddleware,
+  requireAny(CREATE, WORK, MANAGE),
+  validate(attachmentParamsSchema),
+  C.deleteAttachment
+);
+
+// Service levels and escalation
+router.put("/settings/service-levels", authMiddleware, requirePermission(MANAGE), validate(serviceLevelsBodySchema), C.updateServiceLevels);
+
+// Approver groups and approval policies
+router.get("/approver-groups", authMiddleware, requirePermission(MANAGE), C.listGroups);
+router.post("/approver-groups", authMiddleware, requirePermission(MANAGE), validate(createGroupSchema), C.createGroup);
+router.patch("/approver-groups/:id", authMiddleware, requirePermission(MANAGE), validate(updateGroupSchema), C.updateGroup);
+router.delete("/approver-groups/:id", authMiddleware, requirePermission(MANAGE), validate(idOnlySchema), C.deleteGroup);
+router.get("/policies", authMiddleware, requirePermission(MANAGE), C.listPolicies);
+router.post("/policies", authMiddleware, requirePermission(MANAGE), validate(createPolicySchema), C.createPolicy);
+router.patch("/policies/:id", authMiddleware, requirePermission(MANAGE), validate(updatePolicySchema), C.updatePolicy);
+router.delete("/policies/:id", authMiddleware, requirePermission(MANAGE), validate(idOnlySchema), C.deletePolicy);
+
+// Line managers (the "line manager" approval rule)
+router.get("/people/managers", authMiddleware, requirePermission(MANAGE), C.listManagers);
+router.put("/people/:userId/manager", authMiddleware, requirePermission(MANAGE), validate(setManagerSchema), C.setManager);
+
+// Your own out-of-office delegation — anyone who may approve.
+router.get("/people/delegates", authMiddleware, requireAny(CREATE, MANAGE), C.delegateCandidates);
+router.get("/delegation", authMiddleware, requireAny(CREATE, MANAGE), C.myDelegation);
+router.put("/delegation", authMiddleware, requireAny(CREATE, MANAGE), validate(delegationSchema), C.setDelegation);
+router.delete("/delegation", authMiddleware, requireAny(CREATE, MANAGE), C.clearDelegation);
+
+// Reports
+router.get("/reports", authMiddleware, requirePermission(REPORT), validate(reportSchema), C.reports);
 
 module.exports = router;

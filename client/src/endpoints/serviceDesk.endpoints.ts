@@ -1,8 +1,17 @@
 // endpoints/serviceDesk.endpoints.ts — IT requests (/api/v1/service-desk).
-import { wrapCall } from "@/transport/http"
+import { uploadCall, wrapCall } from "@/transport/http"
 import type {
   AdminCategory,
   AdminItem,
+  ApprovalPolicy,
+  ApproverGroup,
+  Delegation,
+  ManagerRow,
+  PolicyStep,
+  RequestAttachment,
+  RiskLevel,
+  ServiceDeskReport,
+  ServiceLevels,
   CatalogCategory,
   CategoryPayload,
   ItemPayload,
@@ -33,6 +42,9 @@ export const ServiceDeskEndpoints = {
     wrapCall<CatalogCategory>("PATCH", `${BASE}/catalog/categories/${id}`, body(payload)),
   createItem: (payload: ItemPayload) => wrapCall<AdminItem>("POST", `${BASE}/catalog/items`, body(payload)),
   updateItem: (id: string, payload: ItemPayload) => wrapCall<AdminItem>("PATCH", `${BASE}/catalog/items/${id}`, body(payload)),
+  // Refused (409) once anything was requested — hide it instead.
+  deleteCategory: (id: string) => wrapCall<null>("DELETE", `${BASE}/catalog/categories/${id}`),
+  deleteItem: (id: string) => wrapCall<null>("DELETE", `${BASE}/catalog/items/${id}`),
 
   // People
   approverCandidates: () => wrapCall<Person[]>("GET", `${BASE}/people/approvers`),
@@ -57,4 +69,54 @@ export const ServiceDeskEndpoints = {
   fulfil: (id: string, note: string) => wrapCall<ServiceRequest>("POST", `${BASE}/requests/${id}/fulfil`, { note }),
   comment: (id: string, text: string, internal: boolean) =>
     wrapCall<RequestComment>("POST", `${BASE}/requests/${id}/comments`, { body: text, internal }),
+  askForInfo: (id: string, question: string) => wrapCall<ServiceRequest>("POST", `${BASE}/requests/${id}/ask-info`, { question }),
+  provideInfo: (id: string, answer: string) => wrapCall<ServiceRequest>("POST", `${BASE}/requests/${id}/provide-info`, { answer }),
+
+  // Attachments (images, PDF, Word, Excel)
+  uploadAttachments: (id: string, files: File[]) =>
+    uploadCall<RequestAttachment[]>(`${BASE}/requests/${id}/attachments`, files, "files"),
+  deleteAttachment: (id: string, attachmentId: string) =>
+    wrapCall<null>("DELETE", `${BASE}/requests/${id}/attachments/${attachmentId}`),
+
+  // Service levels
+  updateServiceLevels: (levels: ServiceLevels) =>
+    wrapCall<ServiceDeskSettings>("PUT", `${BASE}/settings/service-levels`, body(levels)),
+
+  // Approver groups and policies
+  groups: () => wrapCall<ApproverGroup[]>("GET", `${BASE}/approver-groups`),
+  createGroup: (payload: GroupPayload) => wrapCall<ApproverGroup>("POST", `${BASE}/approver-groups`, body(payload)),
+  updateGroup: (id: string, payload: GroupPayload) => wrapCall<ApproverGroup>("PATCH", `${BASE}/approver-groups/${id}`, body(payload)),
+  deleteGroup: (id: string) => wrapCall<null>("DELETE", `${BASE}/approver-groups/${id}`),
+  policies: () => wrapCall<ApprovalPolicy[]>("GET", `${BASE}/policies`),
+  createPolicy: (payload: PolicyPayload) => wrapCall<ApprovalPolicy>("POST", `${BASE}/policies`, body(payload)),
+  updatePolicy: (id: string, payload: PolicyPayload) => wrapCall<ApprovalPolicy>("PATCH", `${BASE}/policies/${id}`, body(payload)),
+  deletePolicy: (id: string) => wrapCall<null>("DELETE", `${BASE}/policies/${id}`),
+
+  // Line managers
+  managers: () => wrapCall<ManagerRow[]>("GET", `${BASE}/people/managers`),
+  setManager: (userId: string, managerId: string | null) =>
+    wrapCall<ManagerRow>("PUT", `${BASE}/people/${userId}/manager`, { managerId }),
+
+  // My delegation
+  delegateCandidates: () => wrapCall<Person[]>("GET", `${BASE}/people/delegates`),
+  myDelegation: () => wrapCall<Delegation | null>("GET", `${BASE}/delegation`),
+  setDelegation: (payload: { delegateId: string; startsOn: string; endsOn: string; note: string | null }) =>
+    wrapCall<Delegation>("PUT", `${BASE}/delegation`, body(payload)),
+  clearDelegation: () => wrapCall<null>("DELETE", `${BASE}/delegation`),
+
+  // Reports
+  reports: (range: { from?: string; to?: string }) => wrapCall<ServiceDeskReport>("GET", `${BASE}/reports`, body(range)),
+}
+
+export interface GroupPayload {
+  name?: string
+  description?: string | null
+  maxRiskLevel?: RiskLevel
+  memberIds?: string[]
+}
+
+export interface PolicyPayload {
+  name?: string
+  description?: string | null
+  steps?: PolicyStep[]
 }
