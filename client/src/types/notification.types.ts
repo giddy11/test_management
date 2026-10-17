@@ -19,6 +19,9 @@ export type NotificationType =
   | "support_item_assigned"
   | "support_chat_message"
   | "support_chat_reply"
+  | "service_request_approval"
+  | "service_request_queued"
+  | "service_request_update"
 
 export interface AppNotification {
   id: string
@@ -38,6 +41,8 @@ export interface AppNotification {
     // Set on notifications meant for the IT support portal (/support) rather
     // than the internal /projects views — see NotificationBell's linkFor.
     support?: boolean
+    // IT requests (/requests/:id) — not to be confused with requestId, a feature request.
+    serviceRequestId?: string
   } | null
   read: boolean
   createdAt: string

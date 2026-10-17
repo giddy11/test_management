@@ -16,6 +16,11 @@ import {
   Settings,
   Activity,
   BookOpen,
+  Store,
+  ClipboardList,
+  ListChecks,
+  Inbox,
+  Settings2,
   type LucideIcon,
 } from "lucide-react"
 import { can, canAny } from "@/lib/can"
@@ -31,9 +36,15 @@ export interface NavItem {
   anyOf?: string[]
   tourId?: string // used as the data-tour attribute for the onboarding tour
   newTab?: boolean // open in a new tab (e.g. docs) so the user keeps their place
+  end?: boolean // active only on this exact path, not its children
+  badge?: "approvals" | "queue" // live count shown next to the title
 }
 
-// Primary navigation — shown at the top of the sidebar.
+// The sidebar is three labelled groups: the testing product, IT requests (a
+// module of its own — see docs/it-service-requests-plan.md), and the workspace
+// things both share. Each is filtered by permission; an empty group is hidden.
+
+// Testing — what TestMate has always been.
 export const NAV_ITEMS: NavItem[] = [
   { title: "Dashboard", to: "/dashboard", icon: LayoutDashboard, permission: "dashboard.read", tourId: "nav-dashboard" },
   { title: "Projects", to: "/projects", icon: FolderKanban, permission: "project.read", tourId: "nav-projects" },
@@ -42,6 +53,20 @@ export const NAV_ITEMS: NavItem[] = [
   // Not sla.read: administrators hold that for the SLA tab on the dashboard.
   // This item is the supporter portal's own SLA page.
   { title: "SLA reports", to: "/support/sla", icon: Gauge, permission: "supportqueue.read" },
+]
+
+// IT requests. Everything here also depends on the organisation having the
+// module turned on — see itNavFor.
+export const IT_NAV_ITEMS: NavItem[] = [
+  { title: "Request something", to: "/requests", icon: Store, permission: "servicerequest.create", end: true },
+  { title: "My requests", to: "/requests/mine", icon: ClipboardList, permission: "servicerequest.create" },
+  { title: "Approvals", to: "/requests/approvals", icon: ListChecks, anyOf: ["servicerequest.create", "servicedesk.manage"], badge: "approvals" },
+  { title: "IT queue", to: "/requests/queue", icon: Inbox, permission: "servicedesk.work", badge: "queue" },
+  { title: "Catalog setup", to: "/requests/catalog", icon: Settings2, permission: "servicedesk.manage" },
+]
+
+// Workspace — shared by both products.
+export const WORKSPACE_NAV_ITEMS: NavItem[] = [
   // user.read is deliberately NOT the bar here: engineers hold it so the
   // assignee picker works, but the Team page exists to manage people.
   { title: "Team", to: "/team", icon: Users, permission: "user.create", tourId: "nav-team" },
@@ -67,17 +92,35 @@ export function navFor(permissions: string[]): NavItem[] {
   return NAV_ITEMS.filter((item) => visible(item, permissions))
 }
 
+// While the module is off, only the people who set it up see it — so they
+// can build the catalog before turning it on.
+export function itNavFor(permissions: string[], enabled: boolean): NavItem[] {
+  if (!enabled) return IT_NAV_ITEMS.filter((item) => item.to === "/requests/catalog" && visible(item, permissions))
+  return IT_NAV_ITEMS.filter((item) => visible(item, permissions))
+}
+
+export function workspaceNavFor(permissions: string[]): NavItem[] {
+  return WORKSPACE_NAV_ITEMS.filter((item) => visible(item, permissions))
+}
+
+// Anyone holding one of these may see the IT-requests section at all.
+export const IT_REQUEST_PERMISSIONS = ["servicerequest.create", "servicedesk.work", "servicedesk.manage"]
+
 export function navBottomFor(permissions: string[]): NavItem[] {
   return NAV_BOTTOM_ITEMS.filter((item) => visible(item, permissions))
 }
 
 // Where a user lands after login, and where a permission-mismatched navigation
 // bounces to. External supporters live in the support portal; everyone else on
-// the dashboard. Falls back to /settings, which every authenticated user can
+// the dashboard; IT-requests-only people on the request portal. Falls back to /settings, which every authenticated user can
 // reach, so a role with neither permission never lands on a page it can't open.
 export function homePathFor(permissions: string[]): string {
   if (can(permissions, "dashboard.read")) return "/dashboard"
   if (can(permissions, "supportqueue.read")) return "/support"
+  // Someone with only the IT-requests side (the Employee role) lands on the
+  // request portal, never a testing page they can't open.
+  if (can(permissions, "servicerequest.create")) return "/requests"
+  if (can(permissions, "servicedesk.work")) return "/requests/queue"
   return "/settings"
 }
 

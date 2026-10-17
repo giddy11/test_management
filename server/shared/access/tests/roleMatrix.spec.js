@@ -225,7 +225,7 @@ describe("what the platform level promises", () => {
   });
 
   it("confines configuration to administrators", () => {
-    const config = ["sla.configure", "role.manage", "role.assign", "project.manageall"];
+    const config = ["sla.configure", "role.manage", "role.assign", "project.manageall", "servicedesk.manage"];
     for (const key of ["tester", "qa_engineer", "test_lead"]) {
       for (const code of config) {
         expect({ key, code, held: role(key).has(code) }).toEqual({ key, code, held: false });

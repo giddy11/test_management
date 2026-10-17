@@ -99,6 +99,15 @@ const { AiUsageLog } = require("../../modules/ai/entities/aiUsageLog.entity");
 const { AiCreditAccount } = require("../../modules/ai/entities/aiCreditAccount.entity");
 const { AiCreditTransaction } = require("../../modules/ai/entities/aiCreditTransaction.entity");
 const { AiSettings } = require("../../modules/ai/entities/aiSettings.entity");
+const { ServiceDeskSettings } = require("../../modules/serviceDesk/entities/serviceDeskSettings.entity");
+const { ServiceCatalogCategory } = require("../../modules/serviceDesk/entities/serviceCatalogCategory.entity");
+const { ServiceCatalogItem } = require("../../modules/serviceDesk/entities/serviceCatalogItem.entity");
+const { ServiceRequest } = require("../../modules/serviceDesk/entities/serviceRequest.entity");
+const { ServiceRequestApproval } = require("../../modules/serviceDesk/entities/serviceRequestApproval.entity");
+const {
+  ServiceRequestStatusHistory,
+} = require("../../modules/serviceDesk/entities/serviceRequestStatusHistory.entity");
+const { ServiceRequestComment } = require("../../modules/serviceDesk/entities/serviceRequestComment.entity");
 
 const AppDataSource = new DataSource({
   type: "postgres",
@@ -159,6 +168,13 @@ const AppDataSource = new DataSource({
     AiCreditAccount,
     AiCreditTransaction,
     AiSettings,
+    ServiceDeskSettings,
+    ServiceCatalogCategory,
+    ServiceCatalogItem,
+    ServiceRequest,
+    ServiceRequestApproval,
+    ServiceRequestStatusHistory,
+    ServiceRequestComment,
   ],
   migrations: ["infrastructure/database/migrations/*.{js,ts}"],
 });

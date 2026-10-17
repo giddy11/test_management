@@ -56,6 +56,9 @@ const WARNING_ACTIONS = new Set([
   "client_company.supporter_added",
   "client_company.supporter_removed",
   "client_company.supporter_lead_changed",
+  // IT requests: who approves what, and whether the module is on at all.
+  "service_desk.settings_updated",
+  "service_catalog.item_approvers_changed",
 ]);
 
 function severityFor(action) {

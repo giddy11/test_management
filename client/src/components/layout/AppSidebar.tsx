@@ -9,6 +9,7 @@ import {
   SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
+  SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
   useSidebar,
@@ -24,12 +25,28 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { useAuth, PREVIEWABLE_ROLES } from "@/contexts/AuthContext"
 import { useLogout } from "@/hooks/useAuth"
-import { navFor, navBottomFor, ROLE_LABEL } from "@/components/layout/nav"
+import {
+  navFor,
+  navBottomFor,
+  itNavFor,
+  workspaceNavFor,
+  IT_REQUEST_PERMISSIONS,
+  ROLE_LABEL,
+  type NavItem,
+} from "@/components/layout/nav"
+import { canAny } from "@/lib/can"
+import { useServiceDeskCounts, useServiceDeskSettings } from "@/hooks/useServiceDesk"
 
 export function AppSidebar() {
   const { user, realUser, permissions, isPreviewing, startPreview, exitPreview } = useAuth()
   const logout = useLogout()
   const { isMobile, setOpenMobile } = useSidebar()
+  // IT requests is a separate module: its section depends on the permissions
+  // AND on the organisation having it turned on.
+  const inItRequests = canAny(permissions, IT_REQUEST_PERMISSIONS)
+  const { data: deskSettings } = useServiceDeskSettings(inItRequests)
+  const deskOn = Boolean(deskSettings?.enabled)
+  const { data: deskCounts } = useServiceDeskCounts(inItRequests && deskOn)
   if (!user || !realUser) return null
 
   const previewOptions = isPreviewing ? [] : (PREVIEWABLE_ROLES[realUser.role] ?? [])
@@ -45,6 +62,19 @@ export function AppSidebar() {
   const closeOnMobile = () => {
     if (isMobile) setOpenMobile(false)
   }
+
+  const badgeFor = (item: NavItem): number => {
+    if (item.badge === "approvals") return deskCounts?.pendingApprovals ?? 0
+    if (item.badge === "queue") return deskCounts?.queue?.ready ?? 0
+    return 0
+  }
+  const itItems = inItRequests ? itNavFor(permissions, deskOn) : []
+  const groups = [
+    // With only the testing side visible, the old "Navigation" label still reads right.
+    { label: itItems.length ? "Testing" : "Navigation", items },
+    { label: "IT requests", items: itItems },
+    { label: "Workspace", items: workspaceNavFor(permissions) },
+  ].filter((g) => g.items.length > 0)
 
   return (
     <Sidebar collapsible="icon">
@@ -67,25 +97,31 @@ export function AppSidebar() {
       </SidebarHeader>
 
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel>Navigation</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {items.map((item) => (
-                <SidebarMenuItem key={item.to}>
-                  <NavLink to={item.to} data-tour={item.tourId} data-cy={`nav-${item.to.slice(1)}`} onClick={closeOnMobile}>
-                    {({ isActive }) => (
-                      <SidebarMenuButton tooltip={item.title} isActive={isActive}>
-                        <item.icon />
-                        <span>{item.title}</span>
-                      </SidebarMenuButton>
-                    )}
-                  </NavLink>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {groups.map((group) => (
+          <SidebarGroup key={group.label}>
+            <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {group.items.map((item) => {
+                  const badge = badgeFor(item)
+                  return (
+                    <SidebarMenuItem key={item.to}>
+                      <NavLink to={item.to} end={item.end} data-tour={item.tourId} data-cy={`nav-${item.to.slice(1)}`} onClick={closeOnMobile}>
+                        {({ isActive }) => (
+                          <SidebarMenuButton tooltip={item.title} isActive={isActive}>
+                            <item.icon />
+                            <span>{item.title}</span>
+                          </SidebarMenuButton>
+                        )}
+                      </NavLink>
+                      {badge > 0 && <SidebarMenuBadge>{badge}</SidebarMenuBadge>}
+                    </SidebarMenuItem>
+                  )
+                })}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ))}
 
         <SidebarGroup className="mt-auto">
           <SidebarGroupContent>

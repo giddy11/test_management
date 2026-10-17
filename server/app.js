@@ -50,6 +50,7 @@ const accessRoutes = require("./modules/access/routes/access.routes");
 const searchRoutes = require("./modules/search/routes/search.routes");
 const ticketLinkRoutes = require("./modules/ticketLink/routes/ticketLink.routes");
 const aiRoutes = require("./modules/ai/routes/ai.routes");
+const serviceDeskRoutes = require("./modules/serviceDesk/routes/serviceDesk.routes");
 
 function createApp() {
   const app = express();
@@ -114,6 +115,7 @@ function createApp() {
   api.use("/bugs", bugRoutes);
   api.use("/ticket-links", ticketLinkRoutes); // relate bugs, feature requests and feedback tickets
   api.use("/ai", aiRoutes); // AI drafting + provider keys (org and personal)
+  api.use("/service-desk", serviceDeskRoutes); // IT requests — a module of its own, not project-level
   api.use("/app-updates", appUpdateRoutes);
   api.use("/site-banner", siteBannerRoutes);
   api.use("/organizations", organizationRoutes);

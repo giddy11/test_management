@@ -49,6 +49,11 @@ const CATEGORIES = [
     label: "AI assistance",
     description: "AI drafting, and the provider API keys it runs on.",
   },
+  {
+    key: "servicedesk",
+    label: "IT requests",
+    description: "Employees asking IT for software, hardware, accounts and access — and the people who approve and fulfil those requests.",
+  },
 ];
 
 // `warning` renders as the amber note under the checkbox in the role editor.
@@ -122,6 +127,14 @@ const PERMISSIONS = [
   { code: "ai.ownkey", category: "ai", label: "Use my own AI key", description: "Save a personal AI provider API key, used instead of the organisation's." },
   { code: "ai.managekeys", category: "ai", label: "Manage the organisation's AI keys", description: "Add, change and remove the AI provider keys everyone in the organisation uses.", warning: "Usage on these keys is billed to the organisation's provider account" },
   { code: "ai.managecredits", category: "ai", label: "Manage AI credits", description: "Set what each AI feature costs on the organisation's key, and give people credits." },
+
+  // ── IT requests ────────────────────────────────────────────────────────────
+  // A module of its own (modules/serviceDesk), separate from testing. Approving
+  // a request is deliberately NOT a permission: you approve one because its
+  // catalog item names you as an approver, checked in ServiceRequestService.
+  { code: "servicerequest.create", category: "servicedesk", label: "Submit IT requests", description: "Ask IT for software, hardware, accounts and access, and follow your own requests." },
+  { code: "servicedesk.work", category: "servicedesk", label: "Work the IT request queue", description: "See every submitted IT request in the organisation, and assign, progress, fulfil or cancel it." },
+  { code: "servicedesk.manage", category: "servicedesk", label: "Set up IT requests", description: "Turn IT requests on or off, and manage the catalog: what people can ask for, its form, and who approves it.", warning: "Decides who approves each kind of request" },
 ];
 
 const ALL_CODES = PERMISSIONS.map((p) => p.code);
@@ -179,6 +192,8 @@ const ROLE_KEYS = Object.freeze({
   QA_ENGINEER: "qa_engineer",
   TESTER: "tester",
   SUPPORT_LEAD: "support_lead",
+  EMPLOYEE: "employee",
+  IT_AGENT: "it_agent",
 });
 
 // Built-in roles that were once seeded and no longer are. Where an organisation
@@ -202,6 +217,7 @@ const QA_ENGINEER_PERMISSIONS = [
   "project.read", "project.export",
   "dashboard.read",
   "ai.use", "ai.ownkey",
+  "servicerequest.create",
 ];
 
 // A Tester is a QA engineer who does not export projects.
@@ -242,6 +258,7 @@ const BUILTIN_ROLES = [
       "project.read", "project.export",
       "dashboard.read", "analytics.read", "sla.read",
       "ai.use", "ai.ownkey",
+      "servicerequest.create",
     ],
   },
   {
@@ -263,6 +280,20 @@ const BUILTIN_ROLES = [
     name: "Support lead",
     description: "The IT support lead at a client company. Sees only their own company's queue.",
     permissions: SUPPORT_LEAD_PERMISSIONS,
+  },
+  // The two IT-requests roles. Neither holds project.read, so someone who has
+  // only one of them never sees the testing side of the product.
+  {
+    key: ROLE_KEYS.EMPLOYEE,
+    name: "Employee",
+    description: "Asks IT for software, hardware, accounts and access, and follows their own requests. Sees nothing of testing.",
+    permissions: ["servicerequest.create"],
+  },
+  {
+    key: ROLE_KEYS.IT_AGENT,
+    name: "IT service agent",
+    description: "Works the organisation's IT request queue: picks up, progresses and fulfils requests.",
+    permissions: ["servicerequest.create", "servicedesk.work"],
   },
 ];
 

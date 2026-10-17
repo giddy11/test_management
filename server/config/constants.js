@@ -139,6 +139,12 @@ const NotificationType = Object.freeze({
   SUPPORT_CHAT_REPLY: "support_chat_reply",
   // A website visitor messaged a project's embedded live-chat widget.
   LIVE_CHAT_MESSAGE: "live_chat_message",
+  // IT requests (modules/serviceDesk): an approver has a decision to make,
+  // a request landed in the IT queue, or something changed on a request
+  // the recipient raised, is assigned or is waiting on.
+  SERVICE_REQUEST_APPROVAL: "service_request_approval",
+  SERVICE_REQUEST_QUEUED: "service_request_queued",
+  SERVICE_REQUEST_UPDATE: "service_request_update",
 });
 
 // Lifecycle of an in-app support-chat conversation.

@@ -1,0 +1,75 @@
+// modules/serviceDesk/routes/serviceDesk.routes.ts — IT requests.
+// Mounted at /api/v1/service-desk. Organisation-level, not project-level:
+// these routes are gated on the servicedesk permissions, never project.read.
+//
+//   servicerequest.create  submit and follow your own requests; approve when an item names you
+//   servicedesk.work       the IT queue: assign, start, fulfil, cancel, internal notes
+//   servicedesk.manage     turn the module on or off, and the catalog
+//
+// The routes say what kind of thing you may touch; ServiceRequestService says
+// which request (yours, one you approve, or the queue's).
+import { ServiceDeskController as C } from "../controllers/serviceDesk.controller";
+import {
+  approveSchema,
+  assignSchema,
+  cancelSchema,
+  commentSchema,
+  createCategorySchema,
+  createItemSchema,
+  createRequestSchema,
+  fulfilSchema,
+  listApprovalsSchema,
+  listRequestsSchema,
+  peopleSchema,
+  rejectSchema,
+  requestIdSchema,
+  updateCategorySchema,
+  updateDraftSchema,
+  updateItemSchema,
+  updateSettingsSchema,
+} from "../validators/serviceDesk.schema";
+
+const router = require("express").Router();
+const { validate } = require("../../../shared/middleware/validate.middleware");
+const { authMiddleware } = require("../../../shared/middleware/auth.middleware");
+const { requirePermission, requireAny } = require("../../../shared/access/can");
+
+const CREATE = "servicerequest.create";
+const WORK = "servicedesk.work";
+const MANAGE = "servicedesk.manage";
+
+// Settings — everyone in the module reads whether it's on (it decides the sidebar).
+router.get("/settings", authMiddleware, requireAny(CREATE, WORK, MANAGE), C.getSettings);
+router.put("/settings", authMiddleware, requirePermission(MANAGE), validate(updateSettingsSchema), C.updateSettings);
+
+// Catalog
+router.get("/catalog", authMiddleware, requirePermission(CREATE), C.portalCatalog);
+router.get("/catalog/admin", authMiddleware, requirePermission(MANAGE), C.adminCatalog);
+router.post("/catalog/categories", authMiddleware, requirePermission(MANAGE), validate(createCategorySchema), C.createCategory);
+router.patch("/catalog/categories/:id", authMiddleware, requirePermission(MANAGE), validate(updateCategorySchema), C.updateCategory);
+router.post("/catalog/items", authMiddleware, requirePermission(MANAGE), validate(createItemSchema), C.createItem);
+router.patch("/catalog/items/:id", authMiddleware, requirePermission(MANAGE), validate(updateItemSchema), C.updateItem);
+
+// People pickers
+router.get("/people/approvers", authMiddleware, requirePermission(MANAGE), C.approverCandidates);
+router.get("/people/agents", authMiddleware, requirePermission(WORK), C.agents);
+router.get("/people/colleagues", authMiddleware, requirePermission(CREATE), validate(peopleSchema), C.colleagues);
+
+// Requests. Approvers may hold servicedesk.manage alone: they are the
+// fallback when an item names nobody (see resolveApprovers).
+router.get("/counts", authMiddleware, requireAny(CREATE, WORK, MANAGE), C.counts);
+router.get("/approvals", authMiddleware, requireAny(CREATE, MANAGE), validate(listApprovalsSchema), C.approvals);
+router.get("/requests", authMiddleware, requireAny(CREATE, WORK), validate(listRequestsSchema), C.list);
+router.post("/requests", authMiddleware, requirePermission(CREATE), validate(createRequestSchema), C.create);
+router.get("/requests/:id", authMiddleware, requireAny(CREATE, WORK, MANAGE), validate(requestIdSchema), C.detail);
+router.patch("/requests/:id", authMiddleware, requirePermission(CREATE), validate(updateDraftSchema), C.updateDraft);
+router.post("/requests/:id/submit", authMiddleware, requirePermission(CREATE), validate(requestIdSchema), C.submit);
+router.post("/requests/:id/cancel", authMiddleware, requireAny(CREATE, WORK), validate(cancelSchema), C.cancel);
+router.post("/requests/:id/approve", authMiddleware, requireAny(CREATE, MANAGE), validate(approveSchema), C.approve);
+router.post("/requests/:id/reject", authMiddleware, requireAny(CREATE, MANAGE), validate(rejectSchema), C.reject);
+router.post("/requests/:id/assign", authMiddleware, requirePermission(WORK), validate(assignSchema), C.assign);
+router.post("/requests/:id/start", authMiddleware, requirePermission(WORK), validate(requestIdSchema), C.start);
+router.post("/requests/:id/fulfil", authMiddleware, requirePermission(WORK), validate(fulfilSchema), C.fulfil);
+router.post("/requests/:id/comments", authMiddleware, requireAny(CREATE, WORK, MANAGE), validate(commentSchema), C.comment);
+
+module.exports = router;

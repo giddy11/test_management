@@ -37,6 +37,13 @@ import SupportQueuePage from "@/pages/support/SupportQueuePage"
 import SupportActivityPage from "@/pages/support/SupportActivityPage"
 import SupportInboxPage from "@/pages/support/SupportInboxPage"
 import SupportSlaPage from "@/pages/support/SupportSlaPage"
+import RequestPortalPage from "@/pages/serviceDesk/RequestPortalPage"
+import RequestFormPage from "@/pages/serviceDesk/RequestFormPage"
+import RequestDetailPage from "@/pages/serviceDesk/RequestDetailPage"
+import MyRequestsPage from "@/pages/serviceDesk/MyRequestsPage"
+import ApprovalsPage from "@/pages/serviceDesk/ApprovalsPage"
+import ServiceQueuePage from "@/pages/serviceDesk/ServiceQueuePage"
+import CatalogSetupPage from "@/pages/serviceDesk/CatalogSetupPage"
 // Route groups are gated on permissions, not role names. Each list is "any one
 // of these admits you" — the pages themselves hide the parts a viewer can not
 // use, and the API re-checks everything regardless.
@@ -106,6 +113,37 @@ export default function App() {
                   <Route path="/support" element={<SupportQueuePage />} />
                   <Route path="/support/activity" element={<SupportActivityPage />} />
                   <Route path="/support/sla" element={<SupportSlaPage />} />
+                </Route>
+              </Route>
+
+              {/* IT requests — a module of its own, separate from testing. Each
+                  page also shows a notice while the organisation has it off. */}
+              <Route element={<ProtectedRoute anyOf={["servicerequest.create"]} />}>
+                <Route element={<DashboardLayout />}>
+                  <Route path="/requests" element={<RequestPortalPage />} />
+                  <Route path="/requests/mine" element={<MyRequestsPage />} />
+                  <Route path="/requests/new/:itemId" element={<RequestFormPage />} />
+                  <Route path="/requests/:id/edit" element={<RequestFormPage />} />
+                </Route>
+              </Route>
+              <Route element={<ProtectedRoute anyOf={["servicerequest.create", "servicedesk.manage"]} />}>
+                <Route element={<DashboardLayout />}>
+                  <Route path="/requests/approvals" element={<ApprovalsPage />} />
+                </Route>
+              </Route>
+              <Route element={<ProtectedRoute anyOf={["servicedesk.work"]} />}>
+                <Route element={<DashboardLayout />}>
+                  <Route path="/requests/queue" element={<ServiceQueuePage />} />
+                </Route>
+              </Route>
+              <Route element={<ProtectedRoute anyOf={["servicedesk.manage"]} />}>
+                <Route element={<DashboardLayout />}>
+                  <Route path="/requests/catalog" element={<CatalogSetupPage />} />
+                </Route>
+              </Route>
+              <Route element={<ProtectedRoute anyOf={["servicerequest.create", "servicedesk.work", "servicedesk.manage"]} />}>
+                <Route element={<DashboardLayout />}>
+                  <Route path="/requests/:id" element={<RequestDetailPage />} />
                 </Route>
               </Route>
 

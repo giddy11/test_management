@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { Bell, Bug, CheckCheck, ClipboardCheck, FlaskConical, Headset, Lightbulb, UserPlus } from "lucide-react"
+import { Bell, Bug, CheckCheck, ClipboardCheck, FlaskConical, Headset, Lightbulb, Store, UserPlus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -44,6 +44,7 @@ function linkFor(n: AppNotification): string {
   // A user message to the admins opens the inbox; a reply to a user has no page
   // (they read it in the floater) so it falls through to the dashboard.
   if (n.type === "support_chat_message") return "/support-inbox"
+  if (d.serviceRequestId) return `/requests/${d.serviceRequestId}`
   if (d.support) return "/support"
   if (d.caseId && d.projectId && d.suiteId)
     return `/projects/${d.projectId}/suites/${d.suiteId}/cases/${d.caseId}`
@@ -147,6 +148,8 @@ export function NotificationBell() {
               ? UserPlus
               : n.type.startsWith("support_chat_")
               ? Headset
+              : n.type.startsWith("service_request_")
+              ? Store
               : ClipboardCheck
             return (
               <button
