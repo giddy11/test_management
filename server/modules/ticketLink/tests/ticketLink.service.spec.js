@@ -1,13 +1,16 @@
 // modules/ticketLink/tests/ticketLink.service.spec.js
-const { TicketLinkService } = require("../services/ticketLink.service");
-const { ActivityService } = require("../../activity/services/activity.service");
-const { permissionsFor } = require("../../../test/actors");
 
 // The audit log is fire-and-forget and has its own spec; here it is only asserted
-// on, never written.
+// on, never written. Declared before the requires: .js specs aren't run through
+// babel-jest (the jest config's transform only covers .ts), so jest.mock isn't
+// hoisted and must come first to take effect.
 jest.mock("../../activity/services/activity.service", () => ({
   ActivityService: { Instance: { log: jest.fn() } },
 }));
+
+const { TicketLinkService } = require("../services/ticketLink.service");
+const { ActivityService } = require("../../activity/services/activity.service");
+const { permissionsFor } = require("../../../test/actors");
 
 const admin = { id: "admin-1", role: "admin", permissions: permissionsFor("admin"), organizationId: "org-1" };
 const member = { id: "user-1", role: "user", permissions: permissionsFor("user"), organizationId: "org-1" };

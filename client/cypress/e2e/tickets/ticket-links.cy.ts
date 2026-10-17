@@ -185,7 +185,12 @@ describe("Ticket links — a ticket's page", () => {
       cy.dataCy("link-ticket-submit").click()
 
       cy.wait("@refusedLink")
-      cy.contains("These tickets are already linked as related").should("be.visible")
+      // The toast is on screen, but Cypress calls it covered: the open modal sets
+      // pointer-events: none on <body>, and Cypress's cover check (elementFromPoint)
+      // skips such elements and lands on the dialog overlay. Assert its text instead.
+      cy.get("[data-sonner-toast]").should("contain.text", "These tickets are already linked as related")
+      // A refused link leaves the dialog open so the choice can be changed.
+      cy.dataCy("link-ticket-submit").should("be.visible")
     })
   })
 

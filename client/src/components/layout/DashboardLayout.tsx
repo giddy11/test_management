@@ -48,7 +48,9 @@ export function DashboardLayout() {
               <ThemeToggle />
             </div>
           </header>
-          <main className="flex-1 p-4 md:p-6">
+          {/* pb-24 keeps the end of a page (e.g. a right-aligned pager) scrollable
+              clear of the floating WhatsApp button, which sits fixed bottom-right. */}
+          <main className="flex-1 p-4 pb-24 md:p-6 md:pb-24">
             <Outlet />
           </main>
           <WhatsNewDialog />

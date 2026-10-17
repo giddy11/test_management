@@ -27,6 +27,7 @@ function makeCommentRepo() {
     findById: jest.fn(),
     create: jest.fn(),
     softDelete: jest.fn(),
+    hasReplies: jest.fn().mockResolvedValue(false),
   };
 }
 
@@ -379,9 +380,10 @@ describe("FeatureRequestService", () => {
         expect(frRepo.update).toHaveBeenCalledWith("fr-1", expect.objectContaining({ assignedToId: "dev-1" }));
       });
 
+      // "planned" doesn't require an assignee, so clearing one is allowed there.
       it("never checks membership when clearing the assignee", async () => {
-        frRepo.findById.mockResolvedValue({ ...fr, status: "under_review", assignedToId: "dev-1" });
-        frRepo.update.mockResolvedValue({ ...fr, status: "under_review", assignedToId: null });
+        frRepo.findById.mockResolvedValue({ ...fr, status: "planned", assignedToId: "dev-1" });
+        frRepo.update.mockResolvedValue({ ...fr, status: "planned", assignedToId: null });
         await service.updateStatus(admin, "fr-1", { assignedToId: null });
         expect(memberRepo.getRole).not.toHaveBeenCalled();
         expect(frRepo.update).toHaveBeenCalledWith("fr-1", expect.objectContaining({ assignedToId: null }));
@@ -575,9 +577,11 @@ describe("FeatureRequestService", () => {
       expect(projectService.getProject).toHaveBeenCalledWith(admin, "proj-1");
       expect(commentRepo.create).toHaveBeenCalledWith({
         featureRequestId: "fr-1",
+        parentId: null,
         authorId: "admin-1",
         authorName: "Ada Min",
         body: "hello",
+        mentions: [],
       });
       expect(frRepo.incrementCommentCount).toHaveBeenCalledWith("fr-1");
       expect(result).toEqual({ id: "c-1", body: "hello" });
@@ -625,6 +629,15 @@ describe("FeatureRequestService", () => {
       commentRepo.findById.mockResolvedValue(comment);
       const other = { id: "other-1", role: "user", permissions: permissionsFor("user"), organizationId: "org-1" };
       await expect(service.deleteComment(other, "fr-1", "c-1")).rejects.toMatchObject({ statusCode: 403 });
+      expect(frRepo.decrementCommentCount).not.toHaveBeenCalled();
+    });
+
+    it("refuses to delete a comment that still has replies", async () => {
+      frRepo.findById.mockResolvedValue(fr);
+      commentRepo.findById.mockResolvedValue(comment);
+      commentRepo.hasReplies.mockResolvedValue(true);
+      await expect(service.deleteComment(user, "fr-1", "c-1")).rejects.toMatchObject({ statusCode: 422 });
+      expect(commentRepo.softDelete).not.toHaveBeenCalled();
       expect(frRepo.decrementCommentCount).not.toHaveBeenCalled();
     });
   });

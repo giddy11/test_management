@@ -40,6 +40,7 @@ jest.mock("../controllers/feedback.controller", () => ({
     history: jest.fn((req: any, res: any) => res.status(200).json({})),
     remove: jest.fn((req: any, res: any) => res.status(200).json({})),
     setLink: jest.fn((req: any, res: any) => res.status(200).json({})),
+    testMateSupport: jest.fn((req: any, res: any) => res.status(200).json({})),
   },
 }));
 

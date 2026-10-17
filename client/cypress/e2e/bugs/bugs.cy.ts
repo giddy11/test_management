@@ -98,7 +98,7 @@ describe("Bug reports", () => {
     cy.dataCy("clear-filters").click()
 
     cy.contains("All statuses").should("be.visible")
-    cy.contains("Search by title…").should("be.visible")
+    cy.get('input[placeholder="Search by title…"]').should("be.visible").and("have.value", "")
     cy.get('input[placeholder="Search by reporter name…"]').should("not.exist")
     cy.dataCy("date-from").should("have.value", "")
     cy.dataCy("date-to").should("have.value", "")

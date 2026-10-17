@@ -94,7 +94,7 @@ describe("Dashboard — SLA & support tab", () => {
       cy.wait("@slaTickets")
         .its("request.url")
         .then((url) => {
-          expect(decodeURIComponent(url)).to.include("recurringKey=bug:e2e-bug-1")
+          expect(new URL(url).searchParams.get("recurringKey")).to.eq("bug:e2e-bug-1")
         })
       cy.contains("[role=dialog]", '"Export button does nothing" — 3 reports').should("be.visible")
     })
@@ -106,7 +106,8 @@ describe("Dashboard — SLA & support tab", () => {
       cy.wait("@slaTickets")
         .its("request.url")
         .then((url) => {
-          expect(decodeURIComponent(url)).to.include("recurringKey=title:e2e-proj-1:bug:login times out on slow networks")
+          // searchParams decodes the "+" a query string uses for a space.
+          expect(new URL(url).searchParams.get("recurringKey")).to.eq("title:e2e-proj-1:bug:login times out on slow networks")
         })
     })
   })
