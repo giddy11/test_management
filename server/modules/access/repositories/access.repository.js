@@ -43,6 +43,21 @@ class AccessRepository {
       .getMany();
   }
 
+  // A person's display name, for the audit entry about them. Removed users still
+  // resolve, so the entry names who it was about.
+  async memberName(userId) {
+    const row = await this.userRoles.manager
+      .createQueryBuilder()
+      .select("u.first_name", "firstName")
+      .addSelect("u.last_name", "lastName")
+      .addSelect("u.email", "email")
+      .from("users", "u")
+      .where("u.id = :userId", { userId })
+      .getRawOne();
+    if (!row) return null;
+    return [row.firstName, row.lastName].filter(Boolean).join(" ").trim() || row.email || null;
+  }
+
   // ── Catalog ────────────────────────────────────────────────────────────────
 
   async fetchCatalog() {

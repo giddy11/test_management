@@ -419,6 +419,10 @@ class AccessService {
     const beforeRoles = await this.repo.rolesForUser(userId);
     await this.assertLockoutOnAssignment(actor, userId, granted, beforeRoles);
 
+    // Stored on the entry, like the actor's name, so it still says who this was
+    // about after they are renamed or removed.
+    const memberName = await this.repo.memberName(userId);
+
     // Granting a role grants every permission in it, so this is the one write
     // here whose audit entry must not be best-effort: the row goes in inside the
     // assignment's own transaction, and a failure to record it rolls the
@@ -427,8 +431,9 @@ class AccessService {
       action: "role.assigned",
       entityType: "user",
       entityId: userId,
-      summary: `Changed roles for a team member`,
+      summary: `Changed roles for ${memberName ?? "a team member"}`,
       metadata: {
+        member: memberName ? { id: userId, name: memberName } : null,
         before: beforeRoles.map((r) => ({ id: r.id, name: r.name })),
         after: roles.map((r) => ({ id: r.id, name: r.name })),
       },

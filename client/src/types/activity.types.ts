@@ -7,7 +7,9 @@ export interface ActivityLog {
   severity: AuditSeverity
   entityType: string | null
   entityId: string | null
-  metadata: Record<string, string | null> | null
+  // Free-form per action: mostly ids (projectId, runId…), and for role changes
+  // the roles before/after as lists. Read through the helpers that know the shape.
+  metadata: Record<string, unknown> | null
   // Name and role are as they were WHEN the entry was written — the API stores
   // them on the row, so an entry still names the right person after they are
   // renamed or removed. `id` and `email` may point at a user who no longer exists.

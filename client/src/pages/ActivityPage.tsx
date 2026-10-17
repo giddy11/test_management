@@ -31,6 +31,7 @@ import {
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import {
   Table,
@@ -102,6 +103,34 @@ function buildLink(a: ActivityLog): string | null {
   if (et === "bug" && m.projectId) return `/projects/${m.projectId}/bugs/${eid}`
   if (et === "feature_request" && m.projectId) return `/projects/${m.projectId}/feature-requests/${eid}`
   return null
+}
+
+// A role change carries the roles the person had and now has. Entries written
+// before that was recorded have neither, so the row simply shows nothing extra.
+function roleChangeOf(a: ActivityLog): { before: string[]; after: string[]; member: string | null } | null {
+  if (a.action !== "role.assigned") return null
+  const nameOf = (value: unknown): string =>
+    value && typeof value === "object" && "name" in value ? String(value.name) : ""
+  const names = (value: unknown): string[] | null =>
+    Array.isArray(value) ? value.map(nameOf).filter(Boolean) : null
+  const before = names(a.metadata?.before)
+  const after = names(a.metadata?.after)
+  return before && after ? { before, after, member: nameOf(a.metadata?.member) || null } : null
+}
+
+function RoleChips({ label, roles }: { label: string; roles: string[] }) {
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      <span className="w-14 shrink-0 text-xs text-muted-foreground">{label}</span>
+      {roles.length ? (
+        roles.map((r) => (
+          <Badge key={r} variant="outline" className="font-normal">{r}</Badge>
+        ))
+      ) : (
+        <span className="text-xs italic text-muted-foreground">No role</span>
+      )}
+    </div>
+  )
 }
 
 const ACTION_PREFIXES = [
@@ -320,6 +349,13 @@ export default function ActivityPage() {
                   const subtitle = [RECORD_TYPE_LABELS[a.entityType ?? ""], a.action]
                     .filter(Boolean)
                     .join(" · ")
+                  const roleChange = roleChangeOf(a)
+                  // Newer entries name the member in their summary; for older ones, fall
+                  // back to today's team list.
+                  const memberName =
+                    roleChange && !roleChange.member
+                      ? users.find((u) => u.id === a.entityId)?.name
+                      : null
 
                   return (
                     <TableRow key={a.id} data-cy="activity-row">
@@ -341,6 +377,17 @@ export default function ActivityPage() {
                                 </Link>
                               )}
                             </p>
+                            {roleChange && (
+                              <div className="mt-2 space-y-1" data-cy="role-change">
+                                {memberName && (
+                                  <p className="text-xs text-muted-foreground">
+                                    Team member: <span className="font-medium text-foreground">{memberName}</span>
+                                  </p>
+                                )}
+                                <RoleChips label="Before" roles={roleChange.before} />
+                                <RoleChips label="Now" roles={roleChange.after} />
+                              </div>
+                            )}
                           </div>
                         </div>
                       </TableCell>

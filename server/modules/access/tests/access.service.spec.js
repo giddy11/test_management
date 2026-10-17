@@ -19,6 +19,7 @@ function makeRepo(overrides = {}) {
     countMembers: jest.fn().mockResolvedValue(0),
     setUserRoles: jest.fn(),
     rolesForUser: jest.fn().mockResolvedValue([]),
+    memberName: jest.fn().mockResolvedValue(null),
     roleIdsGranting: jest.fn().mockResolvedValue([]),
     userIdsWithPermission: jest.fn().mockResolvedValue([]),
     superAdminUserIds: jest.fn().mockResolvedValue([]),
@@ -723,6 +724,31 @@ describe("AccessService", () => {
         ["role-custom"],
         admin.id,
         expect.objectContaining({ action: "role.assigned", entityId: "target-1" })
+      );
+    });
+
+    // The entry has to answer "who, from what, to what" on its own, because the
+    // role names and the person's name can all change or disappear later.
+    it("records who was changed and the roles before and after", async () => {
+      repo.findRoleById.mockResolvedValue(customRole);
+      repo.permissionsForRole.mockResolvedValue(["project.read"]);
+      repo.rolesForUser.mockResolvedValue([builtinRole]);
+      repo.memberName.mockResolvedValue("Edema Ero");
+
+      await service.setUserRoles(admin, "target-1", ["role-custom"]);
+
+      expect(repo.setUserRoles).toHaveBeenCalledWith(
+        "target-1",
+        ["role-custom"],
+        admin.id,
+        expect.objectContaining({
+          summary: "Changed roles for Edema Ero",
+          metadata: {
+            member: { id: "target-1", name: "Edema Ero" },
+            before: [{ id: "role-builtin", name: "QA engineer" }],
+            after: [{ id: "role-custom", name: "Release manager" }],
+          },
+        })
       );
     });
 
