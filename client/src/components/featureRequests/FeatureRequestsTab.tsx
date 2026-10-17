@@ -24,7 +24,7 @@ import { FeatureRequestRow } from "@/components/featureRequests/FeatureRequestRo
 import { FeatureRequestFormDialog } from "@/components/featureRequests/FeatureRequestFormDialog"
 import { useFeatureRequests } from "@/hooks/useFeatureRequests"
 import { useTicketLinkSummary } from "@/hooks/useTicketLinks"
-import { useDebounce } from "@/hooks/useDebounce"
+import { useDebouncedSearch } from "@/hooks/useDebounce"
 import { usePersistedState } from "@/hooks/usePersistedState"
 import { FEATURE_REQUEST_STATUSES, FEATURE_REQUEST_STATUS_META, type FeatureRequestStatus } from "@/lib/enums"
 import type { FeatureRequestSearchField } from "@/types/featureRequest.types"
@@ -38,7 +38,7 @@ const SEARCH_OPTIONS: SearchByOption<FeatureRequestSearchField>[] = [
 export function FeatureRequestsTab({ projectId }: { projectId: string }) {
   // Filters persist per project so they survive opening a request and coming back.
   const [searchInput, setSearchInput] = usePersistedState(`feature-requests:search:${projectId}`, "")
-  const search = useDebounce(searchInput, 300)
+  const search = useDebouncedSearch(searchInput)
   const [searchBy, setSearchBy] = usePersistedState<FeatureRequestSearchField>(
     `feature-requests:searchBy:${projectId}`,
     "title"

@@ -24,7 +24,7 @@ import { BugRow } from "@/components/bugs/BugRow"
 import { BugFormDialog } from "@/components/bugs/BugFormDialog"
 import { useBugs } from "@/hooks/useBugs"
 import { useTicketLinkSummary } from "@/hooks/useTicketLinks"
-import { useDebounce } from "@/hooks/useDebounce"
+import { useDebouncedSearch } from "@/hooks/useDebounce"
 import { usePersistedState } from "@/hooks/usePersistedState"
 import { BUG_STATUSES, BUG_STATUS_META, type BugStatus } from "@/lib/enums"
 import type { BugSearchField } from "@/types/bug.types"
@@ -39,7 +39,7 @@ const SEARCH_OPTIONS: SearchByOption<BugSearchField>[] = [
 export function BugsTab({ projectId }: { projectId: string }) {
   // Filters persist per project so they survive opening a bug and coming back.
   const [searchInput, setSearchInput] = usePersistedState(`bugs:search:${projectId}`, "")
-  const search = useDebounce(searchInput, 300)
+  const search = useDebouncedSearch(searchInput)
   const [searchBy, setSearchBy] = usePersistedState<BugSearchField>(`bugs:searchBy:${projectId}`, "title")
   const [status, setStatus] = usePersistedState<BugStatus | null>(`bugs:status:${projectId}`, null)
   // Report-date range, YYYY-MM-DD; "" = no bound.

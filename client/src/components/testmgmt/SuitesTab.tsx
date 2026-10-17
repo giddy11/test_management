@@ -19,7 +19,7 @@ import { InlineLoader } from "@/components/shared/PageLoader"
 import { ClearFiltersButton } from "@/components/shared/ClearFiltersButton"
 import { useSuites, useDeleteSuite } from "@/hooks/useSuites"
 import { useExportProject } from "@/hooks/useExport"
-import { useDebounce } from "@/hooks/useDebounce"
+import { useDebouncedSearch } from "@/hooks/useDebounce"
 import { usePersistedState } from "@/hooks/usePersistedState"
 import type { SuiteBreakdown, TestSuite } from "@/types/testMgmt.types"
 
@@ -37,7 +37,7 @@ export function SuitesTab({
   const navigate = useNavigate()
   // Search persists per project so it survives opening a suite and coming back.
   const [searchInput, setSearchInput] = usePersistedState(`suites:search:${projectId}`, "")
-  const search = useDebounce(searchInput, 300)
+  const search = useDebouncedSearch(searchInput)
   const { data: suites = [], isLoading } = useSuites(projectId, { search: search || undefined })
   const del = useDeleteSuite()
   const exportProject = useExportProject(projectId, projectName)

@@ -87,9 +87,18 @@ describe("Feature requests", () => {
     cy.dataCy("date-from").type("2026-07-01")
     cy.wait("@filteredRequests")
 
-    // Clearing goes back to the unfiltered query, which is still cached and
-    // fresh (staleTime 1m), so it is served without another request.
+    // Unfiltered-but-"Newest" was never loaded (the list opened on "Top"), so
+    // clearing fetches it: no filters left, the sort kept. A fresh alias, so the
+    // wait can't match one of the (several, per keystroke) earlier requests.
+    cy.interceptApi("GET", "/feature-requests", { body: ok([], listMeta(0)) }, "clearedRequests")
     cy.dataCy("clear-filters").click()
+    cy.wait("@clearedRequests").then(({ request }) => {
+      const params = new URL(request.url).searchParams
+      expect(params.get("sort")).to.eq("newest")
+      for (const filter of ["status", "search", "searchBy", "from", "to"]) {
+        expect(params.has(filter), filter).to.eq(false)
+      }
+    })
 
     cy.contains("All statuses").should("be.visible")
     cy.get('input[placeholder="Search by title…"]').should("be.visible").and("have.value", "")
@@ -99,7 +108,6 @@ describe("Feature requests", () => {
     cy.dataCy("clear-filters").should("not.exist")
     // Sort isn't a filter — clearing leaves the earlier "Newest" choice as is.
     cy.contains("Newest").should("be.visible")
-    cy.dataCy("feature-request-card").should("have.length", 2)
   })
 
   it("upvotes a request", () => {
