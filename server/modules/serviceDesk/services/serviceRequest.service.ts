@@ -16,7 +16,7 @@
 //                        cancel with a reason, internal notes
 // A requester never approves their own request, nor one raised for them.
 import type { EntityManager } from "typeorm";
-import { ServiceRequestRepository, type RequestRow } from "../repositories/serviceRequest.repository";
+import { ServiceRequestRepository, type CommentRow, type RequestRow } from "../repositories/serviceRequest.repository";
 import { ServiceDeskRepository, type PersonRow } from "../repositories/serviceDesk.repository";
 import { ApprovalSetupRepository } from "../repositories/approvalSetup.repository";
 import { ServiceDeskService, PERMS, type DeskActor } from "./serviceDesk.service";
@@ -28,10 +28,14 @@ import { autoApprovalRefusal, type RuleOutcome } from "../domain/automationRules
 import type { ItemSnapshot, ServiceRequest } from "../entities/serviceRequest.entity";
 import type { ServiceCatalogItem } from "../entities/serviceCatalogItem.entity";
 import type { ServiceRequestApproval } from "../entities/serviceRequestApproval.entity";
+import type { ServiceRequestComment } from "../entities/serviceRequestComment.entity";
+import type { ServiceRequestAttachment } from "../entities/serviceRequestAttachment.entity";
 import { validateFormValues } from "../domain/formSchema";
 import {
   NoApproverError,
   buildPlan,
+  lineToOpen,
+  missingLineManagerSteps,
   rowsMadeRedundant,
   stepState,
   stepsForApprovers,
@@ -61,7 +65,19 @@ import {
   type RequestStatus,
   type RiskLevel,
 } from "../domain/lifecycle";
-import { toAttachmentDto, toRequestDto } from "../dto/serviceDesk.dto";
+import {
+  MAX_MESSAGE_FILES,
+  canDeleteMessage,
+  canEditMessage,
+  hasContent,
+  mentionPool,
+  newlyMentioned,
+  resolveMentions,
+  resolveReply,
+  type MentionRef,
+  type Mentionable,
+} from "../domain/conversation";
+import { toAttachmentDto, toCommentDto, toRequestDto } from "../dto/serviceDesk.dto";
 import type { CreateRequestBody, ListApprovalsQuery, ListRequestsQuery, UpdateDraftBody } from "../validators/serviceDesk.schema";
 
 const { AppError } = require("../../../shared/errors/AppError");
@@ -69,6 +85,7 @@ const { can } = require("../../../shared/access/can");
 const { ActivityService } = require("../../activity/services/activity.service");
 const { StorageService } = require("../../../shared/services/storage.service");
 const { ALLOWED_IMAGE_TYPES } = require("../../../shared/middleware/upload.middleware");
+const { emitToUsers } = require("../../../infrastructure/realtime/socketServer");
 
 type RequestedFor = Pick<ServiceRequest, "requestedForId" | "requestedForName" | "requestedForEmail">;
 
@@ -77,6 +94,21 @@ interface UploadedFile {
   originalname: string;
   mimetype: string;
   size: number;
+}
+
+// A file already in storage, not yet attached to anything.
+type StoredFile = Pick<
+  ServiceRequestAttachment,
+  "fileName" | "fileUrl" | "filePublicId" | "resourceType" | "mimeType" | "fileSizeBytes"
+>;
+
+// A message as posted: JSON, or multipart when it carries files.
+export interface PostedMessage {
+  body: string;
+  internal: boolean;
+  parentId?: string;
+  mentionIds: string[];
+  files?: UploadedFile[];
 }
 
 // Everything decided at submit (see prepareSubmission).
@@ -407,6 +439,9 @@ export class ServiceRequestService {
     // Assigned inside the transaction; the cast stops TS narrowing it to the initial value.
     let outcome = "step_pending" as "rejected" | "approved" | "next_step" | "step_pending";
     let stepName = "";
+    let nextStepName = ""; // when the step just finished hands on to another
+    let linesLeft = 0; // in an "each one approves" or "in order" step, the approvals still missing
+    let turnPassedOn = false; // an "in order" step: the next approver is now being asked
 
     await this.repo.run(async (m) => {
       const locked = await this.repo.lock(m, organizationId, id);
@@ -424,9 +459,12 @@ export class ServiceRequestService {
         if (locked.status !== "pending_approval") {
           throw new AppError(`This request is already ${STATUS_LABELS[locked.status].toLowerCase()}`, 409);
         }
+        const waiting = rows.find((r) => actsFor(r) && r.decision === "waiting");
         throw new AppError(
-          rows.some((r) => actsFor(r) && r.decision === "waiting")
-            ? "Your step hasn't started yet — an earlier approver decides first"
+          waiting
+            ? waiting.stepMode === "order" && waiting.stepOrder === step
+              ? "It isn't your turn yet — an earlier approver in this step decides first"
+              : "Your step hasn't started yet — an earlier approver decides first"
             : "You've already given your decision on this request",
           409
         );
@@ -477,6 +515,7 @@ export class ServiceRequestService {
               actorId: actor.id,
               note: `${stepName} approved${comment ? `: ${comment}` : ""}. Now with ${nextRows[0].stepName ?? `step ${step + 1}`}.`,
             });
+            nextStepName = nextRows[0].stepName ?? `step ${step + 1}`;
             outcome = "next_step";
           } else {
             assertTransition(locked.status, "approved");
@@ -488,6 +527,18 @@ export class ServiceRequestService {
             });
             await this.repo.addHistory(m, { requestId: id, fromStatus: locked.status, toStatus: "approved", actorId: actor.id, note: comment });
             outcome = "approved";
+          }
+        } else {
+          // Approved, but the step isn't complete: every line must approve.
+          const done = new Set(updated.filter((r) => r.decision === "approved").map((r) => r.ruleIndex));
+          linesLeft = new Set(updated.map((r) => r.ruleIndex).filter((i) => !done.has(i))).size;
+          // In an "in order" step the next approver's turn begins now.
+          if (mine.stepMode === "order") {
+            const next = lineToOpen(updated);
+            if (next !== null) {
+              await this.repo.activateLine(m, id, step, next);
+              turnPassedOn = true;
+            }
           }
         }
       }
@@ -517,7 +568,32 @@ export class ServiceRequestService {
         ctaLabel: "View the request",
       }), actor.id);
     } else if (outcome === "next_step") {
+      // The requester follows the route too, not only the next approvers.
+      this.notifier.send(await this.requesterSide(r), this.event(r, "update", {
+        title: `Approval progress: ${ref} ${r.title}`,
+        heading: "Your IT request moved to the next approval step",
+        body: `${decider} approved ${stepName} for "${r.title}". It's now with ${nextStepName}.`,
+        note: comment,
+        noteLabel: "Comment",
+        ctaLabel: "View the request",
+      }), actor.id);
       await this.notifyApprovers(r, actor.id);
+    } else if (outcome === "step_pending" && decision === "approved" && linesLeft > 0) {
+      // In order: name who has it now. Otherwise: how many approvals are still missing.
+      const nowWith = turnPassedOn
+        ? (await this.deskRepo.peopleByIds(organizationId, await this.repo.pendingApproverIds(id))).map((p) => p.name || p.email)
+        : [];
+      this.notifier.send(await this.requesterSide(r), this.event(r, "update", {
+        title: `Approval progress: ${ref} ${r.title}`,
+        heading: turnPassedOn ? "Your IT request moved to the next approver" : "Part of an approval step was given",
+        body: turnPassedOn
+          ? `${decider} approved ${stepName} for "${r.title}". It's now with ${nowWith.join(", ") || "the next approver"}.`
+          : `${decider} approved ${stepName} for "${r.title}". ${linesLeft} more approval${linesLeft === 1 ? " is" : "s are"} needed before it moves on.`,
+        note: comment,
+        noteLabel: "Comment",
+        ctaLabel: "View the request",
+      }), actor.id);
+      if (turnPassedOn) await this.notifyApprovers(r, actor.id);
     } else if (outcome === "approved") {
       this.notifier.send(await this.requesterSide(r), this.event(r, "update", {
         title: `Approved: ${ref} ${r.title}`,
@@ -881,36 +957,280 @@ export class ServiceRequestService {
   }
 
   // ── Conversation ───────────────────────────────────────────────────────────
-  async comment(actor: DeskActor, id: string, body: string, internal: boolean) {
+  // Sends a message. It may be a reply (always filed under the root of its
+  // thread), @mention people who can read it, and carry files. Everything is
+  // stored together, or nothing is: files already uploaded are removed again if
+  // the message can't be saved.
+  async comment(actor: DeskActor, id: string, input: PostedMessage) {
     const organizationId = this.desk.orgOf(actor);
     await this.desk.assertEnabled(organizationId);
     const r = await this.mustFindRow(organizationId, id);
     const viewer = await this.viewerOf(actor, r);
     if (!viewer.visible) throw new AppError("Request not found", 404);
-    if (internal && !viewer.isAgent) throw new AppError("Only IT can add internal notes", 403);
+    if (input.internal && !viewer.isAgent) throw new AppError("Only IT can add internal notes", 403);
     if (r.status === "draft") throw new AppError("Submit the request before starting a conversation", 409);
 
-    const saved = await this.repo.addComment({ requestId: id, authorId: actor.id, body, isInternal: internal });
+    const files = input.files ?? [];
+    if (!hasContent(input.body, files.length)) throw new AppError("Write a message or attach a file", 422);
+    if (files.length > MAX_MESSAGE_FILES) throw new AppError(`A message can carry at most ${MAX_MESSAGE_FILES} files`, 422);
 
-    const assignee = r.assigneeId ? (await this.deskRepo.peopleByIds(organizationId, [r.assigneeId]))[0] : null;
-    const recipients = internal ? [assignee] : [...(await this.requesterSide(r)), assignee];
-    this.notifier.send(recipients, this.event(r, "update", {
-      title: `New ${internal ? "internal note" : "comment"}: ${formatReference(r.requestNumber)} ${r.title}`,
-      heading: internal ? "New internal note on an IT request" : "New comment on an IT request",
-      body: `${nameOf(actor)} wrote on "${r.title}".`,
-      note: body,
-      noteLabel: nameOf(actor),
-      ctaLabel: "Reply",
-    }), actor.id);
+    let internal = input.internal;
+    let parentId: string | null = null;
+    let parent: ServiceRequestComment | null = null;
+    if (input.parentId) {
+      parent = await this.repo.findComment(id, input.parentId);
+      // An IT-only note doesn't exist for anyone else, so replying to one is "not found".
+      const reply = resolveReply(parent && parent.isInternal && !viewer.isAgent ? null : parent, id, internal);
+      if (!reply.ok) {
+        throw reply.reason === "deleted"
+          ? new AppError("That message was deleted, so it can't be replied to", 409)
+          : new AppError("Message not found", 404);
+      }
+      internal = reply.internal;
+      parentId = reply.parentId;
+    }
 
-    return {
+    const agents = await this.deskRepo.usersWithPermission(organizationId, [PERMS.WORK]);
+    const pool = mentionPool(await this.mentionable(r, viewer.isAgent, agents), internal);
+    const mentions = resolveMentions(input.mentionIds, pool, actor.id);
+
+    const uploaded = await this.storeFiles(files);
+    let saved: ServiceRequestComment;
+    try {
+      saved = await this.repo.run(async (m) => {
+        const row = await this.repo.addComment(
+          { requestId: id, authorId: actor.id, body: input.body, isInternal: internal, parentId, mentions },
+          m
+        );
+        if (uploaded.length) {
+          await this.repo.addAttachments(
+            uploaded.map((f) => ({ ...f, requestId: id, commentId: row.id, uploadedById: actor.id })),
+            m
+          );
+        }
+        return row;
+      });
+    } catch (e) {
+      await this.discardFiles(uploaded);
+      throw e;
+    }
+
+    const parentAuthorId = parent?.authorId ?? null;
+    await this.tellAboutMessage(actor, r, {
+      body: input.body || (uploaded.length ? "Sent a file" : ""),
+      internal,
+      mentions,
+      replyingTo: parentAuthorId ? { authorId: parentAuthorId, isAgent: agents.some((a) => a.id === parentAuthorId) } : null,
+    });
+    this.pushComment(r, actor.id, internal).catch((e: Error) => console.error("[serviceDesk] live comment push failed:", e.message));
+
+    return this.commentDto(r.id, {
       id: saved.id,
       authorId: actor.id,
       authorName: nameOf(actor),
       body: saved.body,
       isInternal: saved.isInternal,
       createdAt: saved.createdAt,
+      parentId,
+      mentions,
+      editedAt: null,
+      deletedAt: null,
+    });
+  }
+
+  // Only the author may change a message. People newly @mentioned by the edit
+  // are told; those already mentioned aren't told again.
+  async editComment(actor: DeskActor, id: string, commentId: string, input: { body: string; mentionIds: string[] }) {
+    const organizationId = this.desk.orgOf(actor);
+    await this.desk.assertEnabled(organizationId);
+    const r = await this.mustFindRow(organizationId, id);
+    const viewer = await this.viewerOf(actor, r);
+    if (!viewer.visible) throw new AppError("Request not found", 404);
+    const comment = await this.visibleComment(id, commentId, viewer.isAgent);
+    if (!canEditMessage(comment, actor.id)) throw new AppError("You can only edit your own messages", 403);
+
+    const agents = await this.deskRepo.usersWithPermission(organizationId, [PERMS.WORK]);
+    const pool = mentionPool(await this.mentionable(r, viewer.isAgent, agents), comment.isInternal);
+    const mentions = resolveMentions(input.mentionIds, pool, actor.id);
+
+    const changed = input.body !== comment.body;
+    const editedAt = changed ? new Date() : comment.editedAt;
+    const sameMentions =
+      mentions.length === comment.mentions.length && mentions.every((m) => comment.mentions.some((x) => x.id === m.id));
+    if (changed || !sameMentions) {
+      await this.repo.updateComment(commentId, { body: input.body, mentions, editedAt });
+    }
+
+    const fresh = newlyMentioned(comment.mentions, mentions);
+    if (fresh.length) {
+      await this.tellAboutMessage(actor, r, {
+        body: input.body,
+        internal: comment.isInternal,
+        mentions: fresh,
+        replyingTo: null,
+        mentionsOnly: true,
+      });
+    }
+    if (changed || !sameMentions) {
+      this.pushComment(r, actor.id, comment.isInternal).catch((e: Error) => console.error("[serviceDesk] live comment push failed:", e.message));
+    }
+
+    return this.commentDto(r.id, {
+      id: comment.id,
+      authorId: comment.authorId,
+      authorName: nameOf(actor),
+      body: input.body,
+      isInternal: comment.isInternal,
+      createdAt: comment.createdAt,
+      parentId: comment.parentId,
+      mentions,
+      editedAt,
+      deletedAt: null,
+    });
+  }
+
+  // The author, or someone who manages IT requests, may delete a message. It
+  // stays in the thread as "This message was deleted" so replies keep their
+  // place; its text, mentions and files are removed for good.
+  async deleteComment(actor: DeskActor, id: string, commentId: string) {
+    const organizationId = this.desk.orgOf(actor);
+    await this.desk.assertEnabled(organizationId);
+    const r = await this.mustFindRow(organizationId, id);
+    const viewer = await this.viewerOf(actor, r);
+    if (!viewer.visible) throw new AppError("Request not found", 404);
+    const comment = await this.visibleComment(id, commentId, viewer.isAgent);
+    if (!canDeleteMessage(comment, actor.id, can(actor, PERMS.MANAGE))) {
+      throw new AppError("You can only delete your own messages", 403);
+    }
+
+    await this.discardFiles(await this.repo.attachmentsOfComment(commentId));
+    await this.repo.deleteCommentAttachments(commentId);
+    await this.repo.updateComment(commentId, { body: "", mentions: [], deletedAt: new Date(), deletedById: actor.id });
+
+    const own = comment.authorId === actor.id;
+    this.activity.log(actor, {
+      action: "service_request.comment_deleted",
+      summary: `Deleted ${own ? "their" : "someone else's"} ${comment.isInternal ? "internal note" : "message"} on IT request ${formatReference(r.requestNumber)}`,
+      entityType: "service_request",
+      entityId: id,
+      // Removing your own words is routine; removing someone else's is moderation.
+      severity: own ? "info" : "warning",
+    });
+    this.pushComment(r, actor.id, comment.isInternal).catch((e: Error) => console.error("[serviceDesk] live comment push failed:", e.message));
+  }
+
+  // A message the viewer may know exists: not deleted, and an IT-only note is
+  // "not found" to anyone who isn't IT.
+  private async visibleComment(requestId: string, commentId: string, viewerIsAgent: boolean): Promise<ServiceRequestComment> {
+    const c = await this.repo.findComment(requestId, commentId);
+    if (!c || c.deletedAt || (c.isInternal && !viewerIsAgent)) throw new AppError("Message not found", 404);
+    return c;
+  }
+
+  // Who can be @mentioned on this request, as this viewer sees it: the people
+  // already on it (requester, who it's for, the assignee, approvers who have a
+  // say) and, for IT, every IT agent. isAgent tells the picker who can be named
+  // in an IT-only note.
+  private async mentionable(r: RequestRow, viewerIsAgent: boolean, agents: PersonRow[]): Promise<Mentionable[]> {
+    const ids = new Set<string>();
+    for (const id of [r.requesterId, r.requestedForId, r.assigneeId]) if (id) ids.add(id);
+    for (const a of await this.repo.approvalRows(r.id)) if (a.decision !== "waiting") ids.add(a.approverId);
+    if (viewerIsAgent) for (const a of agents) ids.add(a.id);
+    const agentIds = new Set(agents.map((a) => a.id));
+    const people = await this.deskRepo.peopleByIds(r.organizationId, [...ids]);
+    return people.map((p) => ({ id: p.id, name: p.name || p.email, isAgent: agentIds.has(p.id) }));
+  }
+
+  // One notification per person: those @mentioned, then the author of the
+  // message being replied to, then the people who follow the request anyway.
+  private async tellAboutMessage(
+    actor: DeskActor,
+    r: RequestRow,
+    m: {
+      body: string;
+      internal: boolean;
+      mentions: MentionRef[];
+      replyingTo: { authorId: string; isAgent: boolean } | null;
+      mentionsOnly?: boolean;
+    }
+  ) {
+    const ref = formatReference(r.requestNumber);
+    const who = nameOf(actor);
+    const told = new Set<string>([actor.id]);
+    const send = (people: (PersonRow | null | undefined)[], title: string, heading: string, body: string) => {
+      const fresh = people.filter((p): p is PersonRow => !!p && !told.has(p.id));
+      fresh.forEach((p) => told.add(p.id));
+      this.notifier.send(
+        fresh,
+        this.event(r, "update", { title, heading, body, note: m.body, noteLabel: who, ctaLabel: "Open the conversation" }),
+        actor.id
+      );
     };
+
+    send(
+      await this.deskRepo.peopleByIds(r.organizationId, m.mentions.map((x) => x.id)),
+      `${who} mentioned you: ${ref} ${r.title}`,
+      "You were mentioned on an IT request",
+      `${who} mentioned you on "${r.title}".`
+    );
+    if (m.mentionsOnly) return;
+
+    // An IT-only reply is never announced to someone who can't read it.
+    if (m.replyingTo && (!m.internal || m.replyingTo.isAgent)) {
+      send(
+        await this.deskRepo.peopleByIds(r.organizationId, [m.replyingTo.authorId]),
+        `${who} replied to you: ${ref} ${r.title}`,
+        "Someone replied to your message",
+        `${who} replied to your message on "${r.title}".`
+      );
+    }
+
+    const assignee = r.assigneeId ? (await this.deskRepo.peopleByIds(r.organizationId, [r.assigneeId]))[0] : null;
+    send(
+      m.internal ? [assignee] : [...(await this.requesterSide(r)), assignee],
+      `New ${m.internal ? "internal note" : "comment"}: ${ref} ${r.title}`,
+      m.internal ? "New internal note on an IT request" : "New comment on an IT request",
+      `${who} wrote on "${r.title}".`
+    );
+  }
+
+  // A message as the client receives it, with the files it carries.
+  private async commentDto(requestId: string, row: CommentRow) {
+    const files = (await this.repo.commentAttachmentRows(requestId, true)).filter((f) => f.commentId === row.id);
+    return toCommentDto(row, files);
+  }
+
+  // Puts files in storage. If one fails, the ones already stored are removed.
+  private async storeFiles(files: UploadedFile[]): Promise<StoredFile[]> {
+    const stored: StoredFile[] = [];
+    try {
+      for (const file of files) {
+        const isImage = ALLOWED_IMAGE_TYPES.includes(file.mimetype);
+        const result = isImage
+          ? await this.storage.uploadImage(file.buffer, { folder: ATTACHMENT_FOLDER })
+          : await this.storage.uploadRaw(file.buffer, { folder: ATTACHMENT_FOLDER });
+        stored.push({
+          fileName: file.originalname.slice(0, 255),
+          fileUrl: result.url,
+          filePublicId: result.publicId,
+          resourceType: isImage ? "image" : "raw",
+          mimeType: file.mimetype,
+          fileSizeBytes: file.size,
+        });
+      }
+    } catch (e) {
+      await this.discardFiles(stored);
+      throw e;
+    }
+    return stored;
+  }
+
+  private async discardFiles(files: Pick<StoredFile, "filePublicId" | "resourceType">[]) {
+    await Promise.all(
+      files.map((f) =>
+        (f.resourceType === "raw" ? this.storage.deleteRaw(f.filePublicId) : this.storage.deleteImage(f.filePublicId)).catch(() => {})
+      )
+    );
   }
 
   // ── Attachments ────────────────────────────────────────────────────────────
@@ -932,24 +1252,14 @@ export class ServiceRequestService {
       throw new AppError(`A request can have at most ${MAX_ATTACHMENTS} files`, 422);
     }
 
-    const rows = [];
-    for (const file of files) {
-      const isImage = ALLOWED_IMAGE_TYPES.includes(file.mimetype);
-      const result = isImage
-        ? await this.storage.uploadImage(file.buffer, { folder: ATTACHMENT_FOLDER })
-        : await this.storage.uploadRaw(file.buffer, { folder: ATTACHMENT_FOLDER });
-      rows.push({
-        requestId: id,
-        fileName: file.originalname.slice(0, 255),
-        fileUrl: result.url,
-        filePublicId: result.publicId,
-        resourceType: (isImage ? "image" : "raw") as "image" | "raw",
-        mimeType: file.mimetype,
-        fileSizeBytes: file.size,
-        uploadedById: actor.id,
-      });
+    const stored = await this.storeFiles(files);
+    const rows = stored.map((f) => ({ ...f, requestId: id, uploadedById: actor.id }));
+    try {
+      await this.repo.addAttachments(rows);
+    } catch (e) {
+      await this.discardFiles(stored);
+      throw e;
     }
-    await this.repo.addAttachments(rows);
     if (r.status !== "draft") {
       this.activity.log(actor, {
         action: "service_request.files_added",
@@ -1049,10 +1359,12 @@ export class ServiceRequestService {
     const viewer = await this.viewerOf(actor, r);
     if (!viewer.visible) throw new AppError("Request not found", 404);
 
-    const [approvals, history, comments, attachments, item, delegations, runs, verifier] = await Promise.all([
+    const canComment = viewer.visible && r.status !== "draft";
+    const [approvals, history, commentRows, commentFiles, attachments, item, delegations, runs, verifier, people] = await Promise.all([
       this.repo.approvalRows(id),
       this.repo.historyRows(id),
       this.repo.commentRows(id, viewer.isAgent),
+      this.repo.commentAttachmentRows(id, viewer.isAgent),
       this.repo.attachmentRows(id),
       viewer.isAgent && r.catalogItemId ? this.deskRepo.findItem(organizationId, r.catalogItemId) : Promise.resolve(null),
       this.approvalRepo.activeDelegations(organizationId),
@@ -1060,7 +1372,12 @@ export class ServiceRequestService {
       viewer.isAgent && r.identityVerifiedById
         ? this.deskRepo.peopleByIds(organizationId, [r.identityVerifiedById]).then((p) => p[0] ?? null)
         : Promise.resolve(null),
+      canComment
+        ? this.deskRepo.usersWithPermission(organizationId, [PERMS.WORK]).then((agents) => this.mentionable(r, viewer.isAgent, agents))
+        : Promise.resolve([] as Mentionable[]),
     ]);
+    const filesOf = new Map<string, typeof commentFiles>();
+    for (const f of commentFiles) filesOf.set(f.commentId as string, [...(filesOf.get(f.commentId as string) ?? []), f]);
     const webhook = r.itemSnapshot.fulfilmentType === "webhook";
     const open = !TERMINAL_STATUSES.includes(r.status) && r.status !== "draft";
     const step = r.currentStep ?? 1;
@@ -1078,7 +1395,9 @@ export class ServiceRequestService {
       request: toRequestDto(r, { internal: viewer.isAgent }),
       approvals,
       history,
-      comments,
+      comments: commentRows.map((c) => toCommentDto(c, filesOf.get(c.id))),
+      // Who the viewer may @mention here (never themselves).
+      mentionable: people.filter((p) => p.id !== actor.id),
       attachments: attachments.map(toAttachmentDto),
       // IT's own instructions for this kind of request — agents only.
       fulfilmentNotes: viewer.isAgent ? item?.fulfilmentNotes ?? null : null,
@@ -1118,8 +1437,10 @@ export class ServiceRequestService {
         canAssign: viewer.isAgent && r.status !== "draft" && !TERMINAL_STATUSES.includes(r.status),
         canStart: viewer.isAgent && READY_FOR_FULFILMENT.includes(r.status),
         canFulfil: viewer.isAgent && r.status === "in_progress",
-        canComment: viewer.visible && r.status !== "draft",
+        canComment,
         canAddInternalNote: viewer.isAgent && r.status !== "draft",
+        // Delete anyone's message, not just their own.
+        canModerateComments: canComment && can(actor, PERMS.MANAGE),
         canAttach: !TERMINAL_STATUSES.includes(r.status),
         myUserId: actor.id,
         // Phase 3
@@ -1231,8 +1552,12 @@ export class ServiceRequestService {
     }
 
     const usesManager = steps.some((s) => s.approvers.some((a) => a.type === "line_manager"));
-    const [eligible, fallback, groups, delegations, lineManagerId] = await Promise.all([
+    const [eligible, requireManager, blocked, fallback, groups, delegations, lineManagerId] = await Promise.all([
       this.deskRepo.usersWithPermission(organizationId, [PERMS.CREATE, PERMS.MANAGE]),
+      this.desk.requireLineManager(organizationId),
+      // IT agents the organisation keeps out of approvals are never routed one,
+      // whoever a policy names; their line falls to the next person or the stand-in.
+      this.desk.blockedApproverIds(organizationId),
       this.deskRepo.usersWithPermission(organizationId, [PERMS.MANAGE]),
       this.approvalRepo.listGroups(organizationId),
       this.approvalRepo.activeDelegations(organizationId),
@@ -1241,11 +1566,12 @@ export class ServiceRequestService {
       usesManager ? this.approvalRepo.managerOf(organizationId, requestedForId ?? requesterId) : Promise.resolve(null),
     ]);
 
+    let plan: PlannedStep[];
     try {
-      return buildPlan(steps, {
+      plan = buildPlan(steps, {
         risk: item.riskLevel ?? "low",
         excluded: new Set([requesterId, requestedForId].filter(Boolean) as string[]),
-        eligible: new Set(eligible.map((p) => p.id)),
+        eligible: new Set(eligible.filter((p) => !blocked.has(p.id)).map((p) => p.id)),
         lineManagerId,
         groups: new Map(groups.map((g) => [g.id, { name: g.name, maxRiskLevel: g.maxRiskLevel, memberIds: g.memberIds }])),
         delegateOf: (userId) => delegations.get(userId) ?? null,
@@ -1260,9 +1586,76 @@ export class ServiceRequestService {
       }
       throw e;
     }
+
+    // The request needs the line manager and there isn't a usable one: say so now,
+    // rather than quietly sending it to an administrator. (An organisation can
+    // switch this off, and then the administrator stands in as before.)
+    if (requireManager && missingLineManagerSteps(steps, plan).length) {
+      throw new AppError(await this.lineManagerRefusal(organizationId, item.name, requesterId, requestedForId, lineManagerId), 409, [
+        { field: "lineManager", message: "A line manager is needed" },
+      ]);
+    }
+    return plan;
+  }
+
+  // The sentence shown when a request needs a line manager it doesn't have.
+  // Whose manager it is: the colleague the request is for, otherwise the person
+  // asking (also the case for a new starter, who has no account yet).
+  private async lineManagerRefusal(
+    organizationId: string,
+    itemName: string,
+    requesterId: string,
+    requestedForId: string | null,
+    lineManagerId: string | null
+  ): Promise<string> {
+    const [subject, manager] = await Promise.all([
+      requestedForId ? this.deskRepo.peopleByIds(organizationId, [requestedForId]).then((p) => p[0]) : Promise.resolve(null),
+      lineManagerId ? this.deskRepo.peopleByIds(organizationId, [lineManagerId]).then((p) => p[0]) : Promise.resolve(null),
+    ]);
+    const whose = subject ? `${subject.name || subject.email}` : "You";
+    const their = subject ? "their" : "your";
+    if (!lineManagerId) {
+      return `${whose} ${subject ? "doesn't" : "don't"} have a line manager set, and "${itemName}" needs ${their} line manager's approval. Ask an IT request administrator to set ${their} line manager, then submit again.`;
+    }
+    // A manager is set, but can't decide this one: an IT agent kept out of
+    // approvals, or the person who raised the request.
+    const who = manager ? manager.name || manager.email : "The line manager";
+    return `${who} is ${subject ? `${whose}'s` : "your"} line manager but can't approve this request (they may be an IT agent, or the person who raised it). Ask an IT request administrator to check who ${their} line manager should be, then submit again.`;
+  }
+
+  // "Can this be submitted?" for the form, before anyone fills it in. Runs the
+  // same routing a submission would, without saving anything.
+  async checkSubmission(actor: DeskActor, itemId: string, requestedForId: string | null) {
+    const organizationId = this.desk.orgOf(actor);
+    await this.desk.assertEnabled(organizationId);
+    const item = await this.activeItem(organizationId, itemId);
+    try {
+      await this.planFor(organizationId, item, actor.id, requestedForId && requestedForId !== actor.id ? requestedForId : null);
+      return { ok: true, message: null as string | null };
+    } catch (e) {
+      // A refusal the person can act on (4xx) is the answer; anything else is a real failure.
+      const refusal = e as { statusCode?: number; message: string };
+      if (e instanceof AppError && (refusal.statusCode ?? 500) < 500) return { ok: false, message: refusal.message as string | null };
+      throw e;
+    }
   }
 
   // The people a request is about: who raised it, and who it's for.
+  // Tells open request pages a comment arrived so they refetch. The event
+  // carries only the request id, never the text; the page then reads the
+  // conversation through the normal endpoint, which decides what each viewer
+  // may see. Internal notes go to IT alone. Anyone not online catches up on
+  // their next fetch.
+  private async pushComment(r: RequestRow, authorId: string, internal: boolean) {
+    const ids = new Set((await this.deskRepo.usersWithPermission(r.organizationId, [PERMS.WORK])).map((p) => p.id));
+    if (!internal) {
+      for (const id of [r.requesterId, r.requestedForId]) if (id) ids.add(id);
+      for (const a of await this.repo.approvalRows(r.id)) if (a.decision !== "waiting") ids.add(a.approverId);
+    }
+    ids.delete(authorId);
+    emitToUsers([...ids], "service-request:comment", { requestId: r.id });
+  }
+
   private async requesterSide(r: RequestRow): Promise<PersonRow[]> {
     const ids = [r.requesterId, r.requestedForId].filter(Boolean) as string[];
     return this.deskRepo.peopleByIds(r.organizationId, ids);

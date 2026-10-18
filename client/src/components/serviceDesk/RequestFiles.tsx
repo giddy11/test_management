@@ -13,11 +13,11 @@ import { ApiError } from "@/transport/http"
 import type { RequestAttachment } from "@/types/serviceDesk.types"
 
 // Mirrors the server's upload filter (images, PDF, Word, Excel; 10 MB, 10 files).
-const ACCEPT = "image/png,image/jpeg,image/webp,application/pdf,.doc,.docx,.xls,.xlsx"
-const MAX_MB = 10
+export const ACCEPT = "image/png,image/jpeg,image/webp,application/pdf,.doc,.docx,.xls,.xlsx"
+export const MAX_MB = 10
 const MAX_FILES = 10
 
-function prettySize(bytes: number | null) {
+export function prettySize(bytes: number | null) {
   if (!bytes) return ""
   if (bytes < 1024) return `${bytes} B`
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`

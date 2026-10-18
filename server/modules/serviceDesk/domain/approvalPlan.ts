@@ -4,11 +4,15 @@
 // A policy is an ordered list of steps, taken one after another (sequential).
 // Each step lists approver RULES — a named person, an approver group, or the
 // requester's line manager — and a mode:
-//   any  one approval from anyone in the step completes it
-//   all  every rule must be satisfied; a group rule is satisfied by any one
-//        of its members (so "Finance AND Security" means one from each)
-// Within a step everyone is asked at once (parallel). Any rejection anywhere
-// rejects the request.
+//   any    one approval from anyone in the step completes it
+//   all    every rule must be satisfied; a group rule is satisfied by any one
+//          of its members (so "Finance AND Security" means one from each)
+//   order  as "all", but one rule at a time, in the order listed: only the
+//          first rule is asked; each approval then opens the next. Nobody
+//          decides out of turn.
+// In "any" and "all" steps everyone is asked at once (parallel). Any rejection
+// anywhere rejects the request.
+// ("order" is five characters on purpose: it fits the step_mode column as is.)
 //
 // Building the plan (at submit) turns rules into people:
 //   - the requester, and the person the request is for, never approve it
@@ -26,7 +30,8 @@ export type ApproverRule =
   | { type: "group"; groupId: string }
   | { type: "user"; userId: string };
 
-export type StepMode = "any" | "all";
+export type StepMode = "any" | "all" | "order";
+export const STEP_MODES = ["any", "all", "order"] as const;
 
 export interface PolicyStep {
   name: string;
@@ -47,7 +52,7 @@ export const policyStepsSchema = z
   .array(
     z.object({
       name: z.string().trim().max(80).default(""),
-      mode: z.enum(["any", "all"]).default("any"),
+      mode: z.enum(STEP_MODES).default("any"),
       approvers: z.array(ruleSchema).min(1, "Every step needs at least one approver").max(MAX_RULES_PER_STEP),
     })
   )
@@ -129,7 +134,7 @@ export function buildPlan(steps: PolicyStep[], ctx: PlanContext): PlannedStep[] 
       staff(ctx.fallbackIds.map((userId) => ({ userId, groupId: null })), ruleIndex, ctx, true);
 
     let approvers: PlannedApprover[] = [];
-    if (step.mode === "all") {
+    if (step.mode !== "any") {
       step.approvers.forEach((rule, ruleIndex) => {
         const people = staff(peopleFor(rule, ctx), ruleIndex, ctx, false);
         const filled = people.length ? people : fallback(ruleIndex);
@@ -155,6 +160,51 @@ export function stepState(
   const satisfied = new Set(rows.filter((r) => r.decision === "approved").map((r) => r.ruleIndex));
   if (mode === "any") return satisfied.size > 0 ? "approved" : "pending";
   return [...rules].every((r) => satisfied.has(r)) ? "approved" : "pending";
+}
+
+// Steps that can't go ahead without the requester's line manager: one where the
+// line manager is the only approver, or (in an "each one" / "one after another"
+// step) one of the required lines — yet the plan had to put a stand-in there
+// because nobody could be found. A step with other approvers who can decide
+// instead doesn't need the manager, so it isn't listed.
+export function missingLineManagerSteps(steps: PolicyStep[], plan: PlannedStep[]): string[] {
+  const out: string[] = [];
+  steps.forEach((step, i) => {
+    const planned = plan[i];
+    if (!planned || !step.approvers.some((r) => r.type === "line_manager")) return;
+    const stoodIn = planned.approvers.filter((a) => a.isFallback);
+    if (!stoodIn.length) return;
+    const needed =
+      step.mode === "any"
+        ? step.approvers.every((r) => r.type === "line_manager")
+        : stoodIn.some((a) => step.approvers[a.ruleIndex]?.type === "line_manager");
+    if (needed) out.push(planned.name);
+  });
+  return out;
+}
+
+// Who the "IT agents can't approve" setting keeps out: people who work the IT
+// queue but don't also set up IT requests. Whoever manages IT requests (an
+// administrator, an IT lead) stays eligible, so there is always a stand-in.
+export function queueOnlyAgents(workerIds: readonly string[], managerIds: readonly string[]): Set<string> {
+  const managers = new Set(managerIds);
+  return new Set(workerIds.filter((id) => !managers.has(id)));
+}
+
+// "order" steps: the rule to ask next — the first one with no approval yet.
+// At the start of the step that is the first rule; after each approval, the
+// one after it. null once every rule has approved.
+export function lineToOpen(rows: { ruleIndex: number; decision: string }[]): number | null {
+  const approved = new Set(rows.filter((r) => r.decision === "approved").map((r) => r.ruleIndex));
+  const lines = [...new Set(rows.map((r) => r.ruleIndex))].sort((a, b) => a - b);
+  return lines.find((i) => !approved.has(i)) ?? null;
+}
+
+// Whether a freshly planned row is live straight away: step 1 only, and in an
+// "order" step only the first rule's rows. (Later steps open when the one
+// before is done.)
+export function startsPending(mode: StepMode, stepOrder: number, ruleIndex: number, firstRuleIndex: number): boolean {
+  return stepOrder === 1 && (mode !== "order" || ruleIndex === firstRuleIndex);
 }
 
 // The rows no longer needed once one approval lands: in an "any" step, every

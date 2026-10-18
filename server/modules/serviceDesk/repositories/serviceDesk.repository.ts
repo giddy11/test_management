@@ -7,6 +7,7 @@ import { ServiceDeskSettings } from "../entities/serviceDeskSettings.entity";
 import { ServiceCatalogCategory } from "../entities/serviceCatalogCategory.entity";
 import { ServiceCatalogItem } from "../entities/serviceCatalogItem.entity";
 import type { DefaultCategory } from "../domain/defaultCatalog";
+import { queueOnlyAgents } from "../domain/approvalPlan";
 import type { ServiceLevels } from "../domain/serviceLevels";
 
 const { ActivityLog } = require("../../activity/entities/activityLog.entity");
@@ -30,6 +31,12 @@ const PERSON_COLUMNS = `u."id", TRIM(CONCAT(u."first_name", ' ', u."last_name"))
 // testing side's support desk and never take part in IT requests.
 const INTERNAL_USER = `u."organization_id" = $1 AND u."deleted_at" IS NULL AND u."client_company_id" IS NULL`;
 
+// The approval switches an administrator can flip. Absent = leave as it is.
+export interface ApprovalRulesPatch {
+  agentsCannotApprove?: boolean;
+  requireLineManager?: boolean;
+}
+
 export class ServiceDeskRepository {
   static Instance = new ServiceDeskRepository();
 
@@ -50,6 +57,34 @@ export class ServiceDeskRepository {
       await m.insert(ActivityLog, audit);
       return m.getRepository(ServiceDeskSettings).findOneOrFail({ where: { organizationId } });
     });
+  }
+
+  // Only the rules given change; the others keep their value (a new row starts with the defaults, both on).
+  async saveApprovalRules(organizationId: string, rules: ApprovalRulesPatch, userId: string, audit: Record<string, unknown>) {
+    return AppDataSource.transaction(async (m: EntityManager) => {
+      await m.query(
+        `INSERT INTO "service_desk_settings" ("organization_id", "agents_cannot_approve", "require_line_manager", "updated_by_id", "updated_at")
+         VALUES ($1, COALESCE($2::boolean, true), COALESCE($3::boolean, true), $4, now())
+         ON CONFLICT ("organization_id") DO UPDATE
+           SET "agents_cannot_approve" = COALESCE($2::boolean, "service_desk_settings"."agents_cannot_approve"),
+               "require_line_manager" = COALESCE($3::boolean, "service_desk_settings"."require_line_manager"),
+               "updated_by_id" = EXCLUDED."updated_by_id", "updated_at" = now()`,
+        [organizationId, rules.agentsCannotApprove ?? null, rules.requireLineManager ?? null, userId]
+      );
+      await m.insert(ActivityLog, audit);
+      return m.getRepository(ServiceDeskSettings).findOneOrFail({ where: { organizationId } });
+    });
+  }
+
+  // People who work the IT queue but don't set up IT requests — the ones
+  // "IT agents can't approve" keeps out. (An all-access administrator holds both,
+  // so is never one of them.)
+  async queueOnlyAgentIds(organizationId: string): Promise<Set<string>> {
+    const [workers, managers] = await Promise.all([
+      this.usersWithPermission(organizationId, ["servicedesk.work"]),
+      this.usersWithPermission(organizationId, ["servicedesk.manage"]),
+    ]);
+    return queueOnlyAgents(workers.map((p) => p.id), managers.map((p) => p.id));
   }
 
   async saveServiceLevels(organizationId: string, levels: ServiceLevels, userId: string, audit: Record<string, unknown>) {

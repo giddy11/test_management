@@ -4,7 +4,7 @@
 import type { ServiceCatalogCategory } from "../entities/serviceCatalogCategory.entity";
 import type { ServiceCatalogItem } from "../entities/serviceCatalogItem.entity";
 import type { PersonRow } from "../repositories/serviceDesk.repository";
-import type { AttachmentRow, RequestRow } from "../repositories/serviceRequest.repository";
+import type { AttachmentRow, CommentRow, RequestRow } from "../repositories/serviceRequest.repository";
 import { formatReference } from "../domain/lifecycle";
 import { neededByOf } from "../domain/neededBy";
 
@@ -137,6 +137,25 @@ export function toRequestDto(r: RequestRow, { internal = false }: { internal?: b
     statusUpdatedAt: r.statusUpdatedAt,
     createdAt: r.createdAt,
     updatedAt: r.updatedAt,
+  };
+}
+
+// One message in the conversation. A deleted message is a tombstone: no text,
+// no mentions, no files, but it keeps its place and its replies.
+export function toCommentDto(c: CommentRow, files: AttachmentRow[] = []) {
+  const deleted = !!c.deletedAt;
+  return {
+    id: c.id,
+    authorId: c.authorId,
+    authorName: c.authorName,
+    body: deleted ? "" : c.body,
+    isInternal: c.isInternal,
+    parentId: c.parentId,
+    mentions: deleted ? [] : c.mentions ?? [],
+    attachments: deleted ? [] : files.map(toAttachmentDto),
+    editedAt: c.editedAt,
+    deletedAt: c.deletedAt,
+    createdAt: c.createdAt,
   };
 }
 

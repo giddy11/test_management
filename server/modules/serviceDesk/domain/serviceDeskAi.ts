@@ -3,8 +3,10 @@
 // reply schemas and post-processing. Pure, so they're tested without a model.
 //
 //   service_request_intake  "Describe what you need" → the catalog item that
-//                           fits and its form pre-filled. The person reviews
-//                           and submits; nothing is saved by the AI.
+//                           fits and its form pre-filled, with the person's
+//                           spelling and grammar tidied (same meaning, nothing
+//                           added). The person reviews and submits; nothing is
+//                           saved by the AI.
 //   service_request_triage  a summary, risks, missing information and an
 //                           ADVISORY suggestion for approvers and IT. Stored on
 //                           the request, labelled as AI, and never acted on —
@@ -37,6 +39,7 @@ export interface CatalogEntry {
 export const intakeReplySchema = z.object({
   itemId: looseText,
   title: looseText,
+  description: looseText,
   answers: looseList(z.object({ key: looseText, value: looseText })),
   priority: looseChoice(REQUEST_PRIORITIES, "medium"),
   missingInfo: looseList(looseText),
@@ -49,10 +52,11 @@ const str = (description: string) => ({ type: "string", description });
 export const intakeJsonSchema = {
   type: "object",
   additionalProperties: false,
-  required: ["itemId", "title", "answers", "priority", "missingInfo", "reason"],
+  required: ["itemId", "title", "description", "answers", "priority", "missingInfo", "reason"],
   properties: {
     itemId: str("The id of the one catalog item that best fits, copied exactly from <catalog>. Empty string if nothing fits."),
-    title: str("A short title for the request, under 80 characters, in the person's words."),
+    title: str("A short title for the request, under 80 characters, plain and correctly spelled."),
+    description: str("What the person wrote, rewritten as a clear, correctly spelled and punctuated message to IT, in their own first-person voice. Only what they said: one to four short sentences, nothing added."),
     answers: {
       type: "array",
       description: "Answers to that item's questions, ONLY where the person's words give the answer. Leave a question out rather than guess.",
@@ -62,7 +66,7 @@ export const intakeJsonSchema = {
         required: ["key", "value"],
         properties: {
           key: str("The question's key, copied exactly from <catalog>."),
-          value: str("The answer as text. For a pick-one question, one of its options exactly. For pick-several, the options separated by ';'. For a tick box, 'yes' or 'no'. For a date, YYYY-MM-DD. For a number, digits only."),
+          value: str("The answer as text; for a free-text question, the person's words with spelling and grammar corrected. For a pick-one question, one of its options exactly. For pick-several, the options separated by ';'. For a tick box, 'yes' or 'no'. For a date, YYYY-MM-DD. For a number, digits only."),
         },
       },
     },
@@ -77,7 +81,10 @@ export const INTAKE_SYSTEM_PROMPT = `You help an employee ask their IT departmen
 Rules:
 - Choose only from the items in <catalog>, by copying its id exactly. If nothing fits, return an empty itemId.
 - Answer a question only when the person's words actually give the answer. Never invent software names, dates, quantities or reasons. It's fine to leave questions unanswered; list what's needed in missingInfo instead.
-- Keep the title short and in the person's words.
+- Fix spelling, grammar and punctuation in everything you write for the form (the title, the description and free-text answers) so it reads as clear, professional English. Keep their meaning, their first-person voice and the language they wrote in.
+- Keep names, product names, numbers, dates and quoted text exactly as written, unless a product name is plainly misspelled (for example "photoshp" for Photoshop).
+- Never add facts, reasons, urgency or requests the person didn't give, and don't make the text longer than it needs to be. Tidying is not embellishing.
+- Keep the title short.
 - Suggest a priority other than medium only when they clearly said how urgent it is.
 
 ${UNTRUSTED(["user_words", "catalog"])}`;
@@ -126,13 +133,25 @@ export function coerceAnswer(field: FormField, raw: string): FormValue | undefin
 export interface IntakeSuggestion {
   itemId: string | null;
   title: string;
+  description: string;
   formValues: FormValues;
   priority: RequestPriority;
   missingInfo: string[];
   reason: string;
 }
 
-export function finishIntake(reply: IntakeReply, catalog: CatalogEntry[]): IntakeSuggestion {
+// The tidied-up wording, unless it looks wrong: nothing back, or far longer
+// than what the person wrote (a tidy-up shouldn't add content), in which case
+// their own words are kept.
+export function refinedWords(refined: string, original: string): string {
+  const mine = clip(original, 3000);
+  const tidy = clip(refined, 3000);
+  if (!tidy) return mine;
+  if (mine && tidy.length > mine.length * 2 + 100) return mine;
+  return tidy;
+}
+
+export function finishIntake(reply: IntakeReply, catalog: CatalogEntry[], original = ""): IntakeSuggestion {
   const item = catalog.find((i) => i.id === reply.itemId.trim()) ?? null;
   const raw: Record<string, FormValue> = {};
   if (item) {
@@ -147,6 +166,7 @@ export function finishIntake(reply: IntakeReply, catalog: CatalogEntry[]): Intak
   return {
     itemId: item?.id ?? null,
     title: clip(reply.title, 200) || item?.name || "",
+    description: refinedWords(reply.description, original),
     formValues: values,
     priority: reply.priority,
     missingInfo: reply.missingInfo.map((q) => clip(q, 200)).filter(Boolean).slice(0, 4),

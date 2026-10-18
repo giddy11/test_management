@@ -116,7 +116,14 @@ export function AutomationConnectors() {
       <Card>
         <CardHeader>
           <CardTitle className="text-sm">What a connector receives</CardTitle>
-          <CardDescription>Check the signature with the secret before trusting a request.</CardDescription>
+          <CardDescription>
+            Check the signature with the secret before trusting a request. Step-by-step setup for Power Automate, Zapier, n8n
+            and Make is in the{" "}
+            <a href="/docs#it-requests-connectors" target="_blank" rel="noreferrer" className="font-medium text-primary hover:underline">
+              connectors manual
+            </a>
+            .
+          </CardDescription>
         </CardHeader>
         <CardContent><pre className="overflow-x-auto rounded-md bg-muted p-3 text-xs">{PROTOCOL}</pre></CardContent>
       </Card>

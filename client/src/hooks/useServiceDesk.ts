@@ -1,12 +1,16 @@
 // hooks/useServiceDesk.ts — React Query bridge for IT requests.
+import { useEffect } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { connectSocket } from "@/lib/socket"
 import { ServiceDeskEndpoints as E, type GroupPayload, type PolicyPayload } from "@/endpoints/serviceDesk.endpoints"
 import { ApiError } from "@/transport/http"
 import type { ApiResponse } from "@/types/api.types"
 import type {
+  ApprovalRulesPatch,
   CategoryPayload,
   ItemPayload,
   ListRequestsParams,
+  MessagePayload,
   RequestPayload,
   RuleActions,
   RuleConditions,
@@ -47,6 +51,15 @@ export function useUpdateServiceDeskSettings() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (enabled: boolean) => data(E.updateSettings(enabled)),
+    onSuccess: () => qc.invalidateQueries({ queryKey: [KEY] }),
+  })
+}
+
+export function useUpdateApprovalRules() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (rules: ApprovalRulesPatch) => data(E.updateApprovalRules(rules)),
+    // The pickers and the groups and policies they feed all depend on it.
     onSuccess: () => qc.invalidateQueries({ queryKey: [KEY] }),
   })
 }
@@ -108,6 +121,18 @@ export function useServiceRequests(params: ListRequestsParams, enabled = true) {
   return useQuery({ queryKey: [KEY, "requests", params], queryFn: () => page(E.list(params)), enabled })
 }
 
+// Can this item be submitted by me (for this colleague) right now? Asked before
+// the form is filled in, so a missing line manager is found out early.
+export function useSubmissionCheck(itemId: string | undefined, requestedForId: string | undefined, enabled = true) {
+  return useQuery({
+    queryKey: [KEY, "check", itemId, requestedForId ?? null],
+    queryFn: () => data(E.checkSubmission(itemId as string, requestedForId)),
+    enabled: enabled && Boolean(itemId),
+    // Never trusted from the cache: someone who has just had a manager set must be able to go ahead.
+    staleTime: 0,
+  })
+}
+
 export function useMyApprovals(state: "pending" | "decided", pageNo = 1, enabled = true) {
   return useQuery({ queryKey: [KEY, "approvals", state, pageNo], queryFn: () => page(E.approvals(state, pageNo)), enabled })
 }
@@ -118,6 +143,28 @@ export function useServiceRequest(id: string | undefined) {
     queryFn: () => data(E.detail(id as string)),
     enabled: Boolean(id),
   })
+}
+
+// A colleague's comment reaches an open request page without a reload. The
+// server's event names the request only; the page refetches it, and the normal
+// endpoint decides what this viewer may read. A reconnect refetches too, since
+// events sent while the socket was down are gone.
+export function useLiveRequest(id: string | undefined) {
+  const qc = useQueryClient()
+  useEffect(() => {
+    if (!id) return
+    const socket = connectSocket()
+    const refresh = () => qc.invalidateQueries({ queryKey: [KEY, "request", id] })
+    const onComment = (p: { requestId: string }) => {
+      if (p.requestId === id) refresh()
+    }
+    socket.on("service-request:comment", onComment)
+    socket.on("connect", refresh)
+    return () => {
+      socket.off("service-request:comment", onComment)
+      socket.off("connect", refresh)
+    }
+  }, [id, qc])
 }
 
 // Anything that changes a request refreshes every list, count and detail.
@@ -150,8 +197,6 @@ export const useAssignRequest = () =>
 export const useStartRequest = () => useRequestMutation((id: string) => data(E.start(id)))
 export const useFulfilRequest = () =>
   useRequestMutation(({ id, note }: { id: string; note: string }) => data(E.fulfil(id, note)))
-export const useAskForInfo = () =>
-  useRequestMutation(({ id, question }: { id: string; question: string }) => data(E.askForInfo(id, question)))
 export const useProvideInfo = () =>
   useRequestMutation(({ id, answer }: { id: string; answer: string }) => data(E.provideInfo(id, answer)))
 export const useUploadRequestFiles = () =>
@@ -207,8 +252,20 @@ export const useDeletePolicy = () => useSetupMutation((id: string) => ok(E.delet
 export function useManagers(enabled = true) {
   return useQuery({ queryKey: [KEY, "managers"], queryFn: () => data(E.managers()), enabled })
 }
-export const useSetManager = () =>
-  useSetupMutation(({ userId, managerId }: { userId: string; managerId: string | null }) => data(E.setManager(userId, managerId)))
+export const useSetManager = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ userId, managerId }: { userId: string; managerId: string | null }) => data(E.setManager(userId, managerId)),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: [KEY, "groups"] })
+      qc.invalidateQueries({ queryKey: [KEY, "policies"] })
+      qc.invalidateQueries({ queryKey: [KEY, "catalog"] })
+      // Returned, so the mutation stays pending until the list has refetched and
+      // the row never flashes its old manager between saving and showing the new one.
+      return qc.invalidateQueries({ queryKey: [KEY, "managers"] })
+    },
+  })
+}
 
 export function useMyDelegation(enabled = true) {
   return useQuery({
@@ -292,6 +349,15 @@ export const useAiIntake = () => useMutation({ mutationFn: (description: string)
 export const useAiTriage = () => useRequestMutation((id: string) => data(E.aiTriage(id)))
 
 export const useCommentOnRequest = () =>
-  useRequestMutation(({ id, body, internal }: { id: string; body: string; internal: boolean }) =>
-    data(E.comment(id, body, internal))
+  useRequestMutation(({ id, ...message }: MessagePayload & { id: string }) => data(E.comment(id, message)))
+
+export const useEditComment = () =>
+  useRequestMutation(({ id, commentId, ...p }: { id: string; commentId: string; body: string; mentionIds: string[] }) =>
+    data(E.editComment(id, commentId, p))
   )
+
+export const useDeleteComment = () =>
+  useRequestMutation(async ({ id, commentId }: { id: string; commentId: string }) => {
+    const res = await E.deleteComment(id, commentId)
+    if (!res.success) throw new ApiError(res.message, res.statusCode, res.errors)
+  })

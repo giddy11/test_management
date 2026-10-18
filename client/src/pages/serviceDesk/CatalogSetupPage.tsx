@@ -14,6 +14,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog"
+import { Spinner } from "@/components/shared/Spinner"
 import { CategoryIcon } from "@/components/serviceDesk/RequestBits"
 import { CATEGORY_ICON_CHOICES } from "@/lib/serviceDesk"
 import { ItemEditorDialog } from "@/components/serviceDesk/ItemEditorDialog"
@@ -137,6 +138,7 @@ export default function CatalogSetupPage() {
               <Button
                 size="sm"
                 variant="ghost"
+                disabled={updateCategory.isPending && updateCategory.variables?.id === c.id}
                 onClick={() =>
                   updateCategory.mutate(
                     { id: c.id, isActive: !c.isActive },
@@ -144,7 +146,13 @@ export default function CatalogSetupPage() {
                   )
                 }
               >
-                {c.isActive ? <EyeOff className="mr-1 size-3.5" /> : <Eye className="mr-1 size-3.5" />}
+                {updateCategory.isPending && updateCategory.variables?.id === c.id ? (
+                  <Spinner className="mr-1 size-3.5" />
+                ) : c.isActive ? (
+                  <EyeOff className="mr-1 size-3.5" />
+                ) : (
+                  <Eye className="mr-1 size-3.5" />
+                )}
                 {c.isActive ? "Hide" : "Show"}
               </Button>
               <Button size="sm" variant="outline" onClick={() => setEditingItem({ item: null, categoryId: c.id })}>
@@ -190,6 +198,7 @@ export default function CatalogSetupPage() {
                 <Button
                   size="sm"
                   variant="ghost"
+                  disabled={updateItem.isPending && updateItem.variables?.id === i.id}
                   onClick={() =>
                     updateItem.mutate(
                       { id: i.id, isActive: !i.isActive },
@@ -197,6 +206,7 @@ export default function CatalogSetupPage() {
                     )
                   }
                 >
+                  {updateItem.isPending && updateItem.variables?.id === i.id && <Spinner className="mr-1 size-3.5" />}
                   {i.isActive ? "Hide" : "Show"}
                 </Button>
                 <Button size="sm" variant="outline" onClick={() => setEditingItem({ item: i })}>

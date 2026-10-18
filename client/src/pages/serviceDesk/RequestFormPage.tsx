@@ -4,7 +4,7 @@
 // (if the item needs it) or straight to IT.
 import { useEffect, useMemo, useState } from "react"
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom"
-import { ArrowLeft, ExternalLink, ShieldCheck, Sparkles } from "lucide-react"
+import { ArrowLeft, ExternalLink, ShieldCheck, Sparkles, TriangleAlert } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -23,6 +23,7 @@ import {
   usePortalCatalog,
   useServiceDeskSettings,
   useServiceRequest,
+  useSubmissionCheck,
   useSubmitRequest,
   useUpdateDraft,
   useUploadRequestFiles,
@@ -104,6 +105,13 @@ export default function RequestFormPage() {
   const upload = useUploadRequestFiles()
   const [files, setFiles] = useState<File[]>([])
   const busy = create.isPending || update.isPending || submit.isPending || upload.isPending
+  // Does this need a line manager that isn't set? Found out now, not after the form is filled in.
+  const check = useSubmissionCheck(
+    itemId,
+    requestedFor.mode === "colleague" ? requestedFor.person?.id : undefined,
+    enabled && Boolean(found)
+  )
+  const cantSubmit = check.data?.ok === false ? check.data.message : null
 
   const setValue = (key: string, value: FormValue | undefined) => {
     setValues((prev) => {
@@ -281,7 +289,7 @@ export default function RequestFormPage() {
 
       {prefill?.fromAi && (
         <p className="flex items-center gap-1.5 rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-sm">
-          <Sparkles className="size-4 text-primary" /> Filled in from your description. Check every answer before you submit.
+          <Sparkles className="size-4 text-primary" /> Filled in from your description, with the wording tidied. Check every answer before you submit.
         </p>
       )}
 
@@ -306,6 +314,21 @@ export default function RequestFormPage() {
             />
             {errors.title && <p className="text-xs text-destructive">{errors.title}</p>}
           </div>
+
+          {cantSubmit && (
+            <div
+              role="alert"
+              className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50/70 p-3 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200"
+              data-cy="cant-submit"
+            >
+              <TriangleAlert className="mt-0.5 size-4 shrink-0" />
+              <div>
+                <p className="font-medium">This can&apos;t be submitted yet</p>
+                <p>{cantSubmit}</p>
+                <p className="mt-1 text-xs">You can still save a draft and come back to it.</p>
+              </div>
+            </div>
+          )}
 
           <RequestedForField value={requestedFor} onChange={setRequestedFor} myId={user?.id} error={errors.requestedFor} />
 
@@ -350,7 +373,7 @@ export default function RequestFormPage() {
             <Button variant="outline" disabled={busy} onClick={() => save(false)} data-cy="request-save-draft">
               Save draft
             </Button>
-            <Button disabled={busy} onClick={() => save(true)} data-cy="request-submit">
+            <Button disabled={busy || Boolean(cantSubmit)} onClick={() => save(true)} data-cy="request-submit">
               {item.needsApproval ? "Submit for approval" : "Submit to IT"}
             </Button>
           </div>

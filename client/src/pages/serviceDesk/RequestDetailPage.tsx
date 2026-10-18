@@ -3,13 +3,12 @@
 // block (requester, approver, IT), never from guessing on the client.
 import { useState } from "react"
 import { Link, useNavigate, useParams } from "react-router-dom"
-import { ArrowLeft, Bot, CheckCircle2, HelpCircle, Lock, MessageSquare, Play, ShieldCheck, XCircle } from "lucide-react"
+import { ArrowLeft, Bot, CheckCircle2, HelpCircle, Lock, Play, ShieldCheck, XCircle } from "lucide-react"
 import { toast } from "sonner"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
-import { Checkbox } from "@/components/ui/checkbox"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { FormAnswers } from "@/components/serviceDesk/DynamicFormFields"
 import {
@@ -25,14 +24,14 @@ import { ApprovalSteps } from "@/components/serviceDesk/ApprovalSteps"
 import { AiTriageCard, AutomationCard, IdentityCard, ReviewBanner } from "@/components/serviceDesk/RequestAutomationPanels"
 import { Badge } from "@/components/ui/badge"
 import { RequestAttachments } from "@/components/serviceDesk/RequestFiles"
+import { RequestConversation } from "@/components/serviceDesk/RequestConversation"
 import {
   useApproveRequest,
-  useAskForInfo,
   useProvideInfo,
   useAssignRequest,
   useCancelRequest,
-  useCommentOnRequest,
   useFulfilRequest,
+  useLiveRequest,
   useRejectRequest,
   useServiceAgents,
   useServiceDeskSettings,
@@ -54,6 +53,7 @@ export default function RequestDetailPage() {
   const { permissions } = useAuth()
   const { data: settings, isLoading: loadingSettings } = useServiceDeskSettings()
   const { data, isLoading, error } = useServiceRequest(settings?.enabled ? id : undefined)
+  useLiveRequest(settings?.enabled ? id : undefined)
 
   if (loadingSettings || (settings?.enabled && isLoading)) return <p className="text-sm text-muted-foreground">Loading…</p>
   if (!settings?.enabled) return <ModuleOffNotice canManage={can(permissions, "servicedesk.manage")} />
@@ -172,7 +172,7 @@ function RequestView({ detail }: { detail: RequestDetail }) {
             myUserId={viewer.myUserId}
           />
 
-          <Conversation detail={detail} />
+          <RequestConversation detail={detail} />
         </div>
 
         <div className="space-y-4">
@@ -239,10 +239,7 @@ function Actions({ detail }: { detail: RequestDetail }) {
   const fulfil = useFulfilRequest()
   const cancel = useCancelRequest()
 
-  const [question, setQuestion] = useState("")
-  const [asking, setAsking] = useState(false)
   const [answer, setAnswer] = useState("")
-  const askInfo = useAskForInfo()
   const provideInfo = useProvideInfo()
   const lastQuestion = [...detail.history].reverse().find((h) => h.toStatus === "info_requested")
 
@@ -253,13 +250,15 @@ function Actions({ detail }: { detail: RequestDetail }) {
     !viewer.canStart &&
     !viewer.canFulfil &&
     !viewer.canCancel &&
-    !viewer.canAskInfo &&
     !viewer.canProvideInfo
 
+  const copy = waitingCopy(detail)
+
   if (nothingToDo) {
+    if (!copy) return null
     return (
       <Card>
-        <CardContent className="py-4 text-sm text-muted-foreground">{waitingCopy(detail)}</CardContent>
+        <CardContent className="py-4 text-sm text-muted-foreground">{copy}</CardContent>
       </Card>
     )
   }
@@ -268,7 +267,7 @@ function Actions({ detail }: { detail: RequestDetail }) {
     <Card>
       <CardHeader>
         <CardTitle className="text-base">Next step</CardTitle>
-        <CardDescription>{waitingCopy(detail)}</CardDescription>
+        {copy && <CardDescription>{copy}</CardDescription>}
       </CardHeader>
       <CardContent className="space-y-4">
         {viewer.canProvideInfo && (
@@ -350,46 +349,6 @@ function Actions({ detail }: { detail: RequestDetail }) {
             </div>
           </div>
         )}
-
-        {viewer.canAskInfo &&
-          (asking ? (
-            <div className="space-y-2">
-              <Label htmlFor="ask-info">What do you need to know?</Label>
-              <Textarea
-                id="ask-info"
-                rows={3}
-                placeholder="The request pauses (and its clock stops) until the requester answers."
-                value={question}
-                onChange={(e) => setQuestion(e.target.value)}
-              />
-              <div className="flex gap-2">
-                <Button
-                  size="sm"
-                  disabled={!question.trim() || askInfo.isPending}
-                  onClick={() =>
-                    askInfo.mutate(
-                      { id: r.id, question: question.trim() },
-                      {
-                        onSuccess: () => {
-                          toast.success("Question sent")
-                          setQuestion("")
-                          setAsking(false)
-                        },
-                        onError: fail,
-                      }
-                    )
-                  }
-                >
-                  Send question
-                </Button>
-                <Button size="sm" variant="ghost" onClick={() => setAsking(false)}>Never mind</Button>
-              </div>
-            </div>
-          ) : (
-            <Button size="sm" variant="outline" className="w-full" onClick={() => setAsking(true)} data-cy="ask-info">
-              <HelpCircle className="mr-1 size-3.5" /> Ask the requester a question
-            </Button>
-          ))}
 
         {viewer.canAssign && (
           <div className="grid gap-1.5">
@@ -502,20 +461,21 @@ function Actions({ detail }: { detail: RequestDetail }) {
   )
 }
 
-function waitingCopy({ request: r, viewer, approvals }: RequestDetail): string {
+// What the Next step card says about who has the ball. null = nothing to add.
+function waitingCopy({ request: r, viewer, approvals }: RequestDetail): string | null {
   switch (r.status) {
     case "draft":
       return "Only you can see this draft. Submit it when it's ready."
     case "pending_approval": {
       const step = approvals.find((a) => a.stepOrder === (r.currentStep ?? 1))?.stepName
       return viewer.canDecide
-        ? "Approve it to move it on, reject it with a reason, or ask the requester a question."
+        ? "Approve it to move it on, or reject it with a reason. Ask the requester anything in the conversation."
         : `Waiting for approval${step ? ` — ${step}` : ""}.`
     }
     case "info_requested":
-      return viewer.canProvideInfo
-        ? "A question is waiting for your answer. The request is on hold until you reply."
-        : "Waiting for the requester to answer a question."
+      // For everyone else the question is already in the conversation, and the
+      // status badge says the request is waiting for information.
+      return viewer.canProvideInfo ? "A question is waiting for your answer. The request is on hold until you reply." : null
     case "submitted":
     case "approved":
       return viewer.isAgent ? "Ready for IT to pick up." : "With IT — waiting for someone to pick it up."
@@ -551,74 +511,6 @@ function Timeline({ detail }: { detail: RequestDetail }) {
             </li>
           ))}
         </ol>
-      </CardContent>
-    </Card>
-  )
-}
-
-// ── Conversation ─────────────────────────────────────────────────────────────
-function Conversation({ detail }: { detail: RequestDetail }) {
-  const { request: r, viewer, comments } = detail
-  const [body, setBody] = useState("")
-  const [internal, setInternal] = useState(false)
-  const post = useCommentOnRequest()
-
-  if (r.status === "draft") return null
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-1.5 text-base"><MessageSquare className="size-4" /> Conversation</CardTitle>
-        <CardDescription>Everyone on this request can see comments. Internal notes are IT-only.</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        {comments.length === 0 && <p className="text-sm text-muted-foreground">No messages yet.</p>}
-        {comments.map((c) => (
-          <div
-            key={c.id}
-            className={cn("rounded-md border p-3", c.isInternal && "border-amber-200 bg-amber-50/60 dark:border-amber-900 dark:bg-amber-950/30")}
-          >
-            <p className="text-xs text-muted-foreground">
-              <span className="font-medium text-foreground">{c.authorName ?? "Someone"}</span> · <When at={c.createdAt} />
-              {c.isInternal && <span className="ml-1 inline-flex items-center gap-0.5"><Lock className="size-3" /> internal</span>}
-            </p>
-            <p className="mt-1 text-sm whitespace-pre-wrap break-words">{c.body}</p>
-          </div>
-        ))}
-
-        {viewer.canComment && (
-          <div className="space-y-2 border-t pt-3">
-            <Textarea rows={3} placeholder="Write a message…" value={body} onChange={(e) => setBody(e.target.value)} data-cy="request-comment" />
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              {viewer.canAddInternalNote ? (
-                <label className="flex items-center gap-2 text-sm">
-                  <Checkbox checked={internal} onCheckedChange={(v) => setInternal(v === true)} />
-                  Internal note (IT only)
-                </label>
-              ) : (
-                <span />
-              )}
-              <Button
-                size="sm"
-                disabled={!body.trim() || post.isPending}
-                onClick={() =>
-                  post.mutate(
-                    { id: r.id, body: body.trim(), internal },
-                    {
-                      onSuccess: () => {
-                        setBody("")
-                        setInternal(false)
-                      },
-                      onError: fail,
-                    }
-                  )
-                }
-              >
-                {internal ? "Add note" : "Send"}
-              </Button>
-            </div>
-          </div>
-        )}
       </CardContent>
     </Card>
   )

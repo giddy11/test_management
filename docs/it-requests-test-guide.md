@@ -276,7 +276,7 @@ Set up first (as Admin, in **Catalog setup**):
 ### US-20 Multi-step approval policies
 **As an** administrator, **I want** approvals in several steps, **so that** requests follow our sign-off chain.
 
-- [ ] ✅ The policy editor: add, rename, reorder and remove steps. Each step has **Any one of them** / **One from each line**
+- [ ] ✅ The policy editor: add, rename, reorder and remove steps. Each step has **Any one approves** / **Each one approves**, with a sentence under the step that spells out what the choice means for the approvers listed
 - [ ] ✅ Add approvers to a step: the requester's line manager, a group, or a person. Remove them with ×
 - [ ] 🚫 A step with no approvers can't be saved. A policy used by items can't be deleted
 - [ ] ✅ The policy card shows its steps and how many items use it
@@ -286,16 +286,74 @@ Set up first (as Admin, in **Catalog setup**):
 - [ ] ✅ A rejection at any step rejects the whole request, and the remaining steps show "Not needed"
 - [ ] 🚫 Fin can't decide while step 1 is still with Mary: *"Your step hasn't started yet"*
 
-### US-21 "Any one" vs "one from each line"
-- [ ] ✅ Make a step "**One from each line**" with Finance + a person (e.g. Agent). Approval by Fin alone keeps the step live; it completes only when Agent also approves
+### US-21 "Any one approves" vs "Each one approves"
+- [ ] ✅ The sentence under each step follows the choice. *Any one approves* with two approvers: *"Done as soon as any one of them approves: …"*. *Each one approves* with Finance (a group) and Agent: *"Done only when all of these have approved: one member of Finance and Agent. A group counts as soon as any one of its members approves."* With one approver listed it says both options work the same
+- [ ] ✅ Make a step "**Each one approves**" with Finance + a person (e.g. Agent). Approval by Fin alone keeps the step live; it completes only when Agent also approves
 - [ ] ✅ In that step, a second Finance member's pending row becomes "Not needed" once Fin approves (that line is satisfied)
-- [ ] ✅ In an "**Any one**" step, the first approval completes the step and all other rows become "Not needed"
-- [ ] ✅ In an "all" step, a line with nobody to staff it (e.g. line manager not set) is filled by Admin as stand-in. The other lines remain
+- [ ] ✅ In an "**Any one approves**" step, the first approval completes the step and all other rows become "Not needed"
+- [ ] ✅ In an "all" step, a line with nobody to staff it (e.g. a group with no authority for the request's risk) is filled by Admin as stand-in. The other lines remain. (A missing *line manager* is different: the request can't be submitted, see US-22)
+
+### US-21c One after another (in order)
+*Setup: a policy with one step "Sign-off", mode **One after another**, approvers in this order: **Mary**, then **Agent**, then **Emma**. Ben submits an item that follows it.*
+- [ ] ✅ **Mode and order:** the step's dropdown offers *One after another*. The approver chips are numbered 1, 2, 3 and have ‹ › arrows to reorder; the sentence under the step reads *"Asked one at a time, in the order listed: Mary, then Agent, then Emma. …"*. The arrows disappear when the mode is changed back
+- [ ] ✅ **Only the first is asked:** on submit only Mary is told *"Approval needed"*. The request's Approval card lists 1. Mary (waiting for a decision), 2. Agent and 3. Emma each marked *"Waiting for their turn"*, under *"They approve one after another, in the order below"*
+- [ ] 🚫 **No jumping the queue:** Agent can't decide before Mary (no decision box; a direct attempt says *"It isn't your turn yet — an earlier approver in this step decides first"*)
+- [ ] ✅ **Hand-over:** Mary approves → Agent is told *"Approval needed"* and now sees the decision box. Ben is told *"Your IT request moved to the next approver"*: *"Mary approved Sign-off … It's now with Agent."*
+- [ ] ✅ Agent approves → Emma is asked; Ben is told it is now with Emma. Emma approves → the step is complete and Ben is told it was approved (or it moves to the next step)
+- [ ] ✅ **Rejection:** if Agent rejects, the request is rejected, Emma is never asked, and her row shows *Not needed*
+- [ ] ✅ **A group counts as one turn:** make line 2 the group Finance; once one member approves, the other members are not needed and line 3 opens
+- [ ] ✅ **No manager:** if line 1 is *Line manager* and the requester has none, the stand-in (administrator) is asked first, and then the rest follow in order
+- [ ] ✅ Requests already in flight in an *Any one* or *Each one* step are unchanged by this option existing
+
+### US-21b The requester follows the approval route
+*Setup: a policy "Manager then Finance": step 1 Line manager (Any one approves); step 2 Finance + Agent + Mary (Each one approves). Ben submits.*
+- [ ] ✅ **Step finishes, next begins:** when step 1 is approved Ben is told *"Your IT request moved to the next approval step"*: *"Mary approved Line Manager … It's now with Finance."*, with the approver's comment. The Finance approvers are told *"Approval needed"*
+- [ ] ✅ **Part of a step:** when one of the three Finance lines approves, Ben is told *"Part of an approval step was given"*: *"… 2 more approvals are needed before it moves on."* (*"1 more approval is needed"* after the second)
+- [ ] ✅ **Last approval:** Ben is told *"Your IT request was approved … It's now with IT"* (as before), and no "progress" notification is sent as well
+- [ ] ✅ In an **Any one approves** step with a later step, only the *next step* notification is sent; there is no "part of a step" one
+- [ ] ✅ If the request was raised **for** a colleague, both the requester and the colleague are told. The approver who acted is never notified of their own action
+- [ ] ✅ These are **Request updates** in Settings → Notifications (under *IT requests*): turning that category off stops both the in-app and email versions
 
 ### US-22 Line manager rule edge cases
-- [ ] ✅ The requester has no manager: the line-manager step goes to Admin as stand-in approver
+*A step "needs the line manager" when the manager is its only approver, or — in an *Each one approves* / *One after another* step — one of its lines. In an *Any one approves* step that also names someone else, the others simply decide.*
+- [ ] 🚫 **The requester has no manager** (with *Require a line manager to submit* on, the default; see US-22d for off): submitting an item whose route needs the line manager is refused: *"You don't have a line manager set, and "…" needs your line manager's approval. Ask an IT request administrator to set your line manager, then submit again."* Nothing is created as submitted, and no approval rows are made
+- [ ] ✅ The same request is fine once an administrator sets a manager (Line managers tab)
 - [ ] ✅ Emma requests **for Ben**: the step goes to **Ben's** manager, not Emma's
 - [ ] ✅ Emma requests for **a new starter**: the step goes to **Emma's** manager
+
+### US-22b IT agents can't approve (separation of duties)
+*Setup: Agent (IT service agent: Submit, Work the queue, Reports; **no** *Set up IT requests*), Mary (approver), Admin (all-access). A policy "Manager then Finance" whose Finance step names Agent, Emma and Mary.*
+- [ ] ✅ **Catalog setup → Approval policies** has a switch **IT agents can't approve requests**, **on by default** (also for an organisation that has never touched IT-request settings), with a short explanation. Turning it off says *"IT agents can approve again"* and on says *"IT agents can no longer approve"*; Activity logs either at warning level
+- [ ] ✅ **Migration:** after `AgentsCannotApproveDefaultOn` runs, an existing organisation shows the switch ticked. A brand-new organisation with no settings row shows it ticked too
+- [ ] ✅ **Still named:** with it on, an amber notice lists *policy "Manager then Finance"* as still naming IT agents. In the policy editor Agent's chip is amber and reads *"Agent 2 Cidayi (IT agent, skipped)"*
+- [ ] ✅ **Pickers:** Agent no longer appears in a policy's *+ Add an approver*. In an approver group's or an item's people list Agent is shown but can't be newly ticked (*"IT agent — kept out of approvals"*); if already ticked, the notice adds *"untick to remove"* and it can be unticked
+- [ ] 🚫 **Saving:** saving that policy while it still names Agent is refused: *"Step 2 names an IT agent, and IT agents are kept out of approvals. Remove them from the step."* A group naming Agent and an item naming Agent as an approver are refused the same way
+- [ ] 🚫 **Stand-in:** Agent no longer appears as someone's stand-in (Approvals → Set a stand-in), and can't be set by a direct call
+- [ ] ✅ **Routing:** a request submitted under an older policy that names Agent never gets an approval row for Agent. In an *Any one approves* step Mary is asked; in a *One after another* step with Agent first, **Admin is asked first as stand-in** (shown as *stand-in approver*), then the rest in order
+- [ ] ✅ If Agent is the only member of a group in a step, Admin is asked in their place; a request is never left without an approver
+- [ ] ✅ **Not retroactive:** a request already waiting on Agent keeps Agent as an approver and Agent can still decide it
+- [ ] ✅ **Who is *not* kept out:** Admin (all-access) and an IT lead who has both *Work the queue* and *Set up IT requests* can still be picked and approve; so can Mary and ordinary employees
+- [ ] ✅ **Off:** turning the switch off puts Agent back in the pickers; new requests route to Agent as before. Turning it back on restores the rules above
+
+### US-22d Require a line manager: the setting
+- [ ] ✅ **Catalog setup → Line managers** has a switch **Require a line manager to submit**, **on by default** (also for an organisation that has never touched IT-request settings). Turning it off says *"A line manager is no longer required"*; on says *"A line manager is now required"*. Activity logs either at warning level
+- [ ] ✅ **Off:** Emma (no manager) opens an item whose route needs the line manager: no amber box, and Submit works. The request is submitted and its line-manager step goes to **Admin as stand-in** (*stand-in approver*), as before the check existed
+- [ ] ✅ **Off:** the header says *"N people have no manager. Their line-manager steps go to IT request administrators."*
+- [ ] ✅ **On:** the header says *"… They can't submit requests that need their line manager's approval until one is set."*, and US-22 / US-22c apply
+- [ ] ✅ The two switches are independent: flipping this one doesn't change *IT agents can't approve requests*, and vice versa. Changing one leaves the other as it was
+- [ ] ✅ Already-submitted requests are never affected by flipping it
+
+### US-22c Checking for a line manager before the form is filled in
+*Setup: **Require a line manager to submit** is on (the default). An item following the policy "Manager then Finance" (step 1 is the Line manager). Emma has no manager; Ben has Mary.*
+- [ ] ✅ **Early warning:** Emma opens the item. Above the form an amber box reads *"This can't be submitted yet — You don't have a line manager set …"*, with *"You can still save a draft and come back to it"*. **Submit for approval** is disabled; **Save draft** works
+- [ ] ✅ Ben opens the same item: no box, and Submit is enabled
+- [ ] ✅ **Requested for someone else:** Emma picks *A colleague* → Ben: the box disappears (the step goes to *Ben's* manager). Picks a colleague who has no manager: the box returns, naming them (*"Dev doesn't have a line manager set …"*)
+- [ ] ✅ **New starter:** Emma picks *A new starter*: the box reads about *Emma's* manager (it goes to the requester's manager)
+- [ ] ✅ An item that doesn't need a line manager (no approval, named people, or a policy without that step) shows no box
+- [ ] ✅ **After the fix:** an administrator sets Emma's manager (Catalog setup → Line managers); on reopening the item (or refocusing the browser tab) the box is gone and she can submit
+- [ ] 🚫 **Server check:** submitting directly through the API as Emma is refused with the same message, so the form check can't be bypassed
+- [ ] ✅ **Manager who can't decide:** if the manager is an IT agent kept out of approvals, or the requester raised it for their own report, the message says *"… is your line manager but can't approve this request (they may be an IT agent, or the person who raised it)…"*
+- [ ] ✅ Line managers tab: the header says *"N people have no manager. They can't submit requests that need their line manager's approval until one is set."*
 
 ### US-23 Delegation (stand-in while away)
 **As an** approver, **I want** a stand-in while I'm away, **so that** requests don't wait for me.
@@ -318,15 +376,15 @@ Set up first (as Admin, in **Catalog setup**):
 
 ## 6. Asking for more information (Phase 2)
 
-### US-25 Approver or IT asks the requester a question
+### US-25 Asking the requester a question
 **As an** approver or IT agent, **I want to** ask the requester something, **so that** I can decide or fulfil correctly.
 
-- [ ] ✅ An approver whose step is live sees **Ask the requester a question**
-- [ ] ✅ An agent sees it when the request is Submitted, Approved or In progress
-- [ ] ✅ Sending it changes the status to **Waiting for information** (yellow). The question appears in the conversation and the history, and the requester is notified: *"IT needs more information"*
-- [ ] ✅ The IT queue → **Waiting on requester** tab lists it
-- [ ] 🚫 A second question while one is open: *"A question is already waiting for an answer"*
-- [ ] 🚫 An approver whose step isn't live, or anyone uninvolved, doesn't see the button
+The **Ask the requester a question** button was removed from the request page: questions are asked in the **Conversation** (US-32, US-32b), which doesn't pause the request. The server's `ask-info` endpoint remains, so a request already paused with *Waiting for information* can still be answered (US-26).
+
+- [ ] ✅ The request page (as an approver on a live step, and as an agent on a Submitted, Approved or In progress request) has **no** *Ask the requester a question* button, and the Next step card shows no empty box
+- [ ] ✅ A question written in the Conversation reaches the requester (*"New comment"* or, with an @mention, *"mentioned you"*) and the request keeps its status
+- [ ] ✅ *(API only)* `POST /requests/:id/ask-info` still moves a request to **Waiting for information**, adds the question to the conversation and history, and the IT queue → **Waiting on requester** tab lists it
+- [ ] 🚫 *(API only)* A second question while one is open: *"A question is already waiting for an answer"*
 
 ### US-26 Requester answers
 **As a** requester, **I want to** answer and get my request moving again.
@@ -377,6 +435,48 @@ Set up first (as Admin, in **Catalog setup**):
 - [ ] ✅ IT can tick **Internal note (IT only)**. It shows in amber with a lock, and only to IT
 - [ ] 🚫 Emma never sees internal notes, and can't create one
 - [ ] ✅ The item's **How IT fulfils this** notes show in a side card, to IT only
+- [ ] ✅ **Live:** with the same request open in two browsers (Emma and Agent), a message sent in one appears in the other without a reload. An internal note appears for Agent only, and Emma's page doesn't change
+
+### US-32b Replies, mentions, files, edit and delete
+**As** anyone on a request, **I want to** reply to a message, mention a colleague, send a file, and fix or remove what I wrote.
+
+*Setup: a submitted request from Emma, assigned to Agent. Mary is an approver who has decided it.*
+
+**Replies**
+- [ ] ✅ **Reply** under a message shows *"Replying to …"* above the box. After sending, the reply sits indented under that message
+- [ ] ✅ Replying to a reply files it under the **same** root message (never a third level). With more than two replies the thread starts collapsed (*"Show 3 replies"*)
+- [ ] ✅ The author of the message you replied to is told *"… replied to you"* (once, even if they are also the assignee)
+- [ ] ✅ Agent replies to Emma's message with **Internal note** ticked: the reply is amber and Emma never sees it
+- [ ] ✅ Agent replies to an internal note: **Internal note** is ticked and disabled, with *"…so it is internal too"*
+- [ ] 🚫 Calling the API with a public reply to an internal note still stores it as internal, and Emma gets *"Message not found"* if she names that note as a parent
+
+**Mentions**
+- [ ] ✅ Typing `@` shows a picker. As Agent: IT agents, Emma, Mary and the assignee. As Emma: only the people on her request (not every IT agent)
+- [ ] ✅ Picking a name inserts `@Full Name`; after sending, it is highlighted. The person gets *"… mentioned you"*, once
+- [ ] ✅ Picking a name and then deleting it from the text doesn't notify them
+- [ ] ✅ With **Internal note** ticked, the picker shows IT agents only, and the hint says only IT can be mentioned
+- [ ] 🚫 You can't mention yourself, and an id that isn't on the request is dropped without an error
+- [ ] ✅ Editing a message to add a new mention notifies only the new person
+
+**Files**
+- [ ] ✅ **Attach files** adds up to 5 images, PDF, Word or Excel files (10 MB each). Each shows as a chip and can be removed before sending
+- [ ] ✅ A message can be files only (no text). After sending, images show as thumbnails and documents as named chips that open in a new tab
+- [ ] 🚫 A 6th file, a file over 10 MB, or a file of another type is refused (*"A message can carry at most 5 files"*, *"… is over 10 MB"*, *"Only images, PDF, Word, or Excel files are allowed"*)
+- [ ] 🚫 A message with no text and no file can't be sent
+- [ ] ✅ Files sent with a message don't appear in the **Files** card and don't count towards its 10-file limit
+- [ ] 🚫 Files sent with an internal note are never listed for Emma
+
+**Edit**
+- [ ] ✅ The pencil appears on **your own** messages only. Saving shows *"(edited)"*, and the other browser updates live
+- [ ] 🚫 Calling the edit API for someone else's message: *"You can only edit your own messages"*. An empty message can't be saved
+- [ ] ✅ While editing, a file on your message can be removed with its ×
+
+**Delete**
+- [ ] ✅ The bin appears on your own messages. After confirming, the message becomes *"This message was deleted."* and its replies stay
+- [ ] ✅ Its files are gone: the links no longer open, and the Cloudinary assets are removed
+- [ ] ✅ An administrator who manages IT requests sees the bin on **everyone's** messages. Activity logs *"Deleted someone else's message on IT request SR-…"*
+- [ ] 🚫 Agent (without *Set up IT requests*) can't delete Emma's message: *"You can only delete your own messages"*
+- [ ] 🚫 A deleted message can't be replied to (*"That message was deleted, so it can't be replied to"*), edited, or deleted again
 
 ---
 
@@ -549,7 +649,11 @@ identity provider's reset page and the button text "Reset my password".
 Needs an AI key (Settings → AI) and `ai.use` (Employees and IT agents have it).
 - [ ] ✅ The portal shows **Not sure where to start?** Type: *"I'm starting on the design team next week and need Figma and Illustrator"*
 - [ ] ✅ **Suggest a request** shows a catalog item, why it fits, and what else you'll need to say
-- [ ] ✅ **Continue with this** opens the item's form with the title, answers it could tell, priority and your description filled in, plus a banner: *"Filled in from your description. Check every answer"*
+- [ ] ✅ **Continue with this** opens the item's form with the title, answers it could tell, priority and your description filled in, plus a banner: *"Filled in from your description, with the wording tidied. Check every answer"*
+- [ ] ✅ **Spelling and grammar:** type *"i nead adobe photoshp on my labtop, its for the new disain job"*. The suggestion shows **Your request, in clear wording** (something like *"I need Adobe Photoshop on my laptop for the new design job."*), and the form's details and title use that tidied text, not the typos
+- [ ] ✅ The tidy-up keeps your meaning: names, numbers and dates are unchanged, and it adds no reason, urgency or request you didn't write
+- [ ] ✅ Text you can edit: the tidied details and title are normal form fields, so you can change them before submitting
+- [ ] ✅ If the AI returns no rewrite, or one far longer than what you typed, the form uses your own words instead
 - [ ] ✅ Nothing is submitted until you press Submit
 - [ ] ✅ A description that matches nothing says so, and points to browsing or "Something else"
 - [ ] 🚫 Someone without AI assistance doesn't see the box
@@ -590,12 +694,12 @@ the right people, and nobody else.
 #### S-02 Emma reports something broken that isn't in the catalog
 *No approval. The "Something else" item goes straight to IT.*
 1. Emma → **IT solutions** → **Something else**. Title *"The meeting room screen in B2 shows no signal"*, with a photo attached. Submit.
-2. Agent asks a question: *"Which cable did you use, HDMI or USB-C?"*
-3. Emma answers *"USB-C"*.
+2. Agent asks in the **Conversation**: *"Which cable did you use, HDMI or USB-C?"*
+3. Emma replies *"USB-C"* (use **Reply** under the question).
 4. Agent fulfils it with *"Replaced the USB-C adapter"*.
 - [ ] ✅ It goes straight to **Submitted** and appears in **Ready**, with no approval step
-- [ ] ✅ While waiting for her answer it shows **Waiting for information**, and the queue's **Waiting on requester** tab lists it
-- [ ] ✅ After she answers it's back in the state it was in; the question and answer are in the conversation
+- [ ] ✅ Emma is notified of the question, and the request stays **Submitted** (asking in the Conversation doesn't pause it)
+- [ ] ✅ The question and her reply are in the conversation, her reply threaded under the question
 - [ ] ✅ The photo is visible to Agent under **Files**
 
 #### S-03 Emma asks for software in her own words (AI)

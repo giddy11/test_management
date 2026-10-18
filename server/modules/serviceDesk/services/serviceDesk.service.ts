@@ -4,7 +4,7 @@
 // IT requests is a module of its own: this file and its siblings import only
 // shared platform code (access, activity, notification, users) — never a
 // testing module. See docs/it-service-requests-plan.md §0.
-import { ServiceDeskRepository, type PersonRow } from "../repositories/serviceDesk.repository";
+import { ServiceDeskRepository, type ApprovalRulesPatch, type PersonRow } from "../repositories/serviceDesk.repository";
 import { DEFAULT_CATALOG } from "../domain/defaultCatalog";
 import { DEFAULT_SERVICE_LEVELS, type ServiceLevels } from "../domain/serviceLevels";
 import { ApprovalSetupRepository } from "../repositories/approvalSetup.repository";
@@ -86,8 +86,54 @@ export class ServiceDeskService {
   // ── Settings ───────────────────────────────────────────────────────────────
   async getSettings(actor: DeskActor) {
     const organizationId = this.orgOf(actor);
-    const [enabled, serviceLevels] = await Promise.all([this.isEnabled(organizationId), this.serviceLevels(organizationId)]);
-    return { enabled, serviceLevels };
+    const [enabled, serviceLevels, agentsCannotApprove, requireLineManager] = await Promise.all([
+      this.isEnabled(organizationId),
+      this.serviceLevels(organizationId),
+      this.agentsCannotApprove(organizationId),
+      this.requireLineManager(organizationId),
+    ]);
+    return { enabled, serviceLevels, agentsCannotApprove, requireLineManager };
+  }
+
+  // Must a request that needs a line manager have one to be submitted? On by default.
+  async requireLineManager(organizationId: string): Promise<boolean> {
+    return (await this.repo.getSettings(organizationId))?.requireLineManager ?? true;
+  }
+
+  // The organisation's "IT agents can't approve" switch.
+  async agentsCannotApprove(organizationId: string): Promise<boolean> {
+    // No settings row yet means the default, which is on.
+    return (await this.repo.getSettings(organizationId))?.agentsCannotApprove ?? true;
+  }
+
+  // Who may not be named as an approver, or routed one, right now: the IT
+  // agents while the switch is on (it is by default), nobody once it is off.
+  async blockedApproverIds(organizationId: string): Promise<Set<string>> {
+    return (await this.agentsCannotApprove(organizationId)) ? this.repo.queueOnlyAgentIds(organizationId) : new Set();
+  }
+
+  async updateApprovalRules(actor: DeskActor, rules: ApprovalRulesPatch) {
+    const organizationId = this.orgOf(actor);
+    const said: string[] = [];
+    if (rules.agentsCannotApprove !== undefined) {
+      said.push(`${rules.agentsCannotApprove ? "Stopped" : "Allowed"} IT agents approving IT requests`);
+    }
+    if (rules.requireLineManager !== undefined) {
+      said.push(`${rules.requireLineManager ? "Required" : "No longer required"} a line manager to submit a request that needs one`);
+    }
+    await this.repo.saveApprovalRules(
+      organizationId,
+      rules,
+      actor.id,
+      this.activity.buildEntry(actor, {
+        action: "service_desk.settings_updated",
+        summary: said.join("; ") || "Changed IT-request approval rules",
+        entityType: "service_desk",
+        severity: "warning",
+        metadata: { ...rules },
+      })
+    );
+    return this.getSettings(actor);
   }
 
   async updateServiceLevels(actor: DeskActor, levels: ServiceLevels) {
@@ -129,7 +175,12 @@ export class ServiceDeskService {
         metadata: { enabled },
       })
     );
-    return { enabled: saved.enabled, serviceLevels: await this.serviceLevels(organizationId) };
+    return {
+      enabled: saved.enabled,
+      serviceLevels: await this.serviceLevels(organizationId),
+      agentsCannotApprove: saved.agentsCannotApprove ?? true,
+      requireLineManager: saved.requireLineManager ?? true,
+    };
   }
 
   // ── Catalog ────────────────────────────────────────────────────────────────
@@ -436,13 +487,20 @@ export class ServiceDeskService {
   // servicedesk.manage).
   private async validApprovers(organizationId: string, ids: string[]): Promise<string[]> {
     if (!ids.length) return [];
-    const eligible = new Set(
-      (await this.repo.usersWithPermission(organizationId, [PERMS.CREATE, PERMS.MANAGE])).map((p) => p.id)
-    );
-    const unknown = ids.filter((id) => !eligible.has(id));
-    if (unknown.length) {
+    const [people, blocked] = await Promise.all([
+      this.repo.usersWithPermission(organizationId, [PERMS.CREATE, PERMS.MANAGE]),
+      this.blockedApproverIds(organizationId),
+    ]);
+    const eligible = new Set(people.map((p) => p.id));
+    if (ids.some((id) => !eligible.has(id))) {
       throw new AppError("Every approver must be a colleague who can use IT requests", 422, [
         { field: "approverIds", message: "Pick approvers from the list" },
+      ]);
+    }
+    const agents = people.filter((p) => ids.includes(p.id) && blocked.has(p.id)).map((p) => p.name || p.email);
+    if (agents.length) {
+      throw new AppError(`${agents.join(", ")} ${agents.length === 1 ? "is an IT agent" : "are IT agents"}, and IT agents can't approve requests (see Approval policies)`, 422, [
+        { field: "approverIds", message: "Remove the IT agents from the approvers" },
       ]);
     }
     return ids;
@@ -454,9 +512,16 @@ export class ServiceDeskService {
   }
 
   // ── People pickers ─────────────────────────────────────────────────────────
+  // Everyone who could approve by permission. `blocked` marks IT agents the
+  // organisation keeps out of approvals: the pickers hide them, and a policy or
+  // group that already names one shows a notice instead of "unknown person".
   async approverCandidates(actor: DeskActor) {
     const organizationId = this.orgOf(actor);
-    return (await this.repo.usersWithPermission(organizationId, [PERMS.CREATE, PERMS.MANAGE])).map(toPersonDto);
+    const [people, blocked] = await Promise.all([
+      this.repo.usersWithPermission(organizationId, [PERMS.CREATE, PERMS.MANAGE]),
+      this.blockedApproverIds(organizationId),
+    ]);
+    return people.map((p) => ({ ...toPersonDto(p), blocked: blocked.has(p.id) }));
   }
 
   async agents(actor: DeskActor) {

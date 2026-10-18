@@ -125,7 +125,7 @@ portal after sign-in. They never see a project.
   none; one step where any named person decides; or an **approval policy**. A policy is
   ordered steps that run one after another. Each step lists approver rules (a person, an
   **approver group**, or the **line manager**) and needs either *any one* of them, or *one from
-  each line*. Within a step everyone is asked at once, and any rejection ends the request. The
+  each line*, or (an option added later) *one after another* in the order listed. Within a step everyone is asked at once unless it is set to one after another, and any rejection ends the request. The
   whole plan is written at submit (later steps are "waiting"), so the route a request started
   with is the route it finishes.
 - **Authority.** Each approver group has a maximum risk level, and each catalog item a risk level

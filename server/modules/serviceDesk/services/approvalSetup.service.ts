@@ -30,6 +30,13 @@ export class ApprovalSetupService {
     return new Map(people.map((p) => [p.id, p]));
   }
 
+  // The people who may be newly named as approvers: the pool, less the IT
+  // agents the organisation keeps out of approvals (when it does).
+  private async pickablePool(organizationId: string): Promise<{ pool: Map<string, PersonRow>; blocked: Set<string> }> {
+    const [pool, blocked] = await Promise.all([this.approverPool(organizationId), this.desk.blockedApproverIds(organizationId)]);
+    return { pool: new Map([...pool].filter(([id]) => !blocked.has(id))), blocked };
+  }
+
   // ── Approver groups ────────────────────────────────────────────────────────
   async listGroups(actor: DeskActor) {
     const organizationId = this.desk.orgOf(actor);
@@ -56,11 +63,17 @@ export class ApprovalSetupService {
       throw new AppError("There's already a group with that name", 409);
     }
     if (body.memberIds) {
-      const pool = await this.approverPool(organizationId);
-      if (body.memberIds.some((m) => !pool.has(m))) {
-        throw new AppError("Every member must be a colleague who can use IT requests", 422, [
-          { field: "memberIds", message: "Pick members from the list" },
-        ]);
+      const { pool, blocked } = await this.pickablePool(organizationId);
+      const refused = body.memberIds.filter((m) => !pool.has(m));
+      if (refused.length) {
+        const agents = refused.filter((m) => blocked.has(m));
+        throw new AppError(
+          agents.length
+            ? "A group can't include IT agents while IT agents are kept out of approvals. Remove them from the group."
+            : "Every member must be a colleague who can use IT requests",
+          422,
+          [{ field: "memberIds", message: agents.length ? "Remove the IT agents" : "Pick members from the list" }]
+        );
       }
     }
     const fields = {
@@ -174,14 +187,17 @@ export class ApprovalSetupService {
 
   // Every named person and group must exist in this organisation.
   private async assertStepsResolvable(organizationId: string, steps: PolicyStep[]) {
-    const pool = await this.approverPool(organizationId);
+    const { pool, blocked } = await this.pickablePool(organizationId);
     const groups = new Set((await this.repo.listGroups(organizationId)).map((g) => g.id));
     steps.forEach((step, i) => {
       for (const rule of step.approvers) {
         if (rule.type === "user" && !pool.has(rule.userId)) {
-          throw new AppError(`Step ${i + 1} names someone who can't approve IT requests`, 422, [
-            { field: `steps.${i}`, message: "Pick approvers from the list" },
-          ]);
+          const agentMessage = `Step ${i + 1} names an IT agent, and IT agents are kept out of approvals. Remove them from the step.`;
+          throw new AppError(
+            blocked.has(rule.userId) ? agentMessage : `Step ${i + 1} names someone who can't approve IT requests`,
+            422,
+            [{ field: `steps.${i}`, message: blocked.has(rule.userId) ? agentMessage : "Pick approvers from the list" }]
+          );
         }
         if (rule.type === "group" && !groups.has(rule.groupId)) {
           throw new AppError(`Step ${i + 1} names a group that doesn't exist`, 422, [
@@ -237,7 +253,7 @@ export class ApprovalSetupService {
 
   async delegateCandidates(actor: DeskActor) {
     const organizationId = this.desk.orgOf(actor);
-    const pool = await this.approverPool(organizationId);
+    const { pool } = await this.pickablePool(organizationId);
     return [...pool.values()]
       .filter((p) => p.id !== actor.id)
       .map((p) => ({ id: p.id, name: p.name || p.email, email: p.email }));
@@ -246,7 +262,7 @@ export class ApprovalSetupService {
   async setDelegation(actor: DeskActor, body: DelegationBody) {
     const organizationId = this.desk.orgOf(actor);
     if (body.delegateId === actor.id) throw new AppError("Pick someone other than yourself", 422);
-    const pool = await this.approverPool(organizationId);
+    const { pool } = await this.pickablePool(organizationId);
     if (!pool.has(body.delegateId)) {
       throw new AppError("Your stand-in must be a colleague who can approve IT requests", 422, [
         { field: "delegateId", message: "Pick someone from the list" },

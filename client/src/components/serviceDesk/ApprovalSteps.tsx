@@ -59,7 +59,11 @@ export function ApprovalSteps({ approvals, request }: { approvals: RequestApprov
                 </Badge>
               </div>
               <p className="text-xs text-muted-foreground">
-                {mode === "all" ? "Needs an approval from each line below" : "Any one of these can decide"}
+                {mode === "order"
+                  ? "They approve one after another, in the order below"
+                  : mode === "all"
+                    ? "Each one of these must approve"
+                    : "Any one of these can decide"}
                 {status === "live" && request.approvalDueAt && (
                   <> · <DueText at={request.approvalDueAt} /></>
                 )}
@@ -70,6 +74,7 @@ export function ApprovalSteps({ approvals, request }: { approvals: RequestApprov
                     <DecisionIcon decision={a.decision} />
                     <div className="min-w-0">
                       <p>
+                        {mode === "order" && <span className="text-xs text-muted-foreground">{a.ruleIndex + 1}. </span>}
                         {a.approverName}
                         {a.groupName && <span className="text-xs text-muted-foreground"> · {a.groupName}</span>}
                         {a.isFallback && <span className="text-xs text-muted-foreground"> · stand-in approver</span>}
@@ -81,6 +86,9 @@ export function ApprovalSteps({ approvals, request }: { approvals: RequestApprov
                           {a.decidedByName && a.decidedById !== a.approverId && <> by {a.decidedByName} (stand-in)</>}
                           {a.decidedAt && <> · <When at={a.decidedAt} /></>}
                         </p>
+                      )}
+                      {a.decision === "waiting" && status === "live" && (
+                        <p className="text-xs text-muted-foreground">Waiting for their turn</p>
                       )}
                       {a.comment && <p className="text-xs whitespace-pre-wrap text-muted-foreground">“{a.comment}”</p>}
                     </div>

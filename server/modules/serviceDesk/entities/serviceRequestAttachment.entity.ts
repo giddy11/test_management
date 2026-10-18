@@ -1,7 +1,9 @@
 // modules/serviceDesk/entities/serviceRequestAttachment.entity.ts
 // A file on a request — a screenshot, a quote, a signed form. Images go to
 // Cloudinary as images, documents as "raw" files; resourceType decides which
-// delete call removes it.
+// delete call removes it. A file sent with a message has a commentId and is
+// shown with that message (so it is as private as the message); one without
+// belongs to the request itself.
 import { EntitySchema } from "typeorm";
 
 export interface ServiceRequestAttachment {
@@ -14,9 +16,11 @@ export interface ServiceRequestAttachment {
   mimeType: string | null;
   fileSizeBytes: number | null;
   uploadedById: string | null;
+  commentId: string | null;
   createdAt: Date;
   request?: object;
   uploadedBy?: object;
+  comment?: object;
 }
 
 const ServiceRequestAttachment = new EntitySchema<ServiceRequestAttachment>({
@@ -32,11 +36,13 @@ const ServiceRequestAttachment = new EntitySchema<ServiceRequestAttachment>({
     mimeType: { name: "mime_type", type: "varchar", length: 120, nullable: true },
     fileSizeBytes: { name: "file_size_bytes", type: "int", nullable: true },
     uploadedById: { name: "uploaded_by_id", type: "uuid", nullable: true },
+    commentId: { name: "comment_id", type: "uuid", nullable: true },
     createdAt: { name: "created_at", type: "timestamptz", createDate: true },
   },
   relations: {
     request: { type: "many-to-one", target: "ServiceRequest", joinColumn: { name: "request_id" }, onDelete: "CASCADE" },
     uploadedBy: { type: "many-to-one", target: "User", joinColumn: { name: "uploaded_by_id" }, nullable: true, onDelete: "SET NULL" },
+    comment: { type: "many-to-one", target: "ServiceRequestComment", joinColumn: { name: "comment_id" }, nullable: true, onDelete: "CASCADE" },
   },
   indices: [{ name: "idx_service_request_attachments_request", columns: ["requestId", "createdAt"] }],
 });

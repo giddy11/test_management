@@ -1,7 +1,8 @@
 // endpoints/serviceDesk.endpoints.ts — IT requests (/api/v1/service-desk).
-import { uploadCall, wrapCall } from "@/transport/http"
+import { uploadCall, uploadFilesWithFields, wrapCall } from "@/transport/http"
 import type {
   AiTriage,
+  ApprovalRulesPatch,
   AutomationRule,
   AutomationRunRow,
   DryRunResult,
@@ -27,6 +28,7 @@ import type {
   CategoryPayload,
   ItemPayload,
   ListRequestsParams,
+  MessagePayload,
   Person,
   PortalCategory,
   RequestComment,
@@ -35,6 +37,7 @@ import type {
   ServiceDeskCounts,
   ServiceDeskSettings,
   ServiceRequest,
+  SubmissionCheck,
 } from "@/types/serviceDesk.types"
 
 const BASE = "/api/v1/service-desk"
@@ -44,6 +47,8 @@ export const ServiceDeskEndpoints = {
   // Settings
   settings: () => wrapCall<ServiceDeskSettings>("GET", `${BASE}/settings`),
   updateSettings: (enabled: boolean) => wrapCall<ServiceDeskSettings>("PUT", `${BASE}/settings`, { enabled }),
+  updateApprovalRules: (rules: ApprovalRulesPatch) =>
+    wrapCall<ServiceDeskSettings>("PUT", `${BASE}/settings/approvals`, rules),
 
   // Catalog
   portalCatalog: () => wrapCall<PortalCategory[]>("GET", `${BASE}/catalog`),
@@ -67,6 +72,8 @@ export const ServiceDeskEndpoints = {
   list: (params: ListRequestsParams) => wrapCall<ServiceRequest[]>("GET", `${BASE}/requests`, body(params)),
   approvals: (state: "pending" | "decided", page = 1) =>
     wrapCall<ServiceRequest[]>("GET", `${BASE}/approvals`, { state, page, limit: 20 }),
+  checkSubmission: (itemId: string, requestedForId?: string) =>
+    wrapCall<SubmissionCheck>("GET", `${BASE}/requests/check`, { itemId, ...(requestedForId ? { requestedForId } : {}) }),
   detail: (id: string) => wrapCall<RequestDetail>("GET", `${BASE}/requests/${id}`),
   create: (payload: RequestPayload & { submit: boolean }) => wrapCall<ServiceRequest>("POST", `${BASE}/requests`, body(payload)),
   updateDraft: (id: string, payload: Partial<RequestPayload>) =>
@@ -78,9 +85,23 @@ export const ServiceDeskEndpoints = {
   assign: (id: string, assigneeId: string | null) => wrapCall<ServiceRequest>("POST", `${BASE}/requests/${id}/assign`, { assigneeId }),
   start: (id: string) => wrapCall<ServiceRequest>("POST", `${BASE}/requests/${id}/start`, {}),
   fulfil: (id: string, note: string) => wrapCall<ServiceRequest>("POST", `${BASE}/requests/${id}/fulfil`, { note }),
-  comment: (id: string, text: string, internal: boolean) =>
-    wrapCall<RequestComment>("POST", `${BASE}/requests/${id}/comments`, { body: text, internal }),
-  askForInfo: (id: string, question: string) => wrapCall<ServiceRequest>("POST", `${BASE}/requests/${id}/ask-info`, { question }),
+  // A message: sent as form data so it can carry files; the server also accepts plain JSON.
+  comment: (id: string, m: MessagePayload) =>
+    uploadFilesWithFields<RequestComment>(
+      `${BASE}/requests/${id}/comments`,
+      m.files ?? [],
+      {
+        body: m.body,
+        internal: String(m.internal),
+        ...(m.parentId ? { parentId: m.parentId } : {}),
+        mentionIds: JSON.stringify(m.mentionIds),
+      },
+      "files"
+    ),
+  editComment: (id: string, commentId: string, p: { body: string; mentionIds: string[] }) =>
+    wrapCall<RequestComment>("PATCH", `${BASE}/requests/${id}/comments/${commentId}`, p),
+  deleteComment: (id: string, commentId: string) =>
+    wrapCall<null>("DELETE", `${BASE}/requests/${id}/comments/${commentId}`),
   provideInfo: (id: string, answer: string) => wrapCall<ServiceRequest>("POST", `${BASE}/requests/${id}/provide-info`, { answer }),
 
   // Attachments (images, PDF, Word, Excel)

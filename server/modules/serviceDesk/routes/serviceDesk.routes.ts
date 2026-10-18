@@ -35,6 +35,10 @@ import {
   assignSchema,
   cancelSchema,
   commentSchema,
+  checkSubmissionSchema,
+  updateApprovalRulesSchema,
+  commentIdSchema,
+  editCommentSchema,
   createCategorySchema,
   createItemSchema,
   createRequestSchema,
@@ -66,6 +70,7 @@ const AUTO = "serviceautomation.manage";
 // Settings — everyone in the module reads whether it's on (it decides the sidebar).
 router.get("/settings", authMiddleware, requireAny(CREATE, WORK, MANAGE), C.getSettings);
 router.put("/settings", authMiddleware, requirePermission(MANAGE), validate(updateSettingsSchema), C.updateSettings);
+router.put("/settings/approvals", authMiddleware, requirePermission(MANAGE), validate(updateApprovalRulesSchema), C.updateApprovalRules);
 
 // Catalog
 router.get("/catalog", authMiddleware, requirePermission(CREATE), C.portalCatalog);
@@ -89,6 +94,8 @@ router.get("/counts", authMiddleware, requireAny(CREATE, WORK, MANAGE), C.counts
 router.get("/approvals", authMiddleware, requireAny(CREATE, MANAGE), validate(listApprovalsSchema), C.approvals);
 router.get("/requests", authMiddleware, requireAny(CREATE, WORK), validate(listRequestsSchema), C.list);
 router.post("/requests", authMiddleware, requirePermission(CREATE), validate(createRequestSchema), C.create);
+// Declared before /requests/:id so "check" isn't read as an id.
+router.get("/requests/check", authMiddleware, requirePermission(CREATE), validate(checkSubmissionSchema), C.checkSubmission);
 router.get("/requests/:id", authMiddleware, requireAny(CREATE, WORK, MANAGE), validate(requestIdSchema), C.detail);
 router.patch("/requests/:id", authMiddleware, requirePermission(CREATE), validate(updateDraftSchema), C.updateDraft);
 router.post("/requests/:id/submit", authMiddleware, requirePermission(CREATE), validate(requestIdSchema), C.submit);
@@ -98,7 +105,18 @@ router.post("/requests/:id/reject", authMiddleware, requireAny(CREATE, MANAGE), 
 router.post("/requests/:id/assign", authMiddleware, requirePermission(WORK), validate(assignSchema), C.assign);
 router.post("/requests/:id/start", authMiddleware, requirePermission(WORK), validate(requestIdSchema), C.start);
 router.post("/requests/:id/fulfil", authMiddleware, requirePermission(WORK), validate(fulfilSchema), C.fulfil);
-router.post("/requests/:id/comments", authMiddleware, requireAny(CREATE, WORK, MANAGE), validate(commentSchema), C.comment);
+// A message may carry files: multipart/form-data, field "files", up to 5 images or PDF/Word/Excel, 10 MB each.
+router.post(
+  "/requests/:id/comments",
+  authMiddleware,
+  requireAny(CREATE, WORK, MANAGE),
+  uploadCommentAttachments("files", 5, 10),
+  validate(commentSchema),
+  C.comment
+);
+// Edit is the author's alone; delete is the author's or an IT-request manager's (checked in the service).
+router.patch("/requests/:id/comments/:commentId", authMiddleware, requireAny(CREATE, WORK, MANAGE), validate(editCommentSchema), C.editComment);
+router.delete("/requests/:id/comments/:commentId", authMiddleware, requireAny(CREATE, WORK, MANAGE), validate(commentIdSchema), C.deleteComment);
 // An approver (on their live step) or IT asks; the requester answers.
 router.post("/requests/:id/ask-info", authMiddleware, requireAny(CREATE, WORK, MANAGE), validate(askInfoSchema), C.askForInfo);
 router.post("/requests/:id/provide-info", authMiddleware, requirePermission(CREATE), validate(provideInfoSchema), C.provideInfo);

@@ -7,15 +7,15 @@
 // loser sees the new status instead of overwriting it. The status-history
 // row and the audit entry go in the same transaction, so the three never
 // disagree about what happened.
-import type { EntityManager } from "typeorm";
+import { IsNull, type EntityManager } from "typeorm";
 import { AppDataSource } from "../../../infrastructure/database/dataSource";
 import { ServiceRequest } from "../entities/serviceRequest.entity";
 import { ServiceRequestApproval } from "../entities/serviceRequestApproval.entity";
 import { ServiceRequestStatusHistory } from "../entities/serviceRequestStatusHistory.entity";
-import { ServiceRequestComment } from "../entities/serviceRequestComment.entity";
+import { ServiceRequestComment, type CommentMention } from "../entities/serviceRequestComment.entity";
 import { ServiceRequestAttachment } from "../entities/serviceRequestAttachment.entity";
 import type { ApprovalDecision, RequestStatus } from "../domain/lifecycle";
-import type { PlannedStep, StepMode } from "../domain/approvalPlan";
+import { startsPending, type PlannedStep, type StepMode } from "../domain/approvalPlan";
 
 const { ActivityLog } = require("../../activity/entities/activityLog.entity");
 const { getOffset, buildMetaFromTotal } = require("../../../shared/pagination/paginate");
@@ -66,10 +66,15 @@ export interface CommentRow {
   body: string;
   isInternal: boolean;
   createdAt: Date;
+  parentId: string | null;
+  mentions: CommentMention[];
+  editedAt: Date | null;
+  deletedAt: Date | null;
 }
 
 export interface AttachmentRow {
   id: string;
+  commentId: string | null;
   fileName: string;
   fileUrl: string;
   resourceType: "image" | "raw";
@@ -105,6 +110,12 @@ export interface OverdueRow {
   targetHours: number;
   level: number;
 }
+
+const ATTACHMENT_SELECT = `
+  f."id", f."comment_id" AS "commentId", f."file_name" AS "fileName", f."file_url" AS "fileUrl",
+  f."resource_type" AS "resourceType", f."mime_type" AS "mimeType", f."file_size_bytes" AS "fileSizeBytes",
+  f."uploaded_by_id" AS "uploadedById", COALESCE(NULLIF(TRIM(CONCAT(u."first_name", ' ', u."last_name")), ''), u."email") AS "uploadedByName",
+  f."created_at" AS "createdAt"`;
 
 const name = (alias: string) => `NULLIF(TRIM(CONCAT(${alias}."first_name", ' ', ${alias}."last_name")), '')`;
 
@@ -186,10 +197,12 @@ export class ServiceRequestRepository {
   }
 
   // The whole approval plan at once: the first step's rows are live
-  // ("pending"), every later step's are "waiting".
+  // ("pending") — in an "order" step only its first rule's — and every other
+  // row is "waiting" until its turn.
   async insertPlan(m: EntityManager, requestId: string, plan: PlannedStep[]): Promise<void> {
-    const rows = plan.flatMap((step) =>
-      step.approvers.map((a) => ({
+    const rows = plan.flatMap((step) => {
+      const first = Math.min(...step.approvers.map((a) => a.ruleIndex));
+      return step.approvers.map((a) => ({
         requestId,
         stepOrder: step.order,
         stepName: step.name,
@@ -199,9 +212,9 @@ export class ServiceRequestRepository {
         groupId: a.groupId,
         isFallback: a.isFallback,
         onBehalfOfId: a.onBehalfOfId,
-        decision: (step.order === 1 ? "pending" : "waiting") as ApprovalDecision,
-      }))
-    );
+        decision: (startsPending(step.mode, step.order, a.ruleIndex, first) ? "pending" : "waiting") as ApprovalDecision,
+      }));
+    });
     if (rows.length) await m.insert(ServiceRequestApproval, rows);
   }
 
@@ -222,11 +235,24 @@ export class ServiceRequestRepository {
     await m.query(`UPDATE "service_request_approvals" SET "decision" = 'skipped' WHERE "id" = ANY($1::uuid[])`, [ids]);
   }
 
+  // A step starts: its rows go live — in an "order" step, only the first rule's.
   async activateStep(m: EntityManager, requestId: string, stepOrder: number): Promise<void> {
     await m.query(
       `UPDATE "service_request_approvals" SET "decision" = 'pending'
-        WHERE "request_id" = $1 AND "step_order" = $2 AND "decision" = 'waiting'`,
+        WHERE "request_id" = $1 AND "step_order" = $2 AND "decision" = 'waiting'
+          AND ("step_mode" <> 'order' OR "rule_index" = (
+            SELECT MIN(b."rule_index") FROM "service_request_approvals" b WHERE b."request_id" = $1 AND b."step_order" = $2
+          ))`,
       [requestId, stepOrder]
+    );
+  }
+
+  // An "order" step: the next rule's approvers are asked.
+  async activateLine(m: EntityManager, requestId: string, stepOrder: number, ruleIndex: number): Promise<void> {
+    await m.query(
+      `UPDATE "service_request_approvals" SET "decision" = 'pending'
+        WHERE "request_id" = $1 AND "step_order" = $2 AND "rule_index" = $3 AND "decision" = 'waiting'`,
+      [requestId, stepOrder, ruleIndex]
     );
   }
 
@@ -250,13 +276,14 @@ export class ServiceRequestRepository {
   }
 
   // ── Attachments ────────────────────────────────────────────────────────────
-  async addAttachments(rows: Partial<ServiceRequestAttachment>[]): Promise<ServiceRequestAttachment[]> {
-    const repo = AppDataSource.getRepository(ServiceRequestAttachment);
+  async addAttachments(rows: Partial<ServiceRequestAttachment>[], m?: EntityManager): Promise<ServiceRequestAttachment[]> {
+    const repo = (m ?? AppDataSource.manager).getRepository(ServiceRequestAttachment);
     return repo.save(repo.create(rows));
   }
 
+  // The request's own files; files sent with a message don't count against its limit.
   async countAttachments(requestId: string): Promise<number> {
-    return AppDataSource.getRepository(ServiceRequestAttachment).count({ where: { requestId } });
+    return AppDataSource.getRepository(ServiceRequestAttachment).count({ where: { requestId, commentId: IsNull() } });
   }
 
   async findAttachment(requestId: string, id: string): Promise<ServiceRequestAttachment | null> {
@@ -267,18 +294,47 @@ export class ServiceRequestRepository {
     await AppDataSource.getRepository(ServiceRequestAttachment).delete({ id });
   }
 
+  // The request's own files (the Files card). A file sent with a message is
+  // shown with that message instead — see commentAttachmentRows.
   async attachmentRows(requestId: string): Promise<AttachmentRow[]> {
     return AppDataSource.query(
-      `SELECT f."id", f."file_name" AS "fileName", f."file_url" AS "fileUrl", f."resource_type" AS "resourceType",
-              f."mime_type" AS "mimeType", f."file_size_bytes" AS "fileSizeBytes",
-              f."uploaded_by_id" AS "uploadedById", COALESCE(${name("u")}, u."email") AS "uploadedByName",
-              f."created_at" AS "createdAt"
+      `SELECT ${ATTACHMENT_SELECT}
          FROM "service_request_attachments" f
          LEFT JOIN "users" u ON u."id" = f."uploaded_by_id"
-        WHERE f."request_id" = $1
+        WHERE f."request_id" = $1 AND f."comment_id" IS NULL
         ORDER BY f."created_at" ASC`,
       [requestId]
     );
+  }
+
+  // Files sent with messages. An IT-only note's files are IT-only too.
+  async commentAttachmentRows(requestId: string, includeInternal: boolean): Promise<AttachmentRow[]> {
+    return AppDataSource.query(
+      `SELECT ${ATTACHMENT_SELECT}
+         FROM "service_request_attachments" f
+         JOIN "service_request_comments" c ON c."id" = f."comment_id"
+         LEFT JOIN "users" u ON u."id" = f."uploaded_by_id"
+        WHERE f."request_id" = $1 ${includeInternal ? "" : `AND c."is_internal" = false`}
+        ORDER BY f."created_at" ASC`,
+      [requestId]
+    );
+  }
+
+  async attachmentsOfComment(commentId: string): Promise<ServiceRequestAttachment[]> {
+    return AppDataSource.getRepository(ServiceRequestAttachment).find({ where: { commentId } });
+  }
+
+  async deleteCommentAttachments(commentId: string): Promise<void> {
+    await AppDataSource.getRepository(ServiceRequestAttachment).delete({ commentId });
+  }
+
+  // ── Conversation ───────────────────────────────────────────────────────────
+  async findComment(requestId: string, id: string): Promise<ServiceRequestComment | null> {
+    return AppDataSource.getRepository(ServiceRequestComment).findOne({ where: { requestId, id } });
+  }
+
+  async updateComment(id: string, patch: Partial<ServiceRequestComment>): Promise<void> {
+    await AppDataSource.getRepository(ServiceRequestComment).update({ id }, patch);
   }
 
   // ── Reads ──────────────────────────────────────────────────────────────────
@@ -291,23 +347,36 @@ export class ServiceRequestRepository {
   }
 
   async list(f: RequestListFilter): Promise<{ data: RequestRow[]; meta: unknown }> {
-    const params: unknown[] = [f.organizationId, f.userId];
+    const params: unknown[] = [f.organizationId];
     const where: string[] = [`r."organization_id" = $1`];
+    // The viewer's id is bound only by a filter that uses it. Postgres rejects
+    // a parameter nothing references ("could not determine data type"), which
+    // is what the IT queue hit when it didn't filter on the viewer.
+    let userRef: string | null = null;
+    const user = () => {
+      if (!userRef) {
+        params.push(f.userId);
+        userRef = `$${params.length}`;
+      }
+      return userRef;
+    };
 
     if (f.scope === "mine") {
-      where.push(`(r."requester_id" = $2 OR (r."requested_for_id" = $2 AND r."status" <> 'draft'))`);
+      const u = user();
+      where.push(`(r."requester_id" = ${u} OR (r."requested_for_id" = ${u} AND r."status" <> 'draft'))`);
     } else if (f.scope === "queue") {
       where.push(`r."status" <> 'draft'`);
     } else if (f.approvalState === "decided") {
+      const u = user();
       where.push(`EXISTS (
         SELECT 1 FROM "service_request_approvals" ap
          WHERE ap."request_id" = r."id" AND ap."decision" IN ('approved', 'rejected')
-           AND (ap."decided_by_id" = $2 OR (ap."decided_by_id" IS NULL AND ap."approver_id" = $2))
+           AND (ap."decided_by_id" = ${u} OR (ap."decided_by_id" IS NULL AND ap."approver_id" = ${u}))
       )`);
     } else {
       where.push(`EXISTS (
         SELECT 1 FROM "service_request_approvals" ap
-         WHERE ap."request_id" = r."id" AND ap."decision" = 'pending' AND ${ACTS_FOR("ap", "$2")}
+         WHERE ap."request_id" = r."id" AND ap."decision" = 'pending' AND ${ACTS_FOR("ap", user())}
       )`);
     }
 
@@ -317,7 +386,7 @@ export class ServiceRequestRepository {
     }
     if (f.overdue) where.push(OVERDUE);
     if (f.needsReview) where.push(`r."needs_review" = true AND r."status" NOT IN ('fulfilled', 'rejected', 'cancelled')`);
-    if (f.assignee === "me") where.push(`r."assignee_id" = $2`);
+    if (f.assignee === "me") where.push(`r."assignee_id" = ${user()}`);
     else if (f.assignee === "unassigned") where.push(`r."assignee_id" IS NULL`);
     else if (f.assignee) {
       params.push(f.assignee);
@@ -408,7 +477,8 @@ export class ServiceRequestRepository {
   async commentRows(requestId: string, includeInternal: boolean): Promise<CommentRow[]> {
     return AppDataSource.query(
       `SELECT c."id", c."author_id" AS "authorId", COALESCE(${name("u")}, u."email") AS "authorName",
-              c."body", c."is_internal" AS "isInternal", c."created_at" AS "createdAt"
+              c."body", c."is_internal" AS "isInternal", c."created_at" AS "createdAt",
+              c."parent_id" AS "parentId", c."mentions", c."edited_at" AS "editedAt", c."deleted_at" AS "deletedAt"
          FROM "service_request_comments" c
          LEFT JOIN "users" u ON u."id" = c."author_id"
         WHERE c."request_id" = $1 ${includeInternal ? "" : `AND c."is_internal" = false`}

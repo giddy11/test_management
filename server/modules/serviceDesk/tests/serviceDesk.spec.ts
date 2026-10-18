@@ -19,8 +19,12 @@ import { DEFAULT_CATALOG } from "../domain/defaultCatalog";
 import {
   NoApproverError,
   buildPlan,
+  lineToOpen,
+  missingLineManagerSteps,
   policyStepsSchema,
+  queueOnlyAgents,
   rowsMadeRedundant,
+  startsPending,
   stepState,
   stepsForApprovers,
   type PlanContext,
@@ -274,6 +278,194 @@ describe("approval steps — deciding", () => {
     expect(coversRisk("high", "medium")).toBe(true);
     expect(coversRisk("medium", "high")).toBe(false);
     expect(coversRisk("critical", "critical")).toBe(true);
+  });
+});
+
+describe("approval steps — in order", () => {
+  const ctx = (over: Partial<PlanContext> = {}): PlanContext => ({
+    risk: "medium",
+    excluded: new Set(["req"]),
+    eligible: new Set(["a", "b", "c", "admin", "req"]),
+    lineManagerId: null,
+    groups: new Map(),
+    delegateOf: () => null,
+    fallbackIds: ["admin"],
+    ...over,
+  });
+  const three: PolicyStep[] = [
+    { name: "Sign-off", mode: "order", approvers: [{ type: "user", userId: "a" }, { type: "user", userId: "b" }, { type: "user", userId: "c" }] },
+  ];
+
+  it("plans one rule per approver, numbered in the order listed", () => {
+    const [step] = buildPlan(three, ctx());
+    expect(step.mode).toBe("order");
+    expect(step.approvers.map((a) => [a.userId, a.ruleIndex])).toEqual([["a", 0], ["b", 1], ["c", 2]]);
+  });
+
+  it("fills a rule nobody can staff with the stand-in, keeping its place in the order", () => {
+    const steps: PolicyStep[] = [{ name: "Sign-off", mode: "order", approvers: [{ type: "user", userId: "a" }, { type: "line_manager" }, { type: "user", userId: "c" }] }];
+    const [step] = buildPlan(steps, ctx({ lineManagerId: null }));
+    expect(step.approvers.map((a) => [a.userId, a.ruleIndex, a.isFallback])).toEqual([["a", 0, false], ["admin", 1, true], ["c", 2, false]]);
+  });
+
+  it("starts with only the first rule asked, and only in step 1", () => {
+    expect(startsPending("order", 1, 0, 0)).toBe(true);
+    expect(startsPending("order", 1, 1, 0)).toBe(false);
+    expect(startsPending("order", 1, 2, 0)).toBe(false);
+    expect(startsPending("order", 2, 0, 0)).toBe(false);
+  });
+
+  it("still asks everyone at once in an any or all step", () => {
+    expect(startsPending("any", 1, 2, 0)).toBe(true);
+    expect(startsPending("all", 1, 1, 0)).toBe(true);
+    expect(startsPending("all", 2, 0, 0)).toBe(false);
+  });
+
+  it("opens the first rule, then the next one after each approval, then nothing", () => {
+    const rows = (decisions: string[]) => decisions.map((decision, ruleIndex) => ({ ruleIndex, decision }));
+    expect(lineToOpen(rows(["waiting", "waiting", "waiting"]))).toBe(0);
+    expect(lineToOpen(rows(["approved", "waiting", "waiting"]))).toBe(1);
+    expect(lineToOpen(rows(["approved", "approved", "waiting"]))).toBe(2);
+    expect(lineToOpen(rows(["approved", "approved", "approved"]))).toBeNull();
+  });
+
+  it("treats a rule with several people (a group) as one turn", () => {
+    const rows = [
+      { ruleIndex: 0, decision: "approved" },
+      { ruleIndex: 0, decision: "skipped" },
+      { ruleIndex: 1, decision: "waiting" },
+      { ruleIndex: 1, decision: "waiting" },
+    ];
+    expect(lineToOpen(rows)).toBe(1);
+  });
+
+  it("completes only when every rule has approved, like an all step", () => {
+    const rows = [
+      { ruleIndex: 0, decision: "approved" },
+      { ruleIndex: 1, decision: "pending" },
+      { ruleIndex: 2, decision: "waiting" },
+    ];
+    expect(stepState("order", rows)).toBe("pending");
+    expect(stepState("order", rows.map((r) => ({ ...r, decision: "approved" })))).toBe("approved");
+    expect(stepState("order", [...rows.slice(0, 1), { ruleIndex: 1, decision: "rejected" }])).toBe("rejected");
+  });
+
+  it("only skips the other people on the rule that approved", () => {
+    const rows = [
+      { id: "a1", ruleIndex: 0, decision: "approved" },
+      { id: "a2", ruleIndex: 0, decision: "pending" },
+      { id: "b", ruleIndex: 1, decision: "waiting" },
+    ];
+    expect(rowsMadeRedundant("order", rows, rows[0]).map((r) => r.id)).toEqual(["a2"]);
+  });
+
+  it("is a mode a policy may use", () => {
+    const step = { name: "Sign-off", approvers: [{ type: "user", userId: "11111111-1111-4111-8111-111111111111" }] };
+    expect(policyStepsSchema.parse([{ ...step, mode: "order" }])[0].mode).toBe("order");
+    expect(policyStepsSchema.safeParse([{ ...step, mode: "sequence" }]).success).toBe(false);
+  });
+});
+
+describe("a request that needs the line manager", () => {
+  const ctx = (over: Partial<PlanContext> = {}): PlanContext => ({
+    risk: "medium",
+    excluded: new Set(["req"]),
+    eligible: new Set(["boss", "mary", "admin", "req"]),
+    lineManagerId: "boss",
+    groups: new Map([["finance", { name: "Finance", maxRiskLevel: "high", memberIds: ["mary"] }]]),
+    delegateOf: () => null,
+    fallbackIds: ["admin"],
+    ...over,
+  });
+  const lm = { type: "line_manager" } as const;
+  const mary = { type: "user", userId: "mary" } as const;
+  const finance = { type: "group", groupId: "finance" } as const;
+  const missing = (steps: PolicyStep[], over: Partial<PlanContext> = {}) => missingLineManagerSteps(steps, buildPlan(steps, ctx(over)));
+
+  it("is fine when the line manager is set", () => {
+    expect(missing([{ name: "Manager", mode: "any", approvers: [lm] }])).toEqual([]);
+  });
+
+  it("flags a step where the line manager is the only approver and none is set", () => {
+    expect(missing([{ name: "Manager", mode: "any", approvers: [lm] }], { lineManagerId: null })).toEqual(["Manager"]);
+  });
+
+  it("doesn't flag an any-step whose other approvers can decide instead", () => {
+    expect(missing([{ name: "Sign-off", mode: "any", approvers: [lm, mary] }], { lineManagerId: null })).toEqual([]);
+  });
+
+  it("flags an each-one or in-order step that needs the line manager, whichever line it is", () => {
+    for (const mode of ["all", "order"] as const) {
+      expect(missing([{ name: "Sign-off", mode, approvers: [mary, lm] }], { lineManagerId: null })).toEqual(["Sign-off"]);
+      expect(missing([{ name: "Sign-off", mode, approvers: [lm, finance] }], { lineManagerId: null })).toEqual(["Sign-off"]);
+    }
+  });
+
+  it("flags a manager who can't decide (the requester raised it for their own report, or they are a blocked agent)", () => {
+    const steps: PolicyStep[] = [{ name: "Manager", mode: "any", approvers: [lm] }];
+    expect(missing(steps, { excluded: new Set(["req", "boss"]) })).toEqual(["Manager"]);
+    expect(missing(steps, { eligible: new Set(["mary", "admin", "req"]) })).toEqual(["Manager"]);
+  });
+
+  it("names only the steps that are short, in order, and ignores steps with no line manager", () => {
+    const steps: PolicyStep[] = [
+      { name: "Finance", mode: "any", approvers: [finance] },
+      { name: "Manager", mode: "any", approvers: [lm] },
+    ];
+    expect(missing(steps, { lineManagerId: null })).toEqual(["Manager"]);
+  });
+});
+
+describe("keeping IT agents out of approvals", () => {
+  it("means people who work the queue without setting up IT requests", () => {
+    // agent: works only. lead: works and manages. admin: holds both (all-access). mary: manages only. emma: neither.
+    const agents = queueOnlyAgents(["agent", "lead", "admin"], ["lead", "admin", "mary"]);
+    expect([...agents]).toEqual(["agent"]);
+  });
+
+  it("is empty when nobody works the queue without managing", () => {
+    expect(queueOnlyAgents([], ["admin"]).size).toBe(0);
+    expect(queueOnlyAgents(["admin"], ["admin"]).size).toBe(0);
+  });
+
+  describe("when routing a request", () => {
+    const base = (): PlanContext => ({
+      risk: "medium",
+      excluded: new Set(["req"]),
+      eligible: new Set(["agent", "mary", "admin", "req"]),
+      lineManagerId: null,
+      groups: new Map([["finance", { name: "Finance", maxRiskLevel: "high", memberIds: ["agent", "mary"] }]]),
+      delegateOf: () => null,
+      fallbackIds: ["admin"],
+    });
+    // The service removes blocked agents from `eligible`; the plan does the rest.
+    const withoutAgents = (ctx: PlanContext): PlanContext => ({ ...ctx, eligible: new Set([...ctx.eligible].filter((id) => id !== "agent")) });
+    const ids = (step: { approvers: { userId: string }[] }) => step.approvers.map((a) => a.userId);
+
+    it("skips a named agent and asks the next approver", () => {
+      const steps: PolicyStep[] = [{ name: "Sign-off", mode: "any", approvers: [{ type: "user", userId: "agent" }, { type: "user", userId: "mary" }] }];
+      expect(ids(buildPlan(steps, base())[0])).toEqual(["agent", "mary"]);
+      expect(ids(buildPlan(steps, withoutAgents(base()))[0])).toEqual(["mary"]);
+    });
+
+    it("keeps the order of an in-order step, with the stand-in in the agent's place", () => {
+      const steps: PolicyStep[] = [{ name: "Finance", mode: "order", approvers: [{ type: "user", userId: "agent" }, { type: "user", userId: "mary" }] }];
+      const [step] = buildPlan(steps, withoutAgents(base()));
+      expect(step.approvers.map((a) => [a.userId, a.ruleIndex, a.isFallback])).toEqual([["admin", 0, true], ["mary", 1, false]]);
+    });
+
+    it("drops an agent from a group, and falls back if the group is left empty", () => {
+      const steps: PolicyStep[] = [{ name: "Finance", mode: "all", approvers: [{ type: "group", groupId: "finance" }] }];
+      expect(ids(buildPlan(steps, withoutAgents(base()))[0])).toEqual(["mary"]);
+      const onlyAgent = withoutAgents({ ...base(), groups: new Map([["finance", { name: "Finance", maxRiskLevel: "high", memberIds: ["agent"] }]]) });
+      expect(ids(buildPlan(steps, onlyAgent)[0])).toEqual(["admin"]);
+    });
+
+    it("never routes an approval to an agent standing in for someone", () => {
+      const steps: PolicyStep[] = [{ name: "Sign-off", mode: "any", approvers: [{ type: "user", userId: "mary" }] }];
+      const ctx = { ...withoutAgents(base()), delegateOf: (u: string) => (u === "mary" ? "agent" : null) };
+      expect(ids(buildPlan(steps, ctx)[0])).toEqual(["mary"]);
+    });
   });
 });
 

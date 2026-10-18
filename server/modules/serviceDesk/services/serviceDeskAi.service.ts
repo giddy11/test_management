@@ -58,7 +58,7 @@ export class ServiceDeskAiService {
       jsonSchema: intakeJsonSchema as unknown as Record<string, unknown>,
       maxOutputTokens: 4000,
     });
-    const suggestion = finishIntake(result.data, catalog);
+    const suggestion = finishIntake(result.data, catalog, description);
     const entry = suggestion.itemId ? catalog.find((i) => i.id === suggestion.itemId) : null;
     return {
       ...suggestion,

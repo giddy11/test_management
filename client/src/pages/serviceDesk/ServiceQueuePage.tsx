@@ -4,6 +4,8 @@
 import { useState } from "react"
 import { Inbox, Search } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { ApiError } from "@/transport/http"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -48,7 +50,7 @@ export default function ServiceQueuePage() {
   const enabled = Boolean(settings?.enabled)
   const { data: counts } = useServiceDeskCounts(enabled)
   const { data: agents = [] } = useServiceAgents(enabled)
-  const { data, isLoading } = useServiceRequests(
+  const { data, isLoading, error, refetch } = useServiceRequests(
     {
       scope: "queue",
       ...FILTER[tab],
@@ -115,15 +117,24 @@ export default function ServiceQueuePage() {
               />
             </div>
           </div>
-          <RequestList
-            requests={data?.data ?? []}
-            isLoading={isLoading}
-            showRequester
-            showAssignee
-            emptyText={EMPTY[tab]}
-            meta={data?.meta}
-            onPage={setPage}
-          />
+          {error ? (
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm">
+              <span className="text-destructive">
+                The queue couldn't be loaded{error instanceof ApiError ? `: ${error.message}` : "."}
+              </span>
+              <Button size="sm" variant="outline" onClick={() => refetch()}>Try again</Button>
+            </div>
+          ) : (
+            <RequestList
+              requests={data?.data ?? []}
+              isLoading={isLoading}
+              showRequester
+              showAssignee
+              emptyText={EMPTY[tab]}
+              meta={data?.meta}
+              onPage={setPage}
+            />
+          )}
         </>
       )}
     </div>

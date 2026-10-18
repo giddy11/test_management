@@ -4,11 +4,12 @@
 // any one of them, or one from each line ("all"). Catalog items in "policy"
 // mode follow one. The server checks the same rules (domain/approvalPlan.ts).
 import { useState } from "react"
-import { ArrowDown, ArrowUp, Pencil, Plus, Route, Trash2, X } from "lucide-react"
+import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Pencil, Plus, Route, Trash2, TriangleAlert, X } from "lucide-react"
 import { toast } from "sonner"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -20,7 +21,10 @@ import {
   useApproverGroups,
   useDeletePolicy,
   useSavePolicy,
+  useServiceDeskSettings,
+  useUpdateApprovalRules,
 } from "@/hooks/useServiceDesk"
+import { cn } from "@/lib/utils"
 import { ApiError } from "@/transport/http"
 import type { ApprovalPolicy, ApproverGroup, ApproverRule, Person, PolicyStep, StepMode } from "@/types/serviceDesk.types"
 
@@ -29,7 +33,28 @@ const fail = (e: unknown) => toast.error(e instanceof ApiError ? (e.errors[0]?.m
 function ruleLabel(rule: ApproverRule, groups: ApproverGroup[], people: Person[]): string {
   if (rule.type === "line_manager") return "Line manager"
   if (rule.type === "group") return groups.find((g) => g.id === rule.groupId)?.name ?? "Unknown group"
-  return people.find((p) => p.id === rule.userId)?.name ?? "Unknown person"
+  const person = people.find((p) => p.id === rule.userId)
+  return person ? `${person.name}${person.blocked ? " (IT agent, skipped)" : ""}` : "Unknown person"
+}
+
+// An IT agent the organisation keeps out of approvals: still named, never asked.
+const isBlocked = (rule: ApproverRule, people: Person[]) => rule.type === "user" && !!people.find((p) => p.id === rule.userId)?.blocked
+
+// "a, b and c"
+const listOf = (items: string[]) => (items.length < 2 ? items.join("") : `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`)
+
+// What a step's mode means for the approvers actually listed, in plain words.
+function modeHint(mode: StepMode, rules: ApproverRule[], groups: ApproverGroup[], people: Person[]): string {
+  if (rules.length === 0) return "Add the people or groups who decide this step."
+  if (rules.length === 1) return "With just one approver listed, all the options work the same: this step is done when they approve."
+  if (mode === "any") {
+    return `Done as soon as any one of them approves: ${listOf(rules.map((r) => ruleLabel(r, groups, people)))}. The others don't need to.`
+  }
+  const parts = rules.map((r) => (r.type === "group" ? `one member of ${ruleLabel(r, groups, people)}` : r.type === "line_manager" ? "the requester's line manager" : ruleLabel(r, groups, people)))
+  if (mode === "order") {
+    return `Asked one at a time, in the order listed: ${parts.join(", then ")}. Each is only asked once the one before has approved, so nobody can approve out of turn.${rules.some((r) => r.type === "group") ? " A group counts as soon as any one of its members approves." : ""}`
+  }
+  return `Done only when all of these have approved: ${listOf(parts)}.${rules.some((r) => r.type === "group") ? " A group counts as soon as any one of its members approves." : ""}`
 }
 
 const ruleKey = (r: ApproverRule) => (r.type === "line_manager" ? "lm" : r.type === "group" ? `g:${r.groupId}` : `u:${r.userId}`)
@@ -39,14 +64,58 @@ export function ApprovalPoliciesTab() {
   const { data: groups = [] } = useApproverGroups()
   const { data: people = [] } = useApproverCandidates()
   const remove = useDeletePolicy()
+  const { data: settings } = useServiceDeskSettings()
+  const setRules = useUpdateApprovalRules()
   const [editing, setEditing] = useState<ApprovalPolicy | "new" | null>(null)
   const [deleting, setDeleting] = useState<ApprovalPolicy | null>(null)
+  const agentsOut = settings?.agentsCannotApprove ?? true
+
+  // Policies and groups that still name an IT agent, who will be skipped.
+  const blockedIds = new Set(people.filter((p) => p.blocked).map((p) => p.id))
+  const stillNaming = [
+    ...policies.filter((p) => p.steps.some((s) => s.approvers.some((a) => a.type === "user" && blockedIds.has(a.userId)))).map((p) => `policy "${p.name}"`),
+    ...groups.filter((g) => g.members.some((m) => blockedIds.has(m.id))).map((g) => `group "${g.name}"`),
+  ]
 
   return (
     <div className="space-y-3">
+      <Card>
+        <CardContent className="space-y-2 py-4">
+          <label className="flex items-start gap-3">
+            <Checkbox
+              className="mt-0.5"
+              checked={agentsOut}
+              disabled={!settings || setRules.isPending}
+              onCheckedChange={(v) =>
+                setRules.mutate({ agentsCannotApprove: v === true }, {
+                  onSuccess: () => toast.success(v === true ? "IT agents can no longer approve" : "IT agents can approve again"),
+                  onError: fail,
+                })
+              }
+              data-cy="agents-cannot-approve"
+            />
+            <span className="text-sm">
+              <span className="font-medium">IT agents can&apos;t approve requests</span>
+              <span className="block text-muted-foreground">
+                The people who fulfil requests can&apos;t also approve them. Administrators and IT leads still can. Applies to new
+                requests.
+              </span>
+            </span>
+          </label>
+          {agentsOut && stillNaming.length > 0 && (
+            <p className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50/70 p-2 text-xs text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
+              <TriangleAlert className="mt-0.5 size-3.5 shrink-0" />
+              <span>
+                Still naming IT agents, who will be skipped: {stillNaming.join(", ")}. Edit them to take the agents out.
+              </span>
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
       <div className="flex flex-wrap items-start justify-between gap-2">
         <p className="max-w-2xl text-sm text-muted-foreground">
-          Steps run in order. Within a step everyone is asked at once. Any rejection ends the request. The requester never
+          Steps run in order. Within a step, approvers are asked all at once or one at a time, as each step is set. Any rejection ends the request. The requester never
           approves their own request; if a step ends up with nobody, IT request administrators decide.
         </p>
         <Button size="sm" onClick={() => setEditing("new")}>
@@ -88,7 +157,7 @@ export function ApprovalPoliciesTab() {
                   <li key={i}>
                     <span className="font-medium">{i + 1}. {s.name || `Step ${i + 1}`}</span>{" "}
                     <span className="text-muted-foreground">
-                      — {s.mode === "all" ? "all of" : "any of"}: {s.approvers.map((a) => ruleLabel(a, groups, people)).join(", ")}
+                      — {s.mode === "order" ? "in order" : s.mode === "all" ? "all of" : "any of"}: {s.approvers.map((a) => ruleLabel(a, groups, people)).join(", ")}
                     </span>
                   </li>
                 ))}
@@ -141,6 +210,18 @@ function PolicyDialog({
   }
 
   const patch = (i: number, p: Partial<PolicyStep>) => setSteps((prev) => prev.map((s, j) => (j === i ? { ...s, ...p } : s)))
+  // Who is asked first matters in a "one after another" step.
+  const moveApprover = (i: number, k: number, by: -1 | 1) =>
+    setSteps((prev) =>
+      prev.map((s, j) => {
+        if (j !== i) return s
+        const approvers = [...s.approvers]
+        const to = k + by
+        if (to < 0 || to >= approvers.length) return s
+        ;[approvers[k], approvers[to]] = [approvers[to], approvers[k]]
+        return { ...s, approvers }
+      })
+    )
   const move = (i: number, by: -1 | 1) =>
     setSteps((prev) => {
       const next = [...prev]
@@ -165,7 +246,10 @@ function PolicyDialog({
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>{existing ? `Edit "${existing.name}"` : "New approval policy"}</DialogTitle>
-          <DialogDescription>Requests already submitted keep the route they started with.</DialogDescription>
+          <DialogDescription>
+            Steps run one after another. Within a step, approvers are asked all at once, or one at a time if you choose that, and a rejection from anyone rejects the
+            request. Requests already submitted keep the route they started with.
+          </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4">
           <div className="grid gap-3 sm:grid-cols-2">
@@ -187,18 +271,36 @@ function PolicyDialog({
                 <Select value={s.mode} onValueChange={(v) => patch(i, { mode: v as StepMode })}>
                   <SelectTrigger className="h-8 w-44"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="any">Any one of them</SelectItem>
-                    <SelectItem value="all">One from each line</SelectItem>
+                    <SelectItem value="any">Any one approves</SelectItem>
+                    <SelectItem value="all">Each one approves</SelectItem>
+                    <SelectItem value="order">One after another</SelectItem>
                   </SelectContent>
                 </Select>
                 <Button size="icon-sm" variant="ghost" disabled={i === 0} onClick={() => move(i, -1)} aria-label="Move step up"><ArrowUp className="size-4" /></Button>
                 <Button size="icon-sm" variant="ghost" disabled={i === steps.length - 1} onClick={() => move(i, 1)} aria-label="Move step down"><ArrowDown className="size-4" /></Button>
                 <Button size="icon-sm" variant="ghost" disabled={steps.length === 1} onClick={() => setSteps((prev) => prev.filter((_, j) => j !== i))} aria-label="Remove step"><Trash2 className="size-4" /></Button>
               </div>
+              <p className="text-xs text-muted-foreground" data-cy="step-mode-hint">{modeHint(s.mode, s.approvers, groups, people)}</p>
               <div className="flex flex-wrap gap-1.5">
-                {s.approvers.map((a) => (
-                  <Badge key={ruleKey(a)} variant="outline" className="gap-1 py-1">
+                {s.approvers.map((a, k) => (
+                  <Badge
+                    key={ruleKey(a)}
+                    variant="outline"
+                    className={cn("gap-1 py-1", isBlocked(a, people) && "border-amber-400 text-amber-700 dark:text-amber-400")}
+                    title={isBlocked(a, people) ? "An IT agent: skipped while IT agents are kept out of approvals. Remove them to save." : undefined}
+                  >
+                    {s.mode === "order" && <span className="text-muted-foreground">{k + 1}.</span>}
                     {ruleLabel(a, groups, people)}
+                    {s.mode === "order" && k > 0 && (
+                      <button type="button" aria-label="Ask earlier" title="Ask earlier" onClick={() => moveApprover(i, k, -1)}>
+                        <ChevronLeft className="size-3" />
+                      </button>
+                    )}
+                    {s.mode === "order" && k < s.approvers.length - 1 && (
+                      <button type="button" aria-label="Ask later" title="Ask later" onClick={() => moveApprover(i, k, 1)}>
+                        <ChevronRight className="size-3" />
+                      </button>
+                    )}
                     <button
                       type="button"
                       aria-label="Remove approver"
@@ -267,7 +369,7 @@ function AddApprover({
         {groups.filter((g) => !taken.has(`g:${g.id}`)).map((g) => (
           <SelectItem key={g.id} value={`g:${g.id}`}>Group: {g.name}</SelectItem>
         ))}
-        {people.filter((p) => !taken.has(`u:${p.id}`)).map((p) => (
+        {people.filter((p) => !p.blocked && !taken.has(`u:${p.id}`)).map((p) => (
           <SelectItem key={p.id} value={`u:${p.id}`}>{p.name}</SelectItem>
         ))}
       </SelectContent>

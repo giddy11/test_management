@@ -20,7 +20,7 @@ import {
   nextAttemptAt,
   signature,
 } from "../domain/fulfilment";
-import { buildIntakePrompt, coerceAnswer, finishIntake, finishTriage, type CatalogEntry } from "../domain/serviceDeskAi";
+import { buildIntakePrompt, coerceAnswer, finishIntake, finishTriage, refinedWords, INTAKE_SYSTEM_PROMPT, type CatalogEntry } from "../domain/serviceDeskAi";
 import type { FormField } from "../domain/formSchema";
 
 const subject = (over: Partial<RuleSubject> = {}): RuleSubject => ({
@@ -186,6 +186,7 @@ describe("AI intake", () => {
       {
         itemId: "item-1",
         title: "Figma for design",
+        description: "I need Figma for the design team.",
         answers: [
           { key: "software", value: "Figma" },
           { key: "access_level", value: "Superuser" },
@@ -200,7 +201,35 @@ describe("AI intake", () => {
     expect(s.itemId).toBe("item-1");
     expect(s.formValues).toEqual({ software: "Figma" });
     expect(s.priority).toBe("high");
-    expect(finishIntake({ itemId: "made-up", title: "", answers: [], priority: "medium", missingInfo: [], reason: "" }, catalog).itemId).toBeNull();
+    expect(finishIntake({ itemId: "made-up", title: "", description: "", answers: [], priority: "medium", missingInfo: [], reason: "" }, catalog).itemId).toBeNull();
+  });
+
+  describe("tidying the person's wording", () => {
+    const base = { itemId: "item-1", title: "", answers: [], priority: "medium" as const, missingInfo: [], reason: "" };
+
+    it("uses the corrected description the model returns", () => {
+      const s = finishIntake({ ...base, description: "I need Adobe Photoshop on my laptop." }, catalog, "i nead adobe photoshp on my labtop");
+      expect(s.description).toBe("I need Adobe Photoshop on my laptop.");
+    });
+
+    it("keeps the person's own words when the model sends nothing back", () => {
+      expect(finishIntake({ ...base, description: "   " }, catalog, "i nead figma").description).toBe("i nead figma");
+      expect(refinedWords("", "i nead figma")).toBe("i nead figma");
+    });
+
+    it("keeps the person's own words when the \"tidy-up\" is far longer than what they wrote (it added content)", () => {
+      const padded = "I urgently need Figma Enterprise with admin rights for the whole design team to meet a regulatory deadline. ".repeat(3);
+      expect(refinedWords(padded, "need figma")).toBe("need figma");
+    });
+
+    it("lets a rewrite be a little longer, since fixing grammar can add words", () => {
+      expect(refinedWords("I need Figma, please.", "need figma")).toBe("I need Figma, please.");
+    });
+
+    it("tells the model to correct spelling without adding anything", () => {
+      expect(INTAKE_SYSTEM_PROMPT).toMatch(/spelling, grammar and punctuation/);
+      expect(INTAKE_SYSTEM_PROMPT).toMatch(/Never add facts/);
+    });
   });
 
   it("keeps the person's words from opening or closing prompt tags", () => {

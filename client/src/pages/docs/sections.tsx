@@ -2181,7 +2181,10 @@ const ALL_SECTIONS: DocSection[] = [
           If you have AI assistance, the portal shows <Strong>Not sure where to start?</Strong> Write
           what you need, press <Strong>Suggest a request</Strong>, and then{" "}
           <Strong>Continue with this</Strong> to open the right form, already filled in from your
-          words.
+          words. Don’t worry about typos or rough English: the AI corrects spelling and grammar in
+          the title, the details and your text answers, keeping what you meant and never adding
+          anything you didn’t say. The suggestion shows <Strong>Your request, in clear wording</Strong>,
+          and you can still change anything on the form before you submit.
         </P>
         <AiExample
           title="Example — describing what you need"
@@ -2223,11 +2226,39 @@ const ALL_SECTIONS: DocSection[] = [
           <li><Strong>My requests</Strong> — In progress, Drafts and Closed, including requests a colleague raised for you.</li>
           <li>The request page shows its approval steps, who has it, the due date, files, the conversation and full history.</li>
           <li>
-            If an approver or IT asks a question, the request shows <Strong>Waiting for information</Strong>{" "}
-            and an answer box. It’s paused until you answer — then it carries on exactly where it was.
+            You’re told as it moves: when an approval step finishes and the next begins, when one of
+            several required approvals is given (“2 more approvals are needed”), and when it’s
+            finally approved or rejected. Mute these with <Strong>Settings → Notifications → Request updates</Strong>.
+          </li>
+          <li>
+            If a request is paused with <Strong>Waiting for information</Strong>, it shows the
+            question and an answer box. It’s on hold until you answer — then it carries on exactly
+            where it was. Everyday questions happen in the Conversation and don’t pause anything.
           </li>
           <li>You can cancel it any time before IT starts work.</li>
         </UL>
+        <H3>The conversation</H3>
+        <P>
+          Everyone on a request — the requester, the person it’s for, approvers and IT — talks in
+          one place, the <Strong>Conversation</Strong> on the request page. New messages appear as
+          they’re sent, without a reload.
+        </P>
+        <UL>
+          <li><Strong>Reply</Strong> — press <Strong>Reply</Strong> under a message to answer it. Replies sit indented under the message they answer; replying to a reply keeps them together under the same one.</li>
+          <li><Strong>@mention</Strong> — type <Code>@</Code> and pick a name to tell someone a message is for them. They get a notification. You can only mention people who can read the message, and you can’t mention yourself.</li>
+          <li><Strong>Files</Strong> — <Strong>Attach files</Strong> adds up to 5 images, PDF, Word or Excel files (10 MB each) to a message. A message can be just files.</li>
+          <li><Strong>Edit</Strong> — you can edit your own messages. They show “(edited)”, and anyone you newly mention is told.</li>
+          <li>
+            <Strong>Delete</Strong> — you can delete your own messages, and people who manage IT
+            requests can delete anyone’s. A deleted message stays in the thread as “This message
+            was deleted” so replies still make sense; its text and files are removed for good.
+          </li>
+        </UL>
+        <Note>
+          <Strong>Internal notes</Strong> are for IT only. The requester, the person it’s for and
+          approvers can’t see them or their files, and aren’t told about them. A reply to an
+          internal note is internal too, and only IT can be mentioned in one.
+        </Note>
       </div>
     ),
   },
@@ -2241,16 +2272,38 @@ const ALL_SECTIONS: DocSection[] = [
         <P>
           When a request needs you, you get a notification and an email, and it appears under{" "}
           <Strong>Approvals → Waiting for me</Strong>. Open it and choose <Strong>Approve</Strong>{" "}
-          (a comment is optional), <Strong>Reject</Strong> (a reason is required), or{" "}
-          <Strong>Ask the requester a question</Strong>.
+          (a comment is optional) or <Strong>Reject</Strong> (a reason is required). If you need
+          to know something first, ask the requester in the <Strong>Conversation</Strong> on the
+          request page.
         </P>
         <H3>Steps</H3>
         <P>
           A request can need one approval or several steps in a row — for example the requester’s{" "}
-          <Strong>line manager</Strong>, then <Strong>Finance</Strong>. Within a step, either{" "}
-          <Strong>any one</Strong> person decides, or it needs <Strong>one from each line</Strong>{" "}
-          (say, one from Finance <em>and</em> one from Security). Later steps show as “Not started”
-          until the one before is done; any rejection ends the request.
+          <Strong>line manager</Strong>, then <Strong>Finance</Strong>. Each step is set to one of three
+          modes:
+        </P>
+        <UL>
+          <li>
+            <Strong>Any one approves</Strong> — the step is done as soon as one of the people or
+            groups listed approves. The others aren’t needed.
+          </li>
+          <li>
+            <Strong>Each one approves</Strong> — every person, group and line manager listed must
+            approve, all asked at the same time and in any order. A group counts as soon as one of
+            its members does, so “Finance and Security” means one from Finance <em>and</em> one from
+            Security.
+          </li>
+          <li>
+            <Strong>One after another</Strong> — the same people must all approve, but only the first
+            is asked; each approval then opens the next, in the order the approvers are listed. Nobody
+            can approve out of turn, and the next person is told when it’s theirs. Use the arrows on an
+            approver in the policy editor to change the order.
+          </li>
+        </UL>
+        <P>
+          Later steps show as “Not started” until the one before is done; any rejection ends the
+          request. If you need one person to approve before another, use{" "}
+          <Strong>One after another</Strong> (or give each person a step of their own).
         </P>
         <H3>Authority</H3>
         <P>
@@ -2384,9 +2437,23 @@ const ALL_SECTIONS: DocSection[] = [
         <H3>Who approves</H3>
         <UL>
           <li><Strong>No approval</Strong>, <Strong>one step — any of these people</Strong>, or <Strong>an approval policy</Strong>.</li>
-          <li><Strong>Approval policies</Strong> — reusable routes of steps, each “any one” or “one from each line”, naming people, groups, or the requester’s line manager.</li>
+          <li><Strong>Approval policies</Strong> — reusable routes of steps, each “any one approves”, “each one approves” or “one after another”, naming people, groups, or the requester’s line manager.</li>
           <li><Strong>Approver groups</Strong> — e.g. Finance, Security — each with the highest risk it may approve.</li>
-          <li><Strong>Line managers</Strong> — who reports to whom (no loops allowed).</li>
+          <li>
+            <Strong>Line managers</Strong> — who reports to whom (no loops allowed). If a request
+            needs someone’s line manager and they don’t have one, it can’t be submitted: the form
+            says so before it’s filled in, and the person is asked to have an IT request
+            administrator set it first. A draft can still be saved. The switch{" "}
+            <Strong>Require a line manager to submit</Strong> (on by default) controls this; turn it
+            off and an IT request administrator approves in their place instead.
+          </li>
+          <li>
+            <Strong>IT agents can’t approve requests</Strong> (a switch at the top of{" "}
+            <Strong>Approval policies</Strong>, on by default) — whoever fulfils a request can’t also approve it.
+            It covers anyone who can work the IT queue but can’t set up IT requests; administrators
+            and IT leads still can. Agents can’t be picked as approvers and are skipped on new
+            requests, so the next approver or the stand-in is asked instead.
+          </li>
           <li>Each item has a <Strong>risk</Strong> and can be marked <Strong>privileged access</Strong> (never approved automatically).</li>
           <li>If nobody named can decide, IT request administrators do — a request never skips approval.</li>
         </UL>
@@ -2619,67 +2686,522 @@ Time spent waiting for the requester doesn't count.`}</CodeBlock>
         </UL>
         <H3>Connectors</H3>
         <P>
-          A connector fulfils requests in another system — adding someone to a group, assigning a
-          licence, creating a resource. Point an item at it under{" "}
-          <Strong>How it’s fulfilled → Automatically, by a connector</Strong>. When a request for that
-          item is approved (and identity-checked, if needed), TestMate sends it to the connector and
-          waits for the result. TestMate never holds passwords or keys for the systems the connector
-          changes.
+          A connector lets an automation tool you already use — Power Automate, Zapier, n8n, Make —
+          do the work for approved requests: assign the licence, add someone to a group, create the
+          account. Point an item at it under{" "}
+          <Strong>How it’s fulfilled → Automatically, by a connector</Strong>. If the tool fails,
+          the request comes back to IT to finish by hand. TestMate never holds passwords or keys for
+          the systems the connector changes.
         </P>
-        <OL>
-          <li>In your automation tool (e.g. Power Automate), create a flow that starts <Strong>When an HTTP request is received</Strong>, and copy its address.</li>
-          <li>In TestMate, <Strong>New connector</Strong> → paste the address. Copy the <Strong>signing secret</Strong> — it’s shown once.</li>
-          <li>Build the flow’s steps using the request’s answers, then reply with the result (below). <Strong>Send a test</Strong> checks the connection.</li>
-        </OL>
-        <P>What the connector receives:</P>
-        <CodeBlock>{`POST <your connector address>
-X-TestMate-Event:     service_request.fulfil
-X-TestMate-Delivery:  <run id — the same on a retry>
-X-TestMate-Timestamp: 1760695200
-X-TestMate-Signature: sha256=<HMAC-SHA256(secret, "<timestamp>.<raw body>")>
-
-{
-  "event": "service_request.fulfil",
-  "deliveryId": "8d1c…",
-  "callbackUrl": "https://<your TestMate>/api/v1/public/service-desk/callbacks/8d1c…/<token>",
-  "request": {
-    "reference": "SR-000123",
-    "item": "Software licence or access",
-    "answers": { "software": "Figma", "access_level": "Standard user" },
-    "requester": { "name": "Emma Stone", "email": "emma@example.com" },
-    "requestedFor": null,
-    "priority": "medium"
-  }
-}`}</CodeBlock>
-        <P>Reply straight away…</P>
-        <CodeBlock>{`HTTP 200
-{ "status": "succeeded", "note": "Added to the Figma licence group" }`}</CodeBlock>
-        <P>…or answer <Code>202</Code> now and report back later on the <Code>callbackUrl</Code>:</P>
-        <CodeBlock>{`curl -X POST "<callbackUrl>" \\
-  -H "Content-Type: application/json" \\
-  -d '{"status":"failed","note":"No Figma licences left"}'`}</CodeBlock>
-        <P>To be sure a request really came from TestMate, check its signature:</P>
-        <CodeBlock>{`const crypto = require("crypto")
-function fromTestMate(headers, rawBody, secret) {
-  const expected = "sha256=" + crypto
-    .createHmac("sha256", secret)
-    .update(headers["x-testmate-timestamp"] + "." + rawBody)
-    .digest("hex")
-  const given = String(headers["x-testmate-signature"] || "")
-  return given.length === expected.length &&
-    crypto.timingSafeEqual(Buffer.from(given), Buffer.from(expected))
-}`}</CodeBlock>
-        <UL>
-          <li>Network errors, 408, 429 and 5xx are retried after 1, 5 and 15 minutes; other errors fail at once.</li>
-          <li>No result within 24 hours counts as failed.</li>
-          <li>A failure flags the request <Strong>Needs review</Strong> and tells IT, who can <Strong>Retry</Strong> or <Strong>Handle it manually</Strong>.</li>
-        </UL>
+        <Note>
+          The full explanation, the exact data TestMate sends, and step-by-step setup for each tool
+          are in{" "}
+          <a href="#it-requests-connectors" className="font-medium text-primary hover:underline">Connectors: the setup manual</a>.
+        </Note>
         <H3>Self-service links</H3>
         <P>
           An item can instead point people to a self-service page (<Strong>By the requester, through a
           self-service link</Strong>) — for example your identity provider’s password-reset page.
           It’s shown before the form, and using it counts as fulfilled by self-service.
         </P>
+      </div>
+    ),
+  },
+  {
+    id: "it-requests-connectors",
+    title: "Connectors: the setup manual",
+    icon: Webhook,
+    summary: "What a connector is in plain words, and how to set one up in Power Automate, Zapier, n8n, Make and more.",
+    body: (
+      <div className="space-y-4">
+        <H3>In plain words</H3>
+        <P>
+          Say Emma asks for an Adobe licence. Without a connector, once it’s approved someone in IT
+          opens the Adobe admin site, assigns her a licence by hand, comes back to TestMate and
+          presses <Strong>Mark fulfilled</Strong>. Many requests are the same few clicks every time.
+        </P>
+        <P>
+          A connector is a <Strong>phone number TestMate calls when a request is approved</Strong>,
+          so a robot does those clicks instead. The robot isn’t part of TestMate — it’s a flow your
+          IT team builds once in an automation tool such as Power Automate, Zapier, n8n or Make
+          (“when TestMate sends a request, assign an Adobe licence to that person”). The connector
+          is just TestMate’s saved record of how to reach that flow: its web address and a secret.
+        </P>
+        <CodeBlock>{`Emma asks for Adobe  →  Mary approves
+                              │
+                              ▼
+   TestMate calls the connector:
+   "Emma (emma@acme.com) needs Adobe Acrobat Pro — SR-000123"
+                              │
+                              ▼
+   Your flow (Power Automate, Zapier…) assigns the licence in Adobe
+                              │
+                              ▼
+   It answers TestMate: "succeeded"
+                              │
+                              ▼
+   TestMate marks SR-000123 Fulfilled and tells Emma`}</CodeBlock>
+        <P>
+          If the flow answers <Strong>failed</Strong> (the licence pool is full, Adobe is down),
+          TestMate flags the request <Strong>Automation failed</Strong> and tells IT, who press{" "}
+          <Strong>Handle it manually</Strong> and do it the old way — Emma just sees it done. If the
+          flow doesn’t answer at all, TestMate tries again after 1, 5 and 15 minutes, then hands it to IT.
+        </P>
+        <DocTable
+          rows={[
+            ["On the screen", "What it means"],
+            ["Connector", "Who to call: your flow’s web address."],
+            ["Signing secret", "A password on every call, so your flow can tell it really came from TestMate."],
+            ["Send a test", "Rings the flow to check the line works. It does no work."],
+            ["How it’s fulfilled → By a connector", "Set on a catalog item: “for this kind of request, call the flow instead of waiting for IT”."],
+            ["Run log", "The call history: every call TestMate made, and what came back."],
+          ]}
+        />
+        <Note>
+          <Strong>TestMate does not build the flow.</Strong> The flow lives in your automation tool,
+          built by someone who has admin access to the systems it changes. TestMate only calls it,
+          passes on the request, and waits for “succeeded” or “failed”. Connectors are optional:
+          without one, requests simply go to the IT queue for a person to do.
+        </Note>
+        <P>
+          <Strong>Why it works this way.</Strong> TestMate doesn’t sign in to Microsoft 365, Adobe or
+          Google itself. Your tool does, with its own accounts, and keeps those credentials. So one
+          connector works with any tool your company already uses: Power Automate, Zapier, n8n,
+          Make, or your own scripts. And TestMate never holds keys to the systems it changes.
+        </P>
+
+        <H3>Who does what</H3>
+        <DocTable
+          rows={[
+            ["Step", "Where", "Who"],
+            ["Build the flow (e.g. “add this person to the Adobe users group”)", "Your automation tool", "IT admin, once"],
+            ["Copy the flow’s web address", "Your automation tool", "IT admin"],
+            [<>Create the connector, paste the address, copy the secret, <Strong>Send a test</Strong></>, "TestMate → Catalog setup → Automation → Connectors", "Someone allowed to set up IT-request automation"],
+            [<>Set <Strong>How it’s fulfilled → By a connector</Strong> on the items it should handle</>, "TestMate → Catalog setup → the item", "Same"],
+            ["Every approved request after that", "Automatic", "Nobody"],
+          ]}
+        />
+
+        <H3>Five rules every flow must follow</H3>
+        <OL>
+          <li>
+            <Strong>Answer within 10 seconds.</Strong> TestMate waits 10 seconds for a reply, then
+            treats the call as lost and retries. If the work takes longer, reply{" "}
+            <Code>202</Code> straight away and report the result later on the{" "}
+            <Code>callbackUrl</Code> (see “Two ways to answer” below).
+          </li>
+          <li>
+            <Strong>Do nothing on a test.</Strong> <Strong>Send a test</Strong> sends{" "}
+            <Code>{`"event": "ping"`}</Code>. Answer it with <Code>200</Code> and stop — only do the
+            work when the event is <Code>service_request.fulfil</Code>.
+          </li>
+          <li>
+            <Strong>Don’t do the work twice.</Strong> A retry has the same{" "}
+            <Code>deliveryId</Code>. If your flow already handled that id, just answer “succeeded” again.
+          </li>
+          <li>
+            <Strong>Write the note for the person.</Strong> On success, your <Code>note</Code> is
+            shown to the requester (“Done automatically: Adobe licence assigned — sign in again to
+            use it”). On failure, it’s shown to IT, so say what went wrong and what to do.
+          </li>
+          <li>
+            <Strong>Keep the address secret.</Strong> Anyone with your flow’s address could call it.
+            TestMate stores it encrypted and only ever shows its start; check the signature (below)
+            where your tool can.
+          </li>
+        </OL>
+
+        <H3>What TestMate sends</H3>
+        <P>
+          A <Code>POST</Code> with a JSON body. The work is usually for{" "}
+          <Code>request.requestedFor</Code> (someone the requester asked on behalf of) and otherwise
+          for <Code>request.requester</Code>. A new starter (<Code>newStarter: true</Code>) has no
+          account yet — their email is the one typed on the form.
+        </P>
+        <CodeBlock>{`POST <your connector address>
+Content-Type:         application/json
+X-TestMate-Event:     service_request.fulfil      (or "ping" for Send a test)
+X-TestMate-Delivery:  8d1c2f0e-…                  (the same on a retry)
+X-TestMate-Timestamp: 1760695200                  (unix seconds)
+X-TestMate-Signature: sha256=<hex HMAC-SHA256(secret, "<timestamp>.<raw body>")>
+
+{
+  "event": "service_request.fulfil",
+  "deliveryId": "8d1c2f0e-…",
+  "attempt": 1,
+  "callbackUrl": "https://<your TestMate>/api/v1/public/service-desk/callbacks/8d1c2f0e-…/<token>",
+  "request": {
+    "id": "5b0e…",
+    "reference": "SR-000123",
+    "title": "Adobe for contract signing",
+    "description": "I sign supplier contracts every week",
+    "businessJustification": "Contracts are currently printed and scanned",
+    "priority": "high",
+    "riskLevel": "low",
+    "category": "Software access",
+    "categoryKey": "software_access",
+    "item": "Software licence or access",
+    "itemId": "a71c…",
+    "answers": { "software": "Adobe Acrobat Pro", "access_level": "Standard user", "needed_by": "2026-11-01" },
+    "answerLabels": { "software": "Which software?", "access_level": "Access level", "needed_by": "Needed by" },
+    "requester": { "name": "Emma Stone", "email": "emma@acme.com" },
+    "requestedFor": null,
+    "submittedAt": "2026-10-17T09:12:00.000Z",
+    "approvedAt": "2026-10-17T10:03:00.000Z",
+    "autoApproved": false
+  }
+}`}</CodeBlock>
+        <P>
+          The keys in <Code>answers</Code> are each question’s <Strong>answer key</Strong> from the
+          form builder (see “Catalog item settings explained”). They never change once the question
+          is saved, so your flow can rely on them even if the question is reworded.
+        </P>
+        <P>A test (<Strong>Send a test</Strong>) is much smaller:</P>
+        <CodeBlock>{`{ "event": "ping", "deliveryId": "…", "sentAt": "2026-10-17T09:00:00.000Z" }`}</CodeBlock>
+
+        <H3>Two ways to answer</H3>
+        <P><Strong>A. Straight away</Strong> — when the work takes a few seconds:</P>
+        <CodeBlock>{`HTTP 200
+Content-Type: application/json
+
+{ "status": "succeeded", "note": "Adobe Acrobat Pro assigned — sign out and in again to use it" }
+  or
+{ "status": "failed", "note": "No Acrobat licences left — buy more or free one up" }`}</CodeBlock>
+        <P>
+          <Strong>B. Later</Strong> — when the work is slow, or your tool always replies on its own
+          (Zapier does). Reply with any <Code>2xx</Code> that has no <Code>status</Code> (e.g.{" "}
+          <Code>202</Code>), do the work, then send the result to the <Code>callbackUrl</Code>:
+        </P>
+        <CodeBlock>{`POST <callbackUrl>
+Content-Type: application/json
+
+{ "status": "succeeded", "note": "Mailbox created", "externalReference": "CHG0012345" }`}</CodeBlock>
+        <UL>
+          <li><Code>externalReference</Code> is optional — a ticket or change number in the other system, kept in the Run log.</li>
+          <li>The callback address works once, until the run finishes. Sending the same result again is harmless (<Code>{`"recorded": false`}</Code>).</li>
+          <li>No result within <Strong>24 hours</Strong> counts as failed.</li>
+          <li>
+            The callback must reach your TestMate over the internet. That’s always true for TestMate
+            in the cloud; on a developer’s laptop it isn’t, so cloud tools can only use way A there.
+          </li>
+        </UL>
+        <DocTable
+          rows={[
+            ["Your flow answers", "TestMate does"],
+            [<><Code>2xx</Code> with <Code>{`"status": "succeeded"`}</Code></>, "Marks the request Fulfilled and tells the requester, with your note."],
+            [<><Code>2xx</Code> with <Code>{`"status": "failed"`}</Code></>, "Flags it Automation failed, tells IT, and adds your note for them."],
+            [<><Code>2xx</Code> with anything else</>, "Waits for the result on the callbackUrl (up to 24 hours)."],
+            [<>No answer in 10 s, <Code>408</Code>, <Code>429</Code> or <Code>5xx</Code></>, "Tries again after 1, 5 and 15 minutes, then fails as above."],
+            [<>Any other <Code>4xx</Code> (e.g. 401, 404)</>, "Fails at once — usually a wrong address or a switched-off flow."],
+          ]}
+        />
+
+        <H3>Checking it really came from TestMate (optional, recommended)</H3>
+        <P>
+          Every call is signed with the connector’s secret. Your flow joins the{" "}
+          <Code>X-TestMate-Timestamp</Code> header, a dot and the <Strong>raw</Strong> body exactly as
+          received, makes an HMAC-SHA256 of that with the secret, and compares it with{" "}
+          <Code>X-TestMate-Signature</Code>. Reject anything that doesn’t match, or whose timestamp is
+          more than 5 minutes old.
+        </P>
+        <CodeBlock>{`// Node.js
+const crypto = require("crypto")
+function fromTestMate(headers, rawBody, secret) {
+  const expected = "sha256=" + crypto
+    .createHmac("sha256", secret)
+    .update(headers["x-testmate-timestamp"] + "." + rawBody)
+    .digest("hex")
+  const given = String(headers["x-testmate-signature"] || "")
+  const fresh = Math.abs(Date.now() / 1000 - Number(headers["x-testmate-timestamp"])) < 300
+  return fresh && given.length === expected.length &&
+    crypto.timingSafeEqual(Buffer.from(given), Buffer.from(expected))
+}`}</CodeBlock>
+        <P>
+          Not every tool can do this (Power Automate has no HMAC function). Where it can’t, the
+          long random code in the flow’s own address is what keeps strangers out — so treat the
+          address like a password.
+        </P>
+
+        <H3>Getting a sample into your tool</H3>
+        <P>
+          Most tools learn the fields from one example call. <Strong>Send a test</Strong> only sends a
+          ping, so send the sample above yourself: save it as <Code>sample.json</Code> (without the
+          header lines) and run
+        </P>
+        <CodeBlock>{`curl -X POST "<your flow's address>" \\
+  -H "Content-Type: application/json" \\
+  -H "X-TestMate-Event: service_request.fulfil" \\
+  --data @sample.json`}</CodeBlock>
+        <P>
+          Or point a test item at the connector and submit a real request — the flow then gets the
+          exact fields of that item’s form.
+        </P>
+
+        <H3>Power Automate (Microsoft 365)</H3>
+        <P>
+          Best when your users and licences are in Microsoft 365 / Entra ID. The HTTP trigger and the
+          HTTP action are <Strong>premium</Strong>, so the flow’s owner needs a Power Automate Premium
+          (or equivalent) licence.
+        </P>
+        <OL>
+          <li>
+            At <Strong>make.powerautomate.com</Strong>, create a cloud flow whose trigger is{" "}
+            <Strong>When an HTTP request is received</Strong>. Set <Strong>Who can trigger the
+            flow</Strong> to <Strong>Anyone</Strong> (TestMate isn’t a Microsoft user — the secret code
+            in the address protects it).
+          </li>
+          <li>
+            In the trigger choose <Strong>Use sample payload to generate schema</Strong> and paste the
+            sample body above, so the fields (reference, answers, requester email…) appear as dynamic content.
+          </li>
+          <li>Save. The trigger now shows the <Strong>HTTP URL</Strong> — copy it.</li>
+          <li>
+            Add a <Strong>Condition</Strong>: <Code>event</Code> is equal to <Code>ping</Code>. In{" "}
+            <Strong>True</Strong>, add a <Strong>Response</Strong> action with status code{" "}
+            <Code>200</Code> and then <Strong>Terminate</Strong> (Succeeded).
+          </li>
+          <li>
+            In <Strong>False</Strong>, do the work with Microsoft’s ready-made actions — for example{" "}
+            <Strong>Office 365 Users → Get user profile (V2)</Strong> with the requester’s email, then{" "}
+            <Strong>Microsoft Entra ID → Add user to group</Strong>. Read an answer with an expression
+            like <Code>{`triggerBody()?['request']?['answers']?['software']`}</Code>.
+          </li>
+          <li>
+            Finish with a <Strong>Response</Strong> action: status <Code>200</Code>, body{" "}
+            <Code>{`{"status":"succeeded","note":"Added to Adobe users"}`}</Code>. Add a second
+            Response with <Code>{`{"status":"failed","note":"…"}`}</Code> and set it to{" "}
+            <Strong>Configure run after → has failed</Strong> on the work step, so a failure is
+            reported instead of left hanging.
+          </li>
+          <li>
+            <Strong>Slow work</Strong> (over a few seconds)? Put a Response with status{" "}
+            <Code>202</Code> right after the ping check instead — the flow keeps running after it —
+            and end with an <Strong>HTTP</Strong> action: <Code>POST</Code> to the{" "}
+            <Code>callbackUrl</Code> with the status JSON.
+          </li>
+        </OL>
+        <Note>
+          <Strong>Azure Logic Apps</Strong> works the same way: trigger <Strong>When a HTTP request is
+          received</Strong>, the <Strong>Response</Strong> action to answer, and the{" "}
+          <Strong>HTTP</Strong> action for the callback. Logic Apps can run an inline JavaScript step,
+          so it can also check the signature.
+        </Note>
+
+        <H3>Zapier</H3>
+        <P>
+          Good for cloud apps (Google Workspace, Slack, Okta, HR systems). <Strong>Webhooks by
+          Zapier</Strong> needs a paid Zapier plan. Zapier always replies on its own the moment it
+          receives a call, so a Zap <Strong>always reports back on the callbackUrl</Strong> (way B).
+          Zapier’s own instant reply says <Code>{`"status": "success"`}</Code>. That is not one of
+          TestMate’s answers, so TestMate ignores it and waits for the callback.
+        </P>
+        <OL>
+          <li>
+            Create a Zap with the trigger <Strong>Webhooks by Zapier → Catch Hook</Strong> (or{" "}
+            <Strong>Catch Raw Hook</Strong> if you want to check the signature — it keeps the headers
+            and raw body). Copy the webhook address it gives you.
+          </li>
+          <li>Send it the sample (above), then <Strong>Test trigger</Strong> so Zapier learns the fields.</li>
+          <li>
+            Add <Strong>Filter by Zapier</Strong>: only continue if <Code>Event</Code> exactly matches{" "}
+            <Code>service_request.fulfil</Code> — that stops test pings.
+          </li>
+          <li>Add the steps that do the work, using the request fields (requester email, answers…).</li>
+          <li>
+            Last step: <Strong>Webhooks by Zapier → POST</Strong>. URL = the <Strong>Callback Url</Strong>{" "}
+            field, Payload type = <Strong>JSON</Strong>, Data: <Code>status</Code> ={" "}
+            <Code>succeeded</Code> and <Code>note</Code> = what was done.
+          </li>
+          <li>Turn the Zap on.</li>
+        </OL>
+        <P>
+          If a step fails, the Zap stops and never calls back; TestMate then marks the run failed
+          after 24 hours. IT can <Strong>Retry</Strong> or <Strong>Handle it manually</Strong> sooner.
+          Where your Zapier plan offers error handling on a step, add a POST to the callback with{" "}
+          <Code>{`"status": "failed"`}</Code> there.
+        </P>
+
+        <H3>n8n</H3>
+        <P>
+          Good if you self-host or want full control — and it can check the signature. A self-hosted
+          n8n must be reachable from the internet over <Code>https://</Code>; TestMate won’t call
+          private-network addresses in production.
+        </P>
+        <OL>
+          <li>
+            Add a <Strong>Webhook</Strong> node: HTTP method <Code>POST</Code>, a path such as{" "}
+            <Code>testmate</Code>, and <Strong>Respond: Using ‘Respond to Webhook’ node</Strong>.
+            Copy the <Strong>Production URL</Strong> (the Test URL only works while the editor is listening).
+          </li>
+          <li>
+            Add an <Strong>If</Strong> node: <Code>{`{{ $json.body.event }}`}</Code> equals{" "}
+            <Code>ping</Code> → a <Strong>Respond to Webhook</Strong> node (response code 200) and stop.
+          </li>
+          <li>
+            Optional signature check: a <Strong>Crypto</Strong> node, action <Strong>Hmac</Strong>, type{" "}
+            <Strong>SHA256</Strong>, encoding hex, your secret, value{" "}
+            <Code>{`{{ $json.headers["x-testmate-timestamp"] }}.{{ JSON.stringify($json.body) }}`}</Code>;
+            then an If node comparing <Code>sha256=</Code> + the result with{" "}
+            <Code>{`{{ $json.headers["x-testmate-signature"] }}`}</Code>. If it never matches, turn on
+            the Webhook node’s <Strong>Raw Body</Strong> option and sign the raw text instead.
+          </li>
+          <li>Do the work (any n8n node, or an <Strong>HTTP Request</Strong> node to a system’s API).</li>
+          <li>
+            End with <Strong>Respond to Webhook</Strong> → JSON{" "}
+            <Code>{`{"status":"succeeded","note":"…"}`}</Code>. For slow work, respond{" "}
+            <Code>202</Code> early instead and finish with an <Strong>HTTP Request</Strong> node that
+            POSTs the result to <Code>{`{{ $('Webhook').item.json.body.callbackUrl }}`}</Code>.
+          </li>
+          <li>Save and <Strong>activate</Strong> the workflow.</li>
+        </OL>
+
+        <H3>Make (formerly Integromat)</H3>
+        <OL>
+          <li>
+            Start the scenario with <Strong>Webhooks → Custom webhook</Strong>, <Strong>Add</Strong> a
+            hook and copy its address. Send it the sample so Make learns the data structure.
+          </li>
+          <li>Add a filter after it so only <Code>event</Code> = <Code>service_request.fulfil</Code> continues.</li>
+          <li>Add the modules that do the work.</li>
+          <li>
+            End with <Strong>Webhooks → Webhook response</Strong>: status <Code>200</Code>, a{" "}
+            <Code>Content-Type: application/json</Code> header, body{" "}
+            <Code>{`{"status":"succeeded","note":"…"}`}</Code>. Without a Webhook response, Make replies
+            “Accepted” on its own — then report back with an <Strong>HTTP → Make a request</Strong>{" "}
+            POST to the <Code>callbackUrl</Code> instead.
+          </li>
+          <li>Turn the scenario on, scheduled to run <Strong>immediately</Strong> as data arrives.</li>
+        </OL>
+
+        <H3>Your own code</H3>
+        <P>Any web service that can receive a POST works — an Azure Function, an AWS Lambda, a small server:</P>
+        <CodeBlock>{`// Express (Node.js) — fromTestMate() is the function above
+app.post("/testmate", express.raw({ type: "application/json" }), async (req, res) => {
+  const raw = req.body.toString("utf8")
+  if (!fromTestMate(req.headers, raw, process.env.TESTMATE_SECRET)) return res.sendStatus(401)
+  const { event, deliveryId, request } = JSON.parse(raw)
+  if (event === "ping") return res.sendStatus(200)
+
+  if (await alreadyDone(deliveryId)) return res.json({ status: "succeeded", note: "Already done" })
+  try {
+    const person = request.requestedFor ?? request.requester
+    await addToGroup(person.email, request.answers.software)
+    await remember(deliveryId)
+    res.json({ status: "succeeded", note: \`\${request.answers.software} assigned\` })
+  } catch (e) {
+    res.json({ status: "failed", note: e.message })
+  }
+})`}</CodeBlock>
+
+        <H3>Any other tool</H3>
+        <P>
+          Pipedream, Workato, Tray, Logic Apps and most other automation tools work too. Check that
+          the tool can do all four of these:
+        </P>
+        <OL>
+          <li>Start a flow when it receives a <Code>POST</Code> with a JSON body, at a public <Code>https://</Code> address.</li>
+          <li>Read fields from that body (<Code>event</Code>, <Code>request.requester.email</Code>, <Code>request.answers.…</Code>).</li>
+          <li>
+            Either reply with your own JSON (way A), or make an HTTP <Code>POST</Code> with a JSON
+            body to the <Code>callbackUrl</Code> at the end (way B).
+          </li>
+          <li>Ignore <Code>ping</Code> events, or answer them with <Code>200</Code> and stop.</li>
+        </OL>
+        <P>
+          Reading the headers and raw body to check the signature is a bonus. If the tool can’t, keep
+          its address secret.
+        </P>
+
+        <H3>Common jobs, and where to find them</H3>
+        <P>
+          Do the work for <Code>request.requestedFor</Code> if it’s set, and for{" "}
+          <Code>request.requester</Code> if not. Pick what to give from the form’s answers (for
+          example <Code>answers.software</Code>).
+        </P>
+        <DocTable
+          rows={[
+            ["Job", "Power Automate (Microsoft 365)", "Zapier, n8n, Make, others"],
+            [
+              "Assign a software licence",
+              <>Add the person to the group that carries the licence (group-based licensing): <Strong>Microsoft Entra ID → Add user to group</Strong></>,
+              "The software’s own app or action. Otherwise an HTTP request to its admin API (Adobe Admin Console, Google Workspace Admin SDK…)",
+            ],
+            [
+              "Give access to a team, share or app",
+              <><Strong>Microsoft Entra ID → Add user to group</Strong>, then look up the group from the answer with a Switch or a lookup list</>,
+              "The directory’s group action (Google Workspace, Okta, JumpCloud…)",
+            ],
+            [
+              "Create an account for a new starter",
+              <><Strong>Microsoft Entra ID → Create user</Strong>. With <Code>requestedFor.newStarter: true</Code>, the email is the one typed on the form</>,
+              "The directory’s create-user action. Report the new sign-in name in the note",
+            ],
+            [
+              "Tell a team",
+              <><Strong>Microsoft Teams → Post message in a chat or channel</Strong></>,
+              "Slack, Teams or email action",
+            ],
+            [
+              "Raise a ticket in another system",
+              <><Strong>HTTP</Strong> action to that system’s API (Jira, ServiceNow…)</>,
+              <>Its app or an HTTP request. Send the ticket number back as <Code>externalReference</Code></>,
+            ],
+          ]}
+        />
+        <P>
+          A job that needs a person part-way (ordering hardware, an approval in another system) is
+          usually better left to IT. If a flow does wait for one, use way B; the callback stays
+          open for 24 hours.
+        </P>
+
+        <H3>Connecting it in TestMate</H3>
+        <OL>
+          <li><Strong>Catalog setup → Automation → Connectors → New connector</Strong>: a name (“Adobe licences — Power Automate”) and the flow’s address.</li>
+          <li>Copy the <Strong>signing secret</Strong> into your flow (if it checks signatures). It’s shown only once — <Strong>Replace secret</Strong> makes a new one and the old one stops working at once.</li>
+          <li><Strong>Send a test</Strong>. You should see “It answered 200 in … ms”.</li>
+          <li>Open the catalog item → <Strong>How it’s fulfilled → Automatically, by a connector</Strong> → pick the connector → Save.</li>
+          <li>Submit a real test request for that item and approve it. Watch the request’s <Strong>Automation</Strong> card and the <Strong>Run log</Strong>.</li>
+        </OL>
+        <P>
+          Switching a connector <Strong>off</Strong> pauses it: new requests for its items are flagged
+          for IT to do by hand. A connector used by an item can’t be deleted — move the item to another
+          way of fulfilment first.
+        </P>
+
+        <H3>Trying it without a real tool</H3>
+        <P>
+          Developers can run a pretend connector that prints what it receives and answers however you
+          tell it to. In the <Code>server</Code> folder:
+        </P>
+        <CodeBlock>{`node scripts/fakeConnector.js            # listens on http://localhost:4010/hook
+
+# PowerShell: set how it answers, then start it
+$env:SECRET="<signing secret>"; $env:MODE="fail"; node scripts/fakeConnector.js`}</CodeBlock>
+        <DocTable
+          rows={[
+            ["MODE", "It answers", "You should see"],
+            ["succeed", `200 {"status":"succeeded"}`, "Fulfilled within seconds"],
+            ["fail", `200 {"status":"failed"}`, "Automation failed; IT is told"],
+            ["accept", "202, then calls back after DELAY ms (set RESULT=failed to make it fail)", "Waiting for result, then Fulfilled"],
+            ["error", "503", "Retrying after 1, 5 and 15 minutes"],
+            ["slow", "Nothing within 10 s", "Retrying"],
+          ]}
+        />
+
+        <H3>When it doesn’t work</H3>
+        <DocTable
+          rows={[
+            ["What you see", "Likely cause", "What to do"],
+            ["Send a test: 401 or 403", "The flow only accepts signed-in callers", "Power Automate: set Who can trigger the flow to Anyone."],
+            ["Send a test: 404", "Wrong address, the flow is off, or n8n’s Test URL was used", "Copy the address again; switch the flow on; use n8n’s Production URL."],
+            ["Retrying, “didn’t answer within 10 seconds”", "The flow does the work before replying", "Reply 202 first and report back on the callbackUrl."],
+            ["Waiting for result that never ends", "The flow replied but never called back (or failed before it)", "Add the callback step and a failure branch; or Handle it manually."],
+            ["“The address must start with https://”", "A plain http address", "Use the tool’s https address."],
+            ["“That address is on a private network”", "A self-hosted tool inside your network", "Publish it on a public https address (e.g. through a reverse proxy)."],
+            ["Your flow rejects every call as unsigned", "Old secret, or the body was re-formatted before signing", "Replace secret and update the flow; sign the raw body exactly as received."],
+            ["Requests aren’t sent to the connector at all", "The item isn’t set to use it, the connector is off, or the request is flagged for review", "Check the item’s How it’s fulfilled, switch the connector on, clear the review flag."],
+          ]}
+        />
       </div>
     ),
   },
@@ -2741,6 +3263,7 @@ export const DOC_GROUPS: DocGroup[] = [
     "it-requests-setup",
     "it-requests-items",
     "it-requests-automation",
+    "it-requests-connectors",
     "it-requests-reports",
   ]),
   group("Administration", ["team", "activity"]),

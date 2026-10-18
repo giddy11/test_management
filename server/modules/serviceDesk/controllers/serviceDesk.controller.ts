@@ -40,6 +40,9 @@ export const ServiceDeskController = {
   // Settings
   getSettings: handle("IT requests settings", (req) => desk().getSettings(req.user)),
   updateSettings: handle("IT requests settings updated", (req) => desk().updateSettings(req.user, req.validated.body.enabled)),
+  updateApprovalRules: handle("Approval rules updated", (req) =>
+    desk().updateApprovalRules(req.user, req.validated.body)
+  ),
   updateServiceLevels: handle("Service levels updated", (req) => desk().updateServiceLevels(req.user, req.validated.body)),
 
   // Approver groups, policies, line managers, delegation
@@ -115,6 +118,9 @@ export const ServiceDeskController = {
   // Requests
   counts: handle("IT request counts", (req) => requests().counts(req.user)),
   list: handle("IT requests", (req) => requests().list(req.user, req.validated.query)),
+  checkSubmission: handle("Submission check", (req) =>
+    requests().checkSubmission(req.user, req.validated.query.itemId, req.validated.query.requestedForId ?? null)
+  ),
   approvals: handle("Your approvals", (req) => requests().approvals(req.user, req.validated.query)),
   detail: handle("IT request", (req) => requests().detail(req.user, req.validated.params.id)),
   create: handle("IT request saved", (req) => requests().create(req.user, req.validated.body), 201),
@@ -128,8 +134,14 @@ export const ServiceDeskController = {
   fulfil: handle("IT request fulfilled", (req) => requests().fulfil(req.user, req.validated.params.id, req.validated.body.note)),
   comment: handle(
     "Comment added",
-    (req) => requests().comment(req.user, req.validated.params.id, req.validated.body.body, req.validated.body.internal),
+    (req) => requests().comment(req.user, req.validated.params.id, { ...req.validated.body, files: req.files }),
     201
+  ),
+  editComment: handle("Comment updated", (req) =>
+    requests().editComment(req.user, req.validated.params.id, req.validated.params.commentId, req.validated.body)
+  ),
+  deleteComment: handle("Comment deleted", (req) =>
+    requests().deleteComment(req.user, req.validated.params.id, req.validated.params.commentId)
   ),
   askForInfo: handle("Question sent", (req) => requests().askForInfo(req.user, req.validated.params.id, req.validated.body.question)),
   provideInfo: handle("Answer sent", (req) => requests().provideInfo(req.user, req.validated.params.id, req.validated.body.answer)),

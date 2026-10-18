@@ -1,6 +1,7 @@
 // components/serviceDesk/AiIntakeBox.tsx — "Describe what you need" on the
 // request portal. The AI suggests the catalog item and fills its form from the
-// person's words; they land on the normal form to check everything and submit.
+// person's words, tidying their spelling and grammar as it goes; they land on
+// the normal form to check everything and submit.
 // Nothing is saved by the AI. Shown only to people with AI assistance (ai.use).
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
@@ -25,7 +26,7 @@ export function AiIntakeBox() {
       title: s.title,
       formValues: s.formValues,
       priority: s.priority,
-      description: text.trim(),
+      description: s.description || text.trim(),
       fromAi: true,
     }
     navigate(`/requests/new/${s.itemId}`, { state: { prefill } })
@@ -65,6 +66,12 @@ export function AiIntakeBox() {
                 <p className="text-xs text-muted-foreground">{suggestion.item.categoryName}</p>
                 <p className="font-medium">{suggestion.item.name}</p>
                 {suggestion.reason && <p className="text-muted-foreground">{suggestion.reason}</p>}
+                {suggestion.description && suggestion.description !== text.trim() && (
+                  <div className="mt-2">
+                    <p className="text-xs font-medium">Your request, in clear wording</p>
+                    <p className="whitespace-pre-wrap text-xs text-muted-foreground" data-cy="ai-intake-tidied">{suggestion.description}</p>
+                  </div>
+                )}
                 {suggestion.missingInfo.length > 0 && (
                   <div className="mt-2">
                     <p className="text-xs font-medium">You'll also need to say</p>

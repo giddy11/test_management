@@ -13,6 +13,12 @@ export interface ServiceDeskSettings {
   approvalHours: number;
   fulfilmentHours: Record<RequestPriority, number>;
   escalation: EscalationRules;
+  // Keep IT agents (queue workers without "set up IT requests") out of approvals.
+  // On by default, including for an organisation with no settings row yet.
+  agentsCannotApprove: boolean;
+  // A request that needs a line manager can't be submitted by someone with none.
+  // On by default; off sends that step to an administrator as stand-in.
+  requireLineManager: boolean;
   // The starter catalog has been created once; never seed it again.
   catalogSeeded: boolean;
   updatedById: string | null;
@@ -36,6 +42,8 @@ const ServiceDeskSettings = new EntitySchema<ServiceDeskSettings>({
       type: "jsonb",
       default: () => `'{"level2Pct":50,"level3Pct":100,"contactIds":[]}'::jsonb`,
     },
+    agentsCannotApprove: { name: "agents_cannot_approve", type: "boolean", default: true },
+    requireLineManager: { name: "require_line_manager", type: "boolean", default: true },
     catalogSeeded: { name: "catalog_seeded", type: "boolean", default: false },
     updatedById: { name: "updated_by_id", type: "uuid", nullable: true },
     updatedAt: { name: "updated_at", type: "timestamptz", updateDate: true },

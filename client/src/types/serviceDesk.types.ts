@@ -81,6 +81,8 @@ export interface Person {
   id: string
   name: string
   email: string
+  // Approver lists only: an IT agent the organisation keeps out of approvals.
+  blocked?: boolean
 }
 
 export interface CatalogCategory {
@@ -150,7 +152,14 @@ export interface ServiceLevels {
 export interface ServiceDeskSettings {
   enabled: boolean
   serviceLevels: ServiceLevels
+  // IT agents (queue workers without "set up IT requests") can't approve.
+  agentsCannotApprove: boolean
+  // A request that needs a line manager can't be submitted by someone with none.
+  requireLineManager: boolean
 }
+
+// The approval switches; whichever is left out stays as it is.
+export type ApprovalRulesPatch = Partial<Pick<ServiceDeskSettings, "agentsCannotApprove" | "requireLineManager">>
 
 // ── Approval setup ───────────────────────────────────────────────────────────
 export type ApproverRule =
@@ -158,7 +167,9 @@ export type ApproverRule =
   | { type: "group"; groupId: string }
   | { type: "user"; userId: string }
 
-export type StepMode = "any" | "all"
+// any: one approval completes the step. all: every line must approve, asked at once.
+// order: every line must approve, asked one at a time in the order listed.
+export type StepMode = "any" | "all" | "order"
 
 export interface PolicyStep {
   name: string
@@ -330,9 +341,39 @@ export interface RequestComment {
   id: string
   authorId: string | null
   authorName: string | null
-  body: string
+  body: string // empty once deleted
   isInternal: boolean
+  // The root message this replies to; null for a root. Threads are one level deep.
+  parentId: string | null
+  mentions: { id: string; name: string }[]
+  attachments: RequestAttachment[]
+  editedAt: string | null
+  // A deleted message stays in the thread as a tombstone, so its replies keep their place.
+  deletedAt: string | null
   createdAt: string
+}
+
+// Whether an item can be submitted by this person (for this colleague) right now.
+// message says why not, in words they can act on (e.g. no line manager is set).
+export interface SubmissionCheck {
+  ok: boolean
+  message: string | null
+}
+
+// What the composer sends: words and/or files, optionally a reply, optionally @mentions.
+export interface MessagePayload {
+  body: string
+  internal: boolean
+  parentId?: string | null
+  mentionIds: string[]
+  files?: File[]
+}
+
+// Someone who can be @mentioned on this request. isAgent: an IT-only note can only name IT.
+export interface RequestMentionable {
+  id: string
+  name: string
+  isAgent: boolean
 }
 
 export interface RequestViewer {
@@ -341,7 +382,6 @@ export interface RequestViewer {
   isAgent: boolean
   canEdit: boolean
   canDecide: boolean
-  canAskInfo: boolean
   canProvideInfo: boolean
   canAttach: boolean
   myUserId: string
@@ -358,6 +398,7 @@ export interface RequestViewer {
   canFulfil: boolean
   canComment: boolean
   canAddInternalNote: boolean
+  canModerateComments: boolean // delete anyone's message, not just their own
 }
 
 export interface RequestDetail {
@@ -365,6 +406,7 @@ export interface RequestDetail {
   approvals: RequestApproval[]
   history: RequestHistoryEntry[]
   comments: RequestComment[]
+  mentionable: RequestMentionable[]
   attachments: RequestAttachment[]
   fulfilmentNotes: string | null
   automationRuns: RequestAutomationRun[] // IT only
@@ -472,6 +514,8 @@ export interface IntakeSuggestion {
   itemId: string | null
   item: { id: string; name: string; categoryName: string } | null
   title: string
+  // What the person wrote, with spelling and grammar tidied (their own words if that wasn't possible).
+  description: string
   formValues: FormValues
   priority: RequestPriority
   missingInfo: string[]

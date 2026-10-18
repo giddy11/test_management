@@ -325,15 +325,22 @@ export function ItemEditorDialog({
                 <div className="max-h-40 overflow-y-auto rounded-md border p-2">
                   {shownCandidates.length === 0 && <p className="text-xs text-muted-foreground">No one matches.</p>}
                   {shownCandidates.map((c) => (
-                    <label key={c.id} className="flex items-center gap-2 py-1 text-sm">
+                    <label key={c.id} className="flex flex-wrap items-center gap-2 py-1 text-sm">
                       <Checkbox
                         checked={approverIds.includes(c.id)}
+                        // An IT agent can't be newly picked, only removed.
+                        disabled={c.blocked && !approverIds.includes(c.id)}
                         onCheckedChange={(v) =>
                           setApproverIds((prev) => (v === true ? [...prev, c.id] : prev.filter((x) => x !== c.id)))
                         }
                       />
                       <span>{c.name}</span>
                       <span className="text-xs text-muted-foreground">{c.email}</span>
+                      {c.blocked && (
+                        <span className="text-xs text-amber-700 dark:text-amber-400">
+                          IT agent — kept out of approvals{approverIds.includes(c.id) ? ", untick to remove" : ""}
+                        </span>
+                      )}
                     </label>
                   ))}
                 </div>

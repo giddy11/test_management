@@ -9,6 +9,7 @@ import { APPROVAL_MODES, REQUEST_PRIORITIES, REQUEST_STATUSES, RISK_LEVELS } fro
 import { policyStepsSchema } from "../domain/approvalPlan";
 import { serviceLevelsSchema } from "../domain/serviceLevels";
 import { FULFILMENT_TYPES, callbackBodySchema } from "../domain/fulfilment";
+import { editMessageSchema, postMessageSchema } from "../domain/conversation";
 import { ruleActionsSchema, ruleConditionsSchema } from "../domain/automationRules";
 
 // An item's own service level, in hours; null = the organisation's default.
@@ -24,6 +25,13 @@ const limit = z.coerce.number().int().min(1).max(100).default(20);
 // ── Settings ─────────────────────────────────────────────────────────────────
 export const updateSettingsSchema = z.object({
   body: z.object({ enabled: z.boolean() }),
+});
+
+// Either switch, or both; whichever is left out stays as it is.
+export const updateApprovalRulesSchema = z.object({
+  body: z
+    .object({ agentsCannotApprove: z.boolean().optional(), requireLineManager: z.boolean().optional() })
+    .refine((b) => b.agentsCannotApprove !== undefined || b.requireLineManager !== undefined, { message: "Nothing to change" }),
 });
 
 // ── Catalog ──────────────────────────────────────────────────────────────────
@@ -187,6 +195,11 @@ export const listRequestsSchema = z.object({
   }),
 });
 
+// Can this item be submitted by me (for this colleague) right now?
+export const checkSubmissionSchema = z.object({
+  query: z.object({ itemId: id, requestedForId: id.optional() }),
+});
+
 export const listApprovalsSchema = z.object({
   query: z.object({
     state: z.enum(["pending", "decided"]).default("pending"),
@@ -222,13 +235,22 @@ export const fulfilSchema = z.object({
   body: z.object({ note: z.string().trim().min(1, "Say what was done").max(5000) }),
 });
 
+// A message: JSON, or multipart form data when it carries files (so its fields
+// arrive as strings — see domain/conversation.ts). It needs words or a file; the
+// service checks that, because the files aren't part of the body.
 export const commentSchema = z.object({
   params: idParams,
-  body: z.object({
-    body: z.string().trim().min(1).max(5000),
-    internal: z.boolean().default(false),
-  }),
+  body: postMessageSchema,
 });
+
+const commentParams = z.object({ id, commentId: id });
+
+export const editCommentSchema = z.object({
+  params: commentParams,
+  body: editMessageSchema,
+});
+
+export const commentIdSchema = z.object({ params: commentParams });
 
 // ── Information requests ─────────────────────────────────────────────────────
 export const askInfoSchema = z.object({
