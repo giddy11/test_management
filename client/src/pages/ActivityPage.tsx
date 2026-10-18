@@ -62,6 +62,7 @@ import {
   type AuditSeverity,
 } from "@/lib/enums"
 import type { ActivityFilters, ActivityLog } from "@/types/activity.types"
+import { providerLabel, type AiProviderId } from "@/types/ai.types"
 
 const ICONS: Record<string, LucideIcon> = {
   project: FolderKanban,
@@ -128,6 +129,49 @@ function RoleChips({ label, roles }: { label: string; roles: string[] }) {
         ))
       ) : (
         <span className="text-xs italic text-muted-foreground">No role</span>
+      )}
+    </div>
+  )
+}
+
+interface ModelRef {
+  provider: AiProviderId
+  model: string
+  pinned: boolean
+}
+
+const modelRefOf = (provider: unknown, model: unknown, pinned: unknown = true): ModelRef | null =>
+  typeof provider === "string" && typeof model === "string"
+    ? { provider: provider as AiProviderId, model, pinned: pinned !== false }
+    : null
+
+// Pinning a feature to a model carries the model it was set to and what it ran on
+// before. Entries written before `previous` was recorded have only the new model.
+function modelChangeOf(a: ActivityLog): { before: ModelRef | null; beforeRecorded: boolean; after: ModelRef | null } | null {
+  if (a.action !== "ai_key.feature_model_set") return null
+  const m = a.metadata ?? {}
+  const previous = m.previous && typeof m.previous === "object" ? (m.previous as Record<string, unknown>) : null
+  return {
+    before: previous ? modelRefOf(previous.provider, previous.model, previous.pinned) : null,
+    beforeRecorded: "previous" in m,
+    after: modelRefOf(m.provider, m.model),
+  }
+}
+
+function ModelLine({ label, value, empty }: { label: string; value: ModelRef | null; empty: string }) {
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      <span className="w-14 shrink-0 text-xs text-muted-foreground">{label}</span>
+      {value ? (
+        <>
+          <Badge variant="outline" className="font-normal">{value.model}</Badge>
+          <span className="text-xs text-muted-foreground">
+            {providerLabel(value.provider)}
+            {!value.pinned && " · active key's model"}
+          </span>
+        </>
+      ) : (
+        <span className="text-xs italic text-muted-foreground">{empty}</span>
       )}
     </div>
   )
@@ -350,6 +394,7 @@ export default function ActivityPage() {
                     .filter(Boolean)
                     .join(" · ")
                   const roleChange = roleChangeOf(a)
+                  const modelChange = modelChangeOf(a)
                   // Newer entries name the member in their summary; for older ones, fall
                   // back to today's team list.
                   const memberName =
@@ -386,6 +431,16 @@ export default function ActivityPage() {
                                 )}
                                 <RoleChips label="Before" roles={roleChange.before} />
                                 <RoleChips label="Now" roles={roleChange.after} />
+                              </div>
+                            )}
+                            {modelChange && (
+                              <div className="mt-2 space-y-1" data-cy="model-change">
+                                <ModelLine
+                                  label="Before"
+                                  value={modelChange.before}
+                                  empty={modelChange.beforeRecorded ? "No active AI key" : "Not recorded"}
+                                />
+                                <ModelLine label="Now" value={modelChange.after} empty="Back to the active key's model" />
                               </div>
                             )}
                           </div>

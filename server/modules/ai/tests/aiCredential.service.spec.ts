@@ -187,6 +187,27 @@ describe("AiCredentialService — permissions and feature pins", () => {
     const { service } = setup();
     await expect(service.setFeatureModel(admin, "org", "feature_request_draft", { provider: "gemini", model: "gemini-2.5-pro" })).rejects.toMatchObject({ statusCode: 422 });
   });
+
+  it("records the model a feature ran on before, and the one it was set to", async () => {
+    const { service, repo, activity } = setup();
+    await storeKey(repo, ORG, "anthropic", "sk-org-key-1111", { isActive: true, model: "claude-opus-5-5" });
+    await storeKey(repo, ORG, "gemini", "gm-org-key-3333");
+
+    // First pin: it was running on the active key's model.
+    await service.setFeatureModel(admin, "org", "service_request_intake", { provider: "gemini", model: "gemini-2.5-pro" });
+    // Second pin: it was running on the first pin.
+    await service.setFeatureModel(admin, "org", "service_request_intake", { provider: "gemini", model: "gemini-2.5-flash" });
+
+    const [first, second] = activity.buildEntry.mock.calls.map(([, entry]: any[]) => entry.metadata);
+    expect(first).toMatchObject({
+      model: "gemini-2.5-pro",
+      previous: { provider: "anthropic", model: "claude-opus-5-5", pinned: false },
+    });
+    expect(second).toMatchObject({
+      model: "gemini-2.5-flash",
+      previous: { provider: "gemini", model: "gemini-2.5-pro", pinned: true },
+    });
+  });
 });
 
 describe("AiCredentialService.resolveFor", () => {

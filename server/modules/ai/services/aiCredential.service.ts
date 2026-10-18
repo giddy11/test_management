@@ -265,6 +265,8 @@ export class AiCredentialService {
       const message = `Save a ${AI_PROVIDER_LABELS[target.provider]} key first.`;
       throw new AppError(message, 422, [{ field: "provider", message }]);
     }
+    // What the feature ran on until now, so the log can show before → after.
+    const previous = this.modelFor(await this.repo.listFor(owner), feature);
     await this.repo.setFeatureModel(
       owner,
       feature,
@@ -275,9 +277,17 @@ export class AiCredentialService {
         "ai_key.feature_model_set",
         target ? `Set the AI model for ${feature}` : `Reset the AI model for ${feature}`,
         null,
-        { feature, provider: target?.provider ?? null, model: target?.model ?? null }
+        { feature, provider: target?.provider ?? null, model: target?.model ?? null, previous }
       )
     );
+  }
+
+  // The model a feature runs on for one owner: its pin, else the active key's.
+  private modelFor(rows: AiCredential[], feature: AiFeature): { provider: AiProviderId; model: string; pinned: boolean } | null {
+    const pinned = rows.find((r) => r.featureModels?.[feature]);
+    if (pinned) return { provider: pinned.provider, model: pinned.featureModels[feature], pinned: true };
+    const active = rows.find((r) => r.isActive);
+    return active ? { provider: active.provider, model: active.model, pinned: false } : null;
   }
 
   // ── Resolution ──────────────────────────────────────────────────────────────
