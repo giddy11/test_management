@@ -102,16 +102,6 @@ export interface PortalItem {
   description: string | null
   formSchema: FormField[]
   needsApproval: boolean
-  // Set when the item is handled by a self-service link (deflect).
-  selfService: { url: string; label: string } | null
-}
-
-export type FulfilmentType = "manual" | "webhook" | "deflect"
-
-export interface FulfilmentConfig {
-  endpointId?: string | null
-  url?: string | null
-  label?: string | null
 }
 
 export interface AdminItem extends PortalItem {
@@ -122,10 +112,6 @@ export interface AdminItem extends PortalItem {
   riskLevel: RiskLevel
   approvalHours: number | null
   fulfilmentHours: number | null
-  fulfilmentType: FulfilmentType
-  fulfilmentConfig: FulfilmentConfig
-  autoApprove: boolean
-  isPrivileged: boolean
   requiresIdentityCheck: boolean
   fulfilmentNotes: string | null
   isActive: boolean
@@ -233,10 +219,6 @@ export interface ItemPayload {
   riskLevel?: RiskLevel
   approvalHours?: number | null
   fulfilmentHours?: number | null
-  fulfilmentType?: FulfilmentType
-  fulfilmentConfig?: FulfilmentConfig
-  autoApprove?: boolean
-  isPrivileged?: boolean
   requiresIdentityCheck?: boolean
 }
 
@@ -252,15 +234,8 @@ export interface ServiceRequest {
     formSchema: FormField[]
     needsApproval: boolean
     approvalPolicyName: string | null
-    fulfilmentType: FulfilmentType
     requiresIdentityCheck: boolean
   }
-  // Phase 3
-  needsReview: boolean
-  reviewReason: string | null // IT only
-  autoApproved: boolean
-  automationStatus: "running" | "succeeded" | "failed" | "manual" | null
-  fulfilledBy: "person" | "automation" | "self_service" | null
   identityVerifiedAt: string | null
   requester: { id: string; name: string; email: string }
   requestedFor: { id: string | null; name: string; email: string | null } | null
@@ -387,9 +362,6 @@ export interface RequestViewer {
   myUserId: string
   needsIdentityCheck: boolean
   canRecordIdentity: boolean
-  canClearReview: boolean
-  canRunAutomation: boolean
-  canTakeOver: boolean
   canAiTriage: boolean
   canCancel: boolean
   cancelNeedsReason: boolean
@@ -409,38 +381,12 @@ export interface RequestDetail {
   mentionable: RequestMentionable[]
   attachments: RequestAttachment[]
   fulfilmentNotes: string | null
-  automationRuns: RequestAutomationRun[] // IT only
   identityCheck: { verifiedAt: string; verifiedByName: string | null; method: string | null; note: string | null } | null
   aiTriage: AiTriage | null // approvers and IT
   viewer: RequestViewer
 }
 
-// ── Automation (Phase 3) ─────────────────────────────────────────────────────
-export type RunKind = "rule" | "auto_approve" | "webhook" | "deflect" | "ai_triage"
-export type RunStatus = "succeeded" | "failed" | "skipped" | "pending" | "retrying"
-
-export interface RequestAutomationRun {
-  id: string
-  kind: RunKind
-  status: RunStatus
-  ruleName: string | null
-  endpointName: string | null
-  attempt: number
-  nextAttemptAt: string | null
-  reason: string | null
-  note: string | null
-  error: string | null
-  initiatedByName: string | null
-  startedAt: string
-  finishedAt: string | null
-}
-
-export interface AutomationRunRow extends RequestAutomationRun {
-  requestId: string
-  requestNumber: number
-  requestTitle: string
-}
-
+// ── AI ───────────────────────────────────────────────────────────────────────
 export interface AiTriage {
   summary: string
   riskNotes: string[]
@@ -452,62 +398,6 @@ export interface AiTriage {
   generatedById: string
   generatedByName: string
   model: string
-}
-
-export interface RuleConditions {
-  categoryKeys: string[]
-  itemIds: string[]
-  priorities: RequestPriority[]
-  riskLevels: RiskLevel[]
-  forNewStarter: boolean | null
-  answers: { key: string; value: string | number | boolean }[]
-  textContains: string
-}
-
-export interface RuleActions {
-  setPriority: RequestPriority | null
-  assignToId: string | null
-  flagForReview: string
-  internalNote: string
-  autoApprove: boolean
-}
-
-export interface AutomationRule {
-  id: string
-  name: string
-  description: string | null
-  sortOrder: number
-  isActive: boolean
-  conditions: RuleConditions
-  actions: RuleActions
-  updatedAt: string
-}
-
-export interface RulePayload {
-  name?: string
-  description?: string | null
-  sortOrder?: number
-  isActive?: boolean
-  conditions?: RuleConditions
-  actions?: RuleActions
-}
-
-export interface DryRunResult {
-  checked: number
-  matched: number
-  matches: { id: string; reference: string; title: string; item: string; wouldAutoApprove: boolean | null; autoApproveRefusal: string | null }[]
-}
-
-export interface WebhookEndpoint {
-  id: string
-  name: string
-  urlDisplay: string
-  isActive: boolean
-  lastSuccessAt: string | null
-  lastFailureAt: string | null
-  lastFailure: string | null
-  itemCount: number
-  createdAt: string
 }
 
 export interface IntakeSuggestion {
@@ -545,7 +435,7 @@ export interface RequestPayload {
   requestedForEmail?: string | null
 }
 
-export type QueueView = "ready" | "open" | "closed" | "overdue" | "review"
+export type QueueView = "ready" | "open" | "closed" | "overdue"
 
 export interface ListRequestsParams {
   scope: "mine" | "queue"
@@ -566,7 +456,6 @@ export interface ServiceDeskCounts {
     awaitingApproval: number
     waitingOnRequester: number
     overdue: number
-    needsReview: number
   } | null
 }
 
@@ -615,20 +504,4 @@ export interface ServiceDeskReport {
     assigneeName: string | null
   }[]
   serviceLevels: ServiceLevels
-  automation: {
-    rulesApplied: number
-    autoApproved: number
-    autoApprovalRefused: number
-    webhookSucceeded: number
-    webhookFailed: number
-    webhookInFlight: number
-    selfService: number
-    aiTriage: number
-    needsReview: number
-    automationFailed: number
-    fulfilledByAutomation: number
-    fulfilledBySelfService: number
-    fulfilledByPerson: number
-    webhookSuccessRate: number | null
-  }
 }

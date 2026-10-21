@@ -46,8 +46,7 @@ export const APPROVAL_DECISIONS = ["waiting", "pending", "approved", "rejected",
 export type ApprovalDecision = (typeof APPROVAL_DECISIONS)[number];
 
 const TRANSITIONS: Record<RequestStatus, readonly RequestStatus[]> = {
-  // draft → approved only by automatic approval (domain/automationRules.ts).
-  draft: ["submitted", "pending_approval", "approved", "cancelled"],
+  draft: ["submitted", "pending_approval", "cancelled"],
   submitted: ["in_progress", "info_requested", "cancelled"],
   pending_approval: ["approved", "rejected", "info_requested", "cancelled"],
   approved: ["in_progress", "info_requested", "cancelled"],

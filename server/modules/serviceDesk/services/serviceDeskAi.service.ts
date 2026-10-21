@@ -5,7 +5,6 @@
 // and what is kept. See domain/serviceDeskAi.ts for the prompts.
 import { AiService } from "../../ai/services/ai.service";
 import { ServiceRequestRepository } from "../repositories/serviceRequest.repository";
-import { AutomationRepository } from "../repositories/automation.repository";
 import { ServiceDeskService, PERMS, type DeskActor } from "./serviceDesk.service";
 import {
   INTAKE_SYSTEM_PROMPT,
@@ -34,7 +33,6 @@ export class ServiceDeskAiService {
   constructor(
     private readonly ai = AiService.Instance,
     private readonly requests = ServiceRequestRepository.Instance,
-    private readonly automationRepo = AutomationRepository.Instance,
     private readonly desk = ServiceDeskService.Instance,
     private readonly activity = ActivityService.Instance
   ) {}
@@ -121,18 +119,6 @@ export class ServiceDeskAiService {
     };
     await this.requests.run(async (m) => {
       await this.requests.update(m, id, { aiTriage: triage });
-      await this.automationRepo.addRun(
-        {
-          organizationId,
-          requestId: id,
-          kind: "ai_triage",
-          status: "succeeded",
-          detail: { suggestion: triage.suggestion, model: triage.model, provider: result.provider },
-          initiatedById: actor.id,
-          finishedAt: new Date(),
-        },
-        m
-      );
       await this.requests.addAudit(
         m,
         this.activity.buildEntry(actor, {

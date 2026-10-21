@@ -13,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { DynamicFormFields } from "@/components/serviceDesk/DynamicFormFields"
-import { useApprovalPolicies, useApproverCandidates, useCreateItem, useUpdateItem, useWebhookEndpoints } from "@/hooks/useServiceDesk"
+import { useApprovalPolicies, useApproverCandidates, useCreateItem, useUpdateItem } from "@/hooks/useServiceDesk"
 import { ApiError } from "@/transport/http"
 import {
   FIELD_TYPES,
@@ -23,7 +23,6 @@ import {
   RISK_LEVELS,
   RISK_META,
   type RiskLevel,
-  type FulfilmentType,
   type ApprovalMode,
   type FieldType,
   type FormField,
@@ -33,8 +32,8 @@ import {
 
 // A field while it's being edited: options as one-per-line text. The answer
 // key is never typed: a new question's key follows its label (kept unique),
-// and once the item has been saved it's locked — rules and connectors refer
-// to answers by key, so renaming one would quietly break them.
+// and once the item has been saved it's locked — answers already given are
+// stored under it, so renaming one would orphan them.
 interface DraftField {
   uid: string
   key: string
@@ -146,13 +145,6 @@ export function ItemEditorDialog({
   const [approvalHours, setApprovalHours] = useState("")
   const [fulfilmentHours, setFulfilmentHours] = useState("")
   const { data: policies = [] } = useApprovalPolicies(open)
-  const { data: endpoints = [] } = useWebhookEndpoints(open)
-  const [fulfilmentType, setFulfilmentType] = useState<FulfilmentType>("manual")
-  const [endpointId, setEndpointId] = useState("")
-  const [selfServiceUrl, setSelfServiceUrl] = useState("")
-  const [selfServiceLabel, setSelfServiceLabel] = useState("")
-  const [autoApprove, setAutoApprove] = useState(false)
-  const [isPrivileged, setIsPrivileged] = useState(false)
   const [requiresIdentityCheck, setRequiresIdentityCheck] = useState(false)
   const [fields, setFields] = useState<DraftField[]>([])
   const [preview, setPreview] = useState(false)
@@ -172,12 +164,6 @@ export function ItemEditorDialog({
     setRiskLevel(item?.riskLevel ?? "low")
     setApprovalHours(item?.approvalHours ? String(item.approvalHours) : "")
     setFulfilmentHours(item?.fulfilmentHours ? String(item.fulfilmentHours) : "")
-    setFulfilmentType(item?.fulfilmentType ?? "manual")
-    setEndpointId(item?.fulfilmentConfig?.endpointId ?? "")
-    setSelfServiceUrl(item?.fulfilmentConfig?.url ?? "")
-    setSelfServiceLabel(item?.fulfilmentConfig?.label ?? "")
-    setAutoApprove(item?.autoApprove ?? false)
-    setIsPrivileged(item?.isPrivileged ?? false)
     setRequiresIdentityCheck(item?.requiresIdentityCheck ?? false)
     setFields((item?.formSchema ?? []).map(toDraft))
     setPreview(false)
@@ -216,10 +202,6 @@ export function ItemEditorDialog({
     if (!categoryId) return toast.error("Pick a category")
     if (problems.length) return toast.error(problems[0])
     if (approvalMode === "policy" && !approvalPolicyId) return toast.error("Pick the approval policy this item follows")
-    if (fulfilmentType === "webhook" && !endpointId) return toast.error("Pick the connector that fulfils this item")
-    if (fulfilmentType === "deflect" && !/^https:\/\//i.test(selfServiceUrl.trim())) {
-      return toast.error("The self-service link must start with https://")
-    }
     const payload = {
       categoryId,
       name: name.trim(),
@@ -231,15 +213,6 @@ export function ItemEditorDialog({
       riskLevel,
       approvalHours: hoursOrNull(approvalHours),
       fulfilmentHours: hoursOrNull(fulfilmentHours),
-      fulfilmentType,
-      fulfilmentConfig:
-        fulfilmentType === "webhook"
-          ? { endpointId }
-          : fulfilmentType === "deflect"
-            ? { url: selfServiceUrl.trim(), label: selfServiceLabel.trim() || null }
-            : {},
-      autoApprove,
-      isPrivileged,
       requiresIdentityCheck,
       fulfilmentNotes: fulfilmentNotes.trim() || null,
       isActive,
@@ -379,70 +352,15 @@ export function ItemEditorDialog({
             </div>
           </section>
 
-          {/* Fulfilment and automation (Phase 3) */}
-          <section className="grid gap-3 rounded-md border p-3">
-            <Label>How it's fulfilled</Label>
-            <Select value={fulfilmentType} onValueChange={(v) => setFulfilmentType(v as FulfilmentType)}>
-              <SelectTrigger className="w-full sm:w-96"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="manual">By a person in IT</SelectItem>
-                <SelectItem value="webhook">Automatically, by a connector (Power Automate, Logic Apps…)</SelectItem>
-                <SelectItem value="deflect">By the requester, through a self-service link</SelectItem>
-              </SelectContent>
-            </Select>
-            {fulfilmentType === "webhook" && (
-              <div className="grid gap-1.5">
-                <Select value={endpointId} onValueChange={setEndpointId}>
-                  <SelectTrigger className="w-full sm:w-96"><SelectValue placeholder="Choose a connector" /></SelectTrigger>
-                  <SelectContent>
-                    {endpoints.map((e) => (
-                      <SelectItem key={e.id} value={e.id}>{e.name}{e.isActive ? "" : " (off)"}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground">
-                  Once approved (and identity-checked, if required), the request is sent to the connector. If it fails, IT is told and can retry or do it by hand.
-                  {endpoints.length === 0 && " No connectors yet — add one on the Automation tab."}
-                </p>
-              </div>
-            )}
-            {fulfilmentType === "deflect" && (
-              <div className="grid gap-2 sm:grid-cols-[2fr_1fr]">
-                <Input placeholder="https://… (e.g. your password-reset page)" value={selfServiceUrl} onChange={(e) => setSelfServiceUrl(e.target.value)} />
-                <Input placeholder="Button text" maxLength={80} value={selfServiceLabel} onChange={(e) => setSelfServiceLabel(e.target.value)} />
-                <p className="text-xs text-muted-foreground sm:col-span-2">
-                  People see this link before the form. Using it counts as fulfilled by self-service; they can still ask IT if it doesn't help.
-                </p>
-              </div>
-            )}
-            <div className="grid gap-2 border-t pt-3">
-              <label className="flex items-start gap-2 text-sm">
-                <Checkbox className="mt-0.5" checked={requiresIdentityCheck} onCheckedChange={(v) => setRequiresIdentityCheck(v === true)} />
-                <span>
-                  Requires an identity check
-                  <span className="block text-xs text-muted-foreground">IT must record how they confirmed who's asking before any work starts (e.g. password resets).</span>
-                </span>
-              </label>
-              <label className="flex items-start gap-2 text-sm">
-                <Checkbox className="mt-0.5" checked={isPrivileged} onCheckedChange={(v) => setIsPrivileged(v === true)} />
-                <span>
-                  Privileged access
-                  <span className="block text-xs text-muted-foreground">Admin rights, production systems and similar — never approved automatically.</span>
-                </span>
-              </label>
-              <label className="flex items-start gap-2 text-sm">
-                <Checkbox className="mt-0.5" checked={autoApprove} onCheckedChange={(v) => setAutoApprove(v === true)} />
-                <span>
-                  Automation rules may approve it
-                  <span className="block text-xs text-muted-foreground">
-                    Only takes effect when a rule asks for it, and only for low-risk, non-privileged items without an identity check.
-                    {autoApprove && (riskLevel !== "low" || isPrivileged || requiresIdentityCheck) && (
-                      <span className="font-medium text-amber-700 dark:text-amber-400"> As set now, it will never be approved automatically.</span>
-                    )}
-                  </span>
-                </span>
-              </label>
-            </div>
+          {/* Identity check */}
+          <section className="rounded-md border p-3">
+            <label className="flex items-start gap-2 text-sm">
+              <Checkbox className="mt-0.5" checked={requiresIdentityCheck} onCheckedChange={(v) => setRequiresIdentityCheck(v === true)} />
+              <span>
+                Requires an identity check
+                <span className="block text-xs text-muted-foreground">IT must record how they confirmed who's asking before any work starts (e.g. password resets).</span>
+              </span>
+            </label>
           </section>
 
           {/* Form builder */}
@@ -536,11 +454,10 @@ export function ItemEditorDialog({
                       )}
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      <span className="font-medium text-foreground">Answer key</span> — used by automation rules and
-                      connectors (e.g. <code className="rounded bg-muted px-1">{f.key}</code>). People filling in the form never
-                      see it.{" "}
+                      <span className="font-medium text-foreground">Answer key</span> — what the answer is stored under
+                      (e.g. <code className="rounded bg-muted px-1">{f.key}</code>). People filling in the form never see it.{" "}
                       {f.keyLocked
-                        ? "It's fixed, so rules and connectors that use it keep working — reword the question freely."
+                        ? "It's fixed, so answers already given keep their meaning — reword the question freely."
                         : "It's made from the question as you type, and fixed once you save."}
                     </p>
                   </div>

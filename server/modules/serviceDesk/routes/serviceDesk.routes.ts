@@ -11,14 +11,7 @@
 import { ServiceDeskController as C } from "../controllers/serviceDesk.controller";
 import {
   intakeSchema,
-  createRuleSchema,
-  updateRuleSchema,
-  dryRunSchema,
-  createEndpointSchema,
-  updateEndpointSchema,
-  runsSchema,
   identityCheckSchema,
-  deflectSchema,
   approveSchema,
   askInfoSchema,
   attachmentParamsSchema,
@@ -65,7 +58,6 @@ const CREATE = "servicerequest.create";
 const WORK = "servicedesk.work";
 const MANAGE = "servicedesk.manage";
 const REPORT = "servicedesk.report";
-const AUTO = "serviceautomation.manage";
 
 // Settings — everyone in the module reads whether it's on (it decides the sidebar).
 router.get("/settings", authMiddleware, requireAny(CREATE, WORK, MANAGE), C.getSettings);
@@ -163,25 +155,7 @@ router.delete("/delegation", authMiddleware, requireAny(CREATE, MANAGE), C.clear
 // Reports
 router.get("/reports", authMiddleware, requirePermission(REPORT), validate(reportSchema), C.reports);
 
-// Automation (Phase 3): rules, connectors and the run log.
-router.get("/automation/rules", authMiddleware, requirePermission(AUTO), C.listRules);
-router.post("/automation/rules", authMiddleware, requirePermission(AUTO), validate(createRuleSchema), C.createRule);
-router.post("/automation/rules/dry-run", authMiddleware, requirePermission(AUTO), validate(dryRunSchema), C.dryRun);
-router.patch("/automation/rules/:id", authMiddleware, requirePermission(AUTO), validate(updateRuleSchema), C.updateRule);
-router.delete("/automation/rules/:id", authMiddleware, requirePermission(AUTO), validate(idOnlySchema), C.deleteRule);
-// Catalog setup also lists connectors (names only) to show which an item uses.
-router.get("/automation/endpoints", authMiddleware, requireAny(AUTO, MANAGE), C.listEndpoints);
-router.post("/automation/endpoints", authMiddleware, requirePermission(AUTO), validate(createEndpointSchema), C.createEndpoint);
-router.patch("/automation/endpoints/:id", authMiddleware, requirePermission(AUTO), validate(updateEndpointSchema), C.updateEndpoint);
-router.post("/automation/endpoints/:id/rotate-secret", authMiddleware, requirePermission(AUTO), validate(idOnlySchema), C.rotateEndpointSecret);
-router.post("/automation/endpoints/:id/test", authMiddleware, requirePermission(AUTO), validate(idOnlySchema), C.testEndpoint);
-router.delete("/automation/endpoints/:id", authMiddleware, requirePermission(AUTO), validate(idOnlySchema), C.deleteEndpoint);
-router.get("/automation/runs", authMiddleware, requirePermission(AUTO), validate(runsSchema), C.listRuns);
-
-// IT stepping in where automation can't or shouldn't carry on.
-router.post("/requests/:id/run-automation", authMiddleware, requirePermission(WORK), validate(requestIdSchema), C.runAutomation);
-router.post("/requests/:id/take-over", authMiddleware, requirePermission(WORK), validate(requestIdSchema), C.takeOver);
-router.post("/requests/:id/clear-review", authMiddleware, requirePermission(WORK), validate(requestIdSchema), C.clearReview);
+// How IT confirmed who is asking, before work starts.
 router.post("/requests/:id/identity-check", authMiddleware, requirePermission(WORK), validate(identityCheckSchema), C.recordIdentityCheck);
 
 // AI — advisory only. ai.use at the route (and the AI rate limit, after auth);
@@ -189,8 +163,5 @@ router.post("/requests/:id/identity-check", authMiddleware, requirePermission(WO
 // and IT (triage).
 router.post("/ai/intake", authMiddleware, requirePermission("ai.use"), aiRateLimiter, validate(intakeSchema), C.aiIntake);
 router.post("/requests/:id/ai-triage", authMiddleware, requirePermission("ai.use"), aiRateLimiter, validate(requestIdSchema), C.aiTriage);
-
-// The requester used the item's self-service link instead of asking IT.
-router.post("/catalog/items/:id/self-service", authMiddleware, requirePermission(CREATE), validate(deflectSchema), C.selfService);
 
 module.exports = router;

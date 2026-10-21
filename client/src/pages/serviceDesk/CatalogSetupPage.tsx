@@ -24,9 +24,6 @@ import { LineManagersTab } from "@/components/serviceDesk/setup/LineManagersTab"
 import { ServiceLevelsTab } from "@/components/serviceDesk/setup/ServiceLevelsTab"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useSearchParams } from "react-router-dom"
-import { AutomationTab } from "@/components/serviceDesk/setup/AutomationTab"
-import { useAuth } from "@/contexts/AuthContext"
-import { can } from "@/lib/can"
 import {
   useAdminCatalog,
   useCreateCategory,
@@ -56,8 +53,6 @@ export default function CatalogSetupPage() {
   const deleteCategory = useDeleteCategory()
   const deleteItem = useDeleteItem()
   const enabled = Boolean(settings?.enabled)
-  const { permissions } = useAuth()
-  const canAutomate = can(permissions, "serviceautomation.manage")
   // The tab lives in the URL (?tab=policies) so a link can open it directly.
   const [params, setParams] = useSearchParams()
   const tab = params.get("tab") ?? "catalog"
@@ -100,9 +95,7 @@ export default function CatalogSetupPage() {
           <TabsTrigger value="policies">Approval policies</TabsTrigger>
           <TabsTrigger value="managers">Line managers</TabsTrigger>
           <TabsTrigger value="levels">Service levels</TabsTrigger>
-          {canAutomate && <TabsTrigger value="automation">Automation</TabsTrigger>}
         </TabsList>
-        {canAutomate && <TabsContent value="automation" className="pt-2"><AutomationTab /></TabsContent>}
         <TabsContent value="groups" className="pt-2"><ApproverGroupsTab /></TabsContent>
         <TabsContent value="policies" className="pt-2"><ApprovalPoliciesTab /></TabsContent>
         <TabsContent value="managers" className="pt-2"><LineManagersTab /></TabsContent>

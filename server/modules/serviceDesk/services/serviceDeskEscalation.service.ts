@@ -20,7 +20,6 @@ import { ServiceRequestRepository, type OverdueRow, type RequestRow } from "../r
 import { ServiceDeskRepository, type PersonRow } from "../repositories/serviceDesk.repository";
 import { ServiceDeskService, PERMS } from "./serviceDesk.service";
 import { ServiceDeskNotifier } from "./serviceDeskNotifier";
-import { ServiceDeskAutomationService } from "./serviceDeskAutomation.service";
 import { escalationLevelAt, type ServiceLevels } from "../domain/serviceLevels";
 import { formatReference } from "../domain/lifecycle";
 
@@ -80,12 +79,6 @@ export class ServiceDeskEscalationService {
           } catch (e) {
             console.error(`[serviceDesk] escalation of ${row.id} failed:`, (e as Error).message);
           }
-        }
-        // Phase 3: connector retries that are due, and callbacks that never came.
-        try {
-          sent += await ServiceDeskAutomationService.Instance.processDue();
-        } catch (e) {
-          console.error("[serviceDesk] automation sweep failed:", (e as Error).message);
         }
       } finally {
         await runner.query(`SELECT pg_advisory_unlock($1)`, [LOCK_KEY]);

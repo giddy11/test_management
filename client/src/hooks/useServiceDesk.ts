@@ -12,11 +12,6 @@ import type {
   ListRequestsParams,
   MessagePayload,
   RequestPayload,
-  RuleActions,
-  RuleConditions,
-  RulePayload,
-  RunKind,
-  RunStatus,
   ServiceLevels,
 } from "@/types/serviceDesk.types"
 
@@ -303,48 +298,9 @@ export function useServiceDeskReport(range: { from?: string; to?: string }, enab
   return useQuery({ queryKey: [KEY, "reports", range], queryFn: () => data(E.reports(range)), enabled })
 }
 
-// ── Automation (Phase 3) ─────────────────────────────────────────────────────
-export function useAutomationRules(enabled = true) {
-  return useQuery({ queryKey: [KEY, "automation", "rules"], queryFn: () => data(E.rules()), enabled })
-}
-
-export function useWebhookEndpoints(enabled = true) {
-  return useQuery({ queryKey: [KEY, "automation", "endpoints"], queryFn: () => data(E.endpoints()), enabled })
-}
-
-export function useAutomationRuns(params: { status?: RunStatus; kind?: RunKind; page?: number }, enabled = true) {
-  return useQuery({ queryKey: [KEY, "automation", "runs", params], queryFn: () => page(E.runs(params)), enabled })
-}
-
-function useAutomationMutation<V, R>(fn: (v: V) => Promise<R>) {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: fn,
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: [KEY, "automation"] })
-      qc.invalidateQueries({ queryKey: [KEY, "catalog"] })
-    },
-  })
-}
-
-export const useSaveRule = () =>
-  useAutomationMutation(({ id, ...p }: RulePayload & { id?: string }) => data(id ? E.updateRule(id, p) : E.createRule(p)))
-export const useDeleteRule = () => useAutomationMutation((id: string) => ok(E.deleteRule(id)))
-export const useDryRun = () =>
-  useMutation({ mutationFn: ({ conditions, actions }: { conditions: RuleConditions; actions: RuleActions }) => data(E.dryRun(conditions, actions)) })
-export const useCreateEndpoint = () => useAutomationMutation((p: { name: string; url: string }) => data(E.createEndpoint(p)))
-export const useUpdateEndpoint = () =>
-  useAutomationMutation(({ id, ...p }: { id: string; name?: string; url?: string; isActive?: boolean }) => data(E.updateEndpoint(id, p)))
-export const useRotateEndpointSecret = () => useAutomationMutation((id: string) => data(E.rotateEndpointSecret(id)))
-export const useTestEndpoint = () => useAutomationMutation((id: string) => data(E.testEndpoint(id)))
-export const useDeleteEndpoint = () => useAutomationMutation((id: string) => ok(E.deleteEndpoint(id)))
-
-export const useRunAutomation = () => useRequestMutation((id: string) => data(E.runAutomation(id)))
-export const useTakeOver = () => useRequestMutation((id: string) => data(E.takeOver(id)))
-export const useClearReview = () => useRequestMutation((id: string) => data(E.clearReview(id)))
+// ── Identity checks and AI ─────────────────────────────────────────────────
 export const useRecordIdentityCheck = () =>
   useRequestMutation(({ id, method, note }: { id: string; method: string; note: string | null }) => data(E.recordIdentityCheck(id, method, note)))
-export const useSelfService = () => useRequestMutation((itemId: string) => data(E.selfService(itemId)))
 export const useAiIntake = () => useMutation({ mutationFn: (description: string) => data(E.aiIntake(description)) })
 export const useAiTriage = () => useRequestMutation((id: string) => data(E.aiTriage(id)))
 

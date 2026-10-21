@@ -3,7 +3,6 @@ import { ServiceDeskService } from "../services/serviceDesk.service";
 import { ServiceRequestService } from "../services/serviceRequest.service";
 import { ApprovalSetupService } from "../services/approvalSetup.service";
 import { ServiceDeskReportsService } from "../services/serviceDeskReports.service";
-import { ServiceDeskAutomationService } from "../services/serviceDeskAutomation.service";
 import { ServiceDeskAiService } from "../services/serviceDeskAi.service";
 
 const { ApiResponse } = require("../../../shared/response/apiResponse");
@@ -33,7 +32,6 @@ const desk = () => ServiceDeskService.Instance;
 const requests = () => ServiceRequestService.Instance;
 const setup = () => ApprovalSetupService.Instance;
 const reports = () => ServiceDeskReportsService.Instance;
-const automation = () => ServiceDeskAutomationService.Instance;
 const ai = () => ServiceDeskAiService.Instance;
 
 export const ServiceDeskController = {
@@ -66,39 +64,14 @@ export const ServiceDeskController = {
   // Reports
   reports: handle("IT request reports", (req) => reports().overview(req.user, req.validated.query)),
 
-  // Automation: rules, connectors, run log (serviceautomation.manage)
-  listRules: handle("Automation rules", (req) => automation().listRules(req.user)),
-  createRule: handle("Rule created", (req) => automation().saveRule(req.user, null, req.validated.body), 201),
-  updateRule: handle("Rule updated", (req) => automation().saveRule(req.user, req.validated.params.id, req.validated.body)),
-  deleteRule: handle("Rule deleted", (req) => automation().deleteRule(req.user, req.validated.params.id)),
-  dryRun: handle("Dry run", (req) => automation().dryRun(req.user, req.validated.body.conditions, req.validated.body.actions)),
-  listEndpoints: handle("Connectors", (req) => automation().listEndpoints(req.user)),
-  createEndpoint: handle("Connector added", (req) => automation().createEndpoint(req.user, req.validated.body), 201),
-  updateEndpoint: handle("Connector updated", (req) => automation().updateEndpoint(req.user, req.validated.params.id, req.validated.body)),
-  rotateEndpointSecret: handle("Secret replaced", (req) => automation().rotateSecret(req.user, req.validated.params.id)),
-  deleteEndpoint: handle("Connector deleted", (req) => automation().deleteEndpoint(req.user, req.validated.params.id)),
-  testEndpoint: handle("Connector tested", (req) => automation().testEndpoint(req.user, req.validated.params.id)),
-  listRuns: handle("Automation runs", (req) => automation().listRuns(req.user, req.validated.query)),
-
-  // IT interventions on a request (servicedesk.work)
-  runAutomation: handle("Automation started", (req) => automation().runNow(req.user, req.validated.params.id)),
-  takeOver: handle("Taken over", (req) => automation().takeOver(req.user, req.validated.params.id)),
-  clearReview: handle("Review flag cleared", (req) => automation().clearReview(req.user, req.validated.params.id)),
+  // How IT confirmed who is asking (servicedesk.work)
   recordIdentityCheck: handle("Identity check recorded", (req) =>
-    automation().recordIdentityCheck(req.user, req.validated.params.id, req.validated.body.method, req.validated.body.note)
+    requests().recordIdentityCheck(req.user, req.validated.params.id, req.validated.body.method, req.validated.body.note)
   ),
-
-  // Self-service (deflect)
-  selfService: handle("Self-service recorded", (req) => automation().deflect(req.user, req.validated.params.id), 201),
 
   // AI (ai.use at the route; who-may-ask in the service)
   aiIntake: handle("Suggestion ready", (req) => ai().intake(req.user, req.validated.body.description)),
   aiTriage: handle("Triage ready", (req) => ai().triage(req.user, req.validated.params.id)),
-
-  // The connector's callback — public, proven by its one-time token.
-  callback: handle("Result recorded", (req) =>
-    automation().handleCallback(req.validated.params.runId, req.validated.params.token, req.validated.body)
-  ),
 
   // Catalog
   portalCatalog: handle("IT request catalog", (req) => desk().portalCatalog(req.user)),

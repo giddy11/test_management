@@ -99,29 +99,6 @@ export default function ServiceReportsPage() {
             </p>
           </section>
 
-          <section className="space-y-2">
-            <h2 className="text-sm font-medium text-muted-foreground">Automation · {RANGES[range].toLowerCase()}</h2>
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
-              <Stat label="Approved automatically" value={compact(data.automation.autoApproved)} hint={`${data.automation.autoApprovalRefused} left to people`} />
-              <Stat
-                label="Fulfilled automatically"
-                value={compact(data.automation.fulfilledByAutomation)}
-                hint={`${data.automation.fulfilledByPerson} by people`}
-              />
-              <Stat label="Self-service" value={compact(data.automation.fulfilledBySelfService)} hint="Handled without IT" />
-              <Stat
-                label="Connector success"
-                value={percent(data.automation.webhookSuccessRate)}
-                hint={`${data.automation.webhookFailed} failed · ${data.automation.webhookInFlight} in flight`}
-              />
-              <Stat label="Needs review now" value={compact(data.automation.needsReview)} alarm={data.automation.needsReview > 0} />
-              <Stat label="Automation failed, open" value={compact(data.automation.automationFailed)} alarm={data.automation.automationFailed > 0} />
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Rules applied {data.automation.rulesApplied} times · {data.automation.aiTriage} AI triages.
-            </p>
-          </section>
-
           <div className="grid gap-4 xl:grid-cols-2">
             <Card>
               <CardHeader>

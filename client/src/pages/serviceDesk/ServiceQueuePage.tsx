@@ -17,12 +17,11 @@ import { useAuth } from "@/contexts/AuthContext"
 import { can } from "@/lib/can"
 import type { ListRequestsParams } from "@/types/serviceDesk.types"
 
-type Tab = "ready" | "in_progress" | "review" | "overdue" | "pending_approval" | "info_requested" | "closed"
+type Tab = "ready" | "in_progress" | "overdue" | "pending_approval" | "info_requested" | "closed"
 
 const FILTER: Record<Tab, Partial<ListRequestsParams>> = {
   ready: { view: "ready" },
   in_progress: { status: "in_progress" },
-  review: { view: "review" },
   overdue: { view: "overdue" },
   pending_approval: { status: "pending_approval" },
   info_requested: { status: "info_requested" },
@@ -32,7 +31,6 @@ const FILTER: Record<Tab, Partial<ListRequestsParams>> = {
 const EMPTY: Record<Tab, string> = {
   ready: "Nothing waiting — the queue is clear.",
   in_progress: "Nobody is working on a request right now.",
-  review: "Nothing is flagged for review.",
   overdue: "Nothing is past its service level. 🎉",
   pending_approval: "Nothing is waiting for an approver.",
   info_requested: "Nobody owes IT an answer.",
@@ -87,7 +85,6 @@ export default function ServiceQueuePage() {
               <TabsList className="h-auto flex-wrap">
                 <TabsTrigger value="ready">Ready{count(counts?.queue?.ready)}</TabsTrigger>
                 <TabsTrigger value="in_progress">In progress</TabsTrigger>
-                <TabsTrigger value="review">Needs review{count(counts?.queue?.needsReview)}</TabsTrigger>
                 <TabsTrigger value="overdue" className="data-[state=active]:text-red-600">Overdue{count(counts?.queue?.overdue)}</TabsTrigger>
                 <TabsTrigger value="pending_approval">Awaiting approval{count(counts?.queue?.awaitingApproval)}</TabsTrigger>
                 <TabsTrigger value="info_requested">Waiting on requester{count(counts?.queue?.waitingOnRequester)}</TabsTrigger>

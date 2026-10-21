@@ -28,11 +28,6 @@ export function toPortalItemDto(i: ServiceCatalogItem) {
     description: i.description,
     formSchema: i.formSchema ?? [],
     needsApproval: i.approvalMode !== "none",
-    // Self-service items show their link on the portal before the form.
-    selfService:
-      i.fulfilmentType === "deflect" && i.fulfilmentConfig?.url
-        ? { url: i.fulfilmentConfig.url, label: i.fulfilmentConfig.label || "Use self-service" }
-        : null,
   };
 }
 
@@ -50,10 +45,6 @@ export function toAdminItemDto(i: ServiceCatalogItem, people: Map<string, Person
     riskLevel: i.riskLevel,
     approvalHours: i.approvalHours,
     fulfilmentHours: i.fulfilmentHours,
-    fulfilmentType: i.fulfilmentType ?? "manual",
-    fulfilmentConfig: i.fulfilmentConfig ?? {},
-    autoApprove: i.autoApprove ?? false,
-    isPrivileged: i.isPrivileged ?? false,
     requiresIdentityCheck: i.requiresIdentityCheck ?? false,
     fulfilmentNotes: i.fulfilmentNotes,
     isActive: i.isActive,
@@ -80,9 +71,7 @@ function overdueOf(r: RequestRow, now = Date.now()): "approval" | "fulfilment" |
   return null;
 }
 
-// `internal` = the viewer is IT: they also see why a request was flagged.
-// Requesters see that it's being reviewed, never a rule's internal reason.
-export function toRequestDto(r: RequestRow, { internal = false }: { internal?: boolean } = {}) {
+export function toRequestDto(r: RequestRow) {
   const requestedFor = r.requestedForId
     ? { id: r.requestedForId, name: r.requestedForUserName ?? r.requestedForUserEmail ?? "", email: r.requestedForUserEmail }
     : r.requestedForName || r.requestedForEmail
@@ -100,14 +89,8 @@ export function toRequestDto(r: RequestRow, { internal = false }: { internal?: b
       formSchema: r.itemSnapshot.formSchema ?? [],
       needsApproval: r.itemSnapshot.approvalMode !== "none",
       approvalPolicyName: r.itemSnapshot.approvalPolicyName ?? null,
-      fulfilmentType: r.itemSnapshot.fulfilmentType ?? "manual",
       requiresIdentityCheck: r.itemSnapshot.requiresIdentityCheck ?? false,
     },
-    needsReview: r.needsReview ?? false,
-    reviewReason: internal ? r.reviewReason : null,
-    autoApproved: r.autoApproved ?? false,
-    automationStatus: r.automationStatus,
-    fulfilledBy: r.fulfilledBy,
     identityVerifiedAt: r.identityVerifiedAt,
     requester: { id: r.requesterId, name: r.requesterName, email: r.requesterEmail },
     requestedFor,

@@ -4,7 +4,6 @@
 // service-level attainment, escalations, and the breakdowns behind them.
 import { ServiceDeskReportsRepository } from "../repositories/serviceDeskReports.repository";
 import { ServiceDeskService, type DeskActor } from "./serviceDesk.service";
-import { AutomationRepository } from "../repositories/automation.repository";
 import { formatReference } from "../domain/lifecycle";
 import type { ReportQuery } from "../validators/serviceDesk.schema";
 
@@ -16,8 +15,7 @@ export class ServiceDeskReportsService {
 
   constructor(
     private readonly repo = ServiceDeskReportsRepository.Instance,
-    private readonly desk = ServiceDeskService.Instance,
-    private readonly automationRepo = AutomationRepository.Instance
+    private readonly desk = ServiceDeskService.Instance
   ) {}
 
   async overview(actor: DeskActor, q: ReportQuery) {
@@ -26,7 +24,7 @@ export class ServiceDeskReportsService {
     const { from, to } = rangeOf(q);
     const range = { organizationId, from, to };
 
-    const [now, throughput, escalations, byCategory, byAssignee, overdue, levels, automation] = await Promise.all([
+    const [now, throughput, escalations, byCategory, byAssignee, overdue, levels] = await Promise.all([
       this.repo.snapshot(organizationId),
       this.repo.throughput(range),
       this.repo.escalations(range),
@@ -34,7 +32,6 @@ export class ServiceDeskReportsService {
       this.repo.byAssignee(range),
       this.repo.overdueList(organizationId),
       this.desk.serviceLevels(organizationId),
-      this.automationRepo.report(organizationId, from, to),
     ]);
 
     return {
@@ -56,18 +53,6 @@ export class ServiceDeskReportsService {
         reference: formatReference(o.requestNumber),
       })),
       serviceLevels: levels,
-      // Story 2 AC 2.12: what automation did, and what still needs a person.
-      automation: {
-        ...automation.runs,
-        ...automation.now,
-        fulfilledByAutomation: automation.fulfilled.byAutomation,
-        fulfilledBySelfService: automation.fulfilled.bySelfService,
-        fulfilledByPerson: automation.fulfilled.byPerson,
-        webhookSuccessRate:
-          automation.runs.webhookSucceeded + automation.runs.webhookFailed
-            ? automation.runs.webhookSucceeded / (automation.runs.webhookSucceeded + automation.runs.webhookFailed)
-            : null,
-      },
     };
   }
 }

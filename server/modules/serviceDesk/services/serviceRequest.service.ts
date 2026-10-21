@@ -22,9 +22,6 @@ import { ApprovalSetupRepository } from "../repositories/approvalSetup.repositor
 import { ServiceDeskService, PERMS, type DeskActor } from "./serviceDesk.service";
 import { ServiceDeskNotifier, type DeskEvent } from "./serviceDeskNotifier";
 import { ServiceDeskEscalationService } from "./serviceDeskEscalation.service";
-import { ServiceDeskAutomationService, subjectOf } from "./serviceDeskAutomation.service";
-import { AutomationRepository } from "../repositories/automation.repository";
-import { autoApprovalRefusal, type RuleOutcome } from "../domain/automationRules";
 import type { ItemSnapshot, ServiceRequest } from "../entities/serviceRequest.entity";
 import type { ServiceCatalogItem } from "../entities/serviceCatalogItem.entity";
 import type { ServiceRequestApproval } from "../entities/serviceRequestApproval.entity";
@@ -116,11 +113,6 @@ interface Submission {
   plan: PlannedStep[];
   levels: ServiceLevels;
   status: RequestStatus;
-  priority: RequestPriority;
-  assignToId: string | null;
-  outcome: RuleOutcome;
-  autoApproval: { requested: boolean; refusal: string | null; by: string | null } | null;
-  historyNote: string | null;
 }
 
 const OPEN_VIEW: RequestStatus[] =["submitted", "pending_approval", "approved", "info_requested", "in_progress"];
@@ -137,9 +129,7 @@ export class ServiceRequestService {
     private readonly notifier = ServiceDeskNotifier.Instance,
     private readonly activity = ActivityService.Instance,
     private readonly approvalRepo = ApprovalSetupRepository.Instance,
-    private readonly storage = StorageService.Instance,
-    private readonly automation = ServiceDeskAutomationService.Instance,
-    private readonly automationRepo = AutomationRepository.Instance
+    private readonly storage = StorageService.Instance
   ) {}
 
   // ── Creating and submitting ────────────────────────────────────────────────
@@ -152,15 +142,7 @@ export class ServiceRequestService {
     const { values, errors } = validateFormValues(item.formSchema, body.formValues, { partial: !body.submit });
     if (errors.length) throw new AppError("Some answers need another look", 422, errors);
 
-    const sub = body.submit
-      ? await this.prepareSubmission(organizationId, item, snapshot, actor.id, {
-          ...requestedFor,
-          priority: body.priority,
-          formValues: values,
-          title: body.title,
-          description: body.description,
-        })
-      : null;
+    const sub = body.submit ? await this.prepareSubmission(organizationId, item, actor.id, requestedFor.requestedForId) : null;
     const status: RequestStatus = sub ? sub.status : "draft";
     const now = new Date();
 
@@ -174,14 +156,14 @@ export class ServiceRequestService {
         title: body.title,
         description: body.description,
         businessJustification: body.businessJustification,
-        priority: sub?.priority ?? body.priority,
+        priority: body.priority,
         riskLevel: item.riskLevel,
         formValues: values,
         status,
         submittedAt: sub ? now : null,
         statusUpdatedAt: now,
       });
-      await this.repo.addHistory(m, { requestId: row.id, fromStatus: null, toStatus: status, actorId: actor.id, note: sub?.historyNote ?? null });
+      await this.repo.addHistory(m, { requestId: row.id, fromStatus: null, toStatus: status, actorId: actor.id });
       if (sub) await this.recordSubmission(m, actor, row, sub, now);
       return row;
     });
@@ -243,14 +225,7 @@ export class ServiceRequestService {
     const { values, errors } = validateFormValues(item.formSchema, current.formValues);
     if (errors.length) throw new AppError("Some answers need another look", 422, errors);
     const snapshot = await this.snapshotOf(organizationId, item);
-    const sub = await this.prepareSubmission(organizationId, item, snapshot, actor.id, {
-      requestedForId: current.requestedForId,
-      requestedForName: current.requestedForName,
-      priority: current.priority,
-      formValues: values,
-      title: current.title,
-      description: current.description,
-    });
+    const sub = await this.prepareSubmission(organizationId, item, actor.id, current.requestedForId);
     const status = sub.status;
 
     await this.repo.run(async (m) => {
@@ -266,7 +241,7 @@ export class ServiceRequestService {
         submittedAt: now,
         statusUpdatedAt: now,
       });
-      await this.repo.addHistory(m, { requestId: id, fromStatus: "draft", toStatus: status, actorId: actor.id, note: sub.historyNote });
+      await this.repo.addHistory(m, { requestId: id, fromStatus: "draft", toStatus: status, actorId: actor.id });
       await this.recordSubmission(m, actor, { ...locked, status, itemSnapshot: snapshot }, sub, now);
     });
 
@@ -275,74 +250,28 @@ export class ServiceRequestService {
     return toRequestDto(fresh);
   }
 
-  // Everything decided at submit, before anything is written: the automation
-  // rules' outcome, the approval plan, and where the request goes first.
+  // Everything decided at submit, before anything is written: the approval
+  // plan, and where the request goes first.
   private async prepareSubmission(
     organizationId: string,
     item: ServiceCatalogItem,
-    snapshot: ItemSnapshot,
     actorId: string,
-    input: {
-      requestedForId: string | null;
-      requestedForName: string | null;
-      priority: RequestPriority;
-      formValues: ServiceRequest["formValues"];
-      title: string;
-      description: string | null;
-    }
+    requestedForId: string | null
   ): Promise<Submission> {
-    const outcome = await this.automation.evaluate(
-      organizationId,
-      subjectOf({ itemSnapshot: snapshot, catalogItemId: item.id, riskLevel: item.riskLevel, ...input })
-    );
-    const priority = outcome.priority ?? input.priority;
-    let assignToId: string | null = null;
-    if (outcome.assignToId) {
-      const agents = await this.deskRepo.usersWithPermission(organizationId, [PERMS.WORK]);
-      if (agents.some((a) => a.id === outcome.assignToId)) assignToId = outcome.assignToId;
-    }
-    const plan = await this.planFor(organizationId, item, actorId, input.requestedForId);
+    const plan = await this.planFor(organizationId, item, actorId, requestedForId);
     const levels = await this.desk.serviceLevels(organizationId);
-
-    let status = statusOnSubmit(plan.length > 0);
-    let autoApproval: Submission["autoApproval"] = null;
-    if (outcome.autoApproveBy && plan.length > 0) {
-      const refusal = autoApprovalRefusal(item, outcome.flags.length > 0);
-      autoApproval = { requested: true, refusal, by: outcome.autoApproveBy };
-      if (!refusal) status = "approved";
-    }
-    return {
-      plan,
-      levels,
-      status,
-      priority,
-      assignToId,
-      outcome,
-      autoApproval,
-      historyNote: status === "approved" ? `Approved automatically by the rule "${outcome.autoApproveBy}"` : null,
-    };
+    return { plan, levels, status: statusOnSubmit(plan.length > 0) };
   }
 
   private async recordSubmission(m: EntityManager, actor: DeskActor, row: ServiceRequest, sub: Submission, now: Date) {
-    const auto = sub.status === "approved";
-    if (!auto) await this.repo.insertPlan(m, row.id, sub.plan);
-    const flagged = sub.outcome.flags.length > 0;
-    await this.repo.update(m, row.id, {
-      priority: sub.priority,
-      ...(sub.assignToId && { assigneeId: sub.assignToId }),
-      ...(flagged && {
-        needsReview: true,
-        reviewReason: sub.outcome.flags.map((f) => `${f.reason} (rule "${f.rule}")`).join("; ").slice(0, 500),
-      }),
-      ...(auto && { autoApproved: true, approvedAt: now }),
-      ...(sub.plan.length && !auto
+    await this.repo.insertPlan(m, row.id, sub.plan);
+    await this.repo.update(
+      m,
+      row.id,
+      sub.plan.length
         ? this.approvalStepPatch(sub.levels, row.itemSnapshot, 1, now)
-        : this.fulfilmentPatch(sub.levels, { priority: sub.priority, itemSnapshot: row.itemSnapshot }, now)),
-    });
-    for (const note of sub.outcome.notes) {
-      await this.repo.addComment({ requestId: row.id, authorId: null, isInternal: true, body: `Automation — ${note.rule}: ${note.text}` }, m);
-    }
-    await this.automation.recordRuleRuns(m, row.organizationId, row.id, sub.outcome, sub.autoApproval, actor.id);
+        : this.fulfilmentPatch(sub.levels, { priority: row.priority, itemSnapshot: row.itemSnapshot }, now)
+    );
     await this.repo.addAudit(
       m,
       this.activity.buildEntry(actor, {
@@ -352,23 +281,10 @@ export class ServiceRequestService {
         entityId: row.id,
         metadata: {
           status: row.status,
-          rules: sub.outcome.matched.map((r) => r.name),
-          steps: auto ? [] : sub.plan.map((s) => ({ name: s.name, mode: s.mode, approverIds: s.approvers.map((a) => a.userId) })),
+          steps: sub.plan.map((s) => ({ name: s.name, mode: s.mode, approverIds: s.approvers.map((a) => a.userId) })),
         },
       })
     );
-    if (auto) {
-      await this.repo.addAudit(
-        m,
-        this.activity.buildEntry(actor, {
-          action: "service_request.auto_approved",
-          summary: `IT request ${formatReference(row.requestNumber)} was approved automatically by the rule "${sub.autoApproval?.by}"`,
-          entityType: "service_request",
-          entityId: row.id,
-          severity: "warning",
-        })
-      );
-    }
   }
 
   private async announceSubmission(actor: DeskActor, r: RequestRow) {
@@ -376,23 +292,7 @@ export class ServiceRequestService {
       await this.notifyApprovers(r, actor.id);
       return;
     }
-    if (r.autoApproved) {
-      this.notifier.send(await this.requesterSide(r), this.event(r, "update", {
-        title: `Approved: ${formatReference(r.requestNumber)} ${r.title}`,
-        heading: "Your IT request was approved automatically",
-        body: `"${r.title}" met your organisation's rules for automatic approval. It's now with IT.`,
-        ctaLabel: "View the request",
-      }));
-    }
     this.notifyQueue(r, actor.id);
-    this.reachedIt(r.organizationId, r.id, actor.id);
-  }
-
-  // A connector may pick it up now (see ServiceDeskAutomationService).
-  private reachedIt(organizationId: string, id: string, actorId: string | null) {
-    this.automation
-      .onReachedIt(organizationId, id, actorId)
-      .catch((e: Error) => console.error(`[serviceDesk] automation start for ${id} failed:`, e.message));
   }
 
   // ── Service levels ─────────────────────────────────────────────────────────
@@ -604,7 +504,6 @@ export class ServiceRequestService {
         ctaLabel: "View the request",
       }), actor.id);
       this.notifyQueue(r, actor.id);
-      this.reachedIt(organizationId, id, actor.id);
     }
     return toRequestDto(r);
   }
@@ -774,6 +673,35 @@ export class ServiceRequestService {
     return toRequestDto(r);
   }
 
+  // BR 1.5 / 2.5: how IT confirmed who is asking — before any work starts.
+  async recordIdentityCheck(actor: DeskActor, id: string, method: string, note: string | null) {
+    const organizationId = this.desk.orgOf(actor);
+    await this.desk.assertEnabled(organizationId);
+    await this.repo.run(async (m) => {
+      const locked = await this.repo.lock(m, organizationId, id);
+      if (!locked || locked.status === "draft") throw new AppError("Request not found", 404);
+      if (TERMINAL_STATUSES.includes(locked.status)) throw new AppError("This request is already finished", 409);
+      await this.repo.update(m, id, {
+        identityVerifiedAt: new Date(),
+        identityVerifiedById: actor.id,
+        identityMethod: method,
+        identityNote: note,
+      });
+      await this.repo.addAudit(
+        m,
+        this.activity.buildEntry(actor, {
+          action: "service_request.identity_verified",
+          summary: `Confirmed the requester's identity on IT request ${formatReference(locked.requestNumber)} (${method})`,
+          entityType: "service_request",
+          entityId: id,
+          severity: "warning",
+          metadata: { method },
+        })
+      );
+    });
+    return toRequestDto(await this.mustFindRow(organizationId, id));
+  }
+
   async start(actor: DeskActor, id: string) {
     const organizationId = this.desk.orgOf(actor);
     await this.desk.assertEnabled(organizationId);
@@ -803,8 +731,6 @@ export class ServiceRequestService {
         startedAt: now,
         statusUpdatedAt: now,
         assigneeId: locked.assigneeId ?? actor.id,
-        // A person is doing it: automation won't pick it up any more.
-        ...(locked.itemSnapshot.fulfilmentType === "webhook" && { automationStatus: "manual" as const }),
       });
       await this.repo.addHistory(m, { requestId: id, fromStatus: locked.status, toStatus: "in_progress", actorId: actor.id });
       await this.repo.addAudit(
@@ -836,9 +762,6 @@ export class ServiceRequestService {
       const locked = await this.repo.lock(m, organizationId, id);
       if (!locked || locked.status === "draft") throw new AppError("Request not found", 404);
       if (locked.status !== "in_progress") throw new AppError("Start the request before marking it fulfilled", 409);
-      if (locked.automationStatus === "running") {
-        throw new AppError("Automation is working on this request — take it over first if you want to finish it yourself", 409);
-      }
       assertIdentityChecked(locked);
       assertTransition(locked.status, "fulfilled");
       const now = new Date();
@@ -847,9 +770,6 @@ export class ServiceRequestService {
         fulfilledAt: now,
         statusUpdatedAt: now,
         resolutionNote: note,
-        fulfilledBy: "person",
-        needsReview: false,
-        reviewReason: null,
       });
       await this.repo.addHistory(m, { requestId: id, fromStatus: "in_progress", toStatus: "fulfilled", actorId: actor.id, note });
       await this.repo.addAudit(
@@ -1317,15 +1237,13 @@ export class ServiceRequestService {
       scope: q.scope,
       statuses,
       overdue: q.view === "overdue",
-      needsReview: q.view === "review",
       assignee: q.scope === "queue" ? q.assignee : undefined,
       search: q.search,
       requestNumber: q.search ? parseReference(q.search) : null,
       page: q.page,
       limit: q.limit,
     });
-    const internal = q.scope === "queue";
-    return { data: data.map((r) => toRequestDto(r, { internal })), meta };
+    return { data: data.map(toRequestDto), meta };
   }
 
   async approvals(actor: DeskActor, q: ListApprovalsQuery) {
@@ -1340,7 +1258,7 @@ export class ServiceRequestService {
       page: q.page,
       limit: q.limit,
     });
-    return { data: data.map((r) => toRequestDto(r)), meta };
+    return { data: data.map(toRequestDto), meta };
   }
 
   async counts(actor: DeskActor) {
@@ -1360,7 +1278,7 @@ export class ServiceRequestService {
     if (!viewer.visible) throw new AppError("Request not found", 404);
 
     const canComment = viewer.visible && r.status !== "draft";
-    const [approvals, history, commentRows, commentFiles, attachments, item, delegations, runs, verifier, people] = await Promise.all([
+    const [approvals, history, commentRows, commentFiles, attachments, item, delegations, verifier, people] = await Promise.all([
       this.repo.approvalRows(id),
       this.repo.historyRows(id),
       this.repo.commentRows(id, viewer.isAgent),
@@ -1368,7 +1286,6 @@ export class ServiceRequestService {
       this.repo.attachmentRows(id),
       viewer.isAgent && r.catalogItemId ? this.deskRepo.findItem(organizationId, r.catalogItemId) : Promise.resolve(null),
       this.approvalRepo.activeDelegations(organizationId),
-      viewer.isAgent ? this.automationRepo.runsForRequest(id) : Promise.resolve([]),
       viewer.isAgent && r.identityVerifiedById
         ? this.deskRepo.peopleByIds(organizationId, [r.identityVerifiedById]).then((p) => p[0] ?? null)
         : Promise.resolve(null),
@@ -1378,7 +1295,6 @@ export class ServiceRequestService {
     ]);
     const filesOf = new Map<string, typeof commentFiles>();
     for (const f of commentFiles) filesOf.set(f.commentId as string, [...(filesOf.get(f.commentId as string) ?? []), f]);
-    const webhook = r.itemSnapshot.fulfilmentType === "webhook";
     const open = !TERMINAL_STATUSES.includes(r.status) && r.status !== "draft";
     const step = r.currentStep ?? 1;
     const myPending = approvals.find(
@@ -1392,7 +1308,7 @@ export class ServiceRequestService {
     const isRequesterSide = r.requesterId === actor.id || r.requestedForId === actor.id;
 
     return {
-      request: toRequestDto(r, { internal: viewer.isAgent }),
+      request: toRequestDto(r),
       approvals,
       history,
       comments: commentRows.map((c) => toCommentDto(c, filesOf.get(c.id))),
@@ -1401,22 +1317,7 @@ export class ServiceRequestService {
       attachments: attachments.map(toAttachmentDto),
       // IT's own instructions for this kind of request — agents only.
       fulfilmentNotes: viewer.isAgent ? item?.fulfilmentNotes ?? null : null,
-      // What automation did, and how identity was confirmed — IT only.
-      automationRuns: runs.map((run) => ({
-        id: run.id,
-        kind: run.kind,
-        status: run.status,
-        ruleName: run.ruleName,
-        endpointName: run.endpointName,
-        attempt: run.attempt,
-        nextAttemptAt: run.nextAttemptAt,
-        reason: (run.detail?.reason as string | undefined) ?? null,
-        note: (run.detail?.note as string | undefined) ?? null,
-        error: run.error,
-        initiatedByName: run.initiatedByName,
-        startedAt: run.startedAt,
-        finishedAt: run.finishedAt,
-      })),
+      // How identity was confirmed — IT only.
       identityCheck:
         viewer.isAgent && r.identityVerifiedAt
           ? { verifiedAt: r.identityVerifiedAt, verifiedByName: verifier?.name ?? null, method: r.identityMethod, note: r.identityNote }
@@ -1443,16 +1344,8 @@ export class ServiceRequestService {
         canModerateComments: canComment && can(actor, PERMS.MANAGE),
         canAttach: !TERMINAL_STATUSES.includes(r.status),
         myUserId: actor.id,
-        // Phase 3
         needsIdentityCheck: !!r.itemSnapshot.requiresIdentityCheck && !r.identityVerifiedAt,
         canRecordIdentity: viewer.isAgent && !!r.itemSnapshot.requiresIdentityCheck && open,
-        canClearReview: viewer.isAgent && r.needsReview && open,
-        canRunAutomation:
-          viewer.isAgent &&
-          webhook &&
-          ((READY_FOR_FULFILMENT.includes(r.status) && r.automationStatus !== "running") ||
-            (r.status === "in_progress" && r.automationStatus === "failed")),
-        canTakeOver: viewer.isAgent && webhook && open && (r.automationStatus === "running" || r.automationStatus === "failed"),
         canAiTriage: (viewer.isAgent || viewer.isApprover) && r.status !== "draft",
       },
     };
@@ -1502,10 +1395,7 @@ export class ServiceRequestService {
       approvalPolicyName: policy?.name ?? null,
       approvalHours: item.approvalHours,
       fulfilmentHours: item.fulfilmentHours,
-      fulfilmentType: item.fulfilmentType ?? "manual",
-      endpointId: item.fulfilmentType === "webhook" ? item.fulfilmentConfig?.endpointId ?? null : null,
       requiresIdentityCheck: item.requiresIdentityCheck ?? false,
-      isPrivileged: item.isPrivileged ?? false,
     };
   }
 

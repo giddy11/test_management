@@ -8,8 +8,6 @@ import { ServiceDeskRepository, type ApprovalRulesPatch, type PersonRow } from "
 import { DEFAULT_CATALOG } from "../domain/defaultCatalog";
 import { DEFAULT_SERVICE_LEVELS, type ServiceLevels } from "../domain/serviceLevels";
 import { ApprovalSetupRepository } from "../repositories/approvalSetup.repository";
-import { AutomationRepository } from "../repositories/automation.repository";
-import { checkDeflectUrl, type FulfilmentConfig } from "../domain/fulfilment";
 import type { ServiceCatalogItem } from "../entities/serviceCatalogItem.entity";
 import type { CreateCategoryBody, CreateItemBody, UpdateCategoryBody, UpdateItemBody } from "../validators/serviceDesk.schema";
 import { toAdminItemDto, toCategoryDto, toPersonDto, toPortalItemDto } from "../dto/serviceDesk.dto";
@@ -48,8 +46,7 @@ export class ServiceDeskService {
   constructor(
     private readonly repo = ServiceDeskRepository.Instance,
     private readonly activity = ActivityService.Instance,
-    private readonly approvalRepo = ApprovalSetupRepository.Instance,
-    private readonly automationRepo = AutomationRepository.Instance
+    private readonly approvalRepo = ApprovalSetupRepository.Instance
   ) {}
 
   // Every IT-requests call is about the caller's own organisation, and only
@@ -279,8 +276,6 @@ export class ServiceDeskService {
     if (!(await this.repo.findCategory(organizationId, body.categoryId))) throw new AppError("Category not found", 404);
     const approverIds = await this.validApprovers(organizationId, body.approverIds);
     const approvalPolicyId = await this.validPolicy(organizationId, body.approvalMode, body.approvalPolicyId);
-    this.assertMayAutomate(actor, null, body);
-    const fulfilmentConfig = await this.validFulfilment(organizationId, body.fulfilmentType, body.fulfilmentConfig);
     const saved = await this.repo.createItem(
       {
         organizationId,
@@ -294,10 +289,6 @@ export class ServiceDeskService {
         riskLevel: body.riskLevel,
         approvalHours: body.approvalHours,
         fulfilmentHours: body.fulfilmentHours,
-        fulfilmentType: body.fulfilmentType,
-        fulfilmentConfig,
-        autoApprove: body.autoApprove,
-        isPrivileged: body.isPrivileged,
         requiresIdentityCheck: body.requiresIdentityCheck,
         fulfilmentNotes: body.fulfilmentNotes,
         isActive: body.isActive,
@@ -312,37 +303,6 @@ export class ServiceDeskService {
       })
     );
     return this.adminItem(organizationId, saved);
-  }
-
-  // Letting an item approve itself, or sending its requests to an external
-  // connector, is automation — serviceautomation.manage, not just catalog setup.
-  private assertMayAutomate(
-    actor: DeskActor,
-    existing: Pick<ServiceCatalogItem, "autoApprove" | "fulfilmentType"> | null,
-    body: { autoApprove?: boolean; fulfilmentType?: string }
-  ) {
-    const turnsOnAutoApprove = body.autoApprove === true && !existing?.autoApprove;
-    const turnsOnWebhook = body.fulfilmentType === "webhook" && existing?.fulfilmentType !== "webhook";
-    if ((turnsOnAutoApprove || turnsOnWebhook) && !can(actor, "serviceautomation.manage")) {
-      throw new AppError("Automatic approval and connectors need the 'Set up IT-request automation' permission", 403);
-    }
-  }
-
-  // Keeps only what the chosen way of fulfilling needs, checked.
-  private async validFulfilment(organizationId: string, type: string, config: FulfilmentConfig | undefined): Promise<FulfilmentConfig> {
-    if (type === "webhook") {
-      const endpointId = config?.endpointId;
-      if (!endpointId || !(await this.automationRepo.findEndpoint(organizationId, endpointId))) {
-        throw new AppError("Pick the connector that fulfils this item", 422, [{ field: "fulfilmentConfig.endpointId", message: "Pick a connector" }]);
-      }
-      return { endpointId };
-    }
-    if (type === "deflect") {
-      const checked = checkDeflectUrl(config?.url ?? "");
-      if ("problem" in checked) throw new AppError(checked.problem, 422, [{ field: "fulfilmentConfig.url", message: checked.problem }]);
-      return { url: checked.url, label: config?.label || null };
-    }
-    return {};
   }
 
   // A policy is required in "policy" mode and meaningless otherwise.
@@ -418,14 +378,6 @@ export class ServiceDeskService {
     }
     const patch: Partial<ServiceCatalogItem> = { ...body };
     if (body.approverIds) patch.approverIds = await this.validApprovers(organizationId, body.approverIds);
-    this.assertMayAutomate(actor, existing, body);
-    if (body.fulfilmentType !== undefined || body.fulfilmentConfig !== undefined) {
-      patch.fulfilmentConfig = await this.validFulfilment(
-        organizationId,
-        body.fulfilmentType ?? existing.fulfilmentType,
-        body.fulfilmentConfig ?? existing.fulfilmentConfig
-      );
-    }
     const mode = body.approvalMode ?? existing.approvalMode;
     if (body.approvalMode !== undefined || body.approvalPolicyId !== undefined) {
       patch.approvalPolicyId = await this.validPolicy(
@@ -442,8 +394,6 @@ export class ServiceDeskService {
       (patch.approverIds !== undefined && !sameSet(patch.approverIds, existing.approverIds ?? [])) ||
       (patch.approvalPolicyId !== undefined && patch.approvalPolicyId !== existing.approvalPolicyId) ||
       (patch.riskLevel !== undefined && patch.riskLevel !== existing.riskLevel) ||
-      (patch.autoApprove !== undefined && patch.autoApprove !== existing.autoApprove) ||
-      (patch.isPrivileged !== undefined && patch.isPrivileged !== existing.isPrivileged) ||
       (patch.requiresIdentityCheck !== undefined && patch.requiresIdentityCheck !== existing.requiresIdentityCheck);
     const audits = [
       this.activity.buildEntry(actor, {

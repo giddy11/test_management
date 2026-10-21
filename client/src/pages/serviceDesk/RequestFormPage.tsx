@@ -4,8 +4,7 @@
 // (if the item needs it) or straight to IT.
 import { useEffect, useMemo, useState } from "react"
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom"
-import { ArrowLeft, ExternalLink, ShieldCheck, Sparkles, TriangleAlert } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { ArrowLeft, ShieldCheck, Sparkles, TriangleAlert } from "lucide-react"
 import { toast } from "sonner"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -27,7 +26,6 @@ import {
   useSubmitRequest,
   useUpdateDraft,
   useUploadRequestFiles,
-  useSelfService,
 } from "@/hooks/useServiceDesk"
 import { useAuth } from "@/contexts/AuthContext"
 import { can } from "@/lib/can"
@@ -45,8 +43,6 @@ export default function RequestFormPage() {
   const { itemId: newItemId, id: draftId } = useParams()
   // Set when arriving from the AI suggestion on the portal.
   const prefill = (useLocation().state as { prefill?: RequestPrefill } | null)?.prefill
-  const selfService = useSelfService()
-  const [showForm, setShowForm] = useState(false)
   const navigate = useNavigate()
   const { user, permissions } = useAuth()
   const { data: settings, isLoading: loadingSettings } = useServiceDeskSettings()
@@ -261,39 +257,13 @@ export default function RequestFormPage() {
         </div>
       </div>
 
-      {item.selfService && !draftId && (
-        <Card className="border-emerald-300 dark:border-emerald-900">
-          <CardContent className="flex flex-wrap items-center justify-between gap-3 py-4">
-            <div className="text-sm">
-              <p className="font-medium">You can do this yourself — usually faster</p>
-              <p className="text-muted-foreground">Use the self-service page. If it doesn't sort things out, ask IT below.</p>
-            </div>
-            <div className="flex gap-2">
-              <Button asChild>
-                <a
-                  href={item.selfService.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  onClick={() => selfService.mutate(item.id, { onSuccess: () => toast.success("Recorded — hope that sorted it") })}
-                >
-                  {item.selfService.label} <ExternalLink className="ml-1 size-3.5" />
-                </a>
-              </Button>
-              {!showForm && (
-                <Button variant="outline" onClick={() => setShowForm(true)} data-cy="still-need-it">I still need IT</Button>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
       {prefill?.fromAi && (
         <p className="flex items-center gap-1.5 rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-sm">
           <Sparkles className="size-4 text-primary" /> Filled in from your description, with the wording tidied. Check every answer before you submit.
         </p>
       )}
 
-      <Card className={cn(item.selfService && !draftId && !showForm && "hidden")}>
+      <Card>
         <CardHeader>
           <CardTitle className="text-base">Your request</CardTitle>
           <CardDescription>Fields marked * are required to submit. You can save a draft any time.</CardDescription>

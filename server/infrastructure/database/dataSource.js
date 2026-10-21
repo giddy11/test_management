@@ -118,9 +118,6 @@ const {
   ServiceApprovalDelegation,
 } = require("../../modules/serviceDesk/entities/serviceApprovalDelegation.entity");
 const { ServiceRequestEscalation } = require("../../modules/serviceDesk/entities/serviceRequestEscalation.entity");
-const { ServiceWebhookEndpoint } = require("../../modules/serviceDesk/entities/serviceWebhookEndpoint.entity");
-const { ServiceAutomationRule } = require("../../modules/serviceDesk/entities/serviceAutomationRule.entity");
-const { ServiceAutomationRun } = require("../../modules/serviceDesk/entities/serviceAutomationRun.entity");
 
 const AppDataSource = new DataSource({
   type: "postgres",
@@ -194,9 +191,6 @@ const AppDataSource = new DataSource({
     ServiceApprovalPolicy,
     ServiceApprovalDelegation,
     ServiceRequestEscalation,
-    ServiceWebhookEndpoint,
-    ServiceAutomationRule,
-    ServiceAutomationRun,
   ],
   migrations: ["infrastructure/database/migrations/*.{js,ts}"],
 });

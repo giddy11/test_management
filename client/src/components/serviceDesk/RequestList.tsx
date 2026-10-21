@@ -1,8 +1,6 @@
 // components/serviceDesk/RequestList.tsx — the rows My requests, Approvals
 // and the IT queue all show, with simple previous/next paging.
 import { Link } from "react-router-dom"
-import { Bot, Flag } from "lucide-react"
-import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { CategoryIcon, NeededByBadge, OverdueBadge, RequestPriorityBadge, RequestStatusBadge, When } from "@/components/serviceDesk/RequestBits"
@@ -70,14 +68,6 @@ export function RequestList({
                 <OverdueBadge phase={r.overdue} level={r.escalationLevel} />
                 {/* Approvers and IT see the requester's date; the requester typed it. */}
                 {(showRequester || showAssignee) && <NeededByBadge value={r.neededBy} />}
-                {showAssignee && r.needsReview && !["fulfilled", "rejected", "cancelled"].includes(r.status) && (
-                  <Badge className="gap-1 border-transparent bg-orange-100 text-orange-800 dark:bg-orange-950 dark:text-orange-300" title={r.reviewReason ?? undefined}>
-                    <Flag className="size-3" /> {r.automationStatus === "failed" ? "Automation failed" : "Needs review"}
-                  </Badge>
-                )}
-                {showAssignee && r.automationStatus === "running" && (
-                  <Badge variant="outline" className="gap-1"><Bot className="size-3" /> Automating</Badge>
-                )}
                 {r.priority !== "medium" && <RequestPriorityBadge value={r.priority} />}
                 <RequestStatusBadge value={r.status} />
                 <span className="w-16 text-right text-xs text-muted-foreground">

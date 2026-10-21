@@ -49,7 +49,7 @@
 
 ---
 
-## 2. Permission catalog — 39 permissions in 8 categories
+## 2. Permission catalog — 38 permissions in 8 categories
 
 > Generated from `server/modules/access/catalog/permissions.catalog.js`, which is the
 > single source the seed, the resolver and the tests all read. If this table and the
@@ -155,10 +155,9 @@ you, checked in the service (and limited by your approver group's authority).*
 | Code | Label | Description |
 |---|---|---|
 | `servicerequest.create` | Submit IT requests | Ask IT for software, hardware, accounts and access, and follow your own requests. |
-| `servicedesk.work` | Work the IT request queue | See every submitted request; assign, start, fulfil, cancel; internal notes; identity checks; retry or take over automation. |
-| `servicedesk.report` | View IT request reports | Service-level attainment, overdue work, throughput and automation outcomes. |
+| `servicedesk.work` | Work the IT request queue | See every submitted request; assign, start, fulfil, cancel; internal notes; identity checks. |
+| `servicedesk.report` | View IT request reports | Service-level attainment, overdue work and throughput. |
 | `servicedesk.manage` ⚠ | Set up IT requests | Turn the module on or off; the catalog, approval policies, approver groups, line managers and service levels. **Warning: decides who approves each kind of request.** |
-| `serviceautomation.manage` ⚠ | Set up IT-request automation | Automation rules, automatic approval, and connectors. **Warning: can make some requests approve themselves, and sends request data to external systems.** |
 
 ### 2.9 The wildcard
 
@@ -179,7 +178,7 @@ a **Built-in** badge and the note:
 | Role | Kind | Permissions | Replaces |
 |---|---|---:|---|
 | Super administrator | built-in, **locked** | `*` | `superadmin` |
-| Organisation administrator | built-in | 26 | `admin` |
+| Organisation administrator | built-in | 25 | `admin` |
 | Test lead | built-in | 9 | `user` who leads a project (`project_members.role = team_lead`) |
 | QA engineer | built-in | 7 | `user` |
 | Tester | built-in | 6 | — (new) |
@@ -215,7 +214,7 @@ It is the vendor's role, not the customer's, so it is **hidden from everyone but
 administrator**: it is absent from an organisation administrator's role list, and fetching,
 cloning or assigning it by id returns 404, as for another organisation's role.
 
-### 3.2 Organisation administrator — 26
+### 3.2 Organisation administrator — 25
 Everything inside one customer's workspace, and nothing outside it.
 
 This is **not** "every permission in the catalog". TestMate is multi-tenant, so
@@ -241,8 +240,7 @@ audit.read, role.read, role.manage, role.assign, user.read, user.create,
 user.update, user.delete, project.read, project.readall, project.manageall,
 project.export, dashboard.read, analytics.read, analytics.team, sla.read,
 sla.configure, ai.use, ai.ownkey, ai.managekeys, ai.managecredits,
-servicerequest.create, servicedesk.work, servicedesk.report, servicedesk.manage,
-serviceautomation.manage
+servicerequest.create, servicedesk.work, servicedesk.report, servicedesk.manage
 ```
 
 ### 3.3 Test lead — 9
@@ -294,7 +292,7 @@ servicerequest.create, ai.use
 
 ### 3.8 IT service agent — 4
 Works the organisation's IT request queue and sees its reports. `ai.use` is for the advisory
-AI triage. Setting up the catalog or automation is not part of this role.
+AI triage. Setting up the catalog is not part of this role.
 
 ```
 servicerequest.create, servicedesk.work, servicedesk.report, ai.use

@@ -91,7 +91,6 @@ export interface RequestListFilter {
   scope: "mine" | "queue" | "approvals";
   statuses?: readonly RequestStatus[];
   overdue?: boolean;
-  needsReview?: boolean;
   assignee?: "me" | "unassigned" | string;
   approvalState?: "pending" | "decided";
   requestNumber?: number | null;
@@ -147,8 +146,6 @@ const REQUEST_SELECT = `
   r."fulfilment_escalation_level" AS "fulfilmentEscalationLevel",
   r."info_requested_at" AS "infoRequestedAt", r."info_requested_from" AS "infoRequestedFrom",
   r."info_requested_by_id" AS "infoRequestedById",
-  r."needs_review" AS "needsReview", r."review_reason" AS "reviewReason", r."auto_approved" AS "autoApproved",
-  r."automation_status" AS "automationStatus", r."fulfilled_by" AS "fulfilledBy",
   r."identity_verified_at" AS "identityVerifiedAt", r."identity_verified_by_id" AS "identityVerifiedById",
   r."identity_method" AS "identityMethod", r."identity_note" AS "identityNote", r."ai_triage" AS "aiTriage",
   r."created_at" AS "createdAt", r."updated_at" AS "updatedAt",
@@ -385,7 +382,6 @@ export class ServiceRequestRepository {
       where.push(`r."status" = ANY($${params.length}::varchar[])`);
     }
     if (f.overdue) where.push(OVERDUE);
-    if (f.needsReview) where.push(`r."needs_review" = true AND r."status" NOT IN ('fulfilled', 'rejected', 'cancelled')`);
     if (f.assignee === "me") where.push(`r."assignee_id" = ${user()}`);
     else if (f.assignee === "unassigned") where.push(`r."assignee_id" IS NULL`);
     else if (f.assignee) {
@@ -433,8 +429,7 @@ export class ServiceRequestRepository {
               COUNT(*) FILTER (WHERE r."status" = 'in_progress' AND r."assignee_id" = $2)::int AS "mine",
               COUNT(*) FILTER (WHERE r."status" = 'pending_approval')::int AS "awaitingApproval",
               COUNT(*) FILTER (WHERE r."status" = 'info_requested')::int AS "waitingOnRequester",
-              COUNT(*) FILTER (WHERE ${OVERDUE})::int AS "overdue",
-              COUNT(*) FILTER (WHERE r."needs_review" AND r."status" NOT IN ('fulfilled', 'rejected', 'cancelled'))::int AS "needsReview"
+              COUNT(*) FILTER (WHERE ${OVERDUE})::int AS "overdue"
          FROM "service_requests" r WHERE r."organization_id" = $1`,
       [organizationId, userId]
     );

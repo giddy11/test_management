@@ -3,7 +3,7 @@
 // block (requester, approver, IT), never from guessing on the client.
 import { useState } from "react"
 import { Link, useNavigate, useParams } from "react-router-dom"
-import { ArrowLeft, Bot, CheckCircle2, HelpCircle, Lock, Play, ShieldCheck, XCircle } from "lucide-react"
+import { ArrowLeft, CheckCircle2, HelpCircle, Lock, Play, ShieldCheck, XCircle } from "lucide-react"
 import { toast } from "sonner"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -21,8 +21,7 @@ import {
   When,
 } from "@/components/serviceDesk/RequestBits"
 import { ApprovalSteps } from "@/components/serviceDesk/ApprovalSteps"
-import { AiTriageCard, AutomationCard, IdentityCard, ReviewBanner } from "@/components/serviceDesk/RequestAutomationPanels"
-import { Badge } from "@/components/ui/badge"
+import { AiTriageCard, IdentityCard } from "@/components/serviceDesk/RequestCheckPanels"
 import { RequestAttachments } from "@/components/serviceDesk/RequestFiles"
 import { RequestConversation } from "@/components/serviceDesk/RequestConversation"
 import {
@@ -95,14 +94,12 @@ function RequestView({ detail }: { detail: RequestDetail }) {
         </div>
         <div className="flex items-center gap-2">
           <OverdueBadge phase={r.overdue} level={r.escalationLevel} />
-          {r.autoApproved && <Badge variant="outline" className="gap-1"><Bot className="size-3" /> Approved automatically</Badge>}
           {r.riskLevel !== "low" && <RiskBadge value={r.riskLevel} />}
           <RequestPriorityBadge value={r.priority} />
           <RequestStatusBadge value={r.status} />
         </div>
       </div>
 
-      <ReviewBanner detail={detail} />
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
         <div className="min-w-0 space-y-4">
@@ -148,15 +145,7 @@ function RequestView({ detail }: { detail: RequestDetail }) {
               {r.businessJustification && <Prose label="Business justification" text={r.businessJustification} />}
               {r.resolutionNote && (
                 <Prose
-                  label={
-                    r.status === "cancelled"
-                      ? "Why it was cancelled"
-                      : r.fulfilledBy === "automation"
-                        ? "Done automatically"
-                        : r.fulfilledBy === "self_service"
-                          ? "Done through self-service"
-                          : "What IT did"
-                  }
+                  label={r.status === "cancelled" ? "Why it was cancelled" : "What IT did"}
                   text={r.resolutionNote}
                   tone={r.status === "cancelled" ? "muted" : "success"}
                 />
@@ -178,7 +167,6 @@ function RequestView({ detail }: { detail: RequestDetail }) {
         <div className="space-y-4">
           <Actions detail={detail} />
           <IdentityCard detail={detail} />
-          <AutomationCard detail={detail} />
           <AiTriageCard detail={detail} />
           {viewer.isAgent && detail.fulfilmentNotes && (
             <Card>
@@ -390,7 +378,7 @@ function Actions({ detail }: { detail: RequestDetail }) {
             onClick={() => start.mutate(r.id, { onSuccess: () => toast.success("Started — the requester has been told"), onError: fail })}
             data-cy="start-request"
           >
-            <Play className="mr-1 size-3.5" /> {r.item.fulfilmentType === "webhook" ? "Do it manually instead" : "Start work"}
+            <Play className="mr-1 size-3.5" /> Start work
           </Button>
         )}
         {viewer.canStart && viewer.needsIdentityCheck && (
