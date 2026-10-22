@@ -7,13 +7,11 @@ import { toast } from "sonner"
 import { Card, CardContent } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Spinner } from "@/components/shared/Spinner"
+import { PersonCombobox } from "@/components/serviceDesk/PersonCombobox"
 import { useManagers, useServiceDeskSettings, useSetManager, useUpdateApprovalRules } from "@/hooks/useServiceDesk"
 import { ApiError } from "@/transport/http"
-
-const NONE = "__none__"
 
 export function LineManagersTab() {
   const { data: people = [], isLoading } = useManagers()
@@ -99,29 +97,23 @@ export function LineManagersTab() {
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
-                          <Select
-                            value={pending ? (saving.managerId ?? NONE) : (p.managerId ?? NONE)}
+                          <PersonCombobox
+                            people={people.filter((m) => m.id !== p.id)}
+                            value={pending ? saving.managerId : p.managerId}
+                            noneLabel="No manager"
                             disabled={pending}
-                            onValueChange={(v) =>
+                            aria-label={`Line manager of ${p.name}`}
+                            onChange={(managerId) => {
+                              if (managerId === p.managerId) return
                               setManager.mutate(
-                                { userId: p.id, managerId: v === NONE ? null : v },
+                                { userId: p.id, managerId },
                                 {
                                   onSuccess: () => toast.success("Line manager saved"),
                                   onError: (e) => toast.error(e instanceof ApiError ? e.message : "Couldn't save"),
                                 }
                               )
-                            }
-                          >
-                            <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value={NONE}>No manager</SelectItem>
-                              {people
-                                .filter((m) => m.id !== p.id)
-                                .map((m) => (
-                                  <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
-                                ))}
-                            </SelectContent>
-                          </Select>
+                            }}
+                          />
                           {/* A fixed-size slot, so the dropdown doesn't shift when the spinner appears. */}
                           <span className="flex size-4 shrink-0 items-center justify-center" role="status" aria-label={pending ? "Saving" : undefined}>
                             {pending && <Spinner />}

@@ -190,10 +190,9 @@ export function ImportCasesDialog({ open, onOpenChange, suiteId }: Props) {
 
             {/* Preview table */}
             {preview.totalRows > 0 ? (
-              <div className="max-h-80 overflow-auto rounded-lg border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
+                <Table containerClassName="max-h-80 overflow-auto rounded-lg border">
+                  <TableHeader sticky className="bg-background">
+                    <TableRow className="hover:bg-transparent">
                       <TableHead>Title</TableHead>
                       <TableHead>Priority</TableHead>
                       <TableHead>Status</TableHead>
@@ -211,7 +210,6 @@ export function ImportCasesDialog({ open, onOpenChange, suiteId }: Props) {
                     ))}
                   </TableBody>
                 </Table>
-              </div>
             ) : (
               <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
                 All rows in this file already exist in the suite — nothing to import.

@@ -233,10 +233,9 @@ export function RecurringIssues({ rows, canOpen, onSelect }: Props) {
                       No {k.empty} has been raised more than once in this range.
                     </p>
                   ) : (
-                    <div className="max-h-96 overflow-auto rounded-md border">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
+                      <Table containerClassName="max-h-96 overflow-auto rounded-md border">
+                        <TableHeader sticky>
+                          <TableRow className="hover:bg-transparent">
                             <TableHead className="w-8">#</TableHead>
                             <TableHead>Issue</TableHead>
                             <TableHead className="text-right">{k.noun === "request" ? "Requests" : "Reports"}</TableHead>
@@ -305,7 +304,6 @@ export function RecurringIssues({ rows, canOpen, onSelect }: Props) {
                           ))}
                         </TableBody>
                       </Table>
-                    </div>
                   )}
                 </TabsContent>
               )

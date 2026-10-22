@@ -201,8 +201,7 @@ export function SlaTicketsDialog({
         )}
 
         {rows.length > 0 && (
-          <div className="overflow-x-auto rounded-md border">
-            <Table>
+            <Table containerClassName="rounded-md border">
               <TableHeader>
                 <TableRow>
                   <TableHead>Issue</TableHead>
@@ -294,7 +293,6 @@ export function SlaTicketsDialog({
                 ))}
               </TableBody>
             </Table>
-          </div>
         )}
       </DialogContent>
     </Dialog>

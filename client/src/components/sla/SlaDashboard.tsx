@@ -137,17 +137,16 @@ function PeopleTable({
 }) {
   if (rows.length === 0) return <p className="px-6 py-4 text-sm text-muted-foreground">{emptyLabel}</p>
   return (
-    <div className="max-h-80 overflow-auto">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>{personLabel}</TableHead>
+    <Table containerClassName="max-h-80 overflow-auto">
+        <TableHeader sticky>
+          <TableRow className="hover:bg-transparent">
+            <TableHead className="pl-6">{personLabel}</TableHead>
             <TableHead className="text-right">Issues</TableHead>
             <TableHead className="text-right">Open</TableHead>
             <TableHead className="text-right">Resolved</TableHead>
             <TableHead className="text-right">Breached</TableHead>
-            <TableHead className="text-right">Avg response</TableHead>
-            <TableHead className="text-right">Avg resolution</TableHead>
+            <TableHead className="text-right" title="Average time to first response">Response</TableHead>
+            <TableHead className="pr-6 text-right" title="Average time to resolution">Resolution</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -156,7 +155,7 @@ function PeopleTable({
             const rate = judged > 0 ? (r.met / judged) * 100 : null
             return (
               <TableRow key={r.userId} className="cursor-pointer" onClick={() => onSelect(r)}>
-                <TableCell>
+                <TableCell className="pl-6">
                   <div className="font-medium">{r.name || "Unnamed"}</div>
                   {r.clientCompanyName && <div className="text-xs text-muted-foreground">{r.clientCompanyName}</div>}
                 </TableCell>
@@ -168,13 +167,12 @@ function PeopleTable({
                   {rate != null && <span className={`ml-1 text-xs ${rateTone(rate)}`}>({fmtPct(rate)} met)</span>}
                 </TableCell>
                 <TableCell className="text-right tabular-nums text-muted-foreground">{fmtMs(r.avgFirstResponseMs)}</TableCell>
-                <TableCell className="text-right tabular-nums text-muted-foreground">{fmtMs(r.avgResolutionMs)}</TableCell>
+                <TableCell className="pr-6 text-right tabular-nums text-muted-foreground">{fmtMs(r.avgResolutionMs)}</TableCell>
               </TableRow>
             )
           })}
         </TableBody>
       </Table>
-    </div>
   )
 }
 
@@ -597,10 +595,9 @@ export function SlaDashboard({ projectId: fixedProjectId }: { projectId?: string
                   {data.byProject.length === 0 ? (
                     <p className="px-6 py-4 text-sm text-muted-foreground">No issues yet.</p>
                   ) : (
-                    <div className="max-h-80 overflow-auto">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
+                      <Table containerClassName="max-h-80 overflow-auto">
+                        <TableHeader sticky>
+                          <TableRow className="hover:bg-transparent">
                             <TableHead>Product</TableHead>
                             <TableHead className="text-right">Issues</TableHead>
                             <TableHead className="text-right">Open</TableHead>
@@ -626,7 +623,6 @@ export function SlaDashboard({ projectId: fixedProjectId }: { projectId?: string
                           ))}
                         </TableBody>
                       </Table>
-                    </div>
                   )}
                 </CardContent>
               </Card>

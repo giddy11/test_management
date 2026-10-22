@@ -2,11 +2,18 @@ import * as React from "react"
 
 import { cn } from "@/lib/utils"
 
-function Table({ className, ...props }: React.ComponentProps<"table">) {
+// The table is its own scroll container. To cap the height and scroll it, pass
+// containerClassName="max-h-80 overflow-auto" — don't wrap <Table> in another
+// scrolling div, which gives two nested scrollbars and a header that scrolls away.
+function Table({
+  className,
+  containerClassName,
+  ...props
+}: React.ComponentProps<"table"> & { containerClassName?: string }) {
   return (
     <div
       data-slot="table-container"
-      className="relative w-full overflow-x-auto"
+      className={cn("relative w-full overflow-x-auto", containerClassName)}
     >
       <table
         data-slot="table"
@@ -17,11 +24,23 @@ function Table({ className, ...props }: React.ComponentProps<"table">) {
   )
 }
 
-function TableHeader({ className, ...props }: React.ComponentProps<"thead">) {
+// `sticky` keeps the header in view while the rows scroll under it (needs a
+// scrolling container, see Table). The rule under it is a shadow because a real
+// border doesn't travel with a sticky header. Pass a bg-* class when the table
+// isn't on a card background.
+function TableHeader({
+  className,
+  sticky,
+  ...props
+}: React.ComponentProps<"thead"> & { sticky?: boolean }) {
   return (
     <thead
       data-slot="table-header"
-      className={cn("[&_tr]:border-b", className)}
+      className={cn(
+        "[&_tr]:border-b",
+        sticky && "sticky top-0 z-10 bg-card shadow-[0_1px_0_0_var(--border)] [&_tr]:border-b-0",
+        className
+      )}
       {...props}
     />
   )
