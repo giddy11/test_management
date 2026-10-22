@@ -105,6 +105,19 @@ export const NOTIFICATION_GROUPS: NotificationCategoryGroup[] = [
     ],
   },
   {
+    title: "SLA",
+    categories: [
+      {
+        key: "sla",
+        label: "SLA escalations",
+        description:
+          "When a ticket or bug assigned to you, or one you're an escalation contact for, runs past its SLA target.",
+        channels: BOTH,
+        audience: ["sla.read"],
+      },
+    ],
+  },
+  {
     title: "IT requests",
     categories: [
       {

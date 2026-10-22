@@ -22,6 +22,7 @@ export type NotificationCategory =
   | "serviceDeskApprovals"
   | "serviceDeskUpdates"
   | "serviceDeskQueue"
+  | "sla"
   | "supportChat"
   | "liveChat"
 

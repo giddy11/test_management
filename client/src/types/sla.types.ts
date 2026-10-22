@@ -12,6 +12,23 @@ export interface SlaTarget {
 
 export type SlaTargets = Record<SlaSeverityKey, SlaTarget>
 
+// What happens when an open issue runs past a target: a reminder to whoever
+// holds it at the due time, then the contacts hear about it at level 2 and 3
+// (these percentages of the target past due). Mirrors IT-request escalation.
+export interface SlaEscalation {
+  enabled: boolean
+  level2Pct: number
+  level3Pct: number
+  // Empty = whoever can configure the SLA rules.
+  contactIds: string[]
+}
+
+export interface SlaEscalationCandidate {
+  id: string
+  name: string
+  email: string
+}
+
 export interface SlaSettings {
   // Ticket targets — also what bugs and feature requests follow until an admin
   // gives them their own (see the separate* flags).
@@ -25,6 +42,9 @@ export interface SlaSettings {
   separateFeatureRequestTarget: boolean
   // Stages during which the SLA clock is paused (never "logged").
   pausedStatuses: string[]
+  escalation: SlaEscalation
+  // People who can be picked as escalation contacts (empty unless canEdit).
+  escalationCandidates: SlaEscalationCandidate[]
   // True when the organisation hasn't saved its own rules yet.
   isDefault: boolean
   updatedAt: string | null
@@ -40,6 +60,7 @@ export interface UpdateSlaSettingsPayload {
   bugTargets: SlaBugTargets | null
   featureRequestTarget: SlaTarget | null
   pausedStatuses: string[]
+  escalation: SlaEscalation
 }
 
 // Unified stage: the ticket product lifecycle plus the IT tier's

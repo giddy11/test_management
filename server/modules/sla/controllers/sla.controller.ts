@@ -1,11 +1,15 @@
 // modules/sla/controllers/sla.controller.ts
 import { SlaService } from "../services/sla.service";
+import { SlaEscalationService } from "../services/slaEscalation.service";
 
 const { ApiResponse } = require("../../../shared/response/apiResponse");
 
 export class SlaController {
   static async overview(req: any, res: any, next: any) {
     try {
+      // Someone is looking at the SLA figures: a server that sleeps between
+      // requests still escalates breaches as soon as anyone opens the dashboard.
+      SlaEscalationService.Instance.kick();
       const data = await SlaService.Instance.overview(req.user, req.validated.query);
       res.status(200).json(ApiResponse.ok("SLA overview", data));
     } catch (err) {

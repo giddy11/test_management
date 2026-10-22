@@ -13,7 +13,7 @@
 //                     target for the ticket's severity. Identified at query
 //                     time, so no batch job is needed.
 import { SlaRepository, type SlaRules, type SlaScope } from "../repositories/sla.repository";
-import type { SlaSettings, SlaTarget, SlaTargets } from "../entities/slaSettings.entity";
+import type { SlaEscalationRules, SlaSettings, SlaTarget, SlaTargets } from "../entities/slaSettings.entity";
 import type { SlaFilters, SlaTicketsQuery, UpdateSlaSettingsBody } from "../validators/sla.schema";
 import type { Actor } from "../../../shared/types/actor";
 
@@ -36,6 +36,14 @@ export const DEFAULT_SLA_TARGETS: SlaTargets = Object.freeze({
   // Tickets without a severity (direct submissions, or not yet escalated).
   default: { firstResponseHours: 24, resolutionHours: 120 },
 }) as SlaTargets;
+
+// Escalation is opt-in: until an administrator turns it on, nothing is sent.
+export const DEFAULT_SLA_ESCALATION: SlaEscalationRules = Object.freeze({
+  enabled: false,
+  level2Pct: 50,
+  level3Pct: 100,
+  contactIds: [],
+}) as SlaEscalationRules;
 
 export class SlaService {
   static Instance = new SlaService();
@@ -87,6 +95,8 @@ export class SlaService {
 
   async getSettings(actor: Actor) {
     const rules = await this.rulesFor(actor);
+    const settings = actor.organizationId ? await this.repo.findSettings(actor.organizationId) : null;
+    const canEdit = can(actor, "sla.configure");
     return {
       targets: rules.targets,
       bugTargets: rules.bugTargets,
@@ -94,20 +104,38 @@ export class SlaService {
       separateBugTargets: rules.separateBugTargets,
       separateFeatureRequestTarget: rules.separateFeatureRequestTarget,
       pausedStatuses: rules.pausedStatuses,
+      escalation: escalationOf(settings),
+      // The people an administrator can pick as escalation contacts.
+      escalationCandidates: canEdit && actor.organizationId ? await this.repo.escalationCandidates(actor.organizationId) : [],
       isDefault: rules.isDefault,
       updatedAt: rules.updatedAt,
-      canEdit: can(actor, "sla.configure"),
+      canEdit,
     };
   }
 
   async updateSettings(actor: Actor, body: UpdateSlaSettingsBody) {
     if (!actor.organizationId) throw new AppError("No organisation on this account", 403);
+    const existing = await this.repo.findSettings(actor.organizationId);
+
+    // Omitted = leave escalation as it is (an older client saving only the targets).
+    const escalation = body.escalation ?? escalationOf(existing);
+    if (body.escalation && escalation.contactIds.length) {
+      const known = await this.repo.countMembers(actor.organizationId, escalation.contactIds);
+      if (known !== escalation.contactIds.length) {
+        throw new AppError("Escalation contacts must be members of your organisation", 400);
+      }
+    }
+    // Switching it on starts the clock: only issues created from now on escalate.
+    const turningOn = escalation.enabled && !existing?.escalation?.enabled;
+
     const saved = await this.repo.saveSettings({
       organizationId: actor.organizationId,
       targets: body.targets,
       bugTargets: body.bugTargets ?? null,
       featureRequestTarget: body.featureRequestTarget ?? null,
       pausedStatuses: [...new Set(body.pausedStatuses)],
+      escalation,
+      escalationSince: turningOn ? new Date() : (existing?.escalationSince ?? null),
       updatedById: actor.id,
     });
     const resolved = resolveTargets(saved);
@@ -122,6 +150,7 @@ export class SlaService {
         bugTargets: body.bugTargets ?? null,
         featureRequestTarget: body.featureRequestTarget ?? null,
         pausedStatuses: body.pausedStatuses,
+        escalation,
       },
     });
 
@@ -132,6 +161,8 @@ export class SlaService {
       separateBugTargets: resolved.separateBugTargets,
       separateFeatureRequestTarget: resolved.separateFeatureRequestTarget,
       pausedStatuses: saved.pausedStatuses,
+      escalation,
+      escalationCandidates: await this.repo.escalationCandidates(actor.organizationId),
       isDefault: false,
       updatedAt: saved.updatedAt,
       canEdit: true,
@@ -242,6 +273,22 @@ function resolveTargets(
     featureRequestTarget: settings?.featureRequestTarget ?? targets.default,
     separateBugTargets: Boolean(settings?.bugTargets),
     separateFeatureRequestTarget: Boolean(settings?.featureRequestTarget),
+  };
+}
+
+function escalationOf(settings: Pick<SlaSettings, "escalation"> | null): SlaEscalationRules {
+  return { ...DEFAULT_SLA_ESCALATION, ...(settings?.escalation ?? {}) };
+}
+
+// The rules the SLA maths runs on for an organisation's saved settings (or the
+// defaults) — what the escalation sweeper judges breaches against.
+export function rulesFromSettings(settings: SlaSettings | null): SlaRules {
+  const resolved = resolveTargets(settings);
+  return {
+    targets: resolved.targets,
+    bugTargets: resolved.bugTargets,
+    featureRequestTarget: resolved.featureRequestTarget,
+    pausedStatuses: settings?.pausedStatuses ?? [],
   };
 }
 

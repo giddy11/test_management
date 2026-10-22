@@ -5,6 +5,7 @@ const { AppDataSource } = require("./infrastructure/database/dataSource");
 const { initSocketServer } = require("./infrastructure/realtime/socketServer");
 const { env } = require("./config/env");
 const { ServiceDeskEscalationService } = require("./modules/serviceDesk/services/serviceDeskEscalation.service");
+const { SlaEscalationService } = require("./modules/sla/services/slaEscalation.service");
 
 async function bootstrap() {
   try {
@@ -22,6 +23,8 @@ async function bootstrap() {
     // IT requests: escalate approvals and fulfilment that run past their
     // service level. Safe on several servers (advisory lock + idempotent).
     ServiceDeskEscalationService.Instance.start();
+    // SLA: the same for tickets, bugs and feature requests past an SLA target.
+    SlaEscalationService.Instance.start();
   } catch (err) {
     console.error("[Startup] Failed to start server:", err);
     process.exit(1);

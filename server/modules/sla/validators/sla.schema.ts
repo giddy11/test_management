@@ -96,6 +96,21 @@ const targetSchema = z.object({
   resolutionHours: z.number().positive().max(24 * 365),
 });
 
+// What happens when an open issue runs past a target: level 1 at the due time,
+// then levels 2 and 3 at these percentages of the target past due (the same rule
+// as IT requests). Contacts hear about 2 and 3; none picked = the SLA administrators.
+const escalationSchema = z
+  .object({
+    enabled: z.boolean(),
+    level2Pct: z.number().int().min(1).max(1000),
+    level3Pct: z.number().int().min(1).max(1000),
+    contactIds: z.array(z.string().uuid()).max(20).transform((ids) => [...new Set(ids)]),
+  })
+  .refine((v) => v.level3Pct > v.level2Pct, {
+    message: "The third escalation must come after the second",
+    path: ["level3Pct"],
+  });
+
 export const updateSlaSettingsSchema = z.object({
   body: z.object({
     targets: z.object({
@@ -129,6 +144,8 @@ export const updateSlaSettingsSchema = z.object({
       )
       .max(10)
       .default([]),
+    // Omitted = leave the organisation's escalation as it is.
+    escalation: escalationSchema.optional(),
   }),
 });
 

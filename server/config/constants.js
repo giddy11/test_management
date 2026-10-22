@@ -147,6 +147,8 @@ const NotificationType = Object.freeze({
   SERVICE_REQUEST_UPDATE: "service_request_update",
   // An approval or fulfilment ran past its service level (the sweeper).
   SERVICE_REQUEST_ESCALATED: "service_request_escalated",
+  // A ticket, bug or feature request ran past its SLA target (modules/sla sweeper).
+  SLA_ESCALATED: "sla_escalated",
 });
 
 // Lifecycle of an in-app support-chat conversation.

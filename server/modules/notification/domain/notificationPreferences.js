@@ -16,6 +16,7 @@ const NotificationCategory = Object.freeze({
   SERVICE_DESK_APPROVALS: "serviceDeskApprovals",
   SERVICE_DESK_UPDATES: "serviceDeskUpdates",
   SERVICE_DESK_QUEUE: "serviceDeskQueue",
+  SLA: "sla",
   SUPPORT_CHAT: "supportChat",
   LIVE_CHAT: "liveChat",
 });

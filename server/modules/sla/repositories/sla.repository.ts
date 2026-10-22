@@ -67,9 +67,9 @@ export interface SlaRules {
   pausedStatuses: string[];
 }
 
-type Built = { sql: string; params: unknown[] };
+export type Built = { sql: string; params: unknown[] };
 
-const REFERENCE_PREFIX: Record<SlaSource, string> = {
+export const REFERENCE_PREFIX: Record<SlaSource, string> = {
   ticket: "TKT",
   bug: "BF",
   feature_request: "FR",
@@ -134,7 +134,7 @@ export function occurrenceKeySql(alias: string, useLinks: boolean): string {
 // a filter makes it structurally impossible to match (e.g. a ticket-only
 // `type` filter, or an IT-support scope that bugs/feature requests have no
 // concept of) rather than filtering it out after the fact.
-function buildBase(scope: SlaScope, filters: SlaQueryFilters, rules: SlaRules): Built {
+export function buildBase(scope: SlaScope, filters: SlaQueryFilters, rules: SlaRules): Built {
   // Targets are nested by source so each row is measured against its own
   // source's rules (see `measured`). Feature requests always carry the
   // "default" severity key, so that's the only one they need.
@@ -454,6 +454,32 @@ export class SlaRepository {
 
   async saveSettings(data: Omit<SlaSettings, "updatedAt">): Promise<SlaSettings> {
     return this.settingsRepo.save(data);
+  }
+
+  // The people an administrator can pick as escalation contacts: the
+  // organisation's own members (a client company's supporters are not).
+  async escalationCandidates(organizationId: string): Promise<{ id: string; name: string; email: string }[]> {
+    return this.ds.query(
+      `SELECT u.id, TRIM(CONCAT(u.first_name, ' ', u.last_name)) AS name, u.email
+         FROM users u
+        WHERE u.organization_id = $1 AND u.deleted_at IS NULL AND u.client_company_id IS NULL
+        ORDER BY name
+        LIMIT 500`,
+      [organizationId]
+    );
+  }
+
+  // How many of these ids are members of the organisation — a saved contact
+  // that isn't one would silently never be told anything.
+  async countMembers(organizationId: string, ids: string[]): Promise<number> {
+    if (!ids.length) return 0;
+    const [row] = await this.ds.query(
+      `SELECT count(*)::int AS n FROM users u
+        WHERE u.organization_id = $1 AND u.deleted_at IS NULL AND u.client_company_id IS NULL
+          AND u.id = ANY($2::uuid[])`,
+      [organizationId, ids]
+    );
+    return row.n;
   }
 
   // ── Analytics ───────────────────────────────────────────────────────────────

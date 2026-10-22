@@ -468,6 +468,14 @@ const ALL_SECTIONS: DocSection[] = [
           which stages pause the clock under <Strong>SLA rules</Strong>; QA users see the projects
           they belong to.
         </P>
+        <P>
+          <Strong>Escalation</Strong> is also under SLA rules, and is off until an administrator turns
+          it on. Once on, an open ticket, bug or feature request that runs past its first-response or
+          resolution target reminds whoever is holding it (its assignees, or the IT queue for a ticket
+          not yet escalated). Later — at a percentage of the target past due, 50% and 100% by default —
+          the escalation contacts you pick are told, twice, the second time as critical. It applies to
+          issues created after you turn it on, never to the existing backlog.
+        </P>
       </div>
     ),
   },

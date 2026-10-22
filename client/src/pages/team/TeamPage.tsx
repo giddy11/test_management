@@ -177,13 +177,14 @@ export default function TeamPage() {
         </Table>
       </div>
 
-      {data?.meta && data.meta.totalPages > 1 && (
+      {data?.meta && (data.meta.hasPrev || data.meta.hasNext) && (
         <div className="flex items-center justify-end gap-2">
           <Button variant="outline" size="sm" disabled={!data.meta.hasPrev} onClick={() => setPage((p) => p - 1)}>
             Previous
           </Button>
           <span className="text-sm text-muted-foreground">
-            Page {data.meta.page} of {data.meta.totalPages}
+            Page {data.meta.page}
+            {data.meta.totalPages > 0 && ` of ${data.meta.totalPages}`}
           </span>
           <Button variant="outline" size="sm" disabled={!data.meta.hasNext} onClick={() => setPage((p) => p + 1)}>
             Next

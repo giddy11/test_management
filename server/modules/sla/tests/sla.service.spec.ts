@@ -19,6 +19,9 @@ function makeRepo() {
   return {
     findSettings: jest.fn().mockResolvedValue(null),
     saveSettings: jest.fn().mockImplementation((data) => Promise.resolve({ ...data, updatedAt: new Date() })),
+    escalationCandidates: jest.fn().mockResolvedValue([{ id: "u-1", name: "Ada Admin", email: "ada@example.com" }]),
+    // By default every id given is a member of the organisation.
+    countMembers: jest.fn().mockImplementation((_org: string, ids: string[]) => Promise.resolve(ids.length)),
     kpis: jest.fn().mockResolvedValue({ ...emptyKpis }),
     overTime: jest.fn().mockResolvedValue([]),
     bySeverity: jest.fn().mockResolvedValue([]),
@@ -181,6 +184,56 @@ describe("SlaService — rules", () => {
       expect.objectContaining({ organizationId: "org-1", pausedStatuses: ["resolved", "acknowledged"], updatedById: "admin-1" })
     );
     expect(result.isDefault).toBe(false);
+  });
+});
+
+describe("SlaService — escalation settings", () => {
+  const A = "11111111-1111-4111-8111-111111111111";
+  const escalation = { enabled: true, level2Pct: 50, level3Pct: 100, contactIds: [A] };
+  const body = { targets: DEFAULT_SLA_TARGETS, pausedStatuses: [] };
+
+  it("is off by default, with the IT-request percentages", async () => {
+    const settings = await new SlaService(makeRepo() as any).getSettings(admin);
+    expect(settings.escalation).toEqual({ enabled: false, level2Pct: 50, level3Pct: 100, contactIds: [] });
+  });
+
+  it("offers the contact picker only to people who can edit the rules", async () => {
+    const service = new SlaService(makeRepo() as any);
+    expect((await service.getSettings(admin)).escalationCandidates).toHaveLength(1);
+    expect((await service.getSettings(user)).escalationCandidates).toEqual([]);
+  });
+
+  it("starts the clock when escalation is switched on", async () => {
+    const repo = makeRepo();
+    await new SlaService(repo as any).updateSettings(admin, { ...body, escalation } as any);
+    const saved = repo.saveSettings.mock.calls[0][0];
+    expect(saved.escalation).toEqual(escalation);
+    expect(saved.escalationSince).toBeInstanceOf(Date);
+  });
+
+  it("keeps the original start date while it stays on", async () => {
+    const repo = makeRepo();
+    const since = new Date("2026-01-01T00:00:00Z");
+    repo.findSettings.mockResolvedValue({ organizationId: "org-1", targets: {}, escalation, escalationSince: since });
+    await new SlaService(repo as any).updateSettings(admin, { ...body, escalation: { ...escalation, level2Pct: 60 } } as any);
+    expect(repo.saveSettings.mock.calls[0][0].escalationSince).toBe(since);
+  });
+
+  it("leaves escalation untouched when the request doesn't mention it", async () => {
+    const repo = makeRepo();
+    const since = new Date("2026-01-01T00:00:00Z");
+    repo.findSettings.mockResolvedValue({ organizationId: "org-1", targets: {}, escalation, escalationSince: since });
+    await new SlaService(repo as any).updateSettings(admin, body as any);
+    expect(repo.saveSettings).toHaveBeenCalledWith(expect.objectContaining({ escalation, escalationSince: since }));
+  });
+
+  it("refuses contacts who aren't members of the organisation", async () => {
+    const repo = makeRepo();
+    repo.countMembers.mockResolvedValue(0);
+    await expect(
+      new SlaService(repo as any).updateSettings(admin, { ...body, escalation } as any)
+    ).rejects.toMatchObject({ statusCode: 400 });
+    expect(repo.saveSettings).not.toHaveBeenCalled();
   });
 });
 

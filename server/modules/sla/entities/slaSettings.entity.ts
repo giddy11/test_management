@@ -12,6 +12,16 @@ export interface SlaTarget {
 
 export type SlaTargets = Record<string, SlaTarget>; // default | low | medium | high | critical
 
+// What happens when an open issue runs past its first-response or resolution
+// target — see modules/sla/domain/slaEscalation.ts.
+export interface SlaEscalationRules {
+  enabled: boolean;
+  level2Pct: number;
+  level3Pct: number;
+  // Who hears about level 2 and 3. Empty = whoever holds sla.configure.
+  contactIds: string[];
+}
+
 export interface SlaSettings {
   organizationId: string;
   // Ticket targets — also what bugs and feature requests fall back to.
@@ -25,6 +35,10 @@ export interface SlaSettings {
   // Stage names (FeedbackStatus / SupportStatus) during which the SLA clock
   // is paused — e.g. "resolved" while awaiting closure. Empty = never pause.
   pausedStatuses: string[];
+  escalation: SlaEscalationRules;
+  // When escalation was last switched on: only issues created from then on
+  // escalate, so enabling it never fires for the existing backlog.
+  escalationSince: Date | null;
   updatedById: string | null;
   updatedAt: Date;
 }
@@ -56,6 +70,15 @@ const SlaSettings = new EntitySchema<SlaSettings>({
       type: "text",
       array: true,
       default: () => "'{}'",
+    },
+    escalation: {
+      type: "jsonb",
+      default: () => `'{"enabled":false,"level2Pct":50,"level3Pct":100,"contactIds":[]}'::jsonb`,
+    },
+    escalationSince: {
+      name: "escalation_since",
+      type: "timestamptz",
+      nullable: true,
     },
     updatedById: {
       name: "updated_by_id",

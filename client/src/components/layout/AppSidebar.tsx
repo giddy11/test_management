@@ -144,11 +144,11 @@ export function AppSidebar() {
         </SidebarMenu>
         {/* In the header rather than the list, so it stays put while the sections scroll. */}
         {groups.length > 1 && (
-          <div className="-mb-1 flex justify-end px-1 group-data-[collapsible=icon]:hidden">
+          <div className="-mb-1 flex group-data-[collapsible=icon]:hidden">
             <button
               type="button"
               onClick={() => setCollapsed(allFolded ? [] : groups.map((g) => g.label))}
-              className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs text-sidebar-foreground/60 transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"
+              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs text-sidebar-foreground/60 transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"
               data-cy="nav-toggle-all"
             >
               {allFolded ? <ChevronsUpDown className="size-3.5" /> : <ChevronsDownUp className="size-3.5" />}

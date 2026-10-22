@@ -1,11 +1,12 @@
 // components/sla/SlaRulesDialog.tsx — the organisation's SLA rules: response
 // and resolution targets per source (tickets by severity, bugs by priority,
-// feature requests as a single target), plus which stages pause the clock.
+// feature requests as a single target), which stages pause the clock, and who
+// is told when an open issue runs past a target (escalation).
 // Bugs and feature requests follow the ticket targets until given their own.
 // Read-only for non-admins (they can still see what they're measured against).
 import { useEffect, useState } from "react"
 import { toast } from "sonner"
-import { Info, PauseCircle } from "lucide-react"
+import { BellRing, Info, PauseCircle } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -187,9 +188,17 @@ export function SlaRulesDialog({ open, onOpenChange }: { open: boolean; onOpenCh
   const [bugs, setBugs] = useState<Record<BugKey, Row> | null>(null)
   const [featureRequest, setFeatureRequest] = useState<Row | null>(null)
   const [paused, setPaused] = useState<string[]>([])
+  const [escOn, setEscOn] = useState(false)
+  const [level2, setLevel2] = useState("50")
+  const [level3, setLevel3] = useState("100")
+  const [contactIds, setContactIds] = useState<string[]>([])
 
   useEffect(() => {
     if (settings && open) {
+      setEscOn(settings.escalation.enabled)
+      setLevel2(String(settings.escalation.level2Pct))
+      setLevel3(String(settings.escalation.level3Pct))
+      setContactIds(settings.escalation.contactIds)
       setTickets(toRows(settings.targets, TICKET_KEYS))
       setBugs(settings.separateBugTargets ? toRows(settings.bugTargets, BUG_KEYS) : null)
       setFeatureRequest(settings.separateFeatureRequestTarget ? toRow(settings.featureRequestTarget) : null)
@@ -229,8 +238,21 @@ export function SlaRulesDialog({ open, onOpenChange }: { open: boolean; onOpenCh
       featureRequestTarget = t
     }
 
+    const level2Pct = Math.round(Number(level2))
+    const level3Pct = Math.round(Number(level3))
+    if (!Number.isFinite(level2Pct) || !Number.isFinite(level3Pct) || level2Pct < 1 || level3Pct < 1) {
+      return toast.error("Escalation percentages need to be at least 1")
+    }
+    if (level3Pct <= level2Pct) return toast.error("The third escalation must come after the second")
+
     update.mutate(
-      { targets, bugTargets, featureRequestTarget, pausedStatuses: paused },
+      {
+        targets,
+        bugTargets,
+        featureRequestTarget,
+        pausedStatuses: paused,
+        escalation: { enabled: escOn, level2Pct, level3Pct, contactIds },
+      },
       {
         onSuccess: () => {
           toast.success("SLA rules saved — every issue is re-judged against them")
@@ -389,6 +411,95 @@ export function SlaRulesDialog({ open, onOpenChange }: { open: boolean; onOpenCh
                     {SLA_STAGE_LABELS[s]}
                   </label>
                 ))}
+              </div>
+            </div>
+
+            <div className="space-y-3 border-t pt-5" data-cy="sla-escalation">
+              <div>
+                <Label className="flex items-center gap-1.5 text-sm font-medium">
+                  <BellRing className="size-3.5 text-muted-foreground" />
+                  Escalation
+                </Label>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  When an open ticket, bug or feature request runs past its first-response or resolution target,
+                  whoever is holding it up is reminded. Later, the contacts below hear about it — twice.
+                </p>
+              </div>
+
+              <label className="flex items-start gap-2 text-sm">
+                <Checkbox
+                  className="mt-0.5"
+                  checked={escOn}
+                  disabled={!canEdit}
+                  onCheckedChange={(c) => setEscOn(Boolean(c))}
+                  data-cy="sla-escalation-enabled"
+                />
+                <span>
+                  Send escalations
+                  <span className="block text-xs text-muted-foreground">
+                    Applies to issues created from the moment you turn this on — the existing backlog is left alone.
+                  </span>
+                </span>
+              </label>
+
+              <div className={escOn ? "space-y-3" : "pointer-events-none space-y-3 opacity-50"} aria-disabled={!escOn}>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="grid gap-1">
+                    <Label htmlFor="sla-l2" className="text-xs font-normal">
+                      Second escalation, % of the target past due
+                    </Label>
+                    <Input
+                      id="sla-l2"
+                      type="number"
+                      min={1}
+                      value={level2}
+                      disabled={!canEdit || !escOn}
+                      onChange={(e) => setLevel2(e.target.value)}
+                    />
+                  </div>
+                  <div className="grid gap-1">
+                    <Label htmlFor="sla-l3" className="text-xs font-normal">
+                      Third (critical), % of the target past due
+                    </Label>
+                    <Input
+                      id="sla-l3"
+                      type="number"
+                      min={1}
+                      value={level3}
+                      disabled={!canEdit || !escOn}
+                      onChange={(e) => setLevel3(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Example: a 24-hour target with 50% and 100% escalates at 24h (reminder), 36h and 48h. Each target —
+                  first response and resolution — escalates on its own.
+                </p>
+
+                <div className="grid gap-1.5">
+                  <Label>Escalation contacts</Label>
+                  {canEdit ? (
+                    <div className="max-h-44 overflow-y-auto rounded-md border p-2">
+                      {settings?.escalationCandidates.map((p) => (
+                        <label key={p.id} className="flex items-center gap-2 py-1 text-sm">
+                          <Checkbox
+                            checked={contactIds.includes(p.id)}
+                            disabled={!escOn}
+                            onCheckedChange={(v) =>
+                              setContactIds((prev) => (v === true ? [...prev, p.id] : prev.filter((x) => x !== p.id)))
+                            }
+                          />
+                          {p.name} <span className="text-xs text-muted-foreground">{p.email}</span>
+                        </label>
+                      ))}
+                    </div>
+                  ) : null}
+                  <p className="text-xs text-muted-foreground">
+                    {contactIds.length
+                      ? `${contactIds.length} selected.`
+                      : "None selected — people who can change the SLA rules are told."}
+                  </p>
+                </div>
               </div>
             </div>
           </div>

@@ -81,6 +81,7 @@ const {
   LiveChatAccount,
 } = require("../../modules/liveChat/entities/liveChatAccount.entity");
 const { SlaSettings } = require("../../modules/sla/entities/slaSettings.entity");
+const { SlaEscalation } = require("../../modules/sla/entities/slaEscalation.entity");
 const { Permission } = require("../../modules/access/entities/permission.entity");
 const {
   PermissionCategory,
@@ -167,6 +168,7 @@ const AppDataSource = new DataSource({
     LiveChatSettings,
     LiveChatAccount,
     SlaSettings,
+    SlaEscalation,
     Permission,
     PermissionCategory,
     Role,
