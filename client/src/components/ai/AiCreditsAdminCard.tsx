@@ -108,10 +108,10 @@ function AccountsTable() {
     <div className="space-y-3" data-cy="ai-credit-accounts">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm font-medium">Balances</p>
-        <div className="relative">
+        <div className="relative w-full sm:w-64">
           <Search className="absolute left-2.5 top-2.5 size-4 text-muted-foreground" />
           <Input
-            className="w-64 pl-8"
+            className="w-full pl-8"
             placeholder="Search by name or email"
             value={search}
             onChange={(e) => {

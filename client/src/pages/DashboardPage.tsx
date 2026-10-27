@@ -259,8 +259,8 @@ function OverviewTab() {
                 {data.suitesBreakdown.length === 0 ? (
                   <p className="px-6 py-4 text-sm text-muted-foreground">No suites yet.</p>
                 ) : (
-                  <div className="max-h-64 overflow-y-auto">
-                    <Table>
+                  <div className="min-w-0">
+                    <Table containerClassName="max-h-64 overflow-auto">
                       <TableHeader>
                         <TableRow>
                           <TableHead>Suite</TableHead>

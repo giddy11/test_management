@@ -37,9 +37,9 @@ export function SearchByInput<T extends string>({
   const active = options.find((o) => o.value === field) ?? options[0]
 
   return (
-    <div className={cn("flex gap-2", className)}>
+    <div className={cn("flex min-w-0 max-w-full gap-2", className)}>
       <Select value={active.value} onValueChange={(v) => onFieldChange(v as T)}>
-        <SelectTrigger aria-label="Search by" className="w-32 shrink-0" data-cy="search-by">
+        <SelectTrigger aria-label="Search by" className="w-28 shrink-0 sm:w-32" data-cy="search-by">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>

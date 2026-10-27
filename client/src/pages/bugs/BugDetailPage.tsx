@@ -92,7 +92,7 @@ export default function BugDetailPage() {
           </p>
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={handleShare} data-cy="bug-share">
             <Share2 className="mr-1 size-4" /> Share
           </Button>

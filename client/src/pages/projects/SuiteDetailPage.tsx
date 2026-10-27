@@ -112,7 +112,7 @@ export default function SuiteDetailPage() {
           </Link>
           <h1 className="text-2xl font-semibold tracking-tight">{suite?.name ?? "Suite"}</h1>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {cases.length > 0 && (
             <Button variant="outline" onClick={handleExport} disabled={exportSuite.isPending} className="flex-1 sm:flex-none" data-cy="export-suite">
               <Download className="mr-1 size-4" /> {exportSuite.isPending ? "Exporting…" : "Export"}
@@ -166,7 +166,7 @@ export default function SuiteDetailPage() {
           </SelectContent>
         </Select>
         {canManage && selected.size > 0 && (
-          <div className="flex gap-2 sm:ml-auto">
+          <div className="flex flex-wrap gap-2 sm:ml-auto">
             <Button variant="outline" onClick={() => setBulkAssignOpen(true)}>
               <UserPlus className="mr-1 size-4" /> Assignees ({selected.size})
             </Button>

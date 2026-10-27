@@ -69,9 +69,9 @@ export function LineManagersTab() {
                 : "Their line-manager steps go to IT request administrators."
             }`}
         </p>
-        <div className="relative">
+        <div className="relative w-full sm:w-60">
           <Search className="absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
-          <Input className="h-9 w-60 pl-8" placeholder="Search people" value={search} onChange={(e) => setSearch(e.target.value)} />
+          <Input className="h-9 w-full pl-8" placeholder="Search people" value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
       </div>
       <Card>

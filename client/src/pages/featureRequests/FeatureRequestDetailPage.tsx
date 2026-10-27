@@ -69,7 +69,7 @@ export default function FeatureRequestDetailPage() {
       </Link>
 
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="flex items-start gap-4">
+        <div className="flex min-w-0 items-start gap-4">
           <VoteButton requestId={request.id} upvoteCount={request.upvoteCount} hasVoted={request.hasVoted} />
           <div>
             <div className="flex flex-wrap items-center gap-2">
@@ -88,7 +88,7 @@ export default function FeatureRequestDetailPage() {
           </div>
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={handleShare} data-cy="fr-share">
             <Share2 className="mr-1 size-4" /> Share
           </Button>
@@ -138,7 +138,7 @@ export default function FeatureRequestDetailPage() {
                   href={link}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
+                  className="inline-flex items-center gap-1 break-all text-sm text-primary hover:underline"
                 >
                   <ExternalLink className="size-3.5" /> {link}
                 </a>

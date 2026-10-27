@@ -163,10 +163,10 @@ export default function AllFeedbackPage() {
             ))}
           </SelectContent>
         </Select>
-        <div className="relative">
+        <div className="relative w-full sm:w-56">
           <Search className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
           <Input
-            className="w-56 pl-8"
+            className="w-full pl-8"
             placeholder="Search title or email…"
             value={search}
             onChange={(e) => { setSearch(e.target.value); setPage(1) }}

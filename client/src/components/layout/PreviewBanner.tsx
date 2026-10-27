@@ -12,15 +12,15 @@ export function PreviewBanner() {
   if (!isPreviewing || !previewRole) return null
 
   return (
-    <div className="flex h-9 shrink-0 items-center gap-2 border-b bg-amber-500 px-3 text-amber-950">
+    <div className="flex min-h-9 shrink-0 items-center gap-2 border-b bg-amber-500 px-3 py-1 text-amber-950">
       <Eye className="size-4 shrink-0" />
-      <span className="text-sm font-medium">
+      <span className="min-w-0 flex-1 truncate text-xs font-medium sm:text-sm">
         Previewing as {ROLE_LABEL[previewRole]} — some data may still reflect your admin access.
       </span>
       <Button
         size="sm"
         variant="ghost"
-        className="ml-auto h-6 px-2 text-amber-950 hover:bg-amber-600/30 hover:text-amber-950"
+        className="ml-auto h-6 shrink-0 px-2 text-amber-950 hover:bg-amber-600/30 hover:text-amber-950"
         onClick={exitPreview}
         data-cy="exit-preview-banner"
       >

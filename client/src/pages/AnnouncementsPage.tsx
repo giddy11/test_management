@@ -429,7 +429,7 @@ export default function AnnouncementsPage() {
               </div>
             ))}
 
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <Button
                 type="button"
                 variant="outline"
@@ -451,11 +451,11 @@ export default function AnnouncementsPage() {
       </Card>
 
       <div className="space-y-3">
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-sm font-medium text-muted-foreground">
             Published ({updates.length})
           </h2>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {updates.length > 0 && (
               <Button type="button" variant="outline" size="sm" onClick={toggleSelectAll}>
                 {allSelected ? "Deselect all" : "Select all"}
@@ -484,8 +484,8 @@ export default function AnnouncementsPage() {
         {updates.map((u) => (
           <Card key={u.id}>
             <CardHeader className="pb-2">
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex items-start gap-3">
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div className="flex min-w-0 flex-wrap items-start gap-3">
                   <Checkbox
                     className="mt-1"
                     checked={selectedIds.has(u.id)}

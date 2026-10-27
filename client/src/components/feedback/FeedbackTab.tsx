@@ -196,9 +196,9 @@ export function FeedbackTab({ projectId, canManage }: Props) {
 
       {canManageCompanies && <ClientCompaniesCard projectId={projectId} />}
 
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1) }}>
-          <SelectTrigger className="w-56"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="w-full sm:w-56"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All statuses</SelectItem>
             {FEEDBACK_STATUSES.map((s) => (

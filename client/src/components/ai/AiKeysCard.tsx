@@ -113,7 +113,7 @@ export function AiKeysCard({ scope, title, description }: AiKeysCardProps) {
                     {key.baseUrl && key.baseUrl !== OLLAMA_CLOUD ? ` · ${key.baseUrl}` : ""}
                   </p>
                 </div>
-                <div className="flex gap-1.5">
+                <div className="flex flex-wrap gap-1.5">
                   {!key.isActive && (
                     <Button size="sm" variant="outline" onClick={() => onActivate(key)} disabled={activate.isPending}>
                       Use this
@@ -264,7 +264,7 @@ function KeyEditor({ scope, existing, availableProviders, isFirstKey, onDone }: 
           }}
           disabled={!!existing}
         >
-          <SelectTrigger id={`ai-provider-${scope}`} className="w-60" data-cy="ai-provider-select">
+          <SelectTrigger id={`ai-provider-${scope}`} className="w-full sm:w-60" data-cy="ai-provider-select">
             <SelectValue placeholder="Choose a provider" />
           </SelectTrigger>
           <SelectContent>

@@ -132,6 +132,13 @@
   }
   body {
     @apply bg-background text-foreground;
+    overflow-x: clip;
+  }
+  html {
+    overflow-x: clip;
+  }
+  .grid {
+    grid-auto-columns: minmax(0, 1fr);
   }
 }
 

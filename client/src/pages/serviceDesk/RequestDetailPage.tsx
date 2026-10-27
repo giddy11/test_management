@@ -92,7 +92,7 @@ function RequestView({ detail }: { detail: RequestDetail }) {
             {r.item.categoryName} · {r.item.name}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <OverdueBadge phase={r.overdue} level={r.escalationLevel} />
           {r.riskLevel !== "low" && <RiskBadge value={r.riskLevel} />}
           <RequestPriorityBadge value={r.priority} />
@@ -164,7 +164,7 @@ function RequestView({ detail }: { detail: RequestDetail }) {
           <RequestConversation detail={detail} />
         </div>
 
-        <div className="space-y-4">
+        <div className="min-w-0 space-y-4">
           <Actions detail={detail} />
           <IdentityCard detail={detail} />
           <AiTriageCard detail={detail} />

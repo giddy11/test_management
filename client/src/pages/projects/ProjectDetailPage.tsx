@@ -110,9 +110,9 @@ export default function ProjectDetailPage() {
           <p className="text-sm text-muted-foreground">{project.description}</p>
         )}
         {isAdmin && (
-          <div className="mt-1 flex items-center gap-1.5">
+          <div className="mt-1 flex flex-wrap items-center gap-1.5">
             <span className="text-xs text-muted-foreground">
-              Project ID: <code className="rounded bg-muted px-1 py-0.5">{projectId}</code>
+              Project ID: <code className="break-all rounded bg-muted px-1 py-0.5">{projectId}</code>
             </span>
             <Button
               size="sm"

@@ -14,11 +14,11 @@ interface Props {
 // the other so an end date before the start date can't be chosen.
 export function DateRangeFilter({ from, to, onFromChange, onToChange }: Props) {
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex flex-wrap items-center gap-2">
       <span className="text-sm text-muted-foreground">From</span>
       <Input
         type="date"
-        className="w-40"
+        className="w-36 sm:w-40"
         value={from}
         max={to || undefined}
         onChange={(e) => onFromChange(e.target.value)}
@@ -28,7 +28,7 @@ export function DateRangeFilter({ from, to, onFromChange, onToChange }: Props) {
       <span className="text-sm text-muted-foreground">to</span>
       <Input
         type="date"
-        className="w-40"
+        className="w-36 sm:w-40"
         value={to}
         min={from || undefined}
         onChange={(e) => onToChange(e.target.value)}

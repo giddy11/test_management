@@ -269,9 +269,9 @@ export function SlaDashboard({ projectId: fixedProjectId }: { projectId?: string
         </Select>
         {range === "custom" && (
           <>
-            <Input type="date" className="w-40" value={from} max={to || undefined} onChange={(e) => setFrom(e.target.value)} aria-label="From date" />
+            <Input type="date" className="w-full sm:w-40" value={from} max={to || undefined} onChange={(e) => setFrom(e.target.value)} aria-label="From date" />
             <span className="text-xs text-muted-foreground">to</span>
-            <Input type="date" className="w-40" value={to} min={from || undefined} onChange={(e) => setTo(e.target.value)} aria-label="To date" />
+            <Input type="date" className="w-full sm:w-40" value={to} min={from || undefined} onChange={(e) => setTo(e.target.value)} aria-label="To date" />
           </>
         )}
         <Select value={bucket} onValueChange={(v) => setBucket(v as SlaInterval | "auto")}>
@@ -382,10 +382,10 @@ export function SlaDashboard({ projectId: fixedProjectId }: { projectId?: string
             </SelectContent>
           </Select>
         )}
-        <div className="relative">
+        <div className="relative w-full sm:w-72">
           <Search className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
           <Input
-            className="w-72 pl-8"
+            className="w-full pl-8"
             placeholder="Title, email, or TKT/BF/FR code…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}

@@ -136,7 +136,7 @@ function TopTile({ kind, row, onSelect }: { kind: Kind; row?: SlaRecurringRow; o
     <button
       type="button"
       onClick={() => onSelect(row)}
-      className="rounded-lg border p-4 text-left transition-colors hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring"
+      className="min-w-0 rounded-lg border p-4 text-left transition-colors hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring"
       title="Click to see every report"
       data-cy={`recurring-top-${kind.source}`}
     >
@@ -146,7 +146,7 @@ function TopTile({ kind, row, onSelect }: { kind: Kind; row?: SlaRecurringRow; o
       <p className="mt-2 line-clamp-2 text-sm font-medium leading-snug" title={row.title}>
         {row.title}
       </p>
-      <div className="mt-1 flex items-baseline gap-1.5">
+      <div className="mt-1 flex flex-wrap items-baseline gap-1.5">
         <span className="text-2xl font-semibold tabular-nums" data-cy="recurring-top-count">{row.count}</span>
         <span className="text-xs text-muted-foreground">
           {kind.noun}s{row.votes ? ` · ${plural(row.votes, "vote")}` : ""}

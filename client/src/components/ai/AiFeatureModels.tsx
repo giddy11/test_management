@@ -83,7 +83,7 @@ function FeatureRow({ scope, feature, label, description, keys, active }: Featur
 
   return (
     <div className="flex flex-wrap items-start gap-3 py-3 first:pt-0 last:pb-0" data-cy={`ai-feature-${feature}`}>
-      <div className="min-w-48 flex-1">
+      <div className="min-w-0 basis-full sm:min-w-48 sm:flex-1">
         <p className="text-sm font-medium">{label}</p>
         <p className="text-xs text-muted-foreground">{description}</p>
       </div>
@@ -99,7 +99,7 @@ function FeatureRow({ scope, feature, label, description, keys, active }: Featur
         }}
         disabled={setModel.isPending}
       >
-        <SelectTrigger className="w-52" aria-label={`Provider for ${label}`}>
+        <SelectTrigger className="w-full sm:w-52" aria-label={`Provider for ${label}`}>
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -112,13 +112,13 @@ function FeatureRow({ scope, feature, label, description, keys, active }: Featur
         </SelectContent>
       </Select>
       {provider && (
-        <div className="grid gap-1">
+        <div className="grid w-full gap-1 sm:w-auto">
           <Select
             value={currentModel}
             onValueChange={(model) => save({ provider, model })}
             disabled={setModel.isPending || models.isLoading}
           >
-            <SelectTrigger className="w-64" aria-label={`Model for ${label}`}>
+            <SelectTrigger className="w-full sm:w-64" aria-label={`Model for ${label}`}>
               <SelectValue placeholder={models.isLoading ? "Loading models…" : "Choose a model"} />
             </SelectTrigger>
             <SelectContent>

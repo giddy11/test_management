@@ -38,14 +38,14 @@ export function DashboardLayout() {
         {/* min-w-0: the inset is w-full + flex-1, so its automatic minimum width is the
             whole viewport as soon as any child (e.g. the banner marquee) is wider than that,
             and with the sidebar beside it the page overflows by the sidebar's width. */}
-        <SidebarInset className="min-w-0">
+        <SidebarInset className="min-w-0 overflow-x-clip">
           <PreviewBanner />
           <SiteBannerBar />
           <header className="sticky top-0 z-10 flex h-14 shrink-0 items-center gap-2 border-b bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/60">
             <SidebarTrigger className="-ml-1" />
             <Separator orientation="vertical" className="mr-2 h-4" />
             <span className="hidden text-sm font-medium sm:inline">TestMate</span>
-            <div className="ml-auto flex items-center gap-1">
+            <div className="ml-auto flex min-w-0 flex-1 items-center justify-end gap-1 sm:flex-initial">
               <InstallAppButton className="mr-1" />
               {can("project.read") && <GlobalSearch />}
               <NotificationBell />
@@ -54,7 +54,7 @@ export function DashboardLayout() {
           </header>
           {/* pb-24 keeps the end of a page (e.g. a right-aligned pager) scrollable
               clear of the floating WhatsApp button, which sits fixed bottom-right. */}
-          <main className="flex-1 p-4 pb-24 md:p-6 md:pb-24">
+          <main className="min-w-0 flex-1 p-4 pb-24 md:p-6 md:pb-24">
             {/* Pages load as separate chunks (App.tsx); the sidebar and header
                 stay on screen while one is fetched. */}
             <Suspense fallback={<PageLoader />}>

@@ -89,7 +89,7 @@ export default function CatalogSetupPage() {
       </Card>
 
       <Tabs value={tab} onValueChange={setTab}>
-        <TabsList className="h-auto flex-wrap">
+        <TabsList>
           <TabsTrigger value="catalog">Catalog</TabsTrigger>
           <TabsTrigger value="groups">Approver groups</TabsTrigger>
           <TabsTrigger value="policies">Approval policies</TabsTrigger>
@@ -112,7 +112,7 @@ export default function CatalogSetupPage() {
       {catalog.map((c) => (
         <Card key={c.id} className={cn(!c.isActive && "opacity-70")}>
           <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-2 space-y-0">
-            <div className="flex items-start gap-3">
+            <div className="flex min-w-0 items-start gap-3">
               <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
                 <CategoryIcon name={c.icon} className="size-4" />
               </div>
@@ -124,7 +124,7 @@ export default function CatalogSetupPage() {
                 {c.description && <CardDescription>{c.description}</CardDescription>}
               </div>
             </div>
-            <div className="flex gap-1">
+            <div className="flex flex-wrap gap-1">
               <Button size="sm" variant="ghost" onClick={() => setEditingCategory(c)}>
                 <Pencil className="mr-1 size-3.5" /> Edit
               </Button>

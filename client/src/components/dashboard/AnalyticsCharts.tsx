@@ -65,7 +65,7 @@ export function ResultDonut({ breakdown }: { breakdown: DashboardOverview["resul
       </ResponsiveContainer>
 
       {/* Legend — shows all 5 categories so users can see what's counted */}
-      <div className="grid grid-cols-2 gap-x-4 gap-y-2 px-1 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-x-4 gap-y-2 px-1 min-[380px]:grid-cols-2 sm:grid-cols-3">
         {RESULT_KEYS.map((k) => {
           const count = breakdown[k]
           const pct = breakdown.total > 0 ? Math.round((count / breakdown.total) * 100) : 0

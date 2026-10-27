@@ -80,7 +80,7 @@ export function ClientCompaniesCard({ projectId }: { projectId: string }) {
                 {c.supporterCount} supporter{c.supporterCount === 1 ? "" : "s"}
               </Badge>
               {c.contactEmail && (
-                <span className="text-xs text-muted-foreground">{c.contactEmail}</span>
+                <span className="break-all text-xs text-muted-foreground">{c.contactEmail}</span>
               )}
               <div className="ml-auto flex items-center gap-1">
                 <Button size="sm" variant="ghost" className="size-7 p-0" onClick={() => { setEditing(c); setFormOpen(true) }}>
@@ -99,7 +99,7 @@ export function ClientCompaniesCard({ projectId }: { projectId: string }) {
             <div className="mt-2 flex flex-wrap items-center gap-2">
               {c.feedbackToken ? (
                 <>
-                  <code className="max-w-56 truncate rounded bg-muted px-2 py-1 text-xs">
+                  <code className="max-w-full truncate rounded bg-muted px-2 py-1 text-xs sm:max-w-56">
                     {`${window.location.origin}/feedback/${c.feedbackToken}`}
                   </code>
                   <Button size="sm" variant="outline" onClick={() => copyLink(c.feedbackToken!)}>

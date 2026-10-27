@@ -82,7 +82,7 @@ export default function ServiceQueuePage() {
         <>
           <div className="flex flex-wrap items-center gap-2">
             <Tabs value={tab} onValueChange={(v) => { setTab(v as Tab); setPage(1) }}>
-              <TabsList className="h-auto flex-wrap">
+              <TabsList>
                 <TabsTrigger value="ready">Ready{count(counts?.queue?.ready)}</TabsTrigger>
                 <TabsTrigger value="in_progress">In progress</TabsTrigger>
                 <TabsTrigger value="overdue" className="data-[state=active]:text-red-600">Overdue{count(counts?.queue?.overdue)}</TabsTrigger>
@@ -104,10 +104,10 @@ export default function ServiceQueuePage() {
                   ))}
               </SelectContent>
             </Select>
-            <div className="relative">
+            <div className="relative w-full sm:w-56">
               <Search className="absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
               <Input
-                className="h-9 w-56 pl-8"
+                className="h-9 w-full pl-8"
                 placeholder="Title or SR number"
                 value={search}
                 onChange={(e) => { setSearch(e.target.value); setPage(1) }}

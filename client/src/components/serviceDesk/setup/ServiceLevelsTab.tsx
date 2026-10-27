@@ -100,12 +100,12 @@ function ServiceLevelsForm({ initial }: { initial: ServiceLevels }) {
             <Label>Escalation contacts</Label>
             <div className="max-h-44 overflow-y-auto rounded-md border p-2">
               {people.map((p) => (
-                <label key={p.id} className="flex items-center gap-2 py-1 text-sm">
+                <label key={p.id} className="flex flex-wrap items-center gap-x-2 gap-y-0.5 py-1 text-sm">
                   <Checkbox
                     checked={contactIds.includes(p.id)}
                     onCheckedChange={(v) => setContactIds((prev) => (v === true ? [...prev, p.id] : prev.filter((x) => x !== p.id)))}
                   />
-                  {p.name} <span className="text-xs text-muted-foreground">{p.email}</span>
+                  {p.name} <span className="break-all text-xs text-muted-foreground">{p.email}</span>
                 </label>
               ))}
             </div>

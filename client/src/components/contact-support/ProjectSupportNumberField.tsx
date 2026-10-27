@@ -49,13 +49,13 @@ export function ProjectSupportNumberField({ projectId, value }: Props) {
   if (editing) {
     return (
       <form
-        className="flex items-center gap-2"
+        className="flex flex-wrap items-center gap-2"
         onSubmit={(e) => {
           e.preventDefault()
           save()
         }}
       >
-        <PhoneNumberInput value={input} onChange={setInput} className="w-72" />
+        <PhoneNumberInput value={input} onChange={setInput} className="w-full sm:w-72" />
         <Button type="submit" size="sm" disabled={updateProject.isPending || !input.trim()}>
           Save
         </Button>

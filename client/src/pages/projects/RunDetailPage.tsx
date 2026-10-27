@@ -121,7 +121,7 @@ export default function RunDetailPage() {
           <div className="flex flex-wrap items-center gap-3">
             {editingName ? (
               <form
-                className="flex items-center gap-2"
+                className="flex flex-wrap items-center gap-2"
                 onSubmit={(e) => {
                   e.preventDefault()
                   saveName()
@@ -130,7 +130,7 @@ export default function RunDetailPage() {
                 <Input
                   value={nameInput}
                   onChange={(e) => setNameInput(e.target.value)}
-                  className="h-9 w-64 text-lg font-semibold"
+                  className="h-9 w-full text-lg font-semibold sm:w-64"
                   autoFocus
                 />
                 <Button type="submit" size="sm" disabled={updateRun.isPending || !nameInput.trim()}>

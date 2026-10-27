@@ -64,7 +64,7 @@ export function RequestList({
                   {showAssignee && <> · {r.assignee ? `with ${r.assignee.name}` : "unassigned"}</>}
                 </p>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <OverdueBadge phase={r.overdue} level={r.escalationLevel} />
                 {/* Approvers and IT see the requester's date; the requester typed it. */}
                 {(showRequester || showAssignee) && <NeededByBadge value={r.neededBy} />}
@@ -79,7 +79,7 @@ export function RequestList({
         </Link>
       ))}
       {meta && onPage && (meta.hasPrev || meta.hasNext) && (
-        <div className="flex items-center justify-between pt-2 text-sm text-muted-foreground">
+        <div className="flex flex-wrap items-center justify-between gap-2 pt-2 text-sm text-muted-foreground">
           <span>
             Page {meta.page} of {Math.max(meta.totalPages, 1)} · {meta.total} request{meta.total === 1 ? "" : "s"}
           </span>
