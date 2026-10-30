@@ -900,11 +900,13 @@ async function seed(ORG, adminRow) {
         first_response_at: past.length > 1 ? date(past[1].t) : null,
         comment_count: 0,
       });
-      for (const e of past) bugHistory.push({ id: uuid(), bug_id: bug.id, status: e.s, entered_at: date(e.t) });
+      // Who made each move: the reporter opens and signs off (Verified/Closed); everything else is the assignee's.
+      const moverOf = (e, i) => (i === 0 || e.s === "Verified" || e.s === "Closed" ? reporter : bug.assignee || assignee);
+      past.forEach((e, i) => bugHistory.push({ id: uuid(), bug_id: bug.id, status: e.s, entered_at: date(e.t), actor_id: moverOf(e, i).id }));
       log(reporter, created, "bug.created", `Reported bug "${title}" in project "${p.name}"`, "bug", bug.id, { projectId: p.id }, priority === "Urgent" ? "warning" : "info");
-      for (const e of past.slice(1)) {
-        log(e.s === "Verified" || e.s === "Closed" ? reporter : bug.assignee || assignee, e.t, "bug.updated", `Updated bug "${title}" in project "${p.name}"`, "bug", bug.id, { projectId: p.id, status: e.s });
-      }
+      past.slice(1).forEach((e, i) => {
+        log(moverOf(e, i + 1), e.t, "bug.updated", `Updated bug "${title}" in project "${p.name}"`, "bug", bug.id, { projectId: p.id, status: e.s });
+      });
       if (NOW - created < 30 * D) {
         notify(admin.id, "bug_reported", `New bug: ${title}`, `${reporter.name} reported a new bug`, { bugId: bug.id, projectId: p.id }, created + 2 * MIN);
         if (bug.assignee) notify(bug.assignee.id, "bug_assigned", `Bug assigned: ${title}`, `You've been assigned to fix "${title}"`, { bugId: bug.id, projectId: p.id }, created + between(5, 120) * MIN);
@@ -973,7 +975,7 @@ async function seed(ORG, adminRow) {
         closed_at: terminal ? date(past[past.length - 1].t) : null,
         assigned_to_id: ["planned", "in_progress", "done"].includes(status) ? pick(team(p)).id : null,
       });
-      for (const e of past) frHistory.push({ id: uuid(), feature_request_id: frObj.id, status: e.s, entered_at: date(e.t) });
+      past.forEach((e, i) => frHistory.push({ id: uuid(), feature_request_id: frObj.id, status: e.s, entered_at: date(e.t), actor_id: (i === 0 ? submitter : p.lead).id }));
       for (const v of voters) voteRows.push({ id: uuid(), feature_request_id: frObj.id, user_id: v.id, created_at: date(Math.min(NOW - MIN, created + between(0, 40) * D)) });
       log(submitter, created, "feature_request.created", `Submitted feature request "${title}" in project "${p.name}"`, "feature_request", frObj.id, { projectId: p.id });
       for (const e of past.slice(1)) log(p.lead, e.t, "feature_request.status_updated", `Updated feature request "${title}" to ${e.s} in project "${p.name}"`, "feature_request", frObj.id, { projectId: p.id });

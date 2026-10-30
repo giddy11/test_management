@@ -10,6 +10,9 @@ import { formatDuration } from "@/lib/formatDuration"
 export interface StatusTimelineEntry {
   status: string
   enteredAt: string
+  // Who moved the item into this status. Absent for entries from before that
+  // was tracked, in which case no name is shown.
+  actor?: { id: string; name: string } | null
 }
 
 interface Props {
@@ -61,6 +64,14 @@ export function StatusTimeline({ history, labelFor, finalStatuses = [] }: Props)
                   hour: "numeric",
                   minute: "2-digit",
                 })}
+                {row.actor && (
+                  <>
+                    {" · "}
+                    <span className="font-medium text-foreground" data-cy="timeline-actor">
+                      {row.actor.name}
+                    </span>
+                  </>
+                )}
               </p>
             </div>
             {row.durationMs !== null && (

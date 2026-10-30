@@ -246,7 +246,12 @@ describe("BugService", () => {
         priority: "Medium",
       });
       await Promise.resolve();
-      expect(historyRepo.create).toHaveBeenCalledWith({ bugId: "bug-2", status: "Open", enteredAt: createdAt });
+      expect(historyRepo.create).toHaveBeenCalledWith({
+        bugId: "bug-2",
+        status: "Open",
+        enteredAt: createdAt,
+        actorId: user.id,
+      });
     });
   });
 
@@ -379,7 +384,7 @@ describe("BugService", () => {
       await service.manageBug(admin, "bug-1", { status: "Fixed" });
       await Promise.resolve();
       expect(historyRepo.create).toHaveBeenCalledWith(
-        expect.objectContaining({ bugId: "bug-1", status: "Fixed", enteredAt: expect.any(Date) })
+        expect.objectContaining({ bugId: "bug-1", status: "Fixed", enteredAt: expect.any(Date), actorId: admin.id })
       );
     });
 

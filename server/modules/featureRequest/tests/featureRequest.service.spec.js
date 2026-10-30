@@ -187,7 +187,12 @@ describe("FeatureRequestService", () => {
         description: "Please add dark mode",
       });
       await Promise.resolve();
-      expect(historyRepo.create).toHaveBeenCalledWith({ featureRequestId: "fr-2", status: "new", enteredAt: createdAt });
+      expect(historyRepo.create).toHaveBeenCalledWith({
+        featureRequestId: "fr-2",
+        status: "new",
+        enteredAt: createdAt,
+        actorId: user.id,
+      });
     });
   });
 
@@ -396,7 +401,12 @@ describe("FeatureRequestService", () => {
       await service.updateStatus(admin, "fr-1", { status: "planned" });
       await Promise.resolve();
       expect(historyRepo.create).toHaveBeenCalledWith(
-        expect.objectContaining({ featureRequestId: "fr-1", status: "planned", enteredAt: expect.any(Date) })
+        expect.objectContaining({
+          featureRequestId: "fr-1",
+          status: "planned",
+          enteredAt: expect.any(Date),
+          actorId: admin.id,
+        })
       );
     });
 

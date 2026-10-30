@@ -35,11 +35,12 @@ function openBug(role: "admin" | "user", userOverrides?: Record<string, unknown>
     `/bugs/${BUG_ID}/history`,
     {
       body: ok([
-        { status: "Open", enteredAt: "2026-07-14T09:00:00.000Z" },
-        { status: "In Progress", enteredAt: "2026-07-14T11:00:00.000Z" },
-        { status: "Fixed", enteredAt: "2026-07-15T09:00:00.000Z" },
-        { status: "Reopened", enteredAt: "2026-07-16T09:00:00.000Z" },
-        { status: "In Progress", enteredAt: "2026-07-16T10:00:00.000Z" },
+        { status: "Open", enteredAt: "2026-07-14T09:00:00.000Z", actor: { id: "u-rep", name: "Rita Reporter" } },
+        { status: "In Progress", enteredAt: "2026-07-14T11:00:00.000Z", actor: { id: "u-dev", name: "Dan Developer" } },
+        { status: "Fixed", enteredAt: "2026-07-15T09:00:00.000Z", actor: { id: "u-dev", name: "Dan Developer" } },
+        { status: "Reopened", enteredAt: "2026-07-16T09:00:00.000Z", actor: { id: "u-rep", name: "Rita Reporter" } },
+        // Entries from before moves were attributed have no actor.
+        { status: "In Progress", enteredAt: "2026-07-16T10:00:00.000Z", actor: null },
       ]),
     },
     "history"
@@ -77,6 +78,13 @@ describe("Bug detail (admin)", () => {
     cy.dataCy("timeline-entry").eq(0).should("contain", "Open").and("contain", "2h")
     cy.dataCy("timeline-entry").eq(3).should("contain", "Reopened").and("contain", "1h")
     cy.dataCy("timeline-entry").eq(4).should("contain", "In Progress").and("contain", "so far")
+  })
+
+  it("names who made each status move, and omits the name when it isn't known", () => {
+    cy.dataCy("timeline-entry").eq(0).should("contain", "Rita Reporter")
+    cy.dataCy("timeline-entry").eq(2).should("contain", "Dan Developer")
+    cy.dataCy("timeline-entry").eq(3).should("contain", "Rita Reporter")
+    cy.dataCy("timeline-entry").eq(4).find('[data-cy="timeline-actor"]').should("not.exist")
   })
 
   it("requires an assignee before an In Progress bug can be saved, then only offers project members", () => {

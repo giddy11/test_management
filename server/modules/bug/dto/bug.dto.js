@@ -34,9 +34,10 @@ function toBugResponse(bug) {
 }
 
 // Ordered oldest → newest. The client derives time-in-status from consecutive
-// `enteredAt` timestamps (the last entry's is still running).
+// `enteredAt` timestamps (the last entry's is still running). `actor` is who
+// made the move — null for entries from before that was tracked.
 function toBugTimelineResponse(rows) {
-  return rows.map((r) => ({ status: r.status, enteredAt: r.enteredAt }));
+  return rows.map((r) => ({ status: r.status, enteredAt: r.enteredAt, actor: userSummary(r.actor) }));
 }
 
 // Firestore has no join — authorId/authorName are denormalized directly onto the doc.

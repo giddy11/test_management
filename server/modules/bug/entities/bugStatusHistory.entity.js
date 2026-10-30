@@ -27,6 +27,13 @@ const BugStatusHistory = new EntitySchema({
       type: "timestamptz",
       default: () => "CURRENT_TIMESTAMP",
     },
+    // Who moved the bug into this status. Null for moves made before this was
+    // tracked, and once the user is deleted.
+    actorId: {
+      name: "actor_id",
+      type: "uuid",
+      nullable: true,
+    },
   },
   relations: {
     bug: {
@@ -34,6 +41,13 @@ const BugStatusHistory = new EntitySchema({
       target: "Bug",
       joinColumn: { name: "bug_id" },
       onDelete: "CASCADE",
+    },
+    actor: {
+      type: "many-to-one",
+      target: "User",
+      joinColumn: { name: "actor_id" },
+      nullable: true,
+      onDelete: "SET NULL",
     },
   },
   indices: [{ name: "idx_bug_status_history_bug", columns: ["bugId", "enteredAt"] }],

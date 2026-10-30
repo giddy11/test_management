@@ -33,6 +33,8 @@ export type BugSearchField = "title" | "reporter" | "assignee" | "suite"
 export interface BugStatusHistoryEntry {
   status: BugStatus
   enteredAt: string
+  // Who made the move — null for entries from before that was tracked.
+  actor: { id: string; name: string } | null
 }
 
 export interface BugComment {

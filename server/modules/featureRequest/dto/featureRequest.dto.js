@@ -62,9 +62,16 @@ function toCommentResponse(c, actorId) {
 }
 
 // Ordered oldest → newest. The client derives time-in-status from consecutive
-// `enteredAt` timestamps (the last entry's is still running).
+// `enteredAt` timestamps (the last entry's is still running). `actor` is who
+// made the move — null for entries from before that was tracked.
 function toStatusTimelineResponse(rows) {
-  return rows.map((r) => ({ status: r.status, enteredAt: r.enteredAt }));
+  return rows.map((r) => ({
+    status: r.status,
+    enteredAt: r.enteredAt,
+    actor: r.actor
+      ? { id: r.actor.id, name: [r.actor.firstName, r.actor.lastName].filter(Boolean).join(" ") }
+      : null,
+  }));
 }
 
 module.exports = { toFeatureRequestResponse, toCommentResponse, toStatusTimelineResponse };

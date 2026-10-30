@@ -29,6 +29,8 @@ export type FeatureRequestSearchField = "title" | "reporter"
 export interface FeatureRequestStatusHistoryEntry {
   status: FeatureRequestStatus
   enteredAt: string
+  // Who made the move — null for entries from before that was tracked.
+  actor: { id: string; name: string } | null
 }
 
 export interface FeatureRequestComment {

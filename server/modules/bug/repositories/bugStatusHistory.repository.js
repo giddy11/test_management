@@ -13,12 +13,19 @@ class BugStatusHistoryRepository {
     await this.repo.save(this.repo.create(entry));
   }
 
-  // Ordered oldest → newest — the shape a timeline renders directly.
+  // Ordered oldest → newest — the shape a timeline renders directly. Only the
+  // actor's name fields are loaded, not the whole user row.
   async findByBug(bugId) {
     return this.repo.find({
       where: { bugId },
       order: { enteredAt: "ASC" },
-      select: ["id", "status", "enteredAt"],
+      relations: { actor: true },
+      select: {
+        id: true,
+        status: true,
+        enteredAt: true,
+        actor: { id: true, firstName: true, lastName: true },
+      },
     });
   }
 }

@@ -199,7 +199,7 @@ class BugService {
     // First entry in the SLA "paused time" timeline — same pattern as
     // FeedbackService seeding feedback_status_history on creation.
     this.historyRepo
-      .create({ bugId: bug.id, status: BugStatus.OPEN, enteredAt: bug.createdAt })
+      .create({ bugId: bug.id, status: BugStatus.OPEN, enteredAt: bug.createdAt, actorId: actor.id })
       .catch((e) => console.error("[bug] history entry failed:", e.message));
 
     ActivityService.Instance.log(actor, {
@@ -332,7 +332,7 @@ class BugService {
     // calculation and a timeline, same as FeedbackService.
     if (patch.status && patch.status !== bug.status) {
       this.historyRepo
-        .create({ bugId: bug.id, status: patch.status, enteredAt: patch.statusUpdatedAt })
+        .create({ bugId: bug.id, status: patch.status, enteredAt: patch.statusUpdatedAt, actorId: actor.id })
         .catch((e) => console.error("[bug] history entry failed:", e.message));
     }
 

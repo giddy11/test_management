@@ -219,7 +219,12 @@ class FeatureRequestService {
     // First entry in the SLA "paused time" timeline — same pattern as
     // FeedbackService seeding feedback_status_history on creation.
     this.historyRepo
-      .create({ featureRequestId: fr.id, status: FeatureRequestStatus.NEW, enteredAt: fr.createdAt })
+      .create({
+        featureRequestId: fr.id,
+        status: FeatureRequestStatus.NEW,
+        enteredAt: fr.createdAt,
+        actorId: actor.id,
+      })
       .catch((e) => console.error("[featureRequest] history entry failed:", e.message));
 
     ActivityService.Instance.log(actor, {
@@ -345,7 +350,12 @@ class FeatureRequestService {
     // calculation and a timeline, same as FeedbackService.
     if (patch.status && patch.status !== fr.status) {
       this.historyRepo
-        .create({ featureRequestId: fr.id, status: patch.status, enteredAt: patch.statusUpdatedAt })
+        .create({
+          featureRequestId: fr.id,
+          status: patch.status,
+          enteredAt: patch.statusUpdatedAt,
+          actorId: actor.id,
+        })
         .catch((e) => console.error("[featureRequest] history entry failed:", e.message));
     }
 

@@ -28,6 +28,13 @@ const FeatureRequestStatusHistory = new EntitySchema({
       type: "timestamptz",
       default: () => "CURRENT_TIMESTAMP",
     },
+    // Who moved the request into this status. Null for moves made before this
+    // was tracked, and once the user is deleted.
+    actorId: {
+      name: "actor_id",
+      type: "uuid",
+      nullable: true,
+    },
   },
   relations: {
     featureRequest: {
@@ -35,6 +42,13 @@ const FeatureRequestStatusHistory = new EntitySchema({
       target: "FeatureRequest",
       joinColumn: { name: "feature_request_id" },
       onDelete: "CASCADE",
+    },
+    actor: {
+      type: "many-to-one",
+      target: "User",
+      joinColumn: { name: "actor_id" },
+      nullable: true,
+      onDelete: "SET NULL",
     },
   },
   indices: [
