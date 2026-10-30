@@ -5,8 +5,8 @@
 // status timeline can say "Fixed · by Philip Akpan".
 //
 // Backfill: the initial entry (Open / new) is always the reporter or submitter, which
-// the bug / request row still holds. Later moves were never attributed and can't be
-// recovered, so they stay NULL and the timeline simply shows no name for them.
+// the bug / request row still holds. Later moves are attributed from the audit log by
+// BackfillStatusHistoryActor, which runs right after this.
 // SET NULL on delete keeps the history when a user is removed.
 // Safe to re-run: IF NOT EXISTS throughout.
 import type { MigrationInterface, QueryRunner } from "typeorm";
