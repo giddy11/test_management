@@ -9,6 +9,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import {
@@ -45,19 +46,27 @@ export function StatusUpdateDialog({ open, onOpenChange, request, members }: Pro
   const [status, setStatus] = useState<FeatureRequestStatus>("new")
   const [adminResponse, setAdminResponse] = useState("")
   const [assignedToId, setAssignedToId] = useState<string>("unassigned")
+  const [priority, setPriority] = useState("")
 
   useEffect(() => {
     if (open && request) {
       setStatus(request.status)
       setAdminResponse(request.adminResponse ?? "")
       setAssignedToId(request.assignedTo?.id ?? "unassigned")
+      setPriority(request.priority != null ? String(request.priority) : "")
     }
   }, [open, request])
 
   const needsAssignee = isFeatureRequestAssigneeRequired(status) && assignedToId === "unassigned"
 
+  // "" means leave it unset; anything else must be a whole number ≥ 1.
+  const trimmedPriority = priority.trim()
+  const priorityValue = trimmedPriority === "" ? null : Number(trimmedPriority)
+  const priorityInvalid =
+    trimmedPriority !== "" && (!Number.isInteger(priorityValue) || (priorityValue as number) < 1)
+
   const onSubmit = () => {
-    if (!request) return
+    if (!request || priorityInvalid) return
     update.mutate(
       {
         id: request.id,
@@ -65,6 +74,7 @@ export function StatusUpdateDialog({ open, onOpenChange, request, members }: Pro
           status,
           adminResponse: adminResponse || null,
           assignedToId: assignedToId === "unassigned" ? null : assignedToId,
+          priority: priorityValue,
         },
       },
       {
@@ -132,6 +142,25 @@ export function StatusUpdateDialog({ open, onOpenChange, request, members }: Pro
             </div>
           )}
           <div className="grid gap-1.5">
+            <Label htmlFor="priority">Priority (optional)</Label>
+            <Input
+              id="priority"
+              type="number"
+              min={1}
+              step={1}
+              inputMode="numeric"
+              placeholder="e.g. 1 to build it first"
+              value={priority}
+              onChange={(e) => setPriority(e.target.value)}
+              className="w-28"
+            />
+            <p className="text-xs text-muted-foreground">
+              {priorityInvalid
+                ? "Must be a whole number, 1 or higher."
+                : "Lower numbers come first in the list. Leave blank for no set order."}
+            </p>
+          </div>
+          <div className="grid gap-1.5">
             <Label htmlFor="adminResponse">Response (optional)</Label>
             <Textarea
               id="adminResponse"
@@ -146,7 +175,12 @@ export function StatusUpdateDialog({ open, onOpenChange, request, members }: Pro
           <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button type="button" onClick={onSubmit} disabled={update.isPending || needsAssignee} data-cy="fr-status-save">
+          <Button
+            type="button"
+            onClick={onSubmit}
+            disabled={update.isPending || needsAssignee || priorityInvalid}
+            data-cy="fr-status-save"
+          >
             {update.isPending ? "Saving…" : "Save"}
           </Button>
         </DialogFooter>

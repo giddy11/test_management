@@ -7,7 +7,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { PresenceDot } from "@/components/shared/PresenceDot"
 import { FeatureRequestStatusBadge } from "@/components/shared/StatusBadge"
 import { VoteButton } from "@/components/featureRequests/VoteButton"
-import { PinButton } from "@/components/featureRequests/PinButton"
+import { PriorityInput } from "@/components/featureRequests/PriorityInput"
 import { RepeatBadges } from "@/components/tickets/RepeatBadges"
 import { cn } from "@/lib/utils"
 import type { FeatureRequest } from "@/types/featureRequest.types"
@@ -32,13 +32,13 @@ export const FeatureRequestRow = memo(function FeatureRequestRow({
       data-cy="feature-request-card"
       className={cn(
         "cursor-pointer border-l-2 border-l-transparent",
-        request.pinnedAt && "border-l-primary bg-primary/5 hover:bg-primary/10"
+        request.priority != null && "border-l-primary bg-primary/5 hover:bg-primary/10"
       )}
       onClick={() => navigate(`/projects/${request.projectId}/feature-requests/${request.id}`)}
     >
-      {/* The pin control owns its own click, so the cell must not navigate. */}
+      {/* The priority input owns its own click/typing, so the cell must not navigate. */}
       <TableCell onClick={(e) => e.stopPropagation()}>
-        <PinButton requestId={request.id} pinnedAt={request.pinnedAt} canManage={canManage} />
+        <PriorityInput requestId={request.id} priority={request.priority} canManage={canManage} />
       </TableCell>
       {/* The vote control owns its own click, so the cell must not navigate. */}
       <TableCell onClick={(e) => e.stopPropagation()}>

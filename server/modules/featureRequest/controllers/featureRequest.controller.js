@@ -116,15 +116,6 @@ class FeatureRequestController {
     }
   }
 
-  static async pin(req, res, next) {
-    try {
-      const fr = await FeatureRequestService.Instance.togglePin(req.user, req.validated.params.id);
-      res.status(200).json(ApiResponse.ok("Pin updated", toFeatureRequestResponse(fr)));
-    } catch (err) {
-      next(err);
-    }
-  }
-
   static async fetchComments(req, res, next) {
     try {
       const result = await FeatureRequestService.Instance.fetchComments(

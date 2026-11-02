@@ -26,6 +26,8 @@ const updateStatusSchema = z.object({
       status: z.enum(enums.featureRequestStatus).optional(),
       adminResponse: z.string().max(3000).nullable().optional(),
       assignedToId: z.string().uuid().nullable().optional(),
+      // Explicit work order — 1 first, then 2, 3, ... null clears it.
+      priority: z.coerce.number().int().min(1).nullable().optional(),
       title: z.string().min(1).max(200).optional(),
       description: z.string().min(1).max(3000).optional(),
       category: z.string().max(50).nullable().optional(),

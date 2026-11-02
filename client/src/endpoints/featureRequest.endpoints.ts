@@ -27,7 +27,6 @@ export const FeatureRequestEndpoints = {
     wrapCall<FeatureRequestStatusHistoryEntry[]>("GET", `/api/v1/feature-requests/${id}/history`),
   remove: (id: string) => wrapCall<null>("DELETE", `/api/v1/feature-requests/${id}`),
   vote: (id: string) => wrapCall<VoteResult>("POST", `/api/v1/feature-requests/${id}/vote`),
-  pin: (id: string) => wrapCall<FeatureRequest>("POST", `/api/v1/feature-requests/${id}/pin`),
 }
 
 export const FeatureRequestAttachmentEndpoints = {

@@ -105,12 +105,10 @@ const FeatureRequest = new EntitySchema({
       type: "timestamptz",
       nullable: true,
     },
-    // When this was pinned to the top of the project's list — NULL means not
-    // pinned. Also orders pinned items among themselves (most recent first).
-    // Capped at 10 per project; enforced in FeatureRequestService, not here.
-    pinnedAt: {
-      name: "pinned_at",
-      type: "timestamptz",
+    // Explicit work order — 1 is tackled first, then 2, 3, ... NULL means no
+    // priority set, and those requests sort after every prioritized one.
+    priority: {
+      type: "integer",
       nullable: true,
     },
     createdAt: {
@@ -153,7 +151,7 @@ const FeatureRequest = new EntitySchema({
     { name: "idx_feature_requests_assigned_to", columns: ["assignedToId"] },
     { name: "idx_feature_requests_project_upvote_count", columns: ["projectId", "upvoteCount"] },
     { name: "idx_feature_requests_request_number", columns: ["requestNumber"], unique: true },
-    { name: "idx_feature_requests_project_pinned", columns: ["projectId", "pinnedAt"] },
+    { name: "idx_feature_requests_project_priority", columns: ["projectId", "priority"] },
   ],
 });
 

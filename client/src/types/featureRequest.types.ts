@@ -19,9 +19,10 @@ export interface FeatureRequest {
   commentCount: number
   adminResponse: string | null
   statusUpdatedAt: string | null
-  // When this was pinned to the top of the project's list — null means not
-  // pinned. Up to 10 per project; team leads/admins only.
-  pinnedAt: string | null
+  // Explicit work order — 1 is tackled first, then 2, 3, ... Null means no
+  // priority set, and those requests sort after every prioritized one.
+  // Team leads/admins only.
+  priority: number | null
   createdAt: string
 }
 
@@ -79,6 +80,7 @@ export interface UpdateFeatureRequestStatusPayload {
   category?: string | null
   module?: string | null
   referenceLinks?: string[] | null
+  priority?: number | null
 }
 
 export interface VoteResult {

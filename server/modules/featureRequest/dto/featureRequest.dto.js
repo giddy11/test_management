@@ -31,7 +31,7 @@ function toFeatureRequestResponse(fr, extra = {}) {
     commentCount: extra.commentCount ?? 0,
     adminResponse: fr.adminResponse ?? null,
     statusUpdatedAt: fr.statusUpdatedAt ?? null,
-    pinnedAt: fr.pinnedAt ?? null,
+    priority: fr.priority ?? null,
     createdAt: fr.createdAt,
   };
 }
