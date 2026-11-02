@@ -61,6 +61,7 @@ router.get(
   FeatureRequestController.history
 );
 router.post("/:id/vote", authMiddleware, requireProjectAccess("Defects and feature requests — decided by role in the project"), validate(idParamSchema), FeatureRequestController.vote);
+router.post("/:id/pin", authMiddleware, requireProjectAccess("Defects and feature requests — decided by role in the project"), validate(idParamSchema), FeatureRequestController.pin);
 
 router.get(
   "/:id/comments",

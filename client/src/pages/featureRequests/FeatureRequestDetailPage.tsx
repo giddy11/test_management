@@ -9,6 +9,7 @@ import { PageLoader } from "@/components/shared/PageLoader"
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog"
 import { FeatureRequestStatusBadge } from "@/components/shared/StatusBadge"
 import { VoteButton } from "@/components/featureRequests/VoteButton"
+import { PinButton } from "@/components/featureRequests/PinButton"
 import { StatusUpdateDialog } from "@/components/featureRequests/StatusUpdateDialog"
 import { FeatureRequestFormDialog } from "@/components/featureRequests/FeatureRequestFormDialog"
 import { CommentThread } from "@/components/featureRequests/CommentThread"
@@ -76,6 +77,7 @@ export default function FeatureRequestDetailPage() {
               <span className="font-mono text-xs text-muted-foreground">{request.referenceCode}</span>
               <h1 className="text-2xl font-semibold tracking-tight">{request.title}</h1>
               <FeatureRequestStatusBadge value={request.status} />
+              <PinButton requestId={request.id} pinnedAt={request.pinnedAt} canManage={canManage} />
               {request.category && <Badge variant="outline">{request.category}</Badge>}
               {request.module && <Badge variant="outline" className="text-muted-foreground">{request.module}</Badge>}
               <OccurrenceBadge type="feature_request" id={request.id} />

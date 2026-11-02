@@ -24,6 +24,9 @@ const TERMINAL_FEATURE_REQUEST_STATUSES = new Set([
   FeatureRequestStatus.REJECTED,
 ]);
 
+// How many requests a project can pin to the top of its list at once.
+const MAX_PINNED_FEATURE_REQUESTS = 10;
+
 // The workflow's stages in order. "rejected" isn't one of them: a request can be
 // rejected from any open stage, so it has no place in the sequence.
 const FEATURE_REQUEST_STAGES = [
@@ -436,6 +439,27 @@ class FeatureRequestService {
     const fr = await this.getAccessible(actor, id);
     await this.projectService.assertCanContribute(actor, fr.projectId);
     return this.voteRepo.toggle(id, actor.id);
+  }
+
+  // Pinning is a team decision (same bar as updateStatus), not open to every
+  // contributor like voting — it decides what the whole project sees first.
+  // Unpinning is always allowed; pinning is capped per project.
+  async togglePin(actor, id) {
+    const fr = await this.getAccessible(actor, id);
+    await this.projectService.assertCanManageProject(actor, fr.projectId);
+
+    if (fr.pinnedAt) {
+      return this.frRepo.update(id, { pinnedAt: null });
+    }
+
+    const pinnedCount = await this.frRepo.countPinned(fr.projectId);
+    if (pinnedCount >= MAX_PINNED_FEATURE_REQUESTS) {
+      throw new AppError(
+        `You can only pin up to ${MAX_PINNED_FEATURE_REQUESTS} feature requests at a time — unpin one first.`,
+        422
+      );
+    }
+    return this.frRepo.update(id, { pinnedAt: new Date() });
   }
 
   async fetchComments(actor, id, params) {

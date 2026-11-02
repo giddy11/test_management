@@ -61,10 +61,13 @@ class FeatureRequestRepository {
 
     andWhereDateRange(qb, "fr.created_at", { from, to });
 
+    // Pinned requests always float to the top, most recently pinned first,
+    // regardless of sort — everything else follows in the chosen order.
+    qb.orderBy("fr.pinnedAt", "DESC", "NULLS LAST");
     if (sort === "newest") {
-      qb.orderBy("fr.createdAt", "DESC");
+      qb.addOrderBy("fr.createdAt", "DESC");
     } else {
-      qb.orderBy("fr.upvoteCount", "DESC").addOrderBy("fr.createdAt", "DESC");
+      qb.addOrderBy("fr.upvoteCount", "DESC").addOrderBy("fr.createdAt", "DESC");
     }
 
     // Counted on every page, unlike most lists: the tab's pager needs totalPages
@@ -72,6 +75,16 @@ class FeatureRequestRepository {
     const total = await qb.getCount();
     const data = await qb.getMany();
     return { data, meta: buildMeta(page, limit, total, data.length) };
+  }
+
+  // How many requests in this project are currently pinned — the 10-item cap.
+  async countPinned(projectId) {
+    return this.repo
+      .createQueryBuilder("fr")
+      .where("fr.project_id = :projectId", { projectId })
+      .andWhere("fr.deleted_at IS NULL")
+      .andWhere("fr.pinned_at IS NOT NULL")
+      .getCount();
   }
 
   async findById(id) {

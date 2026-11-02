@@ -35,7 +35,7 @@ const SEARCH_OPTIONS: SearchByOption<FeatureRequestSearchField>[] = [
   { value: "reporter", label: "Reporter", placeholder: "Search by reporter name…" },
 ]
 
-export function FeatureRequestsTab({ projectId }: { projectId: string }) {
+export function FeatureRequestsTab({ projectId, canManage }: { projectId: string; canManage: boolean }) {
   // Filters persist per project so they survive opening a request and coming back.
   const [searchInput, setSearchInput] = usePersistedState(`feature-requests:search:${projectId}`, "")
   const search = useDebouncedSearch(searchInput)
@@ -132,6 +132,7 @@ export function FeatureRequestsTab({ projectId }: { projectId: string }) {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-10" />
                 <TableHead className="w-16">Votes</TableHead>
                 <TableHead className="w-28">Ref</TableHead>
                 <TableHead>Title</TableHead>
@@ -145,11 +146,11 @@ export function FeatureRequestsTab({ projectId }: { projectId: string }) {
             </TableHeader>
             <TableBody>
               {isLoading && (
-                <TableRow><TableCell colSpan={9} className="h-24"><InlineLoader /></TableCell></TableRow>
+                <TableRow><TableCell colSpan={10} className="h-24"><InlineLoader /></TableCell></TableRow>
               )}
               {!isLoading && requests.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={9} className="h-32">
+                  <TableCell colSpan={10} className="h-32">
                     <div className="flex flex-col items-center gap-2 text-center">
                       <Lightbulb className="size-7 text-muted-foreground" />
                       <p className="text-sm text-muted-foreground">No feature requests yet.</p>
@@ -158,7 +159,9 @@ export function FeatureRequestsTab({ projectId }: { projectId: string }) {
                   </TableCell>
                 </TableRow>
               )}
-              {requests.map((r) => <FeatureRequestRow key={r.id} request={r} links={linkSummary?.[r.id]} />)}
+              {requests.map((r) => (
+                <FeatureRequestRow key={r.id} request={r} links={linkSummary?.[r.id]} canManage={canManage} />
+              ))}
             </TableBody>
           </Table>
         </div>

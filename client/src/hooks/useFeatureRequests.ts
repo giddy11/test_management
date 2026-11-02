@@ -98,6 +98,21 @@ export function useUpdateFeatureRequestStatus() {
   })
 }
 
+// Pinning reorders the whole list (pinned requests float to the top), so this
+// just invalidates and lets the next fetch resort it — same pattern as
+// useUpdateFeatureRequestStatus — rather than trying to splice the change in.
+export function useToggleFeatureRequestPin() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const res = await FeatureRequestEndpoints.pin(id)
+      if (!res.success || !res.data) throw new ApiError(res.message, res.statusCode, res.errors)
+      return res.data
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: [FEATURE_REQUESTS_KEY] }),
+  })
+}
+
 export function useDeleteFeatureRequest() {
   const qc = useQueryClient()
   return useMutation({

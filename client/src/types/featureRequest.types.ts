@@ -19,6 +19,9 @@ export interface FeatureRequest {
   commentCount: number
   adminResponse: string | null
   statusUpdatedAt: string | null
+  // When this was pinned to the top of the project's list — null means not
+  // pinned. Up to 10 per project; team leads/admins only.
+  pinnedAt: string | null
   createdAt: string
 }
 

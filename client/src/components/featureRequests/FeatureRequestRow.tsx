@@ -7,7 +7,9 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { PresenceDot } from "@/components/shared/PresenceDot"
 import { FeatureRequestStatusBadge } from "@/components/shared/StatusBadge"
 import { VoteButton } from "@/components/featureRequests/VoteButton"
+import { PinButton } from "@/components/featureRequests/PinButton"
 import { RepeatBadges } from "@/components/tickets/RepeatBadges"
+import { cn } from "@/lib/utils"
 import type { FeatureRequest } from "@/types/featureRequest.types"
 import type { TicketLinkSummary } from "@/types/ticketLink.types"
 
@@ -17,18 +19,24 @@ const initials = (name: string) =>
 export const FeatureRequestRow = memo(function FeatureRequestRow({
   request,
   links,
+  canManage,
 }: {
   request: FeatureRequest
   links?: TicketLinkSummary
+  canManage: boolean
 }) {
   const navigate = useNavigate()
 
   return (
     <TableRow
       data-cy="feature-request-card"
-      className="cursor-pointer"
+      className={cn("cursor-pointer", request.pinnedAt && "bg-primary/5 hover:bg-primary/10")}
       onClick={() => navigate(`/projects/${request.projectId}/feature-requests/${request.id}`)}
     >
+      {/* The pin control owns its own click, so the cell must not navigate. */}
+      <TableCell onClick={(e) => e.stopPropagation()}>
+        <PinButton requestId={request.id} pinnedAt={request.pinnedAt} canManage={canManage} />
+      </TableCell>
       {/* The vote control owns its own click, so the cell must not navigate. */}
       <TableCell onClick={(e) => e.stopPropagation()}>
         <VoteButton requestId={request.id} upvoteCount={request.upvoteCount} hasVoted={request.hasVoted} compact />
