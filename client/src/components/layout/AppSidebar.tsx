@@ -111,8 +111,8 @@ export function AppSidebar() {
   }
   const itItems = inItRequests ? itNavFor(permissions, deskOn) : []
   const groups = [
-    // With only the testing side visible, the old "Navigation" label still reads right.
-    { label: itItems.length ? "Testing" : "Navigation", items },
+    // With only this side visible, the old "Navigation" label still reads right.
+    { label: itItems.length ? "Project Management" : "Navigation", items },
     { label: "IT requests", items: itItems },
     { label: "Workspace", items: workspaceNavFor(permissions) },
   ].filter((g) => g.items.length > 0)

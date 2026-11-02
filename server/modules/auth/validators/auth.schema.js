@@ -79,6 +79,8 @@ const updateProfileSchema = z.object({
       firstName: z.string().min(1).max(100).optional(),
       lastName: z.string().min(1).max(100).optional(),
       email: z.string().email().optional(),
+      // Shown at the top of the sidebar (see AppSidebar.tsx).
+      companyName: z.string().min(1).max(200).optional(),
       // E.164 (e.g. "+2348012345678") — same format used elsewhere in the app.
       phoneNumber: z.string().regex(/^\+[1-9]\d{6,14}$/, "Invalid phone number").nullable().optional(),
       address: z.string().max(500).nullable().optional(),

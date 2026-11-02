@@ -59,6 +59,7 @@ function ProfileTab() {
       firstName: user?.firstName ?? "",
       lastName: user?.lastName ?? "",
       email: user?.email ?? "",
+      companyName: user?.companyName ?? "",
       phoneNumber: user?.phoneNumber ?? "",
       address: user?.address ?? "",
       city: user?.city ?? "",
@@ -137,6 +138,7 @@ function ProfileTab() {
     if (data.firstName) patch.firstName = data.firstName
     if (data.lastName) patch.lastName = data.lastName
     if (data.email) patch.email = data.email
+    if (data.companyName) patch.companyName = data.companyName
     if (data.phoneNumber !== undefined) patch.phoneNumber = data.phoneNumber || null
     if (data.address !== undefined) patch.address = data.address || null
     if (data.city !== undefined) patch.city = data.city || null
@@ -162,6 +164,14 @@ function ProfileTab() {
               <Label htmlFor="lastName">Last name</Label>
               <Input id="lastName" {...register("lastName")} />
             </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="companyName">Company name</Label>
+            <Input id="companyName" {...register("companyName")} />
+            <p className="text-xs text-muted-foreground">
+              Shown at the top of your sidebar.
+            </p>
           </div>
 
           <div className="space-y-1.5">

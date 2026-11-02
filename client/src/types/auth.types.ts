@@ -100,6 +100,8 @@ export interface UpdateProfilePayload {
   firstName?: string
   lastName?: string
   email?: string
+  // Shown at the top of the sidebar (see AppSidebar.tsx).
+  companyName?: string
   phoneNumber?: string | null
   address?: string | null
   city?: string | null
