@@ -26,7 +26,11 @@ export function PinButton({
     return (
       <Tooltip>
         <TooltipTrigger asChild>
-          <Pin className="size-4 text-primary" aria-label="Pinned to the top" />
+          {/* Same tinted-chip treatment the button below uses when pinned, so a
+              viewer who can't click it still gets an unmistakable, matching cue. */}
+          <span className="inline-flex size-8 items-center justify-center rounded-md bg-primary/10 text-primary">
+            <Pin className="size-4 fill-current" aria-label="Pinned to the top" />
+          </span>
         </TooltipTrigger>
         <TooltipContent>Pinned to the top</TooltipContent>
       </Tooltip>
@@ -38,11 +42,15 @@ export function PinButton({
       <TooltipTrigger asChild>
         <Button
           type="button"
-          variant="ghost"
+          variant="outline"
           size="icon-sm"
           data-cy="pin-button"
           aria-label={pinned ? "Unpin this request" : "Pin this request to the top"}
-          className={cn(pinned && "text-primary")}
+          // Mirrors VoteButton's active state (border-primary bg-primary/10
+          // text-primary) so "pinned" reads the same way elsewhere in the app —
+          // plus a filled icon, since an outline-only pin looked the same
+          // whether it was pinned or not.
+          className={cn(pinned ? "border-primary bg-primary/10 text-primary" : "text-muted-foreground")}
           disabled={toggle.isPending}
           onClick={(e) => {
             e.stopPropagation()
@@ -52,7 +60,7 @@ export function PinButton({
             })
           }}
         >
-          <Pin className="size-4" />
+          <Pin className={cn("size-4", pinned && "fill-current")} />
         </Button>
       </TooltipTrigger>
       <TooltipContent>{pinned ? "Unpin" : "Pin to the top (up to 10 per project)"}</TooltipContent>

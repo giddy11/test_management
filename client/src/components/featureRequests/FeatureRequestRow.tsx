@@ -30,7 +30,10 @@ export const FeatureRequestRow = memo(function FeatureRequestRow({
   return (
     <TableRow
       data-cy="feature-request-card"
-      className={cn("cursor-pointer", request.pinnedAt && "bg-primary/5 hover:bg-primary/10")}
+      className={cn(
+        "cursor-pointer border-l-2 border-l-transparent",
+        request.pinnedAt && "border-l-primary bg-primary/5 hover:bg-primary/10"
+      )}
       onClick={() => navigate(`/projects/${request.projectId}/feature-requests/${request.id}`)}
     >
       {/* The pin control owns its own click, so the cell must not navigate. */}
