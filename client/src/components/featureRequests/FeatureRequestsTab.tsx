@@ -132,7 +132,12 @@ export function FeatureRequestsTab({ projectId, canManage }: { projectId: string
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-20">Priority</TableHead>
+                <TableHead className="w-24">
+                  <div className="flex flex-col leading-tight">
+                    <span>Priority</span>
+                    <span className="text-[10px] font-normal text-muted-foreground">1 = build first</span>
+                  </div>
+                </TableHead>
                 <TableHead className="w-16">Votes</TableHead>
                 <TableHead className="w-28">Ref</TableHead>
                 <TableHead>Title</TableHead>
