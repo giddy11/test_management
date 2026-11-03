@@ -27,7 +27,7 @@ export interface FeatureRequest {
 }
 
 // Which field the request list's search box is matched against.
-export type FeatureRequestSearchField = "title" | "reporter"
+export type FeatureRequestSearchField = "title" | "reporter" | "assignee"
 
 // One status the request has entered, oldest first.
 export interface FeatureRequestStatusHistoryEntry {

@@ -29,10 +29,11 @@ import { usePersistedState } from "@/hooks/usePersistedState"
 import { FEATURE_REQUEST_STATUSES, FEATURE_REQUEST_STATUS_META, type FeatureRequestStatus } from "@/lib/enums"
 import type { FeatureRequestSearchField } from "@/types/featureRequest.types"
 
-// Requests have no suite or assignee, so only these two fields are searchable.
+// Requests have no suite, so only these three fields are searchable.
 const SEARCH_OPTIONS: SearchByOption<FeatureRequestSearchField>[] = [
   { value: "title", label: "Title", placeholder: "Search by title…" },
   { value: "reporter", label: "Reporter", placeholder: "Search by reporter name…" },
+  { value: "assignee", label: "Assigned to", placeholder: "Search by assigned engineer…" },
 ]
 
 export function FeatureRequestsTab({ projectId, canManage }: { projectId: string; canManage: boolean }) {

@@ -54,6 +54,8 @@ class FeatureRequestRepository {
     if (search) {
       if (searchBy === "reporter") {
         andWhereUserNameMatches(qb, "submittedBy", search);
+      } else if (searchBy === "assignee") {
+        andWhereUserNameMatches(qb, "assignedTo", search);
       } else {
         qb.andWhere("fr.title ILIKE :search", { search: `%${search}%` });
       }
