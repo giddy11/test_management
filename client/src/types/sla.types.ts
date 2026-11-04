@@ -357,6 +357,7 @@ export const SLA_STAGE_LABELS: Record<string, string> = {
   under_review: "Under Review",
   planned: "Planned",
   in_progress: "In Progress (feature)",
+  ready_for_review: "Ready For Review",
   done: "Done",
   rejected: "Rejected",
 }
@@ -389,6 +390,7 @@ export const SLA_ALL_STAGES: SlaStage[] = [
   "under_review",
   "planned",
   "in_progress",
+  "ready_for_review",
   "done",
   "rejected",
 ]

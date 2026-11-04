@@ -31,6 +31,7 @@ const FEATURE_REQUEST_STAGES = [
   FeatureRequestStatus.UNDER_REVIEW,
   FeatureRequestStatus.PLANNED,
   FeatureRequestStatus.IN_PROGRESS,
+  FeatureRequestStatus.READY_FOR_REVIEW,
   FeatureRequestStatus.DONE,
 ];
 
@@ -39,6 +40,7 @@ const FEATURE_REQUEST_STATUS_LABELS = {
   [FeatureRequestStatus.UNDER_REVIEW]: "Under Review",
   [FeatureRequestStatus.PLANNED]: "Planned",
   [FeatureRequestStatus.IN_PROGRESS]: "In Progress",
+  [FeatureRequestStatus.READY_FOR_REVIEW]: "Ready For Review",
   [FeatureRequestStatus.DONE]: "Done",
   [FeatureRequestStatus.REJECTED]: "Rejected",
 };
@@ -77,13 +79,15 @@ function assertCanAssignFeatureRequest(status) {
   }
 }
 
-// Work can't be tracked against nobody — a request being reviewed or built must
-// have someone on it. Checked against the status and assignee the request will
-// end up with, so either field alone can create (or fix) the gap. Mirrored on
-// the client in isFeatureRequestAssigneeRequired (lib/enums.ts).
+// Work can't be tracked against nobody — a request being reviewed, built, or
+// ready for someone to review must have someone on it. Checked against the
+// status and assignee the request will end up with, so either field alone can
+// create (or fix) the gap. Mirrored on the client in
+// isFeatureRequestAssigneeRequired (lib/enums.ts).
 const ASSIGNEE_REQUIRED_STATUSES = new Set([
   FeatureRequestStatus.UNDER_REVIEW,
   FeatureRequestStatus.IN_PROGRESS,
+  FeatureRequestStatus.READY_FOR_REVIEW,
 ]);
 
 function assertFeatureRequestHasAssignee(status, assignedToId) {
@@ -103,12 +107,14 @@ const CONTENT_FIELDS = ["title", "description", "category", "module", "reference
 
 // The write-up (title, description, category, module, reference links) can
 // only be corrected before work on it starts. Once a request is In Progress —
-// or past it: Done/Rejected — it's a record of what the team is building or
-// decided, and rewriting it underneath them would make their work read as
-// something it wasn't. Status/response/assignee still move freely; only the
-// write-up locks. Mirrored on the client in isFeatureRequestEditable (lib/enums.ts).
+// or past it: Ready For Review, Done, Rejected — it's a record of what the
+// team is building or decided, and rewriting it underneath them would make
+// their work read as something it wasn't. Status/response/assignee still move
+// freely; only the write-up locks. Mirrored on the client in
+// isFeatureRequestEditable (lib/enums.ts).
 const LOCKED_FEATURE_REQUEST_CONTENT_STATUSES = new Set([
   FeatureRequestStatus.IN_PROGRESS,
+  FeatureRequestStatus.READY_FOR_REVIEW,
   FeatureRequestStatus.DONE,
   FeatureRequestStatus.REJECTED,
 ]);

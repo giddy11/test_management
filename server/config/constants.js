@@ -178,6 +178,7 @@ const FeatureRequestStatus = Object.freeze({
   UNDER_REVIEW: "under_review",
   PLANNED: "planned",
   IN_PROGRESS: "in_progress",
+  READY_FOR_REVIEW: "ready_for_review",
   DONE: "done",
   REJECTED: "rejected",
 });

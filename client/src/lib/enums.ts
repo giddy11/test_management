@@ -42,6 +42,7 @@ export const FEATURE_REQUEST_STATUSES = [
   "under_review",
   "planned",
   "in_progress",
+  "ready_for_review",
   "done",
   "rejected",
 ] as const
@@ -52,6 +53,7 @@ export const FEATURE_REQUEST_STATUS_META: Record<FeatureRequestStatus, { label: 
   under_review: { label: "Under Review", badge: "bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300" },
   planned: { label: "Planned", badge: "bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-300" },
   in_progress: { label: "In Progress", badge: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300" },
+  ready_for_review: { label: "Ready For Review", badge: "bg-cyan-100 text-cyan-700 dark:bg-cyan-950 dark:text-cyan-300" },
   done: { label: "Done", badge: "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300" },
   rejected: { label: "Rejected", badge: "bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400 line-through" },
 }
@@ -59,7 +61,7 @@ export const FEATURE_REQUEST_STATUS_META: Record<FeatureRequestStatus, { label: 
 // Feature requests only move forward through these stages. "rejected" is an exit
 // from any open stage rather than a step in the sequence, and done/rejected are
 // final. Mirrors assertValidStatusTransition in the API's featureRequest.service.js.
-const FEATURE_REQUEST_STAGES: readonly FeatureRequestStatus[] = ["new", "under_review", "planned", "in_progress", "done"]
+const FEATURE_REQUEST_STAGES: readonly FeatureRequestStatus[] = ["new", "under_review", "planned", "in_progress", "ready_for_review", "done"]
 
 export const isFeatureRequestFinal = (s: FeatureRequestStatus) => s === "done" || s === "rejected"
 
@@ -77,11 +79,11 @@ export function isFeatureRequestAssignable(status: FeatureRequestStatus): boolea
   return FEATURE_REQUEST_STAGES.indexOf(status) >= FEATURE_REQUEST_STAGES.indexOf("under_review")
 }
 
-// Work can't be tracked against nobody — a request being reviewed or built must
-// have someone on it. Mirrors assertFeatureRequestHasAssignee in the API's
-// featureRequest.service.js.
+// Work can't be tracked against nobody — a request being reviewed, built, or
+// ready for someone to review must have someone on it. Mirrors
+// assertFeatureRequestHasAssignee in the API's featureRequest.service.js.
 export function isFeatureRequestAssigneeRequired(status: FeatureRequestStatus): boolean {
-  return status === "under_review" || status === "in_progress"
+  return status === "under_review" || status === "in_progress" || status === "ready_for_review"
 }
 
 // The write-up (title, description, category, module, reference links) can

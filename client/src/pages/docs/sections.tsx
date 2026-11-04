@@ -212,6 +212,7 @@ const chipRed = "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300"
 const chipGreen = "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
 const chipViolet = "bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-300"
 const chipZinc = "bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400"
+const chipCyan = "bg-cyan-100 text-cyan-700 dark:bg-cyan-950 dark:text-cyan-300"
 
 // ── Sections ───────────────────────────────────────────────────────────────────
 const ALL_SECTIONS: DocSection[] = [
@@ -782,7 +783,8 @@ const ALL_SECTIONS: DocSection[] = [
         <P>
           Admins triage requests through <Chip className={chipSlate}>New</Chip> →{" "}
           <Chip className={chipBlue}>Under Review</Chip> → <Chip className={chipViolet}>Planned</Chip>{" "}
-          → <Chip className={chipAmber}>In Progress</Chip> → <Chip className={chipGreen}>Done</Chip>{" "}
+          → <Chip className={chipAmber}>In Progress</Chip> → <Chip className={chipCyan}>Ready For Review</Chip>{" "}
+          → <Chip className={chipGreen}>Done</Chip>{" "}
           (or <Chip className={chipZinc}>Rejected</Chip>), optionally attaching an{" "}
           <Strong>admin response</Strong> explaining the decision.
         </P>
