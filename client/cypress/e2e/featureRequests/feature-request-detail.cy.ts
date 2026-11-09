@@ -172,6 +172,55 @@ describe("Feature request detail (admin)", () => {
     cy.contains('[role="option"]', "Done").should("not.have.attr", "aria-disabled", "true")
   })
 
+  describe("a rejected request", () => {
+    beforeEach(() => {
+      cy.fixture("featureRequests/list").then((requests) => {
+        cy.interceptApi(
+          "GET",
+          `/feature-requests/${FR_ID}`,
+          { body: ok({ ...requests[0], status: "rejected", assignedTo: null }) },
+          "rejectedRequest"
+        )
+      })
+      cy.visit(FR_URL)
+      cy.wait("@rejectedRequest")
+      cy.dataCy("fr-update-status").click()
+    })
+
+    it("can be reopened — every stage but Done is offered, and the dialog says how", () => {
+      cy.contains("reopen it by picking a stage").should("be.visible")
+      cy.dataCy("fr-status").click()
+      cy.contains('[role="option"]', "New").should("not.have.attr", "aria-disabled", "true")
+      cy.contains('[role="option"]', "Under Review").should("not.have.attr", "aria-disabled", "true")
+      cy.contains('[role="option"]', "In Progress").should("not.have.attr", "aria-disabled", "true")
+      cy.contains('[role="option"]', "Ready For Review").should("not.have.attr", "aria-disabled", "true")
+      cy.contains('[role="option"]', "Done").should("have.attr", "aria-disabled", "true")
+    })
+
+    it("offers the assignee picker once it is reopened, and saves both together", () => {
+      cy.dataCy("fr-assignee").should("not.exist")
+      cy.interceptApi(
+        "PATCH",
+        `/feature-requests/${FR_ID}`,
+        { body: ok({ id: FR_ID, status: "under_review" }) },
+        "reopenRequest"
+      )
+
+      cy.selectDropdown('[data-cy="fr-status"]', "Under Review")
+      cy.dataCy("fr-assignee").should("be.visible")
+      // Under Review needs someone on it, so saving is blocked until one is picked.
+      cy.dataCy("fr-status-save").should("be.disabled")
+      cy.selectDropdown('[data-cy="fr-assignee"]', "Bola Runner")
+      cy.dataCy("fr-status-save").should("not.be.disabled").click()
+
+      cy.wait("@reopenRequest").its("request.body").should("deep.include", {
+        status: "under_review",
+        assignedToId: "e2e-user-0002",
+      })
+      cy.contains("Feature request updated").should("be.visible")
+    })
+  })
+
   it("edits the write-up and sends only the content fields", () => {
     cy.fixture("featureRequests/list").then((requests) => {
       cy.interceptApi(

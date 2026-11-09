@@ -261,14 +261,94 @@ describe("FeatureRequestService", () => {
       it.each([
         ["done", "in_progress"],
         ["done", "rejected"],
-        ["rejected", "new"],
-        ["rejected", "done"],
+        ["done", "new"],
       ])("treats %s as final — rejects moving to %s", async (current, next) => {
         frRepo.findById.mockResolvedValue({ ...fr, status: current, resolvedAt: new Date(), closedAt: new Date() });
         await expect(service.updateStatus(admin, "fr-1", { status: next })).rejects.toMatchObject({
           statusCode: 422,
         });
         expect(frRepo.update).not.toHaveBeenCalled();
+      });
+
+      describe("reopening a rejected request", () => {
+        const rejected = {
+          ...fr,
+          status: "rejected",
+          resolvedAt: new Date("2026-01-01"),
+          closedAt: new Date("2026-01-01"),
+        };
+
+        it("can be reopened and assigned to someone in one save", async () => {
+          frRepo.findById.mockResolvedValue(rejected);
+          frRepo.update.mockResolvedValue({ ...rejected, status: "under_review", assignedToId: "dev-1" });
+          await service.updateStatus(admin, "fr-1", { status: "under_review", assignedToId: "dev-1" });
+          expect(frRepo.update).toHaveBeenCalledWith(
+            "fr-1",
+            expect.objectContaining({ status: "under_review", assignedToId: "dev-1" })
+          );
+        });
+
+        it.each(["new", "under_review", "planned", "in_progress", "ready_for_review"])(
+          "can be reopened to %s",
+          async (next) => {
+            frRepo.findById.mockResolvedValue({ ...rejected, assignedToId: "dev-1" });
+            frRepo.update.mockResolvedValue({ ...rejected, status: next });
+            await service.updateStatus(admin, "fr-1", { status: next });
+            expect(frRepo.update).toHaveBeenCalledWith("fr-1", expect.objectContaining({ status: next }));
+          }
+        );
+
+        it("stops counting as resolved once reopened", async () => {
+          frRepo.findById.mockResolvedValue(rejected);
+          frRepo.update.mockResolvedValue({ ...rejected, status: "planned" });
+          await service.updateStatus(admin, "fr-1", { status: "planned" });
+          expect(frRepo.update).toHaveBeenCalledWith(
+            "fr-1",
+            expect.objectContaining({ status: "planned", resolvedAt: null, closedAt: null })
+          );
+        });
+
+        it("is stamped resolved again if it is rejected a second time", async () => {
+          frRepo.findById.mockResolvedValue({ ...fr, status: "planned", resolvedAt: null, closedAt: null });
+          frRepo.update.mockResolvedValue({ ...fr, status: "rejected" });
+          await service.updateStatus(admin, "fr-1", { status: "rejected" });
+          expect(frRepo.update).toHaveBeenCalledWith(
+            "fr-1",
+            expect.objectContaining({ resolvedAt: expect.any(Date), closedAt: expect.any(Date) })
+          );
+        });
+
+        it("can't jump straight from rejected to Done", async () => {
+          frRepo.findById.mockResolvedValue(rejected);
+          await expect(service.updateStatus(admin, "fr-1", { status: "done" })).rejects.toMatchObject({
+            statusCode: 422,
+          });
+          expect(frRepo.update).not.toHaveBeenCalled();
+        });
+
+        it("can't be given an assignee while it stays rejected, and says to reopen it", async () => {
+          frRepo.findById.mockResolvedValue(rejected);
+          await expect(service.updateStatus(admin, "fr-1", { assignedToId: "dev-1" })).rejects.toMatchObject({
+            statusCode: 422,
+            message: expect.stringContaining("Reopen"),
+          });
+          expect(frRepo.update).not.toHaveBeenCalled();
+        });
+
+        it("still needs an assignee to be reopened into a stage that requires one", async () => {
+          frRepo.findById.mockResolvedValue(rejected); // no assignee
+          await expect(service.updateStatus(admin, "fr-1", { status: "in_progress" })).rejects.toMatchObject({
+            statusCode: 422,
+          });
+          expect(frRepo.update).not.toHaveBeenCalled();
+        });
+
+        it("is for the project's team lead only, like any other status change", async () => {
+          frRepo.findById.mockResolvedValue({ ...rejected, submittedById: "user-1" });
+          await expect(service.updateStatus(user, "fr-1", { status: "under_review" })).rejects.toMatchObject({
+            statusCode: 403,
+          });
+        });
       });
 
       it.each([

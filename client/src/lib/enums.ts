@@ -59,15 +59,18 @@ export const FEATURE_REQUEST_STATUS_META: Record<FeatureRequestStatus, { label: 
 }
 
 // Feature requests only move forward through these stages. "rejected" is an exit
-// from any open stage rather than a step in the sequence, and done/rejected are
-// final. Mirrors assertValidStatusTransition in the API's featureRequest.service.js.
+// from any open stage rather than a step in the sequence. Done is final; a
+// Rejected request can be reopened to any open stage (not straight to Done).
+// Mirrors assertValidStatusTransition in the API's featureRequest.service.js.
 const FEATURE_REQUEST_STAGES: readonly FeatureRequestStatus[] = ["new", "under_review", "planned", "in_progress", "ready_for_review", "done"]
 
-export const isFeatureRequestFinal = (s: FeatureRequestStatus) => s === "done" || s === "rejected"
+// Only Done can't be undone — Rejected can be reopened (see below).
+export const isFeatureRequestFinal = (s: FeatureRequestStatus) => s === "done"
 
 // Whether `candidate` may be chosen for a request currently at `current`.
 export function isFeatureRequestStatusSelectable(current: FeatureRequestStatus, candidate: FeatureRequestStatus): boolean {
   if (candidate === current) return true
+  if (current === "rejected") return candidate !== "done"
   if (isFeatureRequestFinal(current)) return false
   if (candidate === "rejected") return true
   return FEATURE_REQUEST_STAGES.indexOf(candidate) > FEATURE_REQUEST_STAGES.indexOf(current)

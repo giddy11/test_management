@@ -114,7 +114,9 @@ export function StatusUpdateDialog({ open, onOpenChange, request, members }: Pro
             <p className="text-xs text-muted-foreground">
               {request && isFeatureRequestFinal(request.status)
                 ? `${FEATURE_REQUEST_STATUS_META[request.status].label} is final — the status can't change any more.`
-                : "Status can only move forward — earlier stages can't be selected."}
+                : request?.status === "rejected"
+                  ? "Rejected — to have someone take it on, reopen it by picking a stage (Under Review or later), then choose an assignee."
+                  : "Status can only move forward — earlier stages can't be selected."}
             </p>
           </div>
           {isFeatureRequestAssignable(status) && (

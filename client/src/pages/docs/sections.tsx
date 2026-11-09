@@ -788,6 +788,12 @@ const ALL_SECTIONS: DocSection[] = [
           (or <Chip className={chipZinc}>Rejected</Chip>), optionally attaching an{" "}
           <Strong>admin response</Strong> explaining the decision.
         </P>
+        <P>
+          <Chip className={chipGreen}>Done</Chip> is final, but a{" "}
+          <Chip className={chipZinc}>Rejected</Chip> request can be <Strong>reopened</Strong>: open{" "}
+          <Strong>Update status</Strong>, pick a stage (Under Review or later), and choose an
+          assignee. It then counts as open work again until it is Done or Rejected once more.
+        </P>
         <H3>Reference codes &amp; shareable links</H3>
         <P>
           Each request carries a reference code like <Code>FR-20260728-014</Code>, and{" "}

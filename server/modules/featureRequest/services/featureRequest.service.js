@@ -18,7 +18,8 @@ const { AppError } = require("../../../shared/errors/AppError");
 const { parseReferenceCode } = require("../../../shared/utils/referenceCode");
 const { UserRole, FeatureRequestStatus } = require("../../../config/constants");
 
-// done/rejected are the workflow's two terminal states — SLA "resolved".
+// done/rejected both count as "resolved" for the SLA. Only Done is final:
+// a Rejected request can be reopened (see assertValidStatusTransition).
 const TERMINAL_FEATURE_REQUEST_STATUSES = new Set([
   FeatureRequestStatus.DONE,
   FeatureRequestStatus.REJECTED,
@@ -45,12 +46,23 @@ const FEATURE_REQUEST_STATUS_LABELS = {
   [FeatureRequestStatus.REJECTED]: "Rejected",
 };
 
-// A request only moves forward — it can't return to an earlier stage, and done
-// and rejected are final. Skipping ahead is allowed, and so is rejecting from any
-// open stage. Keeping the current status is always fine (e.g. to edit the response).
-// Mirrored on the client in isFeatureRequestStatusSelectable (lib/enums.ts).
+// A request only moves forward — it can't return to an earlier stage, and Done
+// is final. Skipping ahead is allowed, and so is rejecting from any open stage.
+// The one way back is reopening a Rejected request: it can be moved to any open
+// stage (so it can be assigned and worked), but not straight to Done — it has to
+// be built first. Keeping the current status is always fine (e.g. to edit the
+// response). Mirrored on the client in isFeatureRequestStatusSelectable (lib/enums.ts).
 function assertValidStatusTransition(current, next) {
   if (current === next) return;
+  if (current === FeatureRequestStatus.REJECTED) {
+    if (next === FeatureRequestStatus.DONE) {
+      throw new AppError(
+        "A rejected request has to be reopened and worked on first — it can't go straight to Done.",
+        422
+      );
+    }
+    return;
+  }
   if (TERMINAL_FEATURE_REQUEST_STATUSES.has(current)) {
     throw new AppError(
       `This request is already ${FEATURE_REQUEST_STATUS_LABELS[current]} — its status can't change any more.`,
@@ -71,6 +83,12 @@ function assertValidStatusTransition(current, next) {
 // an assignee (assignedToId: null) is always allowed, regardless of status.
 // Mirrored on the client in isFeatureRequestAssignable (lib/enums.ts).
 function assertCanAssignFeatureRequest(status) {
+  if (status === FeatureRequestStatus.REJECTED) {
+    throw new AppError(
+      "This request is Rejected. Reopen it — move it to Under Review or later — to assign someone.",
+      422
+    );
+  }
   if (FEATURE_REQUEST_STAGES.indexOf(status) < FEATURE_REQUEST_STAGES.indexOf(FeatureRequestStatus.UNDER_REVIEW)) {
     throw new AppError(
       `Move the request to ${FEATURE_REQUEST_STATUS_LABELS[FeatureRequestStatus.UNDER_REVIEW]} or later before assigning someone.`,
@@ -317,9 +335,14 @@ class FeatureRequestService {
     if (statusChanged) {
       patch.status = data.status;
       patch.statusUpdatedAt = new Date();
+      // Reopening a Rejected request puts it back in play, so it stops counting
+      // as resolved (same as a Reopened bug) until it reaches Done or Rejected again.
+      if (fr.status === FeatureRequestStatus.REJECTED) {
+        patch.resolvedAt = null;
+        patch.closedAt = null;
+      }
       // done/rejected are both terminal — there's no separate "closed" step,
-      // so resolvedAt and closedAt are set together. Terminal is final (see
-      // assertValidStatusTransition), so they're never cleared again.
+      // so resolvedAt and closedAt are set together.
       if (TERMINAL_FEATURE_REQUEST_STATUSES.has(data.status) && !fr.resolvedAt) {
         patch.resolvedAt = patch.statusUpdatedAt;
         patch.closedAt = patch.statusUpdatedAt;
