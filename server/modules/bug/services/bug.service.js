@@ -17,7 +17,7 @@ const { parseReferenceCode } = require("../../../shared/utils/referenceCode");
 const { UserRole, BugStatus } = require("../../../config/constants");
 
 // PATCH /bugs/:id fields that need manage rights vs. ones the reporter may fix.
-const TRIAGE_FIELDS = ["status", "severity", "priority", "assignedToId"];
+const TRIAGE_FIELDS = ["status", "severity", "priority", "assignedToId", "fixOrder"];
 const CONTENT_FIELDS = [
   "title",
   "description",
@@ -288,6 +288,9 @@ class BugService {
     if (data.severity !== undefined) patch.severity = data.severity;
     if (data.priority !== undefined) patch.priority = data.priority;
     if (data.assignedToId !== undefined) patch.assignedToId = data.assignedToId;
+    // Explicit fix order — null clears it. Duplicate numbers across bugs aren't
+    // rejected; they just fall back to the normal sort as a tiebreak.
+    if (data.fixOrder !== undefined) patch.fixOrder = data.fixOrder;
     for (const field of CONTENT_FIELDS) {
       if (data[field] !== undefined) patch[field] = data[field];
     }

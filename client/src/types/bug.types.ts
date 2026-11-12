@@ -23,6 +23,10 @@ export interface Bug {
   closedAt: string | null
   statusUpdatedAt: string | null
   commentCount: number
+  // Explicit fix order — 1 is tackled first, then 2, 3, ... Null means no
+  // order set, and those bugs sort after every ordered one. Not the same as
+  // `priority` above (Low/Medium/High/Urgent urgency). Team leads/admins only.
+  fixOrder: number | null
   createdAt: string
 }
 
@@ -89,4 +93,5 @@ export interface ManageBugPayload {
   actualBehavior?: string | null
   environment?: string | null
   testCaseId?: string | null
+  fixOrder?: number | null
 }

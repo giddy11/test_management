@@ -192,7 +192,7 @@ export default function ProjectDetailPage() {
           <FeatureRequestsTab projectId={projectId} canManage={canManage} />
         </TabsContent>
         <TabsContent value="bugs" className="mt-4">
-          <BugsTab projectId={projectId} />
+          <BugsTab projectId={projectId} canManage={canManage} />
         </TabsContent>
         <TabsContent value="feedback" className="mt-4">
           <FeedbackTab projectId={projectId} canManage={canManage} />

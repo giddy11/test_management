@@ -2,6 +2,7 @@ import { useState } from "react"
 import { Link, useNavigate, useParams } from "react-router-dom"
 import { ChevronLeft, Pencil, SlidersHorizontal, Trash2, ExternalLink, Share2 } from "lucide-react"
 import { toast } from "sonner"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { PageLoader } from "@/components/shared/PageLoader"
@@ -83,6 +84,11 @@ export default function BugDetailPage() {
             <BugStatusBadge value={bug.status} />
             <BugSeverityBadge value={bug.severity} />
             <BugPriorityBadge value={bug.priority} />
+            {bug.fixOrder != null && (
+              <Badge variant="outline" className="border-primary text-primary">
+                Fix order {bug.fixOrder}
+              </Badge>
+            )}
             <OccurrenceBadge type="bug" id={bug.id} />
           </div>
           <p className="mt-1 text-sm text-muted-foreground">

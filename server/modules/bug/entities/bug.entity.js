@@ -109,6 +109,14 @@ const Bug = new EntitySchema({
       type: "timestamptz",
       nullable: true,
     },
+    // Explicit fix order — 1 is tackled first, then 2, 3, ... NULL means no
+    // order set, and those bugs sort after every ordered one. Not to be
+    // confused with `priority` (Low/Medium/High/Urgent urgency) above.
+    fixOrder: {
+      name: "fix_order",
+      type: "integer",
+      nullable: true,
+    },
     // Denormalized — comments live in Firestore, so there's no local table to
     // COUNT (see bugComment.repository.js).
     commentCount: {
@@ -171,6 +179,7 @@ const Bug = new EntitySchema({
     { name: "idx_bugs_test_case", columns: ["testCaseId"] },
     { name: "idx_bugs_test_run", columns: ["testRunId"] },
     { name: "idx_bugs_bug_number", columns: ["bugNumber"], unique: true },
+    { name: "idx_bugs_project_fix_order", columns: ["projectId", "fixOrder"] },
   ],
 });
 

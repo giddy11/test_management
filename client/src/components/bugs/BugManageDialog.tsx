@@ -9,6 +9,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
   Select,
@@ -48,6 +49,7 @@ export function BugManageDialog({ open, onOpenChange, bug, members }: Props) {
   const [severity, setSeverity] = useState<BugSeverity>("Minor")
   const [priority, setPriority] = useState<BugPriority>("Medium")
   const [assignedToId, setAssignedToId] = useState<string>("unassigned")
+  const [fixOrder, setFixOrder] = useState("")
 
   useEffect(() => {
     if (open && bug) {
@@ -55,13 +57,20 @@ export function BugManageDialog({ open, onOpenChange, bug, members }: Props) {
       setSeverity(bug.severity)
       setPriority(bug.priority)
       setAssignedToId(bug.assignedTo?.id ?? "unassigned")
+      setFixOrder(bug.fixOrder != null ? String(bug.fixOrder) : "")
     }
   }, [open, bug])
 
   const needsAssignee = isBugAssigneeRequired(status) && assignedToId === "unassigned"
 
+  // "" means leave it unset; anything else must be a whole number ≥ 1.
+  const trimmedFixOrder = fixOrder.trim()
+  const fixOrderValue = trimmedFixOrder === "" ? null : Number(trimmedFixOrder)
+  const fixOrderInvalid =
+    trimmedFixOrder !== "" && (!Number.isInteger(fixOrderValue) || (fixOrderValue as number) < 1)
+
   const onSubmit = () => {
-    if (!bug) return
+    if (!bug || fixOrderInvalid) return
     manage.mutate(
       {
         id: bug.id,
@@ -70,6 +79,7 @@ export function BugManageDialog({ open, onOpenChange, bug, members }: Props) {
           severity,
           priority,
           assignedToId: assignedToId === "unassigned" ? null : assignedToId,
+          fixOrder: fixOrderValue,
         },
       },
       {
@@ -150,12 +160,36 @@ export function BugManageDialog({ open, onOpenChange, bug, members }: Props) {
               </p>
             )}
           </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="fixOrder">Fix order (optional)</Label>
+            <Input
+              id="fixOrder"
+              type="number"
+              min={1}
+              step={1}
+              inputMode="numeric"
+              placeholder="e.g. 1 to fix it first"
+              value={fixOrder}
+              onChange={(e) => setFixOrder(e.target.value)}
+              className="w-28"
+            />
+            <p className="text-xs text-muted-foreground">
+              {fixOrderInvalid
+                ? "Must be a whole number, 1 or higher."
+                : "Lower numbers come first in the list. Leave blank for no set order."}
+            </p>
+          </div>
         </div>
         <DialogFooter>
           <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button type="button" onClick={onSubmit} disabled={manage.isPending || needsAssignee} data-cy="bug-manage-save">
+          <Button
+            type="button"
+            onClick={onSubmit}
+            disabled={manage.isPending || needsAssignee || fixOrderInvalid}
+            data-cy="bug-manage-save"
+          >
             {manage.isPending ? "Saving…" : "Save"}
           </Button>
         </DialogFooter>

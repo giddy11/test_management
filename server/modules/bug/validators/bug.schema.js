@@ -31,6 +31,9 @@ const manageBugSchema = z.object({
       severity: z.enum(enums.bugSeverity).optional(),
       priority: z.enum(enums.bugPriority).optional(),
       assignedToId: z.string().uuid().nullable().optional(),
+      // Explicit fix order — 1 first, then 2, 3, ... null clears it. Distinct
+      // from `priority` above (urgency), which is a fixed enum.
+      fixOrder: z.coerce.number().int().min(1).nullable().optional(),
       title: z.string().min(1).max(200).optional(),
       description: z.string().min(1).max(3000).optional(),
       stepsToReproduce: z.array(z.string().min(1).max(500)).max(30).optional(),

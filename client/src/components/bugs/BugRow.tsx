@@ -4,22 +4,39 @@ import { TableCell, TableRow } from "@/components/ui/table"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { PresenceDot } from "@/components/shared/PresenceDot"
 import { BugSeverityBadge, BugPriorityBadge, BugStatusBadge } from "@/components/shared/StatusBadge"
+import { FixOrderInput } from "@/components/bugs/FixOrderInput"
 import { RepeatBadges } from "@/components/tickets/RepeatBadges"
+import { cn } from "@/lib/utils"
 import type { Bug } from "@/types/bug.types"
 import type { TicketLinkSummary } from "@/types/ticketLink.types"
 
 const initials = (name: string) =>
   name.split(" ").map((p) => p[0]).join("").slice(0, 2).toUpperCase()
 
-export const BugRow = memo(function BugRow({ bug, links }: { bug: Bug; links?: TicketLinkSummary }) {
+export const BugRow = memo(function BugRow({
+  bug,
+  links,
+  canManage,
+}: {
+  bug: Bug
+  links?: TicketLinkSummary
+  canManage: boolean
+}) {
   const navigate = useNavigate()
 
   return (
     <TableRow
       data-cy="bug-card"
-      className="cursor-pointer"
+      className={cn(
+        "cursor-pointer border-l-2 border-l-transparent",
+        bug.fixOrder != null && "border-l-primary bg-primary/5 hover:bg-primary/10"
+      )}
       onClick={() => navigate(`/projects/${bug.projectId}/bugs/${bug.id}`)}
     >
+      {/* The fix-order input owns its own click/typing, so the cell must not navigate. */}
+      <TableCell onClick={(e) => e.stopPropagation()}>
+        <FixOrderInput bugId={bug.id} fixOrder={bug.fixOrder} canManage={canManage} />
+      </TableCell>
       <TableCell className="font-mono text-xs text-muted-foreground">{bug.referenceCode}</TableCell>
       <TableCell className="max-w-sm whitespace-normal">
         <p className="font-medium leading-snug">{bug.title}</p>

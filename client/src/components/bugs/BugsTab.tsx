@@ -36,7 +36,7 @@ const SEARCH_OPTIONS: SearchByOption<BugSearchField>[] = [
   { value: "assignee", label: "Assigned to", placeholder: "Search by assigned engineer…" },
 ]
 
-export function BugsTab({ projectId }: { projectId: string }) {
+export function BugsTab({ projectId, canManage }: { projectId: string; canManage: boolean }) {
   // Filters persist per project so they survive opening a bug and coming back.
   const [searchInput, setSearchInput] = usePersistedState(`bugs:search:${projectId}`, "")
   const search = useDebouncedSearch(searchInput)
@@ -117,6 +117,12 @@ export function BugsTab({ projectId }: { projectId: string }) {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-24">
+                  <div className="flex flex-col leading-tight">
+                    <span>Fix order</span>
+                    <span className="text-[10px] font-normal text-muted-foreground">1 = fix first</span>
+                  </div>
+                </TableHead>
                 <TableHead className="w-28">Ref</TableHead>
                 <TableHead>Title</TableHead>
                 <TableHead>Status</TableHead>
@@ -129,11 +135,11 @@ export function BugsTab({ projectId }: { projectId: string }) {
             </TableHeader>
             <TableBody>
               {isLoading && (
-                <TableRow><TableCell colSpan={8} className="h-24"><InlineLoader /></TableCell></TableRow>
+                <TableRow><TableCell colSpan={9} className="h-24"><InlineLoader /></TableCell></TableRow>
               )}
               {!isLoading && bugs.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={8} className="h-32">
+                  <TableCell colSpan={9} className="h-32">
                     <div className="flex flex-col items-center gap-2 text-center">
                       <BugIcon className="size-7 text-muted-foreground" />
                       <p className="text-sm text-muted-foreground">No bugs reported yet.</p>
@@ -142,7 +148,9 @@ export function BugsTab({ projectId }: { projectId: string }) {
                   </TableCell>
                 </TableRow>
               )}
-              {bugs.map((b) => <BugRow key={b.id} bug={b} links={linkSummary?.[b.id]} />)}
+              {bugs.map((b) => (
+                <BugRow key={b.id} bug={b} links={linkSummary?.[b.id]} canManage={canManage} />
+              ))}
             </TableBody>
           </Table>
         </div>

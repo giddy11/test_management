@@ -38,7 +38,10 @@ class BugRepository {
       .leftJoinAndSelect("bug.assignedTo", "assignedTo")
       .where("bug.project_id = :projectId", { projectId }) // indexed FK
       .andWhere("bug.deleted_at IS NULL")
-      .orderBy("bug.createdAt", "DESC")
+      // A set fix order (1, 2, 3, ...) always wins, ascending — everything
+      // without one falls after, newest first.
+      .orderBy("bug.fixOrder", "ASC", "NULLS LAST")
+      .addOrderBy("bug.createdAt", "DESC")
       .skip(offset)
       .take(limit);
 

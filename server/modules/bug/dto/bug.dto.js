@@ -20,6 +20,7 @@ function toBugResponse(bug) {
     environment: bug.environment ?? null,
     severity: bug.severity,
     priority: bug.priority,
+    fixOrder: bug.fixOrder ?? null,
     status: bug.status,
     testCaseId: bug.testCaseId ?? null,
     testRunId: bug.testRunId ?? null,
