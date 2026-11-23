@@ -43,6 +43,8 @@ export interface SlaSettings {
   // Stages during which the SLA clock is paused (never "logged").
   pausedStatuses: string[]
   escalation: SlaEscalation
+  /** Whether the organisation's plan includes escalations. Absent from older servers: treat as included. */
+  escalationIncluded?: boolean
   // People who can be picked as escalation contacts (empty unless canEdit).
   escalationCandidates: SlaEscalationCandidate[]
   // True when the organisation hasn't saved its own rules yet.

@@ -53,6 +53,8 @@ export default function CatalogSetupPage() {
   const deleteCategory = useDeleteCategory()
   const deleteItem = useDeleteItem()
   const enabled = Boolean(settings?.enabled)
+  // Off because the plan doesn't include it, rather than switched off here.
+  const notInPlan = settings?.includedInPlan === false
   // The tab lives in the URL (?tab=policies) so a link can open it directly.
   const [params, setParams] = useSearchParams()
   const tab = params.get("tab") ?? "catalog"
@@ -74,15 +76,19 @@ export default function CatalogSetupPage() {
           <div className="flex items-center gap-3">
             <Power className={cn("size-5", enabled ? "text-emerald-600" : "text-amber-600")} />
             <div>
-              <p className="font-medium">IT requests is {enabled ? "on" : "off"}</p>
+              <p className="font-medium">
+                {notInPlan ? "IT requests isn't included in your plan" : `IT requests is ${enabled ? "on" : "off"}`}
+              </p>
               <p className="text-sm text-muted-foreground">
-                {enabled
-                  ? "Everyone who can submit IT requests sees the portal in their sidebar."
-                  : "Only people who can set up IT requests see it. Get the catalog ready, then turn it on."}
+                {notInPlan
+                  ? "You can still get the catalog ready. To turn it on for everyone, your organisation needs the Standard or Enterprise plan."
+                  : enabled
+                    ? "Everyone who can submit IT requests sees the portal in their sidebar."
+                    : "Only people who can set up IT requests see it. Get the catalog ready, then turn it on."}
               </p>
             </div>
           </div>
-          <Button variant={enabled ? "outline" : "default"} disabled={toggle.isPending} onClick={() => setConfirmToggle(true)} data-cy="toggle-service-desk">
+          <Button variant={enabled ? "outline" : "default"} disabled={toggle.isPending || (notInPlan && !enabled)} onClick={() => setConfirmToggle(true)} data-cy="toggle-service-desk">
             {enabled ? "Turn off" : "Turn on"}
           </Button>
         </CardContent>

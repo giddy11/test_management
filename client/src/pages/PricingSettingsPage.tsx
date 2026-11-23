@@ -1,8 +1,12 @@
 // pages/PricingSettingsPage.tsx — platform owner only (pricing.manage).
 // Edits the pricing section on the public landing page: the plans, their
-// prices and the features each one lists. Nothing changes for visitors until
-// Save; Preview shows the cards exactly as the landing page renders them.
+// prices, and the benefits each one lists (ticked in a grid, not typed per
+// plan). Ticking an app-feature benefit also switches that feature for the
+// plan (subscription.manage), and the Plan limits tab sets seats, projects and
+// so on. One Save writes both. Nothing changes for visitors until Save;
+// Preview shows the cards exactly as the landing page renders them.
 import { useEffect, useMemo, useState, type ReactNode } from "react"
+import { useQueryClient } from "@tanstack/react-query"
 import { ArrowLeft, ArrowRight, Eye, Plus, RotateCcw, Save, Trash2, Undo2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -16,25 +20,32 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog"
 import { SectionHeading } from "@/components/landing/SectionHeading"
 import { CurrencyConvertDialog } from "@/components/pricing/CurrencyConvertDialog"
-import { SortableFeatureList } from "@/components/pricing/SortableFeatureList"
+import { BenefitsMatrix } from "@/components/pricing/BenefitsMatrix"
+import { resolvePlanFeatures } from "@/lib/pricingBenefits"
+import { usePlanCatalog, useSaveEntitlements } from "@/hooks/useSubscription"
 import { CURRENCIES, withCurrency } from "@/lib/pricingCurrency"
 import { PricingPlans } from "@/components/landing/PricingSection"
-import { usePricingSettings, useResetPricing, useSavePricing, visiblePlans } from "@/hooks/usePricing"
+import { PRICING_KEY, PUBLIC_PRICING_KEY, usePricingSettings, useResetPricing, useSavePricing, visiblePlans } from "@/hooks/usePricing"
+import { PlanEntitlementsEditor } from "@/components/subscription/PlanEntitlementsEditor"
+import { useAuth } from "@/contexts/AuthContext"
+import { can } from "@/lib/can"
 import { ApiError } from "@/transport/http"
 import type { PricingContent, PricingPlan } from "@/types/pricing.types"
+import type { FeatureKey, LimitKey, PlanEntitlements, PlanKey } from "@/types/subscription.types"
 
 const MAX_PLANS = 4
-const MAX_FEATURES = 15
 
 function newPlan(): PricingPlan {
   return {
     id: `plan-${Date.now().toString(36)}`,
+    planKey: null,
     name: "New plan",
     description: "",
     monthlyPrice: 0,
     yearlyPrice: 0,
     seatNote: "",
-    features: ["A feature of this plan"],
+    benefitIds: [],
+    features: [],
     ctaLabel: "Get started",
     ctaHref: "/register",
     isVisible: true,
@@ -54,16 +65,20 @@ function move<T>(list: T[], from: number, to: number): T[] {
 // "body.plans.1.features.2" → "Standard, feature 3"
 function describeField(field: string, content: PricingContent): string {
   const parts = field.replace(/^body\./, "").split(".")
+  if (parts[0] === "benefits" && parts[1] !== undefined) {
+    const benefit = content.benefits[Number(parts[1])]
+    return benefit?.label ? `Benefit “${benefit.label}”` : `Benefit ${Number(parts[1]) + 1}`
+  }
   if (parts[0] !== "plans" || parts.length < 2) return SECTION_LABELS[parts[0]] ?? parts[0]
   const index = Number(parts[1])
   const plan = content.plans[index]
   const planName = plan?.name?.trim() || `Plan ${index + 1}`
-  if (parts[2] === "features" && parts[3] !== undefined) return `${planName}, feature ${Number(parts[3]) + 1}`
   return parts[2] ? `${planName}, ${PLAN_LABELS[parts[2]] ?? parts[2]}` : planName
 }
 
 const SECTION_LABELS: Record<string, string> = {
   plans: "Plans",
+  benefits: "Benefits",
   heading: "Heading",
   eyebrow: "Small label",
   subheading: "Intro text",
@@ -78,7 +93,8 @@ const PLAN_LABELS: Record<string, string> = {
   monthlyPrice: "monthly price",
   yearlyPrice: "yearly price",
   seatNote: "seat note",
-  features: "features",
+  benefitIds: "benefits",
+  planKey: "plan it sells",
   ctaLabel: "button text",
   ctaHref: "button link",
   badge: "badge",
@@ -185,6 +201,8 @@ function PlanEditor({
   index,
   count,
   currencySymbol,
+  benefitCount,
+  seatLine,
   onChange,
   onMove,
   onRemove,
@@ -193,6 +211,10 @@ function PlanEditor({
   index: number
   count: number
   currencySymbol: string
+  /** How many benefits the card lists, including app features its plan includes. */
+  benefitCount: number
+  /** The seat note with {n} filled in from the plan's full-seat limit. */
+  seatLine: string
   onChange: (patch: Partial<PricingPlan>) => void
   onMove: (dir: -1 | 1) => void
   onRemove: () => void
@@ -263,8 +285,17 @@ function PlanEditor({
             )}
           </Field>
         </div>
-        <Field label="Seat note" htmlFor={fid("seats")} hint="The line under the price, for example “Includes 15 full seats. Extra seats $2 each.”">
+        <Field
+          label="Seat note"
+          htmlFor={fid("seats")}
+          hint="The line under the price. Write {n} where the seat number goes, for example “Includes {n} full seats. Extra seats $2 each.” {n} follows this plan's “Full seats included” in Plan limits."
+        >
           <Input id={fid("seats")} value={plan.seatNote} maxLength={160} onChange={(e) => onChange({ seatNote: e.target.value })} />
+          {plan.seatNote.includes("{n}") && (
+            <p className="text-xs text-brand" data-cy={`pricing-seat-line-${index}`}>
+              {seatLine ? `Shows: ${seatLine}` : "Choose which plan this card sells to fill in {n}."}
+            </p>
+          )}
         </Field>
 
         <div className="grid gap-4 sm:grid-cols-2">
@@ -276,12 +307,35 @@ function PlanEditor({
           </Field>
         </div>
 
+        <Field
+          label="Sells which plan in the app"
+          htmlFor={fid("plan-key")}
+          hint="Decides which app features this card shows as included. Choose None for a card like “Custom, contact us”."
+        >
+          <Select
+            value={plan.planKey ?? "none"}
+            onValueChange={(v) => onChange({ planKey: v === "none" ? null : (v as PlanKey) })}
+          >
+            <SelectTrigger id={fid("plan-key")} className="w-full" data-cy={`pricing-plan-key-${index}`}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="free">Free</SelectItem>
+              <SelectItem value="standard">Standard</SelectItem>
+              <SelectItem value="enterprise">Enterprise</SelectItem>
+              <SelectItem value="none">None</SelectItem>
+            </SelectContent>
+          </Select>
+        </Field>
+
         <label className="flex items-center gap-2 text-sm">
           <Checkbox checked={plan.highlighted} onCheckedChange={(v) => onChange({ highlighted: v === true })} />
           Highlight this plan (only one plan can be highlighted)
         </label>
 
-        <SortableFeatureList features={plan.features} max={MAX_FEATURES} onChange={(features) => onChange({ features })} />
+        <p className="text-xs text-muted-foreground">
+          Lists {benefitCount} benefit{benefitCount === 1 ? "" : "s"}. Tick them in the Benefits grid below the plans.
+        </p>
       </CardContent>
     </Card>
   )
@@ -293,19 +347,37 @@ export default function PricingSettingsPage() {
   const reset = useResetPricing()
   const [draft, setDraft] = useState<PricingContent | null>(null)
   const [tab, setTab] = useState("edit")
+  const { user } = useAuth()
+  const qc = useQueryClient()
+  // What plans actually unlock is a separate permission from the marketing copy.
+  const canManagePlans = can(user?.permissions, "subscription.manage")
   const [confirmReset, setConfirmReset] = useState(false)
   // The currency the owner picked, while the convert dialog is open.
   const [pendingCurrency, setPendingCurrency] = useState<string | null>(null)
+
+  // Each plan's app features and limits, edited alongside the pricing and saved
+  // by the same button. Shared by the Benefits grid and the Plan limits tab.
+  const { data: catalog } = usePlanCatalog(canManagePlans)
+  const saveEntitlements = useSaveEntitlements()
+  const [entDraft, setEntDraft] = useState<Record<PlanKey, PlanEntitlements> | null>(null)
 
   // Start from what's saved, and again after every save or reset.
   useEffect(() => {
     if (data) setDraft(structuredClone(data.content))
   }, [data])
+  useEffect(() => {
+    if (catalog) setEntDraft(structuredClone(catalog.entitlements))
+  }, [catalog])
 
-  const dirty = useMemo(
+  const pricingDirty = useMemo(
     () => !!data && !!draft && JSON.stringify(draft) !== JSON.stringify(data.content),
     [data, draft]
   )
+  const entDirty = useMemo(
+    () => !!catalog && !!entDraft && JSON.stringify(entDraft) !== JSON.stringify(catalog.entitlements),
+    [catalog, entDraft]
+  )
+  const dirty = pricingDirty || entDirty
 
   // Warn before closing the tab with unsaved edits.
   useEffect(() => {
@@ -332,6 +404,36 @@ export default function PricingSettingsPage() {
 
   const shownCount = visiblePlans(draft).length
 
+  // Per plan, the app features and limits as being edited: they decide the
+  // feature and # rows on the cards. null without subscription.manage.
+  const resolved = resolvePlanFeatures(draft, entDraft)
+
+  const setFeature = (planKey: PlanKey, feature: FeatureKey, on: boolean) =>
+    setEntDraft((d) => (d ? { ...d, [planKey]: { ...d[planKey], features: { ...d[planKey].features, [feature]: on } } } : d))
+  const setLimit = (planKey: PlanKey, key: LimitKey, value: number | null) =>
+    setEntDraft((d) => (d ? { ...d, [planKey]: { ...d[planKey], limits: { ...d[planKey].limits, [key]: value } } } : d))
+
+  const saving = save.isPending || saveEntitlements.isPending
+  const saveAll = async () => {
+    try {
+      // Plan features first, so the saved pricing comes back listing them.
+      if (entDirty && entDraft) {
+        await saveEntitlements.mutateAsync(entDraft)
+        if (!pricingDirty) {
+          qc.invalidateQueries({ queryKey: PRICING_KEY })
+          qc.invalidateQueries({ queryKey: PUBLIC_PRICING_KEY })
+        }
+      }
+      if (pricingDirty) await save.mutateAsync(draft)
+    } catch {
+      // Each save shows its own error message.
+    }
+  }
+  const discardAll = () => {
+    setDraft(structuredClone(data.content))
+    if (catalog) setEntDraft(structuredClone(catalog.entitlements))
+  }
+
   const saveError = save.error instanceof ApiError && save.error.errors.length > 0 ? save.error.errors : null
 
   return (
@@ -354,11 +456,11 @@ export default function PricingSettingsPage() {
           <Button variant="ghost" size="sm" disabled={data.isDefault || reset.isPending} onClick={() => setConfirmReset(true)}>
             <RotateCcw className="size-4" /> Reset to defaults
           </Button>
-          <Button variant="outline" size="sm" disabled={!dirty} onClick={() => setDraft(structuredClone(data.content))}>
+          <Button variant="outline" size="sm" disabled={!dirty} onClick={discardAll}>
             <Undo2 className="size-4" /> Discard changes
           </Button>
-          <Button size="sm" disabled={!dirty || save.isPending} onClick={() => save.mutate(draft)} data-cy="pricing-save">
-            <Save className="size-4" /> {save.isPending ? "Saving…" : "Save"}
+          <Button size="sm" disabled={!dirty || saving} onClick={saveAll} data-cy="pricing-save">
+            <Save className="size-4" /> {saving ? "Saving…" : "Save"}
           </Button>
         </div>
       </div>
@@ -392,6 +494,11 @@ export default function PricingSettingsPage() {
           <TabsTrigger value="preview">
             <Eye className="size-4" /> Preview
           </TabsTrigger>
+          {canManagePlans && (
+            <TabsTrigger value="plans" data-cy="pricing-plans-tab">
+              Plan limits
+            </TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent value="edit" className="space-y-6">
@@ -432,12 +539,16 @@ export default function PricingSettingsPage() {
                 index={i}
                 count={draft.plans.length}
                 currencySymbol={draft.currencySymbol}
+                benefitCount={resolved.plans[i]?.features.length ?? 0}
+                seatLine={resolved.plans[i]?.seatLine ?? ""}
                 onChange={(p) => patchPlan(i, p)}
                 onMove={(dir) => patch({ plans: move(draft.plans, i, i + dir) })}
                 onRemove={() => patch({ plans: draft.plans.filter((_, j) => j !== i) })}
               />
             ))}
           </div>
+
+          <BenefitsMatrix content={draft} planValues={entDraft} onChange={setDraft} onFeatureChange={setFeature} />
         </TabsContent>
 
         <TabsContent value="preview">
@@ -454,10 +565,19 @@ export default function PricingSettingsPage() {
               lead={draft.subheading || undefined}
             />
             <div className="mt-10">
-              <PricingPlans content={draft} />
+              <PricingPlans content={resolved} instant />
             </div>
           </div>
         </TabsContent>
+        {canManagePlans && (
+          <TabsContent value="plans">
+            {catalog && entDraft ? (
+              <PlanEntitlementsEditor catalog={catalog} draft={entDraft} onLimitChange={setLimit} />
+            ) : (
+              <p className="text-sm text-muted-foreground">Loading…</p>
+            )}
+          </TabsContent>
+        )}
       </Tabs>
 
       {pendingCurrency && (
@@ -477,7 +597,7 @@ export default function PricingSettingsPage() {
         open={confirmReset}
         onOpenChange={setConfirmReset}
         title="Reset pricing to the defaults?"
-        description="This replaces the saved plans, prices and features with the built-in defaults. Visitors will see the defaults straight away."
+        description="This replaces the saved plans, prices and benefits with the built-in defaults. Visitors will see the defaults straight away. What each plan includes in the app and its limits are not affected."
         confirmLabel="Reset"
         loading={reset.isPending}
         onConfirm={() => reset.mutate(undefined, { onSuccess: () => setConfirmReset(false) })}

@@ -137,6 +137,8 @@ export interface ServiceLevels {
 
 export interface ServiceDeskSettings {
   enabled: boolean
+  /** Whether the organisation's plan includes IT requests. Absent from older servers: treat as included. */
+  includedInPlan?: boolean
   serviceLevels: ServiceLevels
   // IT agents (queue workers without "set up IT requests") can't approve.
   agentsCannotApprove: boolean

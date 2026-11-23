@@ -12,6 +12,7 @@ import type { ServiceCatalogItem } from "../entities/serviceCatalogItem.entity";
 import type { CreateCategoryBody, CreateItemBody, UpdateCategoryBody, UpdateItemBody } from "../validators/serviceDesk.schema";
 import { toAdminItemDto, toCategoryDto, toPersonDto, toPortalItemDto } from "../dto/serviceDesk.dto";
 import type { Actor } from "../../../shared/types/actor";
+import { SubscriptionService } from "../../subscription/services/subscription.service";
 
 const { AppError } = require("../../../shared/errors/AppError");
 const { can } = require("../../../shared/access/can");
@@ -59,12 +60,25 @@ export class ServiceDeskService {
     return actor.organizationId;
   }
 
+  // On only when the organisation has switched it on AND its plan includes it.
+  // A downgraded organisation keeps its switch and its data; the module simply
+  // stops working until the plan includes it again.
   async isEnabled(organizationId: string): Promise<boolean> {
-    return (await this.repo.getSettings(organizationId))?.enabled ?? false;
+    const [switchedOn, included] = await Promise.all([
+      this.repo.getSettings(organizationId).then((s) => s?.enabled ?? false),
+      this.includedInPlan(organizationId),
+    ]);
+    return switchedOn && included;
+  }
+
+  includedInPlan(organizationId: string): Promise<boolean> {
+    return SubscriptionService.Instance.hasFeature(organizationId, "it_requests");
   }
 
   async assertEnabled(organizationId: string): Promise<void> {
     if (!(await this.isEnabled(organizationId))) {
+      // Say why: the plan, rather than the switch, when that's the reason.
+      await SubscriptionService.Instance.assertFeature(organizationId, "it_requests");
       throw new AppError("IT requests is not turned on for your organisation", 403, [], { reason: "disabled" });
     }
   }
@@ -83,13 +97,14 @@ export class ServiceDeskService {
   // ── Settings ───────────────────────────────────────────────────────────────
   async getSettings(actor: DeskActor) {
     const organizationId = this.orgOf(actor);
-    const [enabled, serviceLevels, agentsCannotApprove, requireLineManager] = await Promise.all([
+    const [enabled, includedInPlan, serviceLevels, agentsCannotApprove, requireLineManager] = await Promise.all([
       this.isEnabled(organizationId),
+      this.includedInPlan(organizationId),
       this.serviceLevels(organizationId),
       this.agentsCannotApprove(organizationId),
       this.requireLineManager(organizationId),
     ]);
-    return { enabled, serviceLevels, agentsCannotApprove, requireLineManager };
+    return { enabled, includedInPlan, serviceLevels, agentsCannotApprove, requireLineManager };
   }
 
   // Must a request that needs a line manager have one to be submitted? On by default.
@@ -159,6 +174,8 @@ export class ServiceDeskService {
 
   async updateSettings(actor: DeskActor, enabled: boolean) {
     const organizationId = this.orgOf(actor);
+    // Turning it off is always allowed; turning it on needs a plan that includes it.
+    if (enabled) await SubscriptionService.Instance.assertFeature(organizationId, "it_requests");
     // Turning it on with an empty catalog would greet everyone with nothing.
     if (enabled) await this.ensureCatalog(organizationId, actor.id);
     const saved = await this.repo.saveSettings(
@@ -173,7 +190,8 @@ export class ServiceDeskService {
       })
     );
     return {
-      enabled: saved.enabled,
+      enabled: saved.enabled && (await this.includedInPlan(organizationId)),
+      includedInPlan: await this.includedInPlan(organizationId),
       serviceLevels: await this.serviceLevels(organizationId),
       agentsCannotApprove: saved.agentsCannotApprove ?? true,
       requireLineManager: saved.requireLineManager ?? true,

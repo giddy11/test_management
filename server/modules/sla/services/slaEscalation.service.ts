@@ -23,6 +23,7 @@ import { SlaEscalationRepository, type OverdueIssue, type SlaPerson } from "../r
 import { rulesFromSettings } from "./sla.service";
 import { sendServiceRequestEmail } from "../../../shared/utils/mail/serviceDesk.mail";
 import { ServiceDeskRepository } from "../../serviceDesk/repositories/serviceDesk.repository";
+import { SubscriptionService } from "../../subscription/services/subscription.service";
 
 const { ActivityService } = require("../../activity/services/activity.service");
 const { NotificationRepository } = require("../../notification/repositories/notification.repository");
@@ -51,7 +52,8 @@ export class SlaEscalationService {
     private readonly repo = SlaEscalationRepository.Instance,
     private readonly deskRepo = ServiceDeskRepository.Instance,
     private readonly notifications = NotificationRepository.Instance,
-    private readonly activity = ActivityService.Instance
+    private readonly activity = ActivityService.Instance,
+    private readonly plans: Pick<SubscriptionService, "hasFeature"> = SubscriptionService.Instance
   ) {}
 
   // Called once at boot (server.js).
@@ -102,6 +104,9 @@ export class SlaEscalationService {
     const settings = await this.slaRepo.findSettings(organizationId);
     const rules = settings?.escalation;
     if (!settings || !rules?.enabled || !settings.escalationSince) return 0;
+    // Switched on, but the plan no longer includes it (a downgrade, or a paid
+    // period that ended): skip quietly until it does again.
+    if (!(await this.plans.hasFeature(organizationId, "sla_escalations"))) return 0;
 
     const issues = await this.repo.overdue(
       organizationId,

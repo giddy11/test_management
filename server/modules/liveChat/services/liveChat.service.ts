@@ -20,6 +20,7 @@ import { LiveChatAccountRepository } from "../repositories/liveChatAccount.repos
 import { ProjectRepository } from "../../project/repositories/project.repository";
 import { ProjectService } from "../../project/services/project.service";
 import { ProjectMemberRepository } from "../../project/repositories/projectMember.repository";
+import { SubscriptionService } from "../../subscription/services/subscription.service";
 import type { LiveChatVisitor } from "../entities/liveChatVisitor.entity";
 import type { LiveChatConversation } from "../entities/liveChatConversation.entity";
 import type { LiveChatSettings } from "../entities/liveChatSettings.entity";
@@ -127,6 +128,9 @@ export class LiveChatService {
   async getWidgetConfig(token: string) {
     const project = await this.resolveProjectByToken(token);
     const settings = await this.settingsRepo.getOrCreate(project.id);
+    // The WhatsApp button is a paid feature: without it in the plan the number
+    // is withheld, which hides the launcher exactly as having no number does.
+    const whatsappInPlan = await SubscriptionService.Instance.hasFeature(project.organizationId, "whatsapp_widget");
     return {
       projectId: project.id,
       displayName: settings.displayName || project.name,
@@ -139,7 +143,7 @@ export class LiveChatService {
       // Powers the WhatsApp embed widget (public/live-chat-widget.js's current
       // page) — null hides the launcher entirely, same rule as the internal
       // Contact support widget.
-      supportWhatsappNumber: project.supportWhatsappNumber ?? null,
+      supportWhatsappNumber: whatsappInPlan ? (project.supportWhatsappNumber ?? null) : null,
     };
   }
 
@@ -159,6 +163,9 @@ export class LiveChatService {
   ): Promise<{ id: string; ticketCode: string }> {
     const project = await this.resolveProjectByToken(token);
     if (!project.supportWhatsappNumber) {
+      throw new AppError("This live chat widget is not available", 404);
+    }
+    if (!(await SubscriptionService.Instance.hasFeature(project.organizationId, "whatsapp_widget"))) {
       throw new AppError("This live chat widget is not available", 404);
     }
     // Required lazily — the feedback module is otherwise unrelated to this

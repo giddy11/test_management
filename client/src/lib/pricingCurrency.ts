@@ -154,6 +154,11 @@ function mapTexts(
     subheading: run("Intro text", content.subheading),
     footnote: run("Footnote", content.footnote),
     yearlyDiscountLabel: run("Yearly discount label", content.yearlyDiscountLabel),
+    benefits: content.benefits.map((b, i) => ({
+      ...b,
+      label: run(`Benefit ${i + 1}`, b.label),
+      unlimitedLabel: run(`Benefit ${i + 1} (no limit)`, b.unlimitedLabel),
+    })),
     plans: content.plans.map((p, i) => {
       const who = p.name.trim() || `Plan ${i + 1}`
       return {
@@ -161,7 +166,6 @@ function mapTexts(
         description: run(`${who}: description`, p.description),
         seatNote: run(`${who}: seat note`, p.seatNote),
         badge: run(`${who}: badge`, p.badge),
-        features: p.features.map((f, j) => run(`${who}: feature ${j + 1}`, f)),
       }
     }),
   }

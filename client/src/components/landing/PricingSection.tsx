@@ -52,6 +52,8 @@ function PlanCard({
   const isFree = plan.monthlyPrice === 0 && plan.yearlyPrice === 0
   const amount = period === "yearly" ? plan.yearlyPrice : plan.monthlyPrice
   const suffix = isFree ? "forever" : period === "yearly" ? "/ year" : "/ month"
+  // seatLine has the plan's seat number filled in; older data only has the note.
+  const seatText = plan.seatLine ?? plan.seatNote
 
   return (
     <div
@@ -78,7 +80,7 @@ function PlanCard({
         </span>
         <span className="text-sm text-muted-foreground">{suffix}</span>
       </p>
-      {plan.seatNote && <p className="mt-2 text-sm text-muted-foreground">{plan.seatNote}</p>}
+      {seatText && <p className="mt-2 text-sm text-muted-foreground">{seatText}</p>}
 
       <div className="mt-6">
         <PlanCta plan={plan} />
@@ -142,7 +144,7 @@ function BillingToggle({
 }
 
 /** The switch, the cards and the footnote — no heading, no fetching. */
-export function PricingPlans({ content }: { content: PricingContent }) {
+export function PricingPlans({ content, instant = false }: { content: PricingContent; instant?: boolean }) {
   const [period, setPeriod] = useState<BillingPeriod>("monthly")
   // Plans switched off are left out, and the grid sizes itself to what is left.
   const plans = visiblePlans(content)
@@ -167,7 +169,7 @@ export function PricingPlans({ content }: { content: PricingContent }) {
         )}
       >
         {plans.map((plan, i) => (
-          <Reveal key={plan.id} delay={i * 80} className="h-full">
+          <Reveal key={plan.id} delay={i * 80} instant={instant} className="h-full">
             <PlanCard plan={plan} period={period} currencySymbol={content.currencySymbol} />
           </Reveal>
         ))}

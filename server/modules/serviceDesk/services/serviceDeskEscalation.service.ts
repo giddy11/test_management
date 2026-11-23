@@ -70,8 +70,14 @@ export class ServiceDeskEscalationService {
       if (!locked) return 0;
       try {
         const levelsByOrg = new Map<string, ServiceLevels>();
+        const inPlanByOrg = new Map<string, boolean>();
         for (const row of await this.repo.overdue(BATCH)) {
           try {
+            // Switched on, but the plan no longer includes IT requests: leave it be.
+            if (!inPlanByOrg.has(row.organizationId)) {
+              inPlanByOrg.set(row.organizationId, await this.desk.includedInPlan(row.organizationId));
+            }
+            if (!inPlanByOrg.get(row.organizationId)) continue;
             if (!levelsByOrg.has(row.organizationId)) {
               levelsByOrg.set(row.organizationId, await this.desk.serviceLevels(row.organizationId));
             }

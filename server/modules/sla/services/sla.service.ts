@@ -16,9 +16,10 @@ import { SlaRepository, type SlaRules, type SlaScope } from "../repositories/sla
 import type { SlaEscalationRules, SlaSettings, SlaTarget, SlaTargets } from "../entities/slaSettings.entity";
 import type { SlaFilters, SlaTicketsQuery, UpdateSlaSettingsBody } from "../validators/sla.schema";
 import type { Actor } from "../../../shared/types/actor";
+import { SubscriptionService } from "../../subscription/services/subscription.service";
 
 const { AppError } = require("../../../shared/errors/AppError");
-const { can } = require("../../../shared/access/can");
+const { can, hasWildcard } = require("../../../shared/access/can");
 const {
   isExternalSupporter,
   isOrphanedSupporter,
@@ -48,7 +49,11 @@ export const DEFAULT_SLA_ESCALATION: SlaEscalationRules = Object.freeze({
 export class SlaService {
   static Instance = new SlaService();
 
-  constructor(private readonly repo: SlaRepository = SlaRepository.Instance) {}
+  constructor(
+    private readonly repo: SlaRepository = SlaRepository.Instance,
+    // Escalations need a plan with "sla_escalations"; the targets themselves don't.
+    private readonly plans: Pick<SubscriptionService, "hasFeature" | "assertFeature"> = SubscriptionService.Instance
+  ) {}
 
   // Only these roles reach the routes (see sla.routes.ts); this narrows each
   // one to the tickets it's entitled to see.
@@ -105,6 +110,7 @@ export class SlaService {
       separateFeatureRequestTarget: rules.separateFeatureRequestTarget,
       pausedStatuses: rules.pausedStatuses,
       escalation: escalationOf(settings),
+      escalationIncluded: await this.plans.hasFeature(actor.organizationId, "sla_escalations"),
       // The people an administrator can pick as escalation contacts.
       escalationCandidates: canEdit && actor.organizationId ? await this.repo.escalationCandidates(actor.organizationId) : [],
       isDefault: rules.isDefault,
@@ -117,6 +123,11 @@ export class SlaService {
     if (!actor.organizationId) throw new AppError("No organisation on this account", 403);
     const existing = await this.repo.findSettings(actor.organizationId);
 
+    // Switching escalation on (or saving it on) needs a plan that includes it.
+    // Saving only the targets, or switching escalation off, works on any plan.
+    if (body.escalation?.enabled && !hasWildcard(actor)) {
+      await this.plans.assertFeature(actor.organizationId, "sla_escalations");
+    }
     // Omitted = leave escalation as it is (an older client saving only the targets).
     const escalation = body.escalation ?? escalationOf(existing);
     if (body.escalation && escalation.contactIds.length) {
@@ -162,6 +173,7 @@ export class SlaService {
       separateFeatureRequestTarget: resolved.separateFeatureRequestTarget,
       pausedStatuses: saved.pausedStatuses,
       escalation,
+      escalationIncluded: await this.plans.hasFeature(actor.organizationId, "sla_escalations"),
       escalationCandidates: await this.repo.escalationCandidates(actor.organizationId),
       isDefault: false,
       updatedAt: saved.updatedAt,

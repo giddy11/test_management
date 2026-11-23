@@ -3,7 +3,8 @@ import { useForm } from "react-hook-form"
 import { toast } from "sonner"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { useNavigate, useSearchParams } from "react-router-dom"
-import { User, Lock, LifeBuoy, MessagesSquare, Power, PowerOff, Bell, BellOff, ShieldCheck, Sparkles, Mail, MailX } from "lucide-react"
+import { User, Lock, LifeBuoy, MessagesSquare, Power, PowerOff, Bell, BellOff, ShieldCheck, Sparkles, Mail, MailX, CreditCard } from "lucide-react"
+import { OrganizationPlanCard } from "@/components/subscription/OrganizationPlanCard"
 import Country from "country-state-city/lib/country"
 import State from "country-state-city/lib/state"
 import { useCities } from "@/hooks/useCities"
@@ -694,9 +695,11 @@ export default function SettingsPage() {
   // AI settings: any one of the AI permissions shows the tab; each section
   // inside checks its own (see AiSettingsTab).
   const canSeeAi = ["ai.use", "ai.ownkey", "ai.managekeys", "ai.managecredits"].some((code) => can(code))
+  // The organisation's plan: for the people who run the workspace.
+  const canSeePlan = can("user.create") || can("role.manage")
   const [searchParams] = useSearchParams()
   const requestedTab = searchParams.get("tab")
-  const availableTabs = ["profile", "security", "help", "notifications", ...(canSeeAi ? ["ai"] : []), ...(canReadRoles ? ["access"] : []), ...(canManagePlatform ? ["admin"] : [])]
+  const availableTabs = ["profile", "security", "help", "notifications", ...(canSeePlan ? ["plan"] : []), ...(canSeeAi ? ["ai"] : []), ...(canReadRoles ? ["access"] : []), ...(canManagePlatform ? ["admin"] : [])]
   const initialTab = requestedTab && availableTabs.includes(requestedTab) ? requestedTab : "profile"
 
   return (
@@ -727,6 +730,12 @@ export default function SettingsPage() {
             <Bell className="size-3.5" />
             Notifications
           </TabsTrigger>
+          {canSeePlan && (
+            <TabsTrigger value="plan" className="gap-1.5" data-cy="settings-tab-plan">
+              <CreditCard className="size-3.5" />
+              Plan
+            </TabsTrigger>
+          )}
           {canSeeAi && (
             <TabsTrigger value="ai" className="gap-1.5" data-cy="settings-tab-ai">
               <Sparkles className="size-3.5" />
@@ -762,6 +771,12 @@ export default function SettingsPage() {
         <TabsContent value="notifications" className="mt-4">
           <NotificationsTab />
         </TabsContent>
+
+        {canSeePlan && (
+          <TabsContent value="plan" className="mt-4">
+            <OrganizationPlanCard />
+          </TabsContent>
+        )}
 
         {canSeeAi && (
           <TabsContent value="ai" className="mt-4">

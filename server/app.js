@@ -38,6 +38,7 @@ const appUpdateRoutes = require("./modules/appUpdate/routes/appUpdate.routes");
 const siteBannerRoutes = require("./modules/siteBanner/routes/siteBanner.routes");
 const pricingRoutes = require("./modules/pricing/routes/pricing.routes");
 const publicPricingRoutes = require("./modules/pricing/routes/publicPricing.routes");
+const subscriptionRoutes = require("./modules/subscription/routes/subscription.routes");
 const organizationRoutes = require("./modules/organization/routes/organization.routes");
 const feedbackRoutes = require("./modules/feedback/routes/feedback.routes");
 const publicFeedbackRoutes = require("./modules/feedback/routes/publicFeedback.routes");
@@ -121,6 +122,7 @@ function createApp() {
   api.use("/app-updates", appUpdateRoutes);
   api.use("/site-banner", siteBannerRoutes);
   api.use("/pricing", pricingRoutes); // platform owner edits the landing page pricing
+  api.use("/subscription", subscriptionRoutes); // plans per organisation, offline payments
   api.use("/organizations", organizationRoutes);
   api.use("/feedback", feedbackRoutes);
   api.use("/support/feedback", feedbackSupportRoutes); // it_support role only

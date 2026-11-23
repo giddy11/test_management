@@ -7,6 +7,9 @@ import { DEFAULT_SLA_TARGETS, SlaService, pickInterval } from "../services/sla.s
 
 const { actorFor } = require("../../../test/actors");
 
+// Plan checks are covered elsewhere; here every plan includes SLA escalations.
+const allowAllPlans = { hasFeature: async () => true, assertFeature: async () => {} } as any;
+
 const emptyKpis = {
   total: 0, tickets: 0, bugs: 0, featureRequests: 0, resolved: 0, closed: 0, open: 0,
   awaitingResponse: 0, responded: 0, avgFirstResponseMs: null, medianFirstResponseMs: null,
@@ -51,25 +54,25 @@ const supporter = actorFor("it_support", {
 describe("SlaService.overview — scope per role", () => {
   it("admins see their whole organisation", async () => {
     const repo = makeRepo();
-    await new SlaService(repo as any).overview(admin, {});
+    await new SlaService(repo as any, allowAllPlans).overview(admin, {});
     expect(repo.kpis).toHaveBeenCalledWith({ organizationId: "org-1" }, expect.anything(), expect.anything());
   });
 
   it("superadmins are scoped to their own org like any admin", async () => {
     const repo = makeRepo();
-    await new SlaService(repo as any).overview(superadmin, {});
+    await new SlaService(repo as any, allowAllPlans).overview(superadmin, {});
     expect(repo.kpis.mock.calls[0][0]).toEqual({ organizationId: "org-sa" });
   });
 
   it("plain users (QA) are narrowed to projects they're members of", async () => {
     const repo = makeRepo();
-    await new SlaService(repo as any).overview(user, {});
+    await new SlaService(repo as any, allowAllPlans).overview(user, {});
     expect(repo.kpis.mock.calls[0][0]).toEqual({ organizationId: "org-1", memberUserId: "user-1" });
   });
 
   it("IT supporters see only their own company, and can't widen it via the filter", async () => {
     const repo = makeRepo();
-    await new SlaService(repo as any).overview(supporter, { clientCompanyId: "cc-other" });
+    await new SlaService(repo as any, allowAllPlans).overview(supporter, { clientCompanyId: "cc-other" });
     const [scope, filters] = repo.kpis.mock.calls[0];
     expect(scope).toEqual({ clientCompanyId: "cc-1" });
     expect(filters.clientCompanyId).toBeUndefined();
@@ -78,13 +81,13 @@ describe("SlaService.overview — scope per role", () => {
   it("rejects a supporter with no company on their account", async () => {
     const repo = makeRepo();
     await expect(
-      new SlaService(repo as any).overview({ ...supporter, clientCompanyId: null }, {})
+      new SlaService(repo as any, allowAllPlans).overview({ ...supporter, clientCompanyId: null }, {})
     ).rejects.toMatchObject({ statusCode: 403 });
   });
 
   it("passes ticket filters through and strips presentation-only params", async () => {
     const repo = makeRepo();
-    await new SlaService(repo as any).overview(admin, {
+    await new SlaService(repo as any, allowAllPlans).overview(admin, {
       from: "2026-01-01",
       to: "2026-01-31",
       severity: "high",
@@ -116,7 +119,7 @@ describe("SlaService.overview — recurring issues", () => {
       { groupKey: "feature_request:f-1", source: "feature_request", title: "Dark mode", count: 4, votes: "23", linked: true },
     ]);
 
-    const { recurring } = await new SlaService(repo as any).overview(admin, {});
+    const { recurring } = await new SlaService(repo as any, allowAllPlans).overview(admin, {});
 
     expect(recurring[0]).toMatchObject({ groupKey: "bug:b-1", avgResolutionMs: 7200000, afterFix: 2, votes: null });
     expect(recurring[1]).toMatchObject({ source: "feature_request", votes: 23 });
@@ -124,7 +127,7 @@ describe("SlaService.overview — recurring issues", () => {
 
   it("asks for the groups within the caller's own scope and filters", async () => {
     const repo = makeRepo();
-    await new SlaService(repo as any).overview(user, { projectId: "p-1" });
+    await new SlaService(repo as any, allowAllPlans).overview(user, { projectId: "p-1" });
     // The plain user's scope is what keeps groups to projects they belong to.
     expect(repo.recurring).toHaveBeenCalledWith(
       { organizationId: "org-1", memberUserId: "user-1" },
@@ -135,7 +138,7 @@ describe("SlaService.overview — recurring issues", () => {
 
   it("hands an IT supporter the company scope, which is what withholds link-based groups", async () => {
     const repo = makeRepo();
-    await new SlaService(repo as any).overview(supporter, {});
+    await new SlaService(repo as any, allowAllPlans).overview(supporter, {});
     expect(repo.recurring.mock.calls[0][0]).toEqual({ clientCompanyId: "cc-1" });
   });
 });
@@ -143,7 +146,7 @@ describe("SlaService.overview — recurring issues", () => {
 describe("SlaService — rules", () => {
   it("uses the code defaults when the org has no saved rules", async () => {
     const repo = makeRepo();
-    const result = await new SlaService(repo as any).overview(admin, {});
+    const result = await new SlaService(repo as any, allowAllPlans).overview(admin, {});
     const [, , rules] = repo.kpis.mock.calls[0];
     expect(rules.targets).toEqual(DEFAULT_SLA_TARGETS);
     expect(rules.pausedStatuses).toEqual([]);
@@ -158,7 +161,7 @@ describe("SlaService — rules", () => {
       pausedStatuses: ["resolved"],
       updatedAt: new Date(),
     });
-    await new SlaService(repo as any).overview(admin, {});
+    await new SlaService(repo as any, allowAllPlans).overview(admin, {});
     const [, , rules] = repo.kpis.mock.calls[0];
     expect(rules.targets.critical).toEqual({ firstResponseHours: 0.5, resolutionHours: 8 });
     expect(rules.targets.default).toEqual(DEFAULT_SLA_TARGETS.default);
@@ -167,7 +170,7 @@ describe("SlaService — rules", () => {
 
   it("only admins may edit; supporters and users read the org's rules", async () => {
     const repo = makeRepo();
-    const service = new SlaService(repo as any);
+    const service = new SlaService(repo as any, allowAllPlans);
     expect((await service.getSettings(admin)).canEdit).toBe(true);
     expect((await service.getSettings(user)).canEdit).toBe(false);
     expect((await service.getSettings(supporter)).canEdit).toBe(false);
@@ -179,7 +182,7 @@ describe("SlaService — rules", () => {
       targets: DEFAULT_SLA_TARGETS,
       pausedStatuses: ["resolved", "resolved", "acknowledged"],
     };
-    const result = await new SlaService(repo as any).updateSettings(admin, body as any);
+    const result = await new SlaService(repo as any, allowAllPlans).updateSettings(admin, body as any);
     expect(repo.saveSettings).toHaveBeenCalledWith(
       expect.objectContaining({ organizationId: "org-1", pausedStatuses: ["resolved", "acknowledged"], updatedById: "admin-1" })
     );
@@ -193,19 +196,19 @@ describe("SlaService — escalation settings", () => {
   const body = { targets: DEFAULT_SLA_TARGETS, pausedStatuses: [] };
 
   it("is off by default, with the IT-request percentages", async () => {
-    const settings = await new SlaService(makeRepo() as any).getSettings(admin);
+    const settings = await new SlaService(makeRepo() as any, allowAllPlans).getSettings(admin);
     expect(settings.escalation).toEqual({ enabled: false, level2Pct: 50, level3Pct: 100, contactIds: [] });
   });
 
   it("offers the contact picker only to people who can edit the rules", async () => {
-    const service = new SlaService(makeRepo() as any);
+    const service = new SlaService(makeRepo() as any, allowAllPlans);
     expect((await service.getSettings(admin)).escalationCandidates).toHaveLength(1);
     expect((await service.getSettings(user)).escalationCandidates).toEqual([]);
   });
 
   it("starts the clock when escalation is switched on", async () => {
     const repo = makeRepo();
-    await new SlaService(repo as any).updateSettings(admin, { ...body, escalation } as any);
+    await new SlaService(repo as any, allowAllPlans).updateSettings(admin, { ...body, escalation } as any);
     const saved = repo.saveSettings.mock.calls[0][0];
     expect(saved.escalation).toEqual(escalation);
     expect(saved.escalationSince).toBeInstanceOf(Date);
@@ -215,7 +218,7 @@ describe("SlaService — escalation settings", () => {
     const repo = makeRepo();
     const since = new Date("2026-01-01T00:00:00Z");
     repo.findSettings.mockResolvedValue({ organizationId: "org-1", targets: {}, escalation, escalationSince: since });
-    await new SlaService(repo as any).updateSettings(admin, { ...body, escalation: { ...escalation, level2Pct: 60 } } as any);
+    await new SlaService(repo as any, allowAllPlans).updateSettings(admin, { ...body, escalation: { ...escalation, level2Pct: 60 } } as any);
     expect(repo.saveSettings.mock.calls[0][0].escalationSince).toBe(since);
   });
 
@@ -223,7 +226,7 @@ describe("SlaService — escalation settings", () => {
     const repo = makeRepo();
     const since = new Date("2026-01-01T00:00:00Z");
     repo.findSettings.mockResolvedValue({ organizationId: "org-1", targets: {}, escalation, escalationSince: since });
-    await new SlaService(repo as any).updateSettings(admin, body as any);
+    await new SlaService(repo as any, allowAllPlans).updateSettings(admin, body as any);
     expect(repo.saveSettings).toHaveBeenCalledWith(expect.objectContaining({ escalation, escalationSince: since }));
   });
 
@@ -231,7 +234,7 @@ describe("SlaService — escalation settings", () => {
     const repo = makeRepo();
     repo.countMembers.mockResolvedValue(0);
     await expect(
-      new SlaService(repo as any).updateSettings(admin, { ...body, escalation } as any)
+      new SlaService(repo as any, allowAllPlans).updateSettings(admin, { ...body, escalation } as any)
     ).rejects.toMatchObject({ statusCode: 400 });
     expect(repo.saveSettings).not.toHaveBeenCalled();
   });
@@ -247,7 +250,7 @@ describe("SlaService — per-source targets", () => {
 
   it("bugs and feature requests follow the ticket targets until configured", async () => {
     const repo = makeRepo();
-    await new SlaService(repo as any).overview(admin, {});
+    await new SlaService(repo as any, allowAllPlans).overview(admin, {});
     const [, , rules] = repo.kpis.mock.calls[0];
     expect(rules.bugTargets).toEqual(DEFAULT_SLA_TARGETS);
     expect(rules.featureRequestTarget).toEqual(DEFAULT_SLA_TARGETS.default);
@@ -263,7 +266,7 @@ describe("SlaService — per-source targets", () => {
       pausedStatuses: [],
       updatedAt: new Date(),
     });
-    await new SlaService(repo as any).overview(admin, {});
+    await new SlaService(repo as any, allowAllPlans).overview(admin, {});
     const [, , rules] = repo.kpis.mock.calls[0];
     expect(rules.bugTargets.critical).toEqual(bugTargets.critical);
     expect(rules.bugTargets.default).toEqual(DEFAULT_SLA_TARGETS.default);
@@ -273,7 +276,7 @@ describe("SlaService — per-source targets", () => {
 
   it("reports whether bugs / feature requests have their own targets", async () => {
     const repo = makeRepo();
-    const service = new SlaService(repo as any);
+    const service = new SlaService(repo as any, allowAllPlans);
     const followed = await service.getSettings(admin);
     expect(followed.separateBugTargets).toBe(false);
     expect(followed.separateFeatureRequestTarget).toBe(false);
@@ -293,7 +296,7 @@ describe("SlaService — per-source targets", () => {
 
   it("saves the per-source targets, and clears them when the body sends null", async () => {
     const repo = makeRepo();
-    const service = new SlaService(repo as any);
+    const service = new SlaService(repo as any, allowAllPlans);
     await service.updateSettings(admin, {
       targets: DEFAULT_SLA_TARGETS,
       bugTargets,
@@ -334,14 +337,14 @@ describe("SlaService.overview — compliance rates", () => {
       // pg returns bigint aggregates as strings — they must come back as numbers.
       avgResolutionMs: "7200000",
     });
-    const { kpis } = await new SlaService(repo as any).overview(admin, {});
+    const { kpis } = await new SlaService(repo as any, allowAllPlans).overview(admin, {});
     expect(kpis.firstResponseRate).toBe(75);
     expect(kpis.resolutionRate).toBe(50);
     expect(kpis.complianceRate).toBe(40);
     expect(kpis.avgResolutionMs).toBe(7_200_000);
 
     repo.kpis.mockResolvedValue({ ...emptyKpis });
-    const fresh = await new SlaService(repo as any).overview(admin, {});
+    const fresh = await new SlaService(repo as any, allowAllPlans).overview(admin, {});
     expect(fresh.kpis.complianceRate).toBeNull();
   });
 
@@ -352,7 +355,7 @@ describe("SlaService.overview — compliance rates", () => {
       { severity: "low", total: 1 },
       { severity: "critical", total: 1 },
     ]);
-    const { bySeverity } = await new SlaService(repo as any).overview(admin, {});
+    const { bySeverity } = await new SlaService(repo as any, allowAllPlans).overview(admin, {});
     expect(bySeverity.map((r: { severity: string }) => r.severity)).toEqual(["critical", "low", "unset"]);
   });
 });
@@ -368,14 +371,14 @@ describe("SlaService.tickets — drill-down", () => {
       ],
       meta: {},
     });
-    const { data } = await new SlaService(repo as any).tickets(admin, { metric: "all", sort: "newest", page: 1, limit: 20 } as any);
+    const { data } = await new SlaService(repo as any, allowAllPlans).tickets(admin, { metric: "all", sort: "newest", page: 1, limit: 20 } as any);
     expect(data.map((t: { visibleInTriage: boolean }) => t.visibleInTriage)).toEqual([true, false, true]);
     expect(data[0].assignees).toEqual([]);
   });
 
   it("keeps the group key, so a row of 'Most recurring issues' opens exactly its own reports", async () => {
     const repo = makeRepo();
-    await new SlaService(repo as any).tickets(admin, {
+    await new SlaService(repo as any, allowAllPlans).tickets(admin, {
       metric: "all", sort: "newest", page: 1, limit: 20, recurringKey: "bug:b-1", projectId: "p-1",
     } as any);
     expect(repo.tickets).toHaveBeenCalledWith(
@@ -388,7 +391,7 @@ describe("SlaService.tickets — drill-down", () => {
 
   it("forwards metric/sort/paging to the repository", async () => {
     const repo = makeRepo();
-    await new SlaService(repo as any).tickets(supporter, { metric: "breached", sort: "longest_waiting", page: 2, limit: 10 } as any);
+    await new SlaService(repo as any, allowAllPlans).tickets(supporter, { metric: "breached", sort: "longest_waiting", page: 2, limit: 10 } as any);
     expect(repo.tickets).toHaveBeenCalledWith(
       { clientCompanyId: "cc-1" },
       expect.anything(),

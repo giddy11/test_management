@@ -195,7 +195,8 @@ export function SlaRulesDialog({ open, onOpenChange }: { open: boolean; onOpenCh
 
   useEffect(() => {
     if (settings && open) {
-      setEscOn(settings.escalation.enabled)
+      // Not in the plan: shown off, and saving keeps it off (the server would refuse "on").
+      setEscOn(settings.escalation.enabled && settings.escalationIncluded !== false)
       setLevel2(String(settings.escalation.level2Pct))
       setLevel3(String(settings.escalation.level3Pct))
       setContactIds(settings.escalation.contactIds)
@@ -430,14 +431,16 @@ export function SlaRulesDialog({ open, onOpenChange }: { open: boolean; onOpenCh
                 <Checkbox
                   className="mt-0.5"
                   checked={escOn}
-                  disabled={!canEdit}
+                  disabled={!canEdit || settings?.escalationIncluded === false}
                   onCheckedChange={(c) => setEscOn(Boolean(c))}
                   data-cy="sla-escalation-enabled"
                 />
                 <span>
                   Send escalations
                   <span className="block text-xs text-muted-foreground">
-                    Applies to issues created from the moment you turn this on — the existing backlog is left alone.
+                    {settings?.escalationIncluded === false
+                      ? "Escalations aren't included in your plan. They need the Standard or Enterprise plan."
+                      : "Applies to issues created from the moment you turn this on — the existing backlog is left alone."}
                   </span>
                 </span>
               </label>

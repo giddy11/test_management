@@ -1,8 +1,19 @@
 // modules/pricing/services/pricing.service.ts
 // The landing page's pricing section. Anyone can read it; only the platform
 // owner (pricing.manage, platform-only) can change it.
+//
+// Each card's list of benefits is worked out on every read: the benefits ticked
+// for it, plus the enforced ones its plan actually includes. So turning a
+// feature on or off for a plan changes the landing page too, with no second
+// edit.
 import { PricingRepository } from "../repositories/pricing.repository";
-import { DEFAULT_PRICING, type PricingContent } from "../domain/defaultPricing";
+import {
+  DEFAULT_PRICING,
+  normalisePricing,
+  resolvePlanFeatures,
+  type PricingContent,
+} from "../domain/defaultPricing";
+import { SubscriptionService } from "../../subscription/services/subscription.service";
 
 const { ActivityService } = require("../../activity/services/activity.service");
 
@@ -13,20 +24,27 @@ export interface PricingView {
   updatedAt: string | null;
 }
 
-// Content saved before plans had an on/off switch has no isVisible: shown.
-function withVisibility(content: PricingContent): PricingContent {
-  return { ...content, plans: content.plans.map((p) => ({ ...p, isVisible: p.isVisible !== false })) };
-}
-
 export class PricingService {
   static Instance = new PricingService();
 
-  constructor(private readonly repo = PricingRepository.Instance) {}
+  constructor(
+    private readonly repo = PricingRepository.Instance,
+    private readonly plans: Pick<SubscriptionService, "entitlements"> = SubscriptionService.Instance
+  ) {}
+
+  private async resolve(content: PricingContent): Promise<PricingContent> {
+    // Each plan's features and limits: what enforced and limit benefits show.
+    return resolvePlanFeatures(content, await this.plans.entitlements());
+  }
 
   async get(): Promise<PricingView> {
     const row = await this.repo.find();
-    if (!row) return { content: DEFAULT_PRICING, isDefault: true, updatedAt: null };
-    return { content: withVisibility(row.content), isDefault: false, updatedAt: row.updatedAt.toISOString() };
+    if (!row) return { content: await this.resolve(DEFAULT_PRICING), isDefault: true, updatedAt: null };
+    return {
+      content: await this.resolve(normalisePricing(row.content)),
+      isDefault: false,
+      updatedAt: row.updatedAt.toISOString(),
+    };
   }
 
   // What the public landing page needs: nothing about who edited it or when.
@@ -35,7 +53,10 @@ export class PricingService {
   }
 
   async update(actor: { id: string }, content: PricingContent): Promise<PricingView> {
-    const row = await this.repo.save(content, actor.id);
+    // Stored without the worked-out lists; they're rebuilt on every read.
+    const normalised = normalisePricing(content);
+    const toStore = { ...normalised, plans: normalised.plans.map((p) => ({ ...p, features: [] })) };
+    const row = await this.repo.save(toStore, actor.id);
     ActivityService.Instance.log(actor, {
       action: "pricing.updated",
       summary: "Updated the pricing shown on the landing page",
@@ -43,10 +64,21 @@ export class PricingService {
       entityId: null,
       metadata: {
         isVisible: content.isVisible,
-        plans: content.plans.map((p) => ({ id: p.id, name: p.name, isVisible: p.isVisible, monthlyPrice: p.monthlyPrice, yearlyPrice: p.yearlyPrice })),
+        plans: normalised.plans.map((p) => ({
+          id: p.id,
+          name: p.name,
+          isVisible: p.isVisible,
+          monthlyPrice: p.monthlyPrice,
+          yearlyPrice: p.yearlyPrice,
+          benefits: p.benefitIds.length,
+        })),
       },
     });
-    return { content: withVisibility(row.content), isDefault: false, updatedAt: row.updatedAt.toISOString() };
+    return {
+      content: await this.resolve(normalisePricing(row.content)),
+      isDefault: false,
+      updatedAt: row.updatedAt.toISOString(),
+    };
   }
 
   async reset(actor: { id: string }): Promise<PricingView> {
@@ -57,6 +89,6 @@ export class PricingService {
       entityType: "pricing_settings",
       entityId: null,
     });
-    return { content: DEFAULT_PRICING, isDefault: true, updatedAt: null };
+    return { content: await this.resolve(DEFAULT_PRICING), isDefault: true, updatedAt: null };
   }
 }

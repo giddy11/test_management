@@ -69,13 +69,16 @@ const lockedRole = {
   isLocked: true,
 };
 
+// Plan checks are covered elsewhere; here every plan includes custom roles.
+const allowAllPlans = { hasFeature: async () => true, assertFeature: async () => {} };
+
 describe("AccessService", () => {
   let repo;
   let service;
 
   beforeEach(() => {
     repo = makeRepo();
-    service = new AccessService(repo, activity);
+    service = new AccessService(repo, activity, allowAllPlans);
   });
 
   describe("organisation isolation", () => {

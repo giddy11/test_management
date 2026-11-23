@@ -54,13 +54,14 @@ export function DashboardLayout() {
           </header>
           {/* pb-24 keeps the end of a page (e.g. a right-aligned pager) scrollable
               clear of the floating WhatsApp button, which sits fixed bottom-right. */}
-          <main className="min-w-0 flex-1 p-4 pb-24 md:p-6 md:pb-24">
+          {/* A div, not <main>: SidebarInset already renders the page's <main> landmark. */}
+          <div className="min-w-0 flex-1 p-4 pb-24 md:p-6 md:pb-24">
             {/* Pages load as separate chunks (App.tsx); the sidebar and header
                 stay on screen while one is fetched. */}
             <Suspense fallback={<PageLoader />}>
               <Outlet />
             </Suspense>
-          </main>
+          </div>
           <WhatsNewDialog />
           {/* <SupportChatWidget /> */}
           <ContactSupportWidget />

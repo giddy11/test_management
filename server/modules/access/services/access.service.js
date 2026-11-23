@@ -11,6 +11,7 @@ const { AppError } = require("../../../shared/errors/AppError");
 const { hasWildcard, can } = require("../../../shared/access/can");
 const cache = require("../../../shared/access/permissionCache");
 const { WILDCARD, BUILTIN_ROLES, ROLE_KEYS } = require("../catalog/permissions.catalog");
+const { SubscriptionService } = require("../../subscription/services/subscription.service");
 
 // The permission that can grant every other one. Losing the last holder of it
 // locks an organisation out of its own access control permanently.
@@ -37,9 +38,18 @@ function catalogPermissionsOf(role) {
 class AccessService {
   static Instance = new AccessService();
 
-  constructor(repo = AccessRepository.Instance, activity = ActivityService.Instance) {
+  // plans: what the organisation's plan includes. Custom roles, and changing
+  // which permissions a role holds, need a plan with "custom_roles".
+  constructor(repo = AccessRepository.Instance, activity = ActivityService.Instance, plans = SubscriptionService.Instance) {
     this.repo = repo;
     this.activity = activity;
+    this.plans = plans;
+  }
+
+  // The platform owner is never held back by a customer plan.
+  async assertCustomRolesInPlan(actor) {
+    if (hasWildcard(actor)) return;
+    await this.plans.assertFeature(actor.organizationId, "custom_roles");
   }
 
   // ── Reads ──────────────────────────────────────────────────────────────────
@@ -199,6 +209,7 @@ class AccessService {
     if (!actor.organizationId) {
       throw new AppError("No organisation on this account", 403);
     }
+    await this.assertCustomRolesInPlan(actor);
 
     const reach = await this.reachOf(actor);
     let codes = permissions;
@@ -289,6 +300,11 @@ class AccessService {
         before.permissions,
         reach
       );
+      // Renaming is fine on any plan; changing what a role can do is not.
+      const changed =
+        nextPermissions.length !== before.permissions.length ||
+        nextPermissions.some((code) => !before.permissions.includes(code));
+      if (changed) await this.assertCustomRolesInPlan(actor);
       await this.assertGrantingPermissionSurvives(actor, role.id, nextPermissions);
       // Removing role.manage from a role can orphan its members' ability to
       // manage access even when another role still grants it, so check holders too.

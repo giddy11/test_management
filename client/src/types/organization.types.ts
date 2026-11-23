@@ -1,4 +1,5 @@
 // types/organization.types.ts
+import type { EffectivePlan } from "@/types/subscription.types"
 export interface OrganizationSummary {
   organizationId: string
   name: string
@@ -7,6 +8,7 @@ export interface OrganizationSummary {
   userCount: number
   projectCount: number
   createdAt: string
+  plan: Pick<EffectivePlan, "planKey" | "planName" | "status" | "assignedPlanKey" | "paidUntil" | "trialEndsAt" | "source">
 }
 
 export interface FetchOrganizationsParams {

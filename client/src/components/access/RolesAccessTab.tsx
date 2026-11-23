@@ -40,6 +40,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Textarea } from "@/components/ui/textarea"
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog"
 import { useAuth } from "@/contexts/AuthContext"
+import { usePlanFeature } from "@/hooks/useSubscription"
 import {
   useCreateRole,
   useDeleteRole,
@@ -312,6 +313,11 @@ function NewRoleDialog({
 export function RolesAccessTab() {
   const { can } = useAuth()
   const canManage = can("role.manage")
+  // New roles, and changing what a role can do, need a plan with custom roles.
+  // Assigning the built-in roles works on every plan. The platform owner is
+  // never limited by a customer plan.
+  const customRolesInPlan = usePlanFeature("custom_roles")
+  const planLocksRoles = customRolesInPlan === false && !can("platform.read")
 
   const { data: roles, isLoading: rolesLoading } = useRoles()
   const { data: catalog, isLoading: catalogLoading } = usePermissionCatalog()
@@ -400,6 +406,12 @@ export function RolesAccessTab() {
 
   return (
     <div className="space-y-4">
+      {canManage && planLocksRoles && (
+        <div className="rounded-lg border border-amber-500/50 bg-amber-500/5 p-3 text-sm" data-cy="roles-plan-lock">
+          Creating roles and changing which permissions a role holds need the Enterprise plan. You can still give
+          people any of the built-in roles from the Team page.
+        </div>
+      )}
       <div className="grid gap-6 lg:grid-cols-[minmax(0,260px)_minmax(0,1fr)]">
         {/* Roles */}
         <div className="space-y-2">
@@ -410,6 +422,8 @@ export function RolesAccessTab() {
                 size="sm"
                 variant="outline"
                 onClick={() => setNewRoleOpen(true)}
+                disabled={planLocksRoles}
+                title={planLocksRoles ? "Custom roles need the Enterprise plan" : undefined}
                 data-cy="new-role"
               >
                 <Plus className="size-3.5" />
@@ -464,7 +478,7 @@ export function RolesAccessTab() {
                 {!editingDisabled && (
                   <Button
                     onClick={save}
-                    disabled={!isDirty || update.isPending}
+                    disabled={!isDirty || update.isPending || planLocksRoles}
                     data-cy="save-role"
                   >
                     {update.isPending ? "Saving…" : "Save role"}

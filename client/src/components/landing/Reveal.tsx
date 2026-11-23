@@ -9,15 +9,17 @@ interface RevealProps {
   className?: string
   /** Stagger, in milliseconds, applied once the element enters the viewport. */
   delay?: number
+  /** Skip the scroll-in animation and show straight away (e.g. an editor preview). */
+  instant?: boolean
 }
 
-export function Reveal({ children, className, delay = 0 }: RevealProps) {
+export function Reveal({ children, className, delay = 0, instant = false }: RevealProps) {
   const ref = useRef<HTMLDivElement>(null)
-  const [shown, setShown] = useState(false)
+  const [shown, setShown] = useState(instant)
 
   useEffect(() => {
     const el = ref.current
-    if (!el) return
+    if (!el || instant) return
     // No observer (older browsers, jsdom) — show immediately rather than hide.
     if (typeof IntersectionObserver === "undefined") {
       setShown(true)

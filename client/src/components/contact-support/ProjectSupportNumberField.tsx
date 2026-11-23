@@ -9,6 +9,7 @@ import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { PhoneNumberInput } from "@/components/shared/PhoneNumberInput"
 import { useUpdateProject } from "@/hooks/useProjects"
+import { usePlanFeature } from "@/hooks/useSubscription"
 import { ApiError } from "@/transport/http"
 
 interface Props {
@@ -22,6 +23,9 @@ export function ProjectSupportNumberField({ projectId, value }: Props) {
   const updateProject = useUpdateProject()
   const [editing, setEditing] = useState(false)
   const [input, setInput] = useState("")
+  // The in-app "Contact support" button works on every plan; the WhatsApp
+  // button on the project's own website needs a plan that includes it.
+  const whatsappInPlan = usePlanFeature("whatsapp_widget")
 
   const startEditing = () => {
     setInput(value ?? "")
@@ -86,6 +90,11 @@ export function ProjectSupportNumberField({ projectId, value }: Props) {
         <p className="text-xs text-muted-foreground">
           Until this is set, your team won't see a "Contact support" button for this product, and
           it won't appear on your embedded widget either.
+        </p>
+      )}
+      {value && whatsappInPlan === false && (
+        <p className="text-xs text-muted-foreground" data-cy="whatsapp-plan-lock">
+          The WhatsApp button on your own website needs the Standard or Enterprise plan, so it stays hidden there for now.
         </p>
       )}
     </div>
