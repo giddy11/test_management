@@ -94,15 +94,15 @@ const PAID: PlanIds[] = ["standard", "enterprise"];
 type DefaultBenefit = { id: string; label: string; feature?: FeatureKey; limit?: LimitKey; unlimitedLabel?: string; plans: PlanIds[] };
 
 const DEFAULT_BENEFITS: DefaultBenefit[] = [
-  { id: "seats", label: "{n} full seats included", limit: "full_seats", unlimitedLabel: "Unlimited full seats", plans: [] },
-  { id: "projects", label: "{n} projects", limit: "projects", unlimitedLabel: "Unlimited projects", plans: ALL },
-  { id: "test-cases", label: "{n} test cases", limit: "test_cases", unlimitedLabel: "Unlimited test cases", plans: ALL },
+  { id: "seats", label: "Full seats included", limit: "full_seats", unlimitedLabel: "Unlimited full seats", plans: [] },
+  { id: "projects", label: "Projects", limit: "projects", unlimitedLabel: "Unlimited projects", plans: ALL },
+  { id: "test-cases", label: "Test cases", limit: "test_cases", unlimitedLabel: "Unlimited test cases", plans: ALL },
   { id: "testing", label: "Suites, cases, test runs and result history", plans: ALL },
   { id: "bugs", label: "Bug tracking and feature requests with voting", plans: ALL },
   { id: "import", label: "Spreadsheet import and export", plans: ALL },
   { id: "portal", label: "Public ticket portal and live chat widget", plans: ALL },
   { id: "it-requests", label: "IT requests: portal, catalog, approvals and IT queue", feature: "it_requests", plans: [] },
-  { id: "client-limit", label: "Up to {n} client companies with two-tier support", limit: "client_companies", unlimitedLabel: "Unlimited client companies with two-tier support", plans: PAID },
+  { id: "client-limit", label: "Up to client companies with two-tier support", limit: "client_companies", unlimitedLabel: "Unlimited client companies with two-tier support", plans: PAID },
   { id: "sla", label: "SLA tracking with your own targets", plans: PAID },
   { id: "sla-escalations", label: "SLA breach escalations", feature: "sla_escalations", plans: [] },
   { id: "whatsapp", label: "WhatsApp widget on your website", feature: "whatsapp_widget", plans: [] },
@@ -110,10 +110,10 @@ const DEFAULT_BENEFITS: DefaultBenefit[] = [
   { id: "approvals", label: "Multi-step approvals with approver groups", plans: ["enterprise"] },
   { id: "identity", label: "Identity checks before sensitive requests", plans: ["enterprise"] },
   { id: "reports-api", label: "Full service reports and provisioning API", plans: ["enterprise"] },
-  { id: "storage", label: "{n} GB attachment storage", limit: "storage_gb", unlimitedLabel: "Unlimited attachment storage", plans: ALL },
+  { id: "storage", label: "GB attachment storage", limit: "storage_gb", unlimitedLabel: "Unlimited attachment storage", plans: ALL },
   { id: "ai", label: "AI drafting with your own key", plans: ALL },
-  { id: "ai-credits", label: "{n} AI credits each month", limit: "ai_credits_monthly", unlimitedLabel: "Unlimited AI credits", plans: ALL },
-  { id: "activity-log", label: "{n} days of activity history", limit: "activity_log_days", unlimitedLabel: "Unlimited activity history", plans: ALL },
+  { id: "ai-credits", label: "AI credits each month", limit: "ai_credits_monthly", unlimitedLabel: "Unlimited AI credits", plans: ALL },
+  { id: "activity-log", label: "Days of activity history", limit: "activity_log_days", unlimitedLabel: "Unlimited activity history", plans: ALL },
   { id: "email-support", label: "Email support", plans: ["standard"] },
   { id: "priority-support", label: "Priority support and onboarding", plans: ["enterprise"] },
 ];
@@ -149,7 +149,7 @@ export const DEFAULT_PRICING: PricingContent = Object.freeze({
       description: "For small QA teams getting their testing in order.",
       monthlyPrice: 0,
       yearlyPrice: 0,
-      seatNote: "{n} full seats. No credit card.",
+      seatNote: "2 full seats. No credit card.",
       benefitIds: defaultBenefitIds("free"),
       features: [],
       ctaLabel: "Start for free",
@@ -165,7 +165,7 @@ export const DEFAULT_PRICING: PricingContent = Object.freeze({
       description: "For growing teams running testing and an IT service desk together.",
       monthlyPrice: 9,
       yearlyPrice: 90,
-      seatNote: "Includes {n} full seats. Extra seats $2 each.",
+      seatNote: "Includes 15 full seats. Extra seats $2 each.",
       benefitIds: defaultBenefitIds("standard"),
       features: [],
       ctaLabel: "Start 14-day trial",
@@ -181,7 +181,7 @@ export const DEFAULT_PRICING: PricingContent = Object.freeze({
       description: "For organisations and service providers that need control and scale.",
       monthlyPrice: 39,
       yearlyPrice: 390,
-      seatNote: "Includes {n} full seats. Extra seats $1.50 each.",
+      seatNote: "Includes 50 full seats. Extra seats $1.50 each.",
       benefitIds: defaultBenefitIds("enterprise"),
       features: [],
       ctaLabel: "Get started",
@@ -262,7 +262,7 @@ export function normalisePricing(stored: StoredContent): PricingContent {
       }
       benefits.push({
         id: b.id,
-        label: b.label,
+        label: b.limit ? cleanLimitLabel(b.label) : b.label,
         feature: b.feature ?? null,
         limit: b.feature ? null : (b.limit ?? null),
         unlimitedLabel: b.unlimitedLabel ?? "",
@@ -315,7 +315,7 @@ export function normalisePricing(stored: StoredContent): PricingContent {
       description: p.description ?? "",
       monthlyPrice: p.monthlyPrice ?? 0,
       yearlyPrice: p.yearlyPrice ?? 0,
-      seatNote: p.seatNote ?? "",
+      seatNote: cleanSeatNote(p.seatNote ?? ""),
       benefitIds,
       features: [],
       ctaLabel: p.ctaLabel ?? "Get started",
@@ -338,27 +338,58 @@ const SINGULAR: Record<string, string> = {
   companies: "company",
 };
 
-/** "{n} projects" with 1000 → "1,000 projects", with 1 → "1 project"; no limit → the unlimited wording. */
+function cleanLimitLabel(label: string): string {
+  const stripped = label.replace(/\{n\}\s*/g, "").trim();
+  if (!stripped) return label;
+  return stripped.charAt(0).toUpperCase() + stripped.slice(1);
+}
+
+function cleanSeatNote(note: string): string {
+  return note;
+}
+
+/** "Projects" (or "{n} projects") with 1000 → "1,000 projects", with 1 → "1 project"; no limit → the unlimited wording. */
 export function limitLine(benefit: PricingBenefit, value: number | null): string | null {
   if (value === null) return benefit.unlimitedLabel.trim() || null;
   // Nothing to boast about: "0 AI credits each month" stays off the card.
   if (value <= 0) return null;
-  const line = benefit.label.split("{n}").join(value.toLocaleString("en-US"));
-  return value === 1 ? line.replace(/\b(projects|cases|credits|days|seats|companies)\b/g, (w) => SINGULAR[w]) : line;
+  const num = value.toLocaleString("en-US");
+  const raw = benefit.label.trim();
+  let line: string;
+  if (raw.includes("{n}")) {
+    line = raw.split("{n}").join(num);
+  } else if (/^up to\b/i.test(raw)) {
+    const rest = raw.replace(/^up to\s*/i, "");
+    line = `Up to ${num} ${rest}`;
+  } else {
+    const rest = /^(GB|AI)\b/.test(raw) ? raw : raw.charAt(0).toLowerCase() + raw.slice(1);
+    line = `${num} ${rest}`;
+  }
+  return value === 1 ? line.replace(/\b(projects|cases|credits|days|seats|companies)\b/gi, (w) => SINGULAR[w.toLowerCase()] ?? w) : line;
 }
 
 /**
- * The seat note with "{n}" replaced by the plan's "Full seats included" limit
- * ("unlimited" when it has none). A note without "{n}" is shown as typed. A card
- * that doesn't sell a real plan has no number to fill in, so a note that needs
- * one is left off.
+ * Replaces the seat count in the seat note (or "{n}" if written) with the
+ * plan's "Full seats included" limit ("unlimited" / "Unlimited" when it has
+ * none), so the user can write "Includes 15 full seats. Extra seats $2 each."
+ * and the number still follows the plan's full-seat limit automatically.
  */
 export function seatLine(seatNote: string, planKey: PlanKey | null, plans: Record<PlanKey, { limits: LimitSet }>): string {
-  if (!seatNote.includes("{n}")) return seatNote;
-  if (!planKey) return "";
-  const seats = plans[planKey]?.limits.full_seats ?? null;
-  const line = seatNote.split("{n}").join(seats === null ? "unlimited" : seats.toLocaleString("en-US"));
-  return seats === 1 ? line.replace(/\b(seats)\b/g, (w) => SINGULAR[w]) : line;
+  if (!planKey) return seatNote.includes("{n}") ? "" : seatNote;
+  const seats = plans[planKey]?.limits.full_seats;
+  if (seats === undefined) return seatNote;
+  const formatted = seats === null ? "unlimited" : seats.toLocaleString("en-US");
+  let line: string;
+  if (seatNote.includes("{n}")) {
+    line = seatNote.split("{n}").join(formatted);
+  } else {
+    line = seatNote.replace(/\b(\d[\d,]*|unlimited)\b(?=\s+(?:full\s+)?seats?\b)/i, (match) => {
+      if (seats === null && /^[A-Z]/.test(match)) return "Unlimited";
+      return formatted;
+    });
+  }
+  if (seats === 1) return line.replace(/\bseats\b/g, "seat");
+  return line.replace(/\b((?:\d[\d,]*|unlimited)\s+(?:full\s+)?)seat\b/gi, "$1seats");
 }
 
 /**
@@ -377,7 +408,8 @@ export function resolvePlanFeatures(
     ...content,
     plans: content.plans.map((p) => ({
       ...p,
-      seatLine: seatLine(p.seatNote, p.planKey, plans),
+      seatNote: seatLine(p.seatNote, p.planKey, plans),
+  seatLine: seatLine(p.seatNote, p.planKey, plans),
       features: content.benefits
         .map((b) => {
           if (b.feature && p.planKey) return plans[p.planKey]?.features[b.feature] === true ? b.label : null;

@@ -41,11 +41,7 @@ const benefitSchema = z
     // A limit benefit's wording when the plan has no limit. Empty hides it.
     unlimitedLabel: text(120).default(""),
   })
-  .refine((b) => !(b.feature && b.limit), { message: "A benefit can't be both a feature and a limit", path: ["limit"] })
-  .refine((b) => !b.limit || b.label.includes("{n}"), {
-    message: "Include {n} where the plan's number goes, for example “{n} projects”",
-    path: ["label"],
-  });
+  .refine((b) => !(b.feature && b.limit), { message: "A benefit can't be both a feature and a limit", path: ["limit"] });
 
 const planSchema = z.object({
   id: slug(30),

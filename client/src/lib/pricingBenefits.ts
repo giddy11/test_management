@@ -33,12 +33,23 @@ const SINGULAR: Record<string, string> = {
   companies: "company",
 }
 
-/** \"{n} projects\" with 1000 → \"1,000 projects\", with 1 → \"1 project\"; no limit → the unlimited wording; 0 → nothing. */
+/** "Projects" (or "{n} projects") with 1000 → "1,000 projects", with 1 → "1 project"; no limit → the unlimited wording; 0 → nothing. */
 export function limitLine(benefit: PricingBenefit, value: number | null): string | null {
   if (value === null) return benefit.unlimitedLabel.trim() || null
   if (value <= 0) return null
-  const line = benefit.label.split("{n}").join(value.toLocaleString("en-US"))
-  return value === 1 ? line.replace(/\b(projects|cases|credits|days|seats|companies)\b/g, (w) => SINGULAR[w]) : line
+  const num = value.toLocaleString("en-US")
+  const raw = benefit.label.trim()
+  let line: string
+  if (raw.includes("{n}")) {
+    line = raw.split("{n}").join(num)
+  } else if (/^up to\b/i.test(raw)) {
+    const rest = raw.replace(/^up to\s*/i, "")
+    line = `Up to ${num} ${rest}`
+  } else {
+    const rest = /^(GB|AI)\b/.test(raw) ? raw : raw.charAt(0).toLowerCase() + raw.slice(1)
+    line = `${num} ${rest}`
+  }
+  return value === 1 ? line.replace(/\b(projects|cases|credits|days|seats|companies)\b/gi, (w) => SINGULAR[w.toLowerCase()] ?? w) : line
 }
 
 /** Whether the benefit's checkbox is ticked for this card. */
@@ -46,6 +57,10 @@ export function isTicked(plan: PricingPlan, benefit: PricingBenefit, values: Pla
   if (benefit.feature && plan.planKey) {
     // Without plan values, the server's last answer (plan.features) stands in.
     return values ? values[plan.planKey]?.features[benefit.feature] === true : plan.features.includes(benefit.label)
+  }
+  if (benefit.limit && plan.planKey && values) {
+    const val = values[plan.planKey]?.limits[benefit.limit]
+    if (val !== null && val !== undefined && val <= 0) return false
   }
   return plan.benefitIds.includes(benefit.id)
 }
@@ -61,17 +76,28 @@ export function cardLine(plan: PricingPlan, benefit: PricingBenefit, values: Pla
 }
 
 /**
- * The seat note with "{n}" replaced by the plan's "Full seats included" limit
- * ("unlimited" when it has none). A note without "{n}" is shown as typed; a card
- * that doesn't sell a real plan has no number, so a note that needs one is left off.
+ * Replaces the seat count in the seat note (or "{n}" if written) with the
+ * plan's "Full seats included" limit ("unlimited" / "Unlimited" when it has
+ * none), so the user can write "Includes 15 full seats. Extra seats $2 each."
+ * and the number still follows the plan's full-seat limit automatically.
  */
 export function seatLine(plan: PricingPlan, values: PlanValues): string {
-  if (!plan.seatNote.includes("{n}")) return plan.seatNote
-  // Without plan values (no subscription.manage), the server's last answer stands in.
-  if (!plan.planKey || !values) return plan.seatLine ?? ""
-  const seats = values[plan.planKey]?.limits.full_seats ?? null
-  const line = plan.seatNote.split("{n}").join(seats === null ? "unlimited" : seats.toLocaleString("en-US"))
-  return seats === 1 ? line.replace(/\bseats\b/g, "seat") : line
+  if (!plan.planKey) return plan.seatNote.includes("{n}") ? "" : plan.seatNote
+  if (!values) return plan.seatLine ?? plan.seatNote
+  const seats = values[plan.planKey]?.limits.full_seats
+  if (seats === undefined) return plan.seatNote
+  const formatted = seats === null ? "unlimited" : seats.toLocaleString("en-US")
+  let line: string
+  if (plan.seatNote.includes("{n}")) {
+    line = plan.seatNote.split("{n}").join(formatted)
+  } else {
+    line = plan.seatNote.replace(/\b(\d[\d,]*|unlimited)\b(?=\s+(?:full\s+)?seats?\b)/i, (match) => {
+      if (seats === null && /^[A-Z]/.test(match)) return "Unlimited"
+      return formatted
+    })
+  }
+  if (seats === 1) return line.replace(/\bseats\b/g, "seat")
+  return line.replace(/\b((?:\d[\d,]*|unlimited)\s+(?:full\s+)?)seat\b/gi, "$1seats")
 }
 
 /** The draft with every card's list filled in, for the preview. */

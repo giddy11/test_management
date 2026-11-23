@@ -21,7 +21,7 @@ import { ConfirmDialog } from "@/components/shared/ConfirmDialog"
 import { SectionHeading } from "@/components/landing/SectionHeading"
 import { CurrencyConvertDialog } from "@/components/pricing/CurrencyConvertDialog"
 import { BenefitsMatrix } from "@/components/pricing/BenefitsMatrix"
-import { resolvePlanFeatures } from "@/lib/pricingBenefits"
+import { resolvePlanFeatures, seatLine } from "@/lib/pricingBenefits"
 import { usePlanCatalog, useSaveEntitlements } from "@/hooks/useSubscription"
 import { CURRENCIES, withCurrency } from "@/lib/pricingCurrency"
 import { PricingPlans } from "@/components/landing/PricingSection"
@@ -183,6 +183,16 @@ function SectionSettings({
 }
 
 function PriceInput({ id, value, onChange }: { id: string; value: number; onChange: (n: number) => void }) {
+  const [text, setText] = useState(Number.isFinite(value) ? String(value) : "")
+
+  useEffect(() => {
+    if (!Number.isFinite(value)) {
+      setText("")
+      return
+    }
+    setText((prev) => (prev === "" && value === 0 ? "" : Number(prev) === value ? prev : String(value)))
+  }, [value])
+
   return (
     <Input
       id={id}
@@ -190,8 +200,21 @@ function PriceInput({ id, value, onChange }: { id: string; value: number; onChan
       inputMode="decimal"
       min={0}
       step="0.01"
-      value={Number.isFinite(value) ? value : ""}
-      onChange={(e) => onChange(e.target.value === "" ? 0 : Number(e.target.value))}
+      placeholder="0"
+      value={text}
+      onChange={(e) => {
+        const raw = e.target.value
+        setText(raw)
+        if (raw === "") {
+          onChange(0)
+          return
+        }
+        const n = Number(raw)
+        if (!Number.isNaN(n)) onChange(n)
+      }}
+      onBlur={() => {
+        if (text === "") setText("0")
+      }}
     />
   )
 }
@@ -202,7 +225,6 @@ function PlanEditor({
   count,
   currencySymbol,
   benefitCount,
-  seatLine,
   onChange,
   onMove,
   onRemove,
@@ -213,8 +235,6 @@ function PlanEditor({
   currencySymbol: string
   /** How many benefits the card lists, including app features its plan includes. */
   benefitCount: number
-  /** The seat note with {n} filled in from the plan's full-seat limit. */
-  seatLine: string
   onChange: (patch: Partial<PricingPlan>) => void
   onMove: (dir: -1 | 1) => void
   onRemove: () => void
@@ -288,14 +308,9 @@ function PlanEditor({
         <Field
           label="Seat note"
           htmlFor={fid("seats")}
-          hint="The line under the price. Write {n} where the seat number goes, for example “Includes {n} full seats. Extra seats $2 each.” {n} follows this plan's “Full seats included” in Plan limits."
+          hint="The line under the price, for example “Includes 15 full seats. Extra seats $2 each.” The seat count automatically follows this plan's “Full seats included” limit."
         >
           <Input id={fid("seats")} value={plan.seatNote} maxLength={160} onChange={(e) => onChange({ seatNote: e.target.value })} />
-          {plan.seatNote.includes("{n}") && (
-            <p className="text-xs text-brand" data-cy={`pricing-seat-line-${index}`}>
-              {seatLine ? `Shows: ${seatLine}` : "Choose which plan this card sells to fill in {n}."}
-            </p>
-          )}
         </Field>
 
         <div className="grid gap-4 sm:grid-cols-2">
@@ -410,8 +425,23 @@ export default function PricingSettingsPage() {
 
   const setFeature = (planKey: PlanKey, feature: FeatureKey, on: boolean) =>
     setEntDraft((d) => (d ? { ...d, [planKey]: { ...d[planKey], features: { ...d[planKey].features, [feature]: on } } } : d))
-  const setLimit = (planKey: PlanKey, key: LimitKey, value: number | null) =>
-    setEntDraft((d) => (d ? { ...d, [planKey]: { ...d[planKey], limits: { ...d[planKey].limits, [key]: value } } } : d))
+  const setLimit = (planKey: PlanKey, key: LimitKey, value: number | null) => {
+    setEntDraft((d) => {
+      if (!d) return d
+      const next = { ...d, [planKey]: { ...d[planKey], limits: { ...d[planKey].limits, [key]: value } } }
+      if (key === "full_seats") {
+        setDraft((prev) =>
+          prev
+            ? {
+                ...prev,
+                plans: prev.plans.map((p) => (p.planKey === planKey ? { ...p, seatNote: seatLine(p, next) } : p)),
+              }
+            : prev,
+        )
+      }
+      return next
+    })
+  }
 
   const saving = save.isPending || saveEntitlements.isPending
   const saveAll = async () => {
@@ -540,7 +570,6 @@ export default function PricingSettingsPage() {
                 count={draft.plans.length}
                 currencySymbol={draft.currencySymbol}
                 benefitCount={resolved.plans[i]?.features.length ?? 0}
-                seatLine={resolved.plans[i]?.seatLine ?? ""}
                 onChange={(p) => patchPlan(i, p)}
                 onMove={(dir) => patch({ plans: move(draft.plans, i, i + dir) })}
                 onRemove={() => patch({ plans: draft.plans.filter((_, j) => j !== i) })}
@@ -548,7 +577,7 @@ export default function PricingSettingsPage() {
             ))}
           </div>
 
-          <BenefitsMatrix content={draft} planValues={entDraft} onChange={setDraft} onFeatureChange={setFeature} />
+          <BenefitsMatrix content={draft} planValues={entDraft} onChange={setDraft} onFeatureChange={setFeature} onLimitChange={setLimit} />
         </TabsContent>
 
         <TabsContent value="preview">

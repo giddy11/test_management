@@ -2,6 +2,7 @@
 // (seats, projects, storage...). Which features a plan includes is ticked in
 // the Benefits grid on the Edit tab; both are saved by the Pricing page's
 // single Save button.
+import { useEffect, useState } from "react"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -12,6 +13,62 @@ interface Props {
   catalog: PlanCatalog
   draft: Record<PlanKey, PlanEntitlements>
   onLimitChange: (plan: PlanKey, key: LimitKey, value: number | null) => void
+}
+
+function PlanLimitCell({
+  value,
+  ariaLabel,
+  onChange,
+}: {
+  value: number | null
+  ariaLabel: string
+  onChange: (value: number | null) => void
+}) {
+  const unlimited = value === null
+  const [text, setText] = useState(unlimited ? "" : String(value))
+
+  useEffect(() => {
+    if (value === null) {
+      setText("")
+      return
+    }
+    setText((prev) => (prev === "" && value === 0 ? "" : String(value)))
+  }, [value])
+
+  return (
+    <div className="space-y-1.5">
+      <Input
+        type="number"
+        min={0}
+        step={1}
+        disabled={unlimited}
+        value={unlimited ? "" : text}
+        placeholder={unlimited ? "Unlimited" : "0"}
+        onChange={(e) => {
+          const raw = e.target.value
+          setText(raw)
+          if (raw === "") {
+            onChange(0)
+            return
+          }
+          const n = Math.max(0, Math.floor(Number(raw)))
+          if (!Number.isNaN(n)) {
+            setText(String(n))
+            onChange(n)
+          }
+        }}
+        onBlur={() => {
+          if (!unlimited && text === "") setText("0")
+        }}
+        aria-label={ariaLabel}
+        className="h-8"
+      />
+      <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        <Checkbox checked={unlimited} onCheckedChange={(v) => onChange(v === true ? null : 0)} />
+        Unlimited
+      </label>
+    </div>
+  )
 }
 
 export function PlanEntitlementsEditor({ catalog, draft, onLimitChange }: Props) {
@@ -42,31 +99,14 @@ export function PlanEntitlementsEditor({ catalog, draft, onLimitChange }: Props)
               <div className="text-sm font-medium">
                 {l.label} <span className="text-xs font-normal text-muted-foreground">({l.unit})</span>
               </div>
-              {catalog.plans.map((p) => {
-                const value = draft[p.key].limits[l.key]
-                const unlimited = value === null
-                return (
-                  <div key={p.key} className="space-y-1.5">
-                    <Input
-                      type="number"
-                      min={0}
-                      step={1}
-                      disabled={unlimited}
-                      value={unlimited ? "" : value}
-                      placeholder={unlimited ? "Unlimited" : undefined}
-                      onChange={(e) =>
-                        onLimitChange(p.key, l.key, e.target.value === "" ? 0 : Math.max(0, Math.floor(Number(e.target.value))))
-                      }
-                      aria-label={`${l.label} on ${p.name}`}
-                      className="h-8"
-                    />
-                    <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <Checkbox checked={unlimited} onCheckedChange={(v) => onLimitChange(p.key, l.key, v === true ? null : 0)} />
-                      Unlimited
-                    </label>
-                  </div>
-                )
-              })}
+              {catalog.plans.map((p) => (
+                <PlanLimitCell
+                  key={p.key}
+                  value={draft[p.key].limits[l.key]}
+                  ariaLabel={`${l.label} on ${p.name}`}
+                  onChange={(v) => onLimitChange(p.key, l.key, v)}
+                />
+              ))}
             </div>
           ))}
         </div>

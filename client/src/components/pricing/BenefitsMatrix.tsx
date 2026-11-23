@@ -13,7 +13,7 @@
 //
 // Rows show on the cards in this order. Drag the grip (or use the keyboard:
 // Space to pick up, arrows to move, Space to drop) to reorder.
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import {
   DndContext,
   KeyboardSensor,
@@ -41,12 +41,13 @@ import {
   LIMIT_NAMES,
   cardLine,
   isTicked,
+  limitLine,
   newBenefitId,
   type PlanValues,
 } from "@/lib/pricingBenefits"
 import { cn } from "@/lib/utils"
 import type { PricingBenefit, PricingContent, PricingPlan } from "@/types/pricing.types"
-import type { FeatureKey, PlanKey } from "@/types/subscription.types"
+import type { FeatureKey, LimitKey, PlanKey } from "@/types/subscription.types"
 
 const MAX_BENEFITS = 40
 
@@ -56,10 +57,74 @@ interface Props {
   planValues: PlanValues
   onChange: (content: PricingContent) => void
   onFeatureChange: (planKey: PlanKey, feature: FeatureKey, on: boolean) => void
+  /** Sets a plan's number for a limit (null = unlimited); the same draft the Plan limits tab edits. */
+  onLimitChange: (planKey: PlanKey, limit: LimitKey, value: number | null) => void
 }
 
 function gridColumns(planCount: number) {
-  return `2.25rem minmax(12rem,1fr) repeat(${planCount}, minmax(5rem,8rem)) 2.25rem`
+  return `2.25rem minmax(12rem,1fr) repeat(${planCount}, minmax(6rem,8rem)) 2.25rem`
+}
+
+/** A compact number box plus an "unlimited" tick for one plan's limit. */
+function LimitInput({
+  value,
+  label,
+  dataCy,
+  onChange,
+}: {
+  value: number | null
+  label: string
+  dataCy: string
+  onChange: (value: number | null) => void
+}) {
+  const unlimited = value === null
+  const [text, setText] = useState(unlimited ? "" : String(value))
+
+  useEffect(() => {
+    if (value === null) {
+      setText("")
+      return
+    }
+    setText((prev) => (prev === "" && value === 0 ? "" : String(value)))
+  }, [value])
+
+  return (
+    <div className="flex w-full items-center gap-1">
+      <Input
+        type="number"
+        min={0}
+        step={1}
+        disabled={unlimited}
+        value={unlimited ? "" : text}
+        placeholder={unlimited ? "∞" : "0"}
+        onChange={(e) => {
+          const raw = e.target.value
+          setText(raw)
+          if (raw === "") {
+            onChange(0)
+            return
+          }
+          const n = Math.max(0, Math.floor(Number(raw)))
+          if (!Number.isNaN(n)) {
+            setText(String(n))
+            onChange(n)
+          }
+        }}
+        onBlur={() => {
+          if (!unlimited && text === "") setText("0")
+        }}
+        aria-label={`${label}: number`}
+        className="h-7 min-w-0 flex-1 px-2 text-center text-xs"
+        data-cy={dataCy}
+      />
+      <Checkbox
+        checked={unlimited}
+        onCheckedChange={(v) => onChange(v === true ? null : 0)}
+        aria-label={`${label}: unlimited`}
+        title="Unlimited"
+      />
+    </div>
+  )
 }
 
 interface RowProps {
@@ -69,15 +134,15 @@ interface RowProps {
   planValues: PlanValues
   onEdit: (patch: Partial<PricingBenefit>) => void
   onToggle: (plan: PricingPlan, on: boolean) => void
+  onLimitChange: (planKey: PlanKey, limit: LimitKey, value: number | null) => void
   onRemove: () => void
 }
 
-function BenefitRow({ benefit, index, plans, planValues, onEdit, onToggle, onRemove }: RowProps) {
+function BenefitRow({ benefit, index, plans, planValues, onEdit, onToggle, onLimitChange, onRemove }: RowProps) {
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({
     id: benefit.id,
   })
   const linked = benefit.feature !== null || benefit.limit !== null
-  const missingN = benefit.limit !== null && !benefit.label.includes("{n}")
 
   return (
     <div
@@ -113,7 +178,6 @@ function BenefitRow({ benefit, index, plans, planValues, onEdit, onToggle, onRem
           maxLength={120}
           onChange={(e) => onEdit({ label: e.target.value })}
           aria-label={`Benefit ${index + 1}`}
-          aria-invalid={missingN || undefined}
           className="h-8"
         />
         {benefit.limit && (
@@ -133,35 +197,57 @@ function BenefitRow({ benefit, index, plans, planValues, onEdit, onToggle, onRem
           </span>
         )}
         {benefit.limit && (
-          <span
-            className={cn("inline-flex items-center gap-1 text-xs", missingN ? "text-destructive" : "text-brand")}
-            data-cy="benefit-limit"
-          >
+          <span className="inline-flex items-center gap-1 text-xs text-brand" data-cy="benefit-limit">
             <Hash className="size-3" aria-hidden />
-            {missingN
-              ? "Put {n} where the plan's number goes"
-              : `{n} is each plan's number for ${LIMIT_NAMES[benefit.limit]} in Plan limits`}
+            Uses each plan&apos;s {LIMIT_NAMES[benefit.limit]} number
           </span>
         )}
       </div>
 
       {plans.map((plan) => {
         const enforced = benefit.feature !== null && plan.planKey !== null
+        const limitVal = benefit.limit && plan.planKey && planValues ? planValues[plan.planKey]?.limits[benefit.limit] : undefined
+        const zeroLimit = benefit.limit !== null && limitVal !== null && limitVal !== undefined && limitVal <= 0
         const ticked = isTicked(plan, benefit, planValues)
         const line = benefit.limit ? cardLine(plan, benefit, planValues) : null
+        // Unticked: still show what ticking would print, faded, so the number is visible before choosing.
+        const wouldShow =
+          benefit.limit && plan.planKey && planValues && !ticked
+            ? limitLine(benefit, planValues[plan.planKey]?.limits[benefit.limit] ?? null)
+            : null
         return (
           <div key={plan.id} className="flex min-w-0 flex-col items-center gap-1 pt-1.5">
             <Checkbox
               checked={ticked}
-              disabled={(enforced && planValues === null) || (benefit.limit !== null && plan.planKey === null)}
+              disabled={(enforced && planValues === null) || (benefit.limit !== null && (plan.planKey === null || zeroLimit))}
               onCheckedChange={(v) => onToggle(plan, v === true)}
               aria-label={`${benefit.label || `Benefit ${index + 1}`} on ${plan.name}`}
               data-cy={`benefit-${benefit.id}-${plan.id}`}
             />
-            {/* What a limit row prints on this card, so the wording can be checked here. */}
+            {/* The plan's number for this limit, editable here (the same value as on the Plan limits tab). */}
+            {benefit.limit && plan.planKey && planValues && (
+              <LimitInput
+                value={planValues[plan.planKey]?.limits[benefit.limit] ?? null}
+                label={`${LIMIT_NAMES[benefit.limit]} on ${plan.name}`}
+                dataCy={`benefit-limit-${benefit.id}-${plan.id}`}
+                onChange={(v) => {
+                  onLimitChange(plan.planKey as PlanKey, benefit.limit as LimitKey, v)
+                  // A 0 limit shows nothing on the card, so untick the box to match;
+                  // entering a positive number (or unlimited) auto-ticks it.
+                  if (v !== null && v <= 0 && ticked) onToggle(plan, false)
+                  else if ((v === null || v > 0) && !ticked) onToggle(plan, true)
+                }}
+              />
+            )}
             {benefit.limit && (
-              <span className="w-full truncate text-center text-[11px] leading-tight text-muted-foreground" title={line ?? undefined}>
-                {plan.planKey === null ? "No plan" : !ticked ? "" : line ?? "Hidden (0)"}
+              <span
+                className={cn(
+                  "w-full truncate text-center text-[11px] leading-tight text-muted-foreground",
+                  !ticked && "italic opacity-60",
+                )}
+                title={(ticked ? line : wouldShow) ?? undefined}
+              >
+                {plan.planKey === null ? "No plan" : zeroLimit ? "0 — enter >0 to show" : !ticked ? wouldShow ?? "" : line ?? ""}
               </span>
             )}
           </div>
@@ -184,7 +270,7 @@ function BenefitRow({ benefit, index, plans, planValues, onEdit, onToggle, onRem
   )
 }
 
-export function BenefitsMatrix({ content, planValues, onChange, onFeatureChange }: Props) {
+export function BenefitsMatrix({ content, planValues, onChange, onFeatureChange, onLimitChange }: Props) {
   const [newLabel, setNewLabel] = useState("")
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
@@ -245,7 +331,7 @@ export function BenefitsMatrix({ content, planValues, onChange, onFeatureChange 
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="overflow-x-auto">
-          <div className="min-w-[36rem]">
+          <div className="min-w-[38rem]">
             <div
               className="grid items-end gap-2 border-b pb-2 text-xs font-medium text-muted-foreground"
               style={{ gridTemplateColumns: gridColumns(plans.length) }}
@@ -272,6 +358,7 @@ export function BenefitsMatrix({ content, planValues, onChange, onFeatureChange 
                     planValues={planValues}
                     onEdit={(patch) => setBenefits(benefits.map((b) => (b.id === benefit.id ? { ...b, ...patch } : b)))}
                     onToggle={(plan, on) => toggle(benefit, plan, on)}
+                    onLimitChange={onLimitChange}
                     onRemove={() => remove(benefit)}
                   />
                 ))}
