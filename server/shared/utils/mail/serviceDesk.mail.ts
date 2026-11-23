@@ -3,8 +3,9 @@
 // — this file only composes bodies (§22.7 domain split). One template serves
 // every IT-request event: a heading, a sentence, an optional quoted note
 // (an approver's comment, IT's closing note) and a button to the request.
+import { sendEmail } from "./emailSender";
+
 const {
-  send,
   emailLayout,
   resolveFooterEmail,
   ctaButton,
@@ -36,7 +37,9 @@ export async function sendServiceRequestEmail(opts: {
     <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.65">Hi ${escape(opts.firstName || "there")}, ${escape(opts.message)}</p>
     ${noteBlock}
     ${ctaButton(opts.url, opts.ctaLabel)}`;
-  return send({
+  return sendEmail({
+    kind: "service_request",
+    organizationId: opts.organizationId,
     to: opts.to,
     subject: `${opts.subject} — ServiceDesk4u`,
     html: emailLayout(body, await resolveFooterEmail(opts.organizationId)),

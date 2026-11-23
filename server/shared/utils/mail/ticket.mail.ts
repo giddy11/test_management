@@ -1,8 +1,9 @@
 // shared/utils/mail/ticket.mail.ts
 // Submitter-facing ticket emails. Layout/transport/helpers live in
 // shared/utils/mailer.js — this file only composes bodies (§22.7 domain split).
+import { sendEmail } from "./emailSender";
+
 const {
-  send,
   emailLayout,
   resolveFooterEmail,
   ctaButton,
@@ -97,7 +98,9 @@ export async function sendTicketTranscriptEmail(params: {
     `View or reply: ${url}`,
   ].join("\n");
 
-  return send({
+  return sendEmail({
+    kind: "ticket_transcript",
+    organizationId: params.organizationId,
     to,
     subject: `Conversation transcript — ${ticketLabel}`,
     html: emailLayout(body, await resolveFooterEmail(params.organizationId)),

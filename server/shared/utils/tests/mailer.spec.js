@@ -10,6 +10,11 @@ jest.mock("nodemailer", () => ({
 jest.mock("../../../modules/user/repositories/user.repository", () => ({
   UserRepository: { Instance: { findOrgOwner: jest.fn() } },
 }));
+// send() also writes the email log; keep that off the (stubbed) database.
+const mockInsertMany = jest.fn();
+jest.mock("../../../modules/emailLog/repositories/emailLog.repository", () => ({
+  EmailLogRepository: { Instance: { insertMany: (...args) => mockInsertMany(...args) } },
+}));
 
 const { env } = require("../../../config/env");
 const { send } = require("../mailer");
@@ -37,6 +42,7 @@ beforeEach(() => {
     scriptUrl: SCRIPT_URL,
   });
   mockSendMail.mockResolvedValue({ messageId: "m1" });
+  mockInsertMany.mockResolvedValue(undefined);
   global.fetch = jest.fn().mockResolvedValue(scriptReply('{"success":true}'));
   jest.spyOn(console, "warn").mockImplementation(() => {});
 });
@@ -127,6 +133,111 @@ describe("send() — provider: script", () => {
     global.fetch.mockResolvedValue(scriptReply(body));
 
     await expect(send(message)).rejects.toThrow(expected);
+  });
+});
+
+// send() writes one email_logs row per recipient saying which provider was
+// responsible. The real transports run here (only nodemailer and fetch are faked),
+// so these prove the provider recorded is the one that actually handled the mail.
+describe("send() — the email log", () => {
+  const flush = () => new Promise((resolve) => setImmediate(resolve));
+  const rows = () => mockInsertMany.mock.calls.flatMap(([batch]) => batch);
+  const tagged = { ...message, kind: "bug_new", organizationId: "org-1" };
+
+  it("records a Gmail send as provider gmail, with the id Gmail returned", async () => {
+    await send(tagged);
+    await flush();
+
+    expect(rows()).toEqual([
+      {
+        organizationId: "org-1",
+        toEmail: "recipient@example.com",
+        subject: "AB10 School",
+        kind: "bug_new",
+        status: "sent",
+        provider: "gmail",
+        fallback: false,
+        providerMessageId: "m1",
+        note: null,
+      },
+    ]);
+  });
+
+  it("records an Apps Script send as provider script_relay", async () => {
+    env.email.provider = "script";
+
+    await send(tagged);
+    await flush();
+
+    expect(rows()).toHaveLength(1);
+    expect(rows()[0]).toMatchObject({ status: "sent", provider: "script_relay", fallback: false });
+  });
+
+  it("records the id the script reports, when it reports one", async () => {
+    env.email.provider = "script";
+    global.fetch.mockResolvedValue(scriptReply('{"success":true,"messageId":"script-msg-1"}'));
+
+    await send(tagged);
+    await flush();
+
+    expect(rows()[0].providerMessageId).toBe("script-msg-1");
+  });
+
+  it("records a failed Gmail send as failed / gmail with the SMTP error, and still throws it", async () => {
+    mockSendMail.mockRejectedValue(new Error("Invalid login: 535 Authentication failed"));
+
+    await expect(send(tagged)).rejects.toThrow("Invalid login: 535 Authentication failed");
+    await flush();
+
+    expect(rows()[0]).toMatchObject({
+      status: "failed",
+      provider: "gmail",
+      fallback: false,
+      note: "Invalid login: 535 Authentication failed",
+    });
+  });
+
+  it("records a failed script send as failed / script_relay", async () => {
+    env.email.provider = "script";
+    global.fetch.mockResolvedValue(scriptReply("boom", { status: 500, contentType: "text/plain" }));
+
+    await expect(send(tagged)).rejects.toThrow(/Apps Script responded 500/);
+    await flush();
+
+    expect(rows()[0]).toMatchObject({ status: "failed", provider: "script_relay", note: "Apps Script responded 500: boom" });
+  });
+
+  it.each([
+    ["Gmail credentials", () => (env.email.password = ""), "nodemailer", /EMAIL_USER \/ EMAIL_PASSWORD/],
+    ["the script URL", () => (env.email.scriptUrl = ""), "script", /EMAIL_SCRIPT_URL/],
+  ])("records a send skipped for missing %s with no provider at all", async (_what, unset, provider, reason) => {
+    env.email.provider = provider;
+    unset();
+
+    await expect(send(tagged)).resolves.toBeUndefined();
+    await flush();
+
+    expect(rows()).toHaveLength(1);
+    expect(rows()[0]).toMatchObject({ status: "skipped", provider: null, fallback: false });
+    expect(rows()[0].note).toMatch(reason);
+  });
+
+  it("never lets a secret reach the log: the Apps Script URL is blanked out of an error", async () => {
+    env.email.provider = "script";
+    global.fetch.mockRejectedValue(new Error(`request to ${SCRIPT_URL} failed`));
+
+    await expect(send(tagged)).rejects.toThrow();
+    await flush();
+
+    expect(rows()[0].note).toBe("request to [hidden] failed");
+    expect(JSON.stringify(rows())).not.toContain("TEST_ID");
+  });
+
+  it("returns exactly what it always did when the log cannot be written", async () => {
+    mockInsertMany.mockRejectedValue(new Error("connection terminated"));
+
+    await expect(send(tagged)).resolves.toEqual({ messageId: "m1" });
+    await flush();
   });
 });
 

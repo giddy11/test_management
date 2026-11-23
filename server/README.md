@@ -73,6 +73,14 @@ tables); set `DB_SYNCHRONIZE=false` and use migrations in production
   `EMAIL_PROVIDER`: `nodemailer` (default — Gmail SMTP, uses `EMAIL_USER`/`EMAIL_PASSWORD`/`EMAIL_FROM`)
   or `script` (a Google Apps Script web app, uses `EMAIL_SCRIPT_URL`; mail goes out from the
   script owner's account, so `EMAIL_FROM` is ignored). Restart after changing it.
+- **Email log** (`modules/emailLog`, `GET /api/v1/email-logs` and `/email-logs/summary`, platform
+  admins only — `emaillog.read`). Every email goes through the one `send()`
+  (`shared/utils/mail/emailSender.ts`), which writes one `email_logs` row per recipient: `sent`
+  (the provider accepted it — not proof it reached the inbox), `failed`, or `skipped` (not
+  configured, or a reserved `.test`/`.example`/`.invalid`/`.localhost` address), plus which provider
+  (`gmail` or `script_relay`) was responsible. The message body is never stored, and the subject of
+  one-time-code and sign-in-details emails is replaced by a fixed label. A failure to write the log
+  never affects sending. Rows older than 90 days are deleted every few hours.
 
 ## Test-case attachments (images)
 | Method | Route | Notes |

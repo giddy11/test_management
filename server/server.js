@@ -6,6 +6,7 @@ const { initSocketServer } = require("./infrastructure/realtime/socketServer");
 const { env } = require("./config/env");
 const { ServiceDeskEscalationService } = require("./modules/serviceDesk/services/serviceDeskEscalation.service");
 const { SlaEscalationService } = require("./modules/sla/services/slaEscalation.service");
+const { EmailLogRetentionService } = require("./modules/emailLog/services/emailLogRetention.service");
 
 async function bootstrap() {
   try {
@@ -25,6 +26,8 @@ async function bootstrap() {
     ServiceDeskEscalationService.Instance.start();
     // SLA: the same for tickets, bugs and feature requests past an SLA target.
     SlaEscalationService.Instance.start();
+    // Email log: drop entries older than the retention window (90 days).
+    EmailLogRetentionService.Instance.start();
   } catch (err) {
     console.error("[Startup] Failed to start server:", err);
     process.exit(1);

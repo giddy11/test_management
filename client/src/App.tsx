@@ -35,6 +35,7 @@ const MyTicketsPage = lazy(() => import("@/pages/public/MyTicketsPage"))
 const DocsPage = lazy(() => import("@/pages/docs/DocsPage"))
 const AnnouncementsPage = lazy(() => import("@/pages/AnnouncementsPage"))
 const PricingSettingsPage = lazy(() => import("@/pages/PricingSettingsPage"))
+const EmailLogPage = lazy(() => import("@/pages/EmailLogPage"))
 const AllFeedbackPage = lazy(() => import("@/pages/feedback/AllFeedbackPage"))
 const SupportQueuePage = lazy(() => import("@/pages/support/SupportQueuePage"))
 const SupportActivityPage = lazy(() => import("@/pages/support/SupportActivityPage"))
@@ -171,6 +172,12 @@ export default function App() {
                 <Route element={<ProtectedRoute anyOf={["pricing.manage"]} />}>
                   <Route element={<DashboardLayout />}>
                     <Route path="/pricing-settings" element={<PricingSettingsPage />} />
+                  </Route>
+                </Route>
+
+                <Route element={<ProtectedRoute anyOf={["emaillog.read"]} />}>
+                  <Route element={<DashboardLayout />}>
+                    <Route path="/email-log" element={<EmailLogPage />} />
                   </Route>
                 </Route>
 

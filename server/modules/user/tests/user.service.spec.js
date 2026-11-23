@@ -5,6 +5,14 @@
 // instead of comparing role names. The protections asserted here are the same
 // ones as before: organisation isolation, org-owner protection, and the
 // self-service guards — plus the new lockout guard on removal.
+
+// Mailer is mocked so tests never hit SMTP. Creating a member sends them a
+// welcome email with a temporary password; without this mock, a machine whose
+// .env holds real mail credentials really sent it.
+jest.mock("../../../shared/utils/mailer", () => ({
+  sendWelcomeEmail: jest.fn().mockResolvedValue(undefined),
+}));
+
 const { UserService } = require("../services/user.service");
 const { UserRole } = require("../../../config/constants");
 

@@ -62,6 +62,7 @@ const PERMISSIONS = [
   // ── Organisation & platform ────────────────────────────────────────────────
   { code: "audit.read", category: "organisation", label: "View activity log", description: "Read the organisation's activity log." },
   { code: "platform.read", category: "organisation", label: "View all organisations", description: "Cross-organisation overview.", warning: "Reads data across every organisation" },
+  { code: "emaillog.read", category: "organisation", label: "View email log", description: "See every email the platform sent, tried to send or skipped, and which mail provider handled it. Message text is never stored.", warning: "Shows recipients across every organisation" },
 
   // ── Roles & people ─────────────────────────────────────────────────────────
   { code: "role.read", category: "access", label: "View roles", description: "See roles and their permission sets." },
@@ -160,6 +161,7 @@ const ALL_CODES = PERMISSIONS.map((p) => p.code);
 // administrator's wildcard.
 const PLATFORM_ONLY = [
   "platform.read",
+  "emaillog.read",
   "announcement.manage",
   "banner.publish",
   "pricing.manage",

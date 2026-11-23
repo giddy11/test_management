@@ -1,8 +1,9 @@
 // shared/utils/mail/support.mail.ts
 // Client-company IT support tier emails. Layout/transport/helpers live in
 // shared/utils/mailer.js — this file only composes bodies (§22.7 domain split).
+import { sendEmail } from "./emailSender";
+
 const {
-  send,
   emailLayout,
   resolveFooterEmail,
   ctaButton,
@@ -30,7 +31,9 @@ export async function sendSupporterInviteEmail(
     </table>
     ${ctaButton(loginUrl, "Sign in to your support queue")}
     <p style="margin:0;font-size:13px;color:#9ca3af">Please change your password after your first sign-in.</p>`;
-  return send({
+  return sendEmail({
+    kind: "supporter_invite",
+    organizationId,
     to,
     subject: "Your support account is ready — ServiceDesk4u",
     html: emailLayout(body, await resolveFooterEmail(organizationId)),
@@ -53,7 +56,9 @@ export async function sendSupportQueueAlertEmail(
     <h1 style="margin:0 0 12px;font-size:20px;font-weight:700;color:#0f172a">New ${typeLabel} in your support queue</h1>
     <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.65">Hi ${firstName}, ${submitterName} submitted <strong>${title}</strong> about <strong>${productName}</strong>. It's waiting in your company's support queue — resolve it locally or escalate it to the product team.</p>
     ${ctaButton(url, "Open support queue")}`;
-  return send({
+  return sendEmail({
+    kind: "support_queue_alert",
+    organizationId,
     to,
     subject: `New ${typeLabel} in your queue — ${productName} — ServiceDesk4u`,
     html: emailLayout(body, await resolveFooterEmail(organizationId)),
@@ -84,7 +89,9 @@ export async function sendSupportStatusEmail(
     <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.65">${copy}</p>
     ${noteBlock}
     <p style="margin:0;font-size:13px;color:#9ca3af">This update comes from ${companyName}'s IT support team.</p>`;
-  return send({
+  return sendEmail({
+    kind: "support_status",
+    organizationId,
     to,
     subject: `Feedback update — ${title} — ${productName}`,
     html: emailLayout(body, await resolveFooterEmail(organizationId)),
@@ -119,7 +126,9 @@ export async function sendSupportResolutionEmail(
     </div>
     ${confirmButton}
     <p style="margin:0;font-size:13px;color:#9ca3af">${footerLine}</p>`;
-  return send({
+  return sendEmail({
+    kind: "support_resolution",
+    organizationId,
     to,
     subject: `Feedback resolved — ${title} — ${productName}`,
     html: emailLayout(body, await resolveFooterEmail(organizationId)),
@@ -142,7 +151,9 @@ export async function sendSupportItemAssignedEmail(
     <h1 style="margin:0 0 12px;font-size:20px;font-weight:700;color:#0f172a">A ticket has been assigned to you</h1>
     <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.65">Hi ${firstName}, ${assignedByName} assigned you <strong>${title}</strong> (about <strong>${productName}</strong>) in ${companyName}'s support queue.</p>
     ${ctaButton(url, "Open support queue")}`;
-  return send({
+  return sendEmail({
+    kind: "support_item_assigned",
+    organizationId,
     to,
     subject: `Ticket assigned to you — ${title} — ServiceDesk4u`,
     html: emailLayout(body, await resolveFooterEmail(organizationId)),
@@ -166,7 +177,9 @@ export async function sendSupportChatOfflineAlertEmail(
       <p style="margin:0;font-size:14px;color:#374151">${escapeAndLineBreak(preview)}</p>
     </div>
     ${ctaButton(url, "Open support inbox")}`;
-  return send({
+  return sendEmail({
+    kind: "support_chat_alert",
+    organizationId,
     to,
     subject: `New support message from ${senderName} — ServiceDesk4u`,
     html: emailLayout(body, await resolveFooterEmail(organizationId)),
@@ -198,7 +211,9 @@ export async function sendFeedbackEscalatedAlertEmail(
     <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.65">Hi ${firstName}, ${escalatedByName} (IT support at <strong>${companyName}</strong>) escalated the ${typeLabel} <strong>${title}</strong> on <strong>${productName}</strong> — their team couldn't resolve it locally. Severity: <strong>${severityLabel}</strong>.</p>
     ${noteBox}
     ${ctaButton(url, "Open project")}`;
-  return send({
+  return sendEmail({
+    kind: "feedback_escalated",
+    organizationId,
     to,
     subject: `Feedback escalated (${severityLabel}) — ${title} — ${productName}`,
     html: emailLayout(body, await resolveFooterEmail(organizationId)),
@@ -230,7 +245,9 @@ export async function sendFeedbackClosedSupporterEmail(
     ${noteBox}
     <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.65">Your end user won't hear about this automatically — let them know it's fixed from your support queue.</p>
     ${ctaButton(url, "Open support queue")}`;
-  return send({
+  return sendEmail({
+    kind: "feedback_closed_supporter",
+    organizationId,
     to,
     subject: `Closed — ${title} — ${productName}`,
     html: emailLayout(body, await resolveFooterEmail(organizationId)),

@@ -40,6 +40,7 @@ const pricingRoutes = require("./modules/pricing/routes/pricing.routes");
 const publicPricingRoutes = require("./modules/pricing/routes/publicPricing.routes");
 const subscriptionRoutes = require("./modules/subscription/routes/subscription.routes");
 const organizationRoutes = require("./modules/organization/routes/organization.routes");
+const emailLogRoutes = require("./modules/emailLog/routes/emailLog.routes");
 const feedbackRoutes = require("./modules/feedback/routes/feedback.routes");
 const publicFeedbackRoutes = require("./modules/feedback/routes/publicFeedback.routes");
 const feedbackSupportRoutes = require("./modules/feedback/routes/feedbackSupport.routes");
@@ -124,6 +125,7 @@ function createApp() {
   api.use("/pricing", pricingRoutes); // platform owner edits the landing page pricing
   api.use("/subscription", subscriptionRoutes); // plans per organisation, offline payments
   api.use("/organizations", organizationRoutes);
+  api.use("/email-logs", emailLogRoutes); // platform owner: every email sent, and through which provider
   api.use("/feedback", feedbackRoutes);
   api.use("/support/feedback", feedbackSupportRoutes); // it_support role only
   api.use("/client-companies", clientCompanyRoutes); // admin-only management

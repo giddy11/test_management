@@ -1,32 +1,19 @@
 // shared/utils/mailer.js
-// Transports (Nodemailer SMTP or Google Apps Script, picked by EMAIL_PROVIDER) +
-// the single emailLayout() wrapper + all send functions.
+// The single emailLayout() wrapper + all send functions. How a message leaves
+// the server (Nodemailer SMTP or Google Apps Script, picked by EMAIL_PROVIDER)
+// and the email log it writes live in shared/utils/mail/emailSender.ts, which is
+// the one send() every function below goes through. Each passes a `kind` — one of
+// EMAIL_KINDS in shared/utils/mail/emailKinds.ts — so the log can say what it was.
 // Email failures are fire-and-forget for callers — they must never throw upstream.
-const nodemailer = require("nodemailer");
 const { env } = require("../../config/env");
 const { UserRepository } = require("../../modules/user/repositories/user.repository");
+const { sendEmail } = require("./mail/emailSender");
+const { verifyGmailTransport } = require("./mail/emailTransports");
 
-let transporter = null;
-
-// Apps Script cold starts can take several seconds; don't let a hung request
-// pin a fire-and-forget send forever.
-const SCRIPT_TIMEOUT_MS = 15000;
-
-function getTransporter() {
-  if (transporter) return transporter;
-  transporter = nodemailer.createTransport({
-    host: "smtp.gmail.com",
-    port: 465,
-    secure: true,
-    auth: { user: env.email.user, pass: env.email.password },
-  });
-  return transporter;
-}
-
-// Verifies SMTP credentials/connection without sending anything. Nodemailer
-// only — an Apps Script web app has no send-free way to be checked.
+// Verifies SMTP credentials/connection without sending anything. Gmail only —
+// an Apps Script web app has no send-free way to be checked.
 async function verifyTransport() {
-  return getTransporter().verify();
+  return verifyGmailTransport();
 }
 
 // ── Footer contact ──────────────────────────────────────────────────────────
@@ -84,59 +71,9 @@ function otpBox(code) {
   </div>`;
 }
 
-async function sendViaNodemailer({ to, subject, html, text }) {
-  if (!env.email.user || !env.email.password) {
-    console.warn("[mailer] EMAIL credentials not set — skipping send to", to);
-    return;
-  }
-  return getTransporter().sendMail({ from: env.email.from, to, subject, html, text });
-}
-
-// Google Apps Script web app. The sender is whichever Google account owns the
-// script, so env.email.from is not used on this path.
-async function sendViaScript({ to, subject, html, text }) {
-  if (!env.email.scriptUrl) {
-    console.warn("[mailer] EMAIL_SCRIPT_URL not set — skipping send to", to);
-    return;
-  }
-  // fetch follows the web app's redirect to script.googleusercontent.com (the
-  // `curl -L`), which is where the script's response actually lives.
-  const res = await fetch(env.email.scriptUrl, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      to: Array.isArray(to) ? to.join(",") : to,
-      subject,
-      htmlBody: html,
-      body: text,
-    }),
-    signal: AbortSignal.timeout(SCRIPT_TIMEOUT_MS),
-  });
-  const raw = await res.text();
-  if (!res.ok) throw new Error(`Apps Script responded ${res.status}: ${raw.slice(0, 200)}`);
-  // Apps Script answers 200 with an HTML page both when the script crashes and
-  // when the deployment demands a Google login, so a 2xx alone proves nothing.
-  if ((res.headers.get("content-type") || "").includes("text/html")) {
-    throw new Error(
-      'Apps Script returned an HTML page — check the script\'s execution log and that the web app is deployed with access "Anyone"'
-    );
-  }
-  let data;
-  try {
-    data = JSON.parse(raw);
-  } catch {
-    return; // plain-text success
-  }
-  if (data && (data.success === false || data.status === "error" || data.error)) {
-    throw new Error(`Apps Script rejected the email: ${data.error || data.message || raw.slice(0, 200)}`);
-  }
-}
-
-// Chosen per call from env.email.provider (EMAIL_PROVIDER), so flipping the
-// setting needs no code change. Every send*Email below funnels through here.
-async function send(message) {
-  return env.email.provider === "script" ? sendViaScript(message) : sendViaNodemailer(message);
-}
+// The one send(): picks the provider from EMAIL_PROVIDER, sends, and writes the email log
+// (see shared/utils/mail/emailSender.ts). Every send*Email below funnels through it.
+const send = sendEmail;
 
 // ── Email verification (on registration) ───────────────────────────────────────
 async function sendVerificationEmail(to, code, firstName = "there", organizationId) {
@@ -147,6 +84,8 @@ async function sendVerificationEmail(to, code, firstName = "there", organization
     <p style="margin:0 0 0;font-size:13px;color:#9ca3af">This code expires in ${env.otpTtlMinutes} minutes. If you didn't create an account, you can ignore this email.</p>`;
   return send({
     to,
+    kind: "verification",
+    organizationId,
     subject: "Verify your email — ServiceDesk4u",
     html: emailLayout(body, await resolveFooterEmail(organizationId)),
     text: `Hi ${firstName}, your ServiceDesk4u verification code is ${code}. It expires in ${env.otpTtlMinutes} minutes.`,
@@ -162,6 +101,8 @@ async function sendPasswordResetEmail(to, code, firstName = "there", organizatio
     <p style="margin:0 0 0;font-size:13px;color:#9ca3af">This code expires in ${env.otpTtlMinutes} minutes. If you didn't request a reset, your account is still safe — ignore this email.</p>`;
   return send({
     to,
+    kind: "password_reset",
+    organizationId,
     subject: "Reset your password — ServiceDesk4u",
     html: emailLayout(body, await resolveFooterEmail(organizationId)),
     text: `Hi ${firstName}, your ServiceDesk4u password reset code is ${code}. It expires in ${env.otpTtlMinutes} minutes.`,
@@ -193,6 +134,7 @@ async function sendTicketLookupCodeEmail(to, code) {
     <p style="margin:0 0 0;font-size:13px;color:#9ca3af">This code expires in ${ttl}. If you didn't request this, you can ignore this email.</p>`;
   return send({
     to,
+    kind: "ticket_lookup_code",
     subject: "Your ticket lookup code — ServiceDesk4u",
     html: emailLayout(body),
     text: `Your ServiceDesk4u ticket lookup code is ${code}. It expires in ${ttl}.`,
@@ -227,6 +169,8 @@ async function sendTestAssignedEmail(to, firstName, caseTitle, assignedByName, u
     ${ctaButton(url, "View test case")}`;
   return send({
     to,
+    kind: "test_assigned",
+    organizationId,
     subject: "You've been assigned a test — ServiceDesk4u",
     html: emailLayout(body, await resolveFooterEmail(organizationId)),
     text: `${assignedByName} assigned you to the test case "${caseTitle}".`,
@@ -241,6 +185,8 @@ async function sendFeedbackReceivedEmail(to, name, projectName, title, organizat
     <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.65">We'll email you as it progresses — from review through to resolution.</p>`;
   return send({
     to,
+    kind: "feedback_received",
+    organizationId,
     subject: `Feedback received — ${title} — ${projectName}`,
     html: emailLayout(body, await resolveFooterEmail(organizationId)),
     text: `Thanks ${name} — your feedback "${title}" about ${projectName} has been logged. We'll email you as it progresses.`,
@@ -270,6 +216,8 @@ async function sendFeedbackStatusEmail(to, name, projectName, title, status, cop
     ${responseBox}`;
   return send({
     to,
+    kind: "feedback_status",
+    organizationId,
     subject: `Feedback update — ${title} — ${projectName}`,
     html: emailLayout(body, await resolveFooterEmail(organizationId)),
     text: `Your feedback "${title}" for ${projectName} is now ${label}. ${copy}`,
@@ -286,6 +234,8 @@ async function sendFeedbackCommentEmail(to, name, title, commenterName, url, org
     ${ctaButton(url, "View conversation")}`;
   return send({
     to,
+    kind: "feedback_comment",
+    organizationId,
     subject: `New message — ${title} — ServiceDesk4u`,
     html: emailLayout(body, await resolveFooterEmail(organizationId)),
     text: `${commenterName} posted a new message on ticket "${title}".`,
@@ -300,6 +250,8 @@ async function sendFeedbackMentionEmail(to, firstName, title, mentionerName, url
     ${ctaButton(url, "View comment")}`;
   return send({
     to,
+    kind: "feedback_mention",
+    organizationId,
     subject: `You were mentioned — ${title} — ServiceDesk4u`,
     html: emailLayout(body, await resolveFooterEmail(organizationId)),
     text: `${mentionerName} mentioned you in a comment on ticket "${title}".`,
@@ -314,6 +266,8 @@ async function sendNewFeedbackAlertEmail(to, firstName, title, typeLabel, projec
     ${ctaButton(url, "Open project")}`;
   return send({
     to,
+    kind: "feedback_new_alert",
+    organizationId,
     subject: `New external ${typeLabel} — ${projectName} — ServiceDesk4u`,
     html: emailLayout(body, await resolveFooterEmail(organizationId)),
     text: `${submitterName} submitted "${title}" (${typeLabel}) on ${projectName} via the public feedback form.`,
@@ -328,6 +282,8 @@ async function sendFeedbackAssignedEmail(to, firstName, title, projectName, assi
     ${ctaButton(url, "View feedback")}`;
   return send({
     to,
+    kind: "feedback_assigned",
+    organizationId,
     subject: `Feedback assigned — ${title} — ServiceDesk4u`,
     html: emailLayout(body, await resolveFooterEmail(organizationId)),
     text: `${assignedByName} assigned you to the feedback "${title}" on ${projectName}.`,
@@ -341,6 +297,8 @@ async function sendProjectMemberAddedEmail(to, firstName, projectName, roleLabel
     ${ctaButton(url, "Open project")}`;
   return send({
     to,
+    kind: "project_member_added",
+    organizationId,
     subject: `You've been added to ${projectName} — ServiceDesk4u`,
     html: emailLayout(body, await resolveFooterEmail(organizationId)),
     text: `${addedByName} added you to the project "${projectName}" as a ${roleLabel}.`,
@@ -356,6 +314,8 @@ async function sendRunCompletedEmail(to, firstName, runName, summary, url, organ
     ${ctaButton(url, "View run")}`;
   return send({
     to,
+    kind: "run_completed",
+    organizationId,
     subject: `Run completed — ${runName} — ServiceDesk4u`,
     html: emailLayout(body, await resolveFooterEmail(organizationId)),
     text: `The run "${runName}" was completed. ${line}`,
@@ -377,6 +337,8 @@ async function sendWelcomeEmail(to, firstName, password, loginUrl, organizationI
     <p style="margin:0;font-size:13px;color:#9ca3af">Please change your password after your first sign-in.</p>`;
   return send({
     to,
+    kind: "welcome",
+    organizationId,
     subject: "Your ServiceDesk4u account is ready",
     html: emailLayout(body, await resolveFooterEmail(organizationId)),
     text: `Hi ${firstName}, your ServiceDesk4u account has been created.\nEmail: ${to}\nTemporary password: ${password}\nSign in at: ${loginUrl}\nPlease change your password after your first sign-in.`,
@@ -391,6 +353,8 @@ async function sendNewFeatureRequestEmail(to, firstName, title, submittedByName,
     ${ctaButton(url, "Review request")}`;
   return send({
     to,
+    kind: "feature_request_new",
+    organizationId,
     subject: `New feature request — ${title} — ServiceDesk4u`,
     html: emailLayout(body, await resolveFooterEmail(organizationId)),
     text: `${submittedByName} submitted a new feature request: "${title}".`,
@@ -413,6 +377,8 @@ async function sendFeatureRequestStatusEmail(to, firstName, title, status, admin
     ${ctaButton(url, "View request")}`;
   return send({
     to,
+    kind: "feature_request_status",
+    organizationId,
     subject: `Feature request update — ${title} — ServiceDesk4u`,
     html: emailLayout(body, await resolveFooterEmail(organizationId)),
     text: `${isOwner ? "Your" : "The"} feature request "${title}" is now ${label}.${adminResponse ? ` Response: ${adminResponse}` : ""}`,
@@ -426,6 +392,8 @@ async function sendFeatureRequestAssignedEmail(to, firstName, title, url, organi
     ${ctaButton(url, "View request")}`;
   return send({
     to,
+    kind: "feature_request_assigned",
+    organizationId,
     subject: `Feature request assigned — ${title} — ServiceDesk4u`,
     html: emailLayout(body, await resolveFooterEmail(organizationId)),
     text: `You've been assigned to the feature request "${title}".`,
@@ -439,6 +407,8 @@ async function sendFeatureRequestCommentEmail(to, firstName, title, commenterNam
     ${ctaButton(url, "View comment")}`;
   return send({
     to,
+    kind: "feature_request_comment",
+    organizationId,
     subject: `New comment — ${title} — ServiceDesk4u`,
     html: emailLayout(body, await resolveFooterEmail(organizationId)),
     text: `${commenterName} commented on your feature request "${title}".`,
@@ -452,6 +422,8 @@ async function sendFeatureRequestMentionEmail(to, firstName, title, mentionerNam
     ${ctaButton(url, "View comment")}`;
   return send({
     to,
+    kind: "feature_request_mention",
+    organizationId,
     subject: `You were mentioned — ${title} — ServiceDesk4u`,
     html: emailLayout(body, await resolveFooterEmail(organizationId)),
     text: `${mentionerName} mentioned you in a comment on the feature request "${title}".`,
@@ -466,6 +438,8 @@ async function sendNewBugEmail(to, firstName, title, reportedByName, url, organi
     ${ctaButton(url, "Review bug")}`;
   return send({
     to,
+    kind: "bug_new",
+    organizationId,
     subject: `New bug — ${title} — ServiceDesk4u`,
     html: emailLayout(body, await resolveFooterEmail(organizationId)),
     text: `${reportedByName} reported a new bug: "${title}".`,
@@ -480,6 +454,8 @@ async function sendBugStatusEmail(to, firstName, title, status, url, isOwner = t
     ${ctaButton(url, "View bug")}`;
   return send({
     to,
+    kind: "bug_status",
+    organizationId,
     subject: `Bug update — ${title} — ServiceDesk4u`,
     html: emailLayout(body, await resolveFooterEmail(organizationId)),
     text: `${isOwner ? "Your bug report" : "The bug"} "${title}" is now ${status}.`,
@@ -493,6 +469,8 @@ async function sendBugCommentEmail(to, firstName, title, commenterName, url, org
     ${ctaButton(url, "View comment")}`;
   return send({
     to,
+    kind: "bug_comment",
+    organizationId,
     subject: `New comment — ${title} — ServiceDesk4u`,
     html: emailLayout(body, await resolveFooterEmail(organizationId)),
     text: `${commenterName} commented on the bug "${title}".`,
@@ -506,6 +484,8 @@ async function sendBugMentionEmail(to, firstName, title, mentionerName, url, org
     ${ctaButton(url, "View comment")}`;
   return send({
     to,
+    kind: "bug_mention",
+    organizationId,
     subject: `You were mentioned — ${title} — ServiceDesk4u`,
     html: emailLayout(body, await resolveFooterEmail(organizationId)),
     text: `${mentionerName} mentioned you in a comment on the bug "${title}".`,
@@ -519,6 +499,8 @@ async function sendBugAssignedEmail(to, firstName, title, url, organizationId) {
     ${ctaButton(url, "View bug")}`;
   return send({
     to,
+    kind: "bug_assigned",
+    organizationId,
     subject: `Bug assigned — ${title} — ServiceDesk4u`,
     html: emailLayout(body, await resolveFooterEmail(organizationId)),
     text: `You've been assigned to fix the bug "${title}".`,

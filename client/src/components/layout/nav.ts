@@ -22,6 +22,7 @@ import {
   Settings2,
   BarChart3,
   Tags,
+  MailSearch,
   type LucideIcon,
 } from "lucide-react"
 import { can, canAny } from "@/lib/can"
@@ -73,6 +74,8 @@ export const WORKSPACE_NAV_ITEMS: NavItem[] = [
   { title: "Announcements", to: "/announcements", icon: Megaphone, permission: "announcement.manage" },
   { title: "Pricing", to: "/pricing-settings", icon: Tags, permission: "pricing.manage" },
   { title: "Support inbox", to: "/support-inbox", icon: MessagesSquare, permission: "supportchat.read" },
+  // Platform-only (emaillog.read): every email sent, and through which provider.
+  { title: "Email log", to: "/email-log", icon: MailSearch, permission: "emaillog.read" },
 ]
 
 // Secondary navigation — pinned to the bottom of the sidebar.

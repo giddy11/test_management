@@ -49,7 +49,7 @@
 
 ---
 
-## 2. Permission catalog — 40 permissions in 8 categories
+## 2. Permission catalog — 41 permissions in 8 categories
 
 > Generated from `server/modules/access/catalog/permissions.catalog.js`, which is the
 > single source the seed, the resolver and the tests all read. If this table and the
@@ -63,13 +63,14 @@ project's client companies and their supporters. See section 5.
 
 Legend: ⚠ = carries a warning note shown in the role editor.
 
-### 2.1 Organisation & platform — 2
+### 2.1 Organisation & platform — 3
 *Workspace-wide configuration and the platform controls behind it.*
 
 | Code | Label | Description |
 |---|---|---|
 | `audit.read` | View activity log | Read the organisation's activity log. |
 | `platform.read` ⚠ | View all organisations | Cross-organisation overview. **Warning: reads data across every organisation.** |
+| `emaillog.read` ⚠ | View email log | See every email the platform sent, tried to send or skipped, and which mail provider handled it. Message text is never stored. **Warning: shows recipients across every organisation.** |
 
 ### 2.2 Roles & people — 7
 *Who is on the team, and what they are allowed to do.*
@@ -222,9 +223,9 @@ Everything inside one customer's workspace, and nothing outside it.
 This is **not** "every permission in the catalog". ServiceDesk4u is multi-tenant, so
 "administrator" means two different principals, and the catalog keeps them apart:
 
-- **Platform-only** — `platform.read`, `announcement.manage`, `banner.publish`,
+- **Platform-only** — `platform.read`, `emaillog.read`, `announcement.manage`, `banner.publish`,
   `pricing.manage`, `subscription.manage`, `supportchat.read` / `.send` / `.manage`:
-  cross-organisation reporting, product announcements, the site banner, the landing
+  cross-organisation reporting, the email log, product announcements, the site banner, the landing
   page pricing, organisation plans and offline payments, and the in-app inbox customers write *to*. These
   belong to the vendor. They are reachable only through the locked super
   administrator's wildcard and are held by no assignable role.

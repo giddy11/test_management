@@ -19,5 +19,7 @@
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["vite.config.ts"]
+  // The unit tests, and the pure modules they import (no browser APIs, no
+  // dependencies), run under plain Node: `npm run test:unit`.
+  "include": ["vite.config.ts", "src/lib/emailLogPeriods.ts", "src/lib/emailLogPeriods.test.ts"]
 }
