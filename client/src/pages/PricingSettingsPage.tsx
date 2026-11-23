@@ -44,6 +44,7 @@ function newPlan(): PricingPlan {
     monthlyPrice: 0,
     yearlyPrice: 0,
     seatNote: "",
+    extraSeatPrice: 0,
     benefitIds: [],
     features: [],
     ctaLabel: "Get started",
@@ -93,6 +94,7 @@ const PLAN_LABELS: Record<string, string> = {
   monthlyPrice: "monthly price",
   yearlyPrice: "yearly price",
   seatNote: "seat note",
+  extraSeatPrice: "extra seat price",
   benefitIds: "benefits",
   planKey: "plan it sells",
   ctaLabel: "button text",
@@ -311,6 +313,13 @@ function PlanEditor({
           hint="The line under the price, for example “Includes 15 full seats. Extra seats $2 each.” The seat count automatically follows this plan's “Full seats included” limit."
         >
           <Input id={fid("seats")} value={plan.seatNote} maxLength={160} onChange={(e) => onChange({ seatNote: e.target.value })} />
+        </Field>
+        <Field
+          label={`Extra seat price (${currencySymbol} per seat, per month)`}
+          htmlFor={fid("extra-seat")}
+          hint="Used to work out the payment to ask for when an organisation buys extra seats. 0 if you don't sell them. Keep the seat note above in step with it."
+        >
+          <PriceInput id={fid("extra-seat")} value={plan.extraSeatPrice ?? 0} onChange={(n) => onChange({ extraSeatPrice: n })} />
         </Field>
 
         <div className="grid gap-4 sm:grid-cols-2">

@@ -27,6 +27,8 @@ export interface PricingPlan {
   yearlyPrice: number
   /** The line under the price, e.g. which seats are included. "{n}" becomes the plan's full-seat limit. */
   seatNote: string
+  /** What one extra full seat costs per month, in the section's currency. 0 = none sold. */
+  extraSeatPrice: number
   /** seatNote with "{n}" filled in. Worked out on every read, read-only. */
   seatLine?: string
   /** The ticked benefits (other than enforced features on a card with a planKey). */

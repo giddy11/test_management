@@ -52,6 +52,8 @@ const planSchema = z.object({
   monthlyPrice: price(100_000),
   yearlyPrice: price(1_000_000),
   seatNote: text(160),
+  // What one extra full seat costs per month. 0 = none sold.
+  extraSeatPrice: price(100_000).default(0),
   // The ticked benefits. "features" is worked out from these and never sent.
   benefitIds: z.array(slug(40)).max(40).default([]),
   ctaLabel: required(40),

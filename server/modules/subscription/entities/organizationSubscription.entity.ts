@@ -18,6 +18,9 @@ export interface OrganizationSubscription {
   // Paid up to here. Null on an active plan means no end date (complimentary).
   paidUntil: Date | null;
   source: SubscriptionSource;
+  // Full seats bought on top of what the plan includes. They count only while
+  // the paid plan is running; a lapse back to Free drops them from the total.
+  extraSeats: number;
   note: string | null;
   updatedBy: string | null;
   createdAt: Date;
@@ -34,6 +37,7 @@ const OrganizationSubscription = new EntitySchema<OrganizationSubscription>({
     trialEndsAt: { name: "trial_ends_at", type: "timestamptz", nullable: true },
     paidUntil: { name: "paid_until", type: "timestamptz", nullable: true },
     source: { type: "varchar", length: 30, default: "manual" },
+    extraSeats: { name: "extra_seats", type: "int", default: 0 },
     note: { type: "text", nullable: true },
     updatedBy: { name: "updated_by", type: "uuid", nullable: true },
     createdAt: { name: "created_at", type: "timestamptz", createDate: true },

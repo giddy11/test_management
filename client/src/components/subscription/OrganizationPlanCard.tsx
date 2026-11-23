@@ -19,7 +19,7 @@ const FEATURE_LABELS: Record<FeatureKey, string> = {
 }
 
 const LIMIT_LABELS: Record<LimitKey, string> = {
-  full_seats: "Full seats included",
+  full_seats: "Full seats",
   projects: "Projects",
   test_cases: "Test cases",
   client_companies: "Client companies",
@@ -80,6 +80,11 @@ export function OrganizationPlanCard() {
                   <dt className="text-muted-foreground">{LIMIT_LABELS[key]}</dt>
                   <dd className="font-medium tabular-nums">
                     {plan.limits[key] === null ? "Unlimited" : plan.limits[key]?.toLocaleString()}
+                    {key === "full_seats" && plan.extraSeats > 0 && plan.includedSeats !== null && (
+                      <span className="ml-1 text-xs font-normal text-muted-foreground" data-cy="plan-seat-breakdown">
+                        ({plan.includedSeats.toLocaleString()} + {plan.extraSeats.toLocaleString()} extra)
+                      </span>
+                    )}
                   </dd>
                 </div>
               ))}

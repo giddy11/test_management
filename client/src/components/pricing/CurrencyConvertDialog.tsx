@@ -137,6 +137,7 @@ export function CurrencyConvertDialog({ content, toSymbol, onCancel, onApply }: 
                     <th className="px-3 py-2 font-medium">Plan</th>
                     <th className="px-3 py-2 font-medium">Monthly</th>
                     <th className="px-3 py-2 font-medium">Yearly</th>
+                    <th className="px-3 py-2 font-medium">Extra seat</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y">
@@ -155,6 +156,17 @@ export function CurrencyConvertDialog({ content, toSymbol, onCancel, onApply }: 
                         <span className="text-muted-foreground">{formatAmount(fromSymbol, c.yearlyFrom)}</span>
                         {" → "}
                         <span className="font-medium">{formatAmount(toSymbol, c.yearlyTo)}</span>
+                      </td>
+                      <td className="px-3 py-2 tabular-nums">
+                        {c.extraSeatFrom > 0 ? (
+                          <>
+                            <span className="text-muted-foreground">{formatAmount(fromSymbol, c.extraSeatFrom)}</span>
+                            {" → "}
+                            <span className="font-medium">{formatAmount(toSymbol, c.extraSeatTo)}</span>
+                          </>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
                       </td>
                     </tr>
                   ))}

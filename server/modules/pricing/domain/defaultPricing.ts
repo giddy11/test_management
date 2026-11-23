@@ -51,6 +51,10 @@ export interface PricingPlan {
   yearlyPrice: number;
   // The line under the price, e.g. which seats are included.
   seatNote: string;
+  // What one extra full seat costs per month, in the section's currency (0 =
+  // none sold). Used to work out the payment to ask for when an organisation
+  // buys seats; the seat note is only the wording shown on the card.
+  extraSeatPrice: number;
   // The seat note with "{n}" filled in from the plan's "Full seats included"
   // limit. Worked out on every read, never edited (seatNote is the template).
   seatLine?: string;
@@ -150,6 +154,7 @@ export const DEFAULT_PRICING: PricingContent = Object.freeze({
       monthlyPrice: 0,
       yearlyPrice: 0,
       seatNote: "2 full seats. No credit card.",
+      extraSeatPrice: 0,
       benefitIds: defaultBenefitIds("free"),
       features: [],
       ctaLabel: "Start for free",
@@ -166,6 +171,7 @@ export const DEFAULT_PRICING: PricingContent = Object.freeze({
       monthlyPrice: 9,
       yearlyPrice: 90,
       seatNote: "Includes 15 full seats. Extra seats $2 each.",
+      extraSeatPrice: 2,
       benefitIds: defaultBenefitIds("standard"),
       features: [],
       ctaLabel: "Start 14-day trial",
@@ -182,6 +188,7 @@ export const DEFAULT_PRICING: PricingContent = Object.freeze({
       monthlyPrice: 39,
       yearlyPrice: 390,
       seatNote: "Includes 50 full seats. Extra seats $1.50 each.",
+      extraSeatPrice: 1.5,
       benefitIds: defaultBenefitIds("enterprise"),
       features: [],
       ctaLabel: "Get started",
@@ -316,6 +323,8 @@ export function normalisePricing(stored: StoredContent): PricingContent {
       monthlyPrice: p.monthlyPrice ?? 0,
       yearlyPrice: p.yearlyPrice ?? 0,
       seatNote: cleanSeatNote(p.seatNote ?? ""),
+      // Pricing saved before this field existed: read the price from the note.
+      extraSeatPrice: p.extraSeatPrice ?? parseExtraSeatPrice(p.seatNote ?? ""),
       benefitIds,
       features: [],
       ctaLabel: p.ctaLabel ?? "Get started",
@@ -344,8 +353,25 @@ function cleanLimitLabel(label: string): string {
   return stripped.charAt(0).toUpperCase() + stripped.slice(1);
 }
 
+/** "Includes 15 full seats. Extra seats $2 each." → 2. 0 when the note names no price. */
+export function parseExtraSeatPrice(note: string): number {
+  const m = note.match(/extra\s+seats?\s*(?:cost\s*)?[^\d\s]{0,5}\s?(\d[\d,]*(?:\.\d+)?)/i);
+  return m ? Number(m[1].replace(/,/g, "")) || 0 : 0;
+}
+
 function cleanSeatNote(note: string): string {
   return note;
+}
+
+/**
+ * Days written the way people say them: 365 → 1 year, 730 → 2 years,
+ * 180 → 6 months, 30 → 30 days. Only whole years, or whole months from two
+ * months up, are rewritten; anything else stays in days.
+ */
+export function durationOf(days: number): { count: number; unit: "day" | "month" | "year" } {
+  if (days >= 365 && days % 365 === 0) return { count: days / 365, unit: "year" };
+  if (days >= 60 && days % 30 === 0) return { count: days / 30, unit: "month" };
+  return { count: days, unit: "day" };
 }
 
 /** "Projects" (or "{n} projects") with 1000 → "1,000 projects", with 1 → "1 project"; no limit → the unlimited wording. */
@@ -353,7 +379,10 @@ export function limitLine(benefit: PricingBenefit, value: number | null): string
   if (value === null) return benefit.unlimitedLabel.trim() || null;
   // Nothing to boast about: "0 AI credits each month" stays off the card.
   if (value <= 0) return null;
-  const num = value.toLocaleString("en-US");
+  // The activity history limit is stored in days. When the wording says "days",
+  // show it as years or months instead: "1 year of activity history".
+  const duration = benefit.limit === "activity_log_days" && /\bdays?\b/i.test(benefit.label) ? durationOf(value) : null;
+  const num = (duration ? duration.count : value).toLocaleString("en-US");
   const raw = benefit.label.trim();
   let line: string;
   if (raw.includes("{n}")) {
@@ -365,6 +394,7 @@ export function limitLine(benefit: PricingBenefit, value: number | null): string
     const rest = /^(GB|AI)\b/.test(raw) ? raw : raw.charAt(0).toLowerCase() + raw.slice(1);
     line = `${num} ${rest}`;
   }
+  if (duration) return line.replace(/\bdays?\b/i, duration.count === 1 ? duration.unit : `${duration.unit}s`);
   return value === 1 ? line.replace(/\b(projects|cases|credits|days|seats|companies)\b/gi, (w) => SINGULAR[w.toLowerCase()] ?? w) : line;
 }
 

@@ -17,6 +17,8 @@ export interface SubscriptionPayment {
   paidAt: Date;
   periodStart: Date;
   periodEnd: Date;
+  // The organisation's total extra seats as of this payment, not only the ones it paid for.
+  extraSeats: number;
   note: string | null;
   recordedBy: string | null;
   createdAt: Date;
@@ -36,6 +38,7 @@ const SubscriptionPayment = new EntitySchema<SubscriptionPayment>({
     paidAt: { name: "paid_at", type: "timestamptz" },
     periodStart: { name: "period_start", type: "timestamptz" },
     periodEnd: { name: "period_end", type: "timestamptz" },
+    extraSeats: { name: "extra_seats", type: "int", default: 0 },
     note: { type: "text", nullable: true },
     recordedBy: { name: "recorded_by", type: "uuid", nullable: true },
     createdAt: { name: "created_at", type: "timestamptz", createDate: true },

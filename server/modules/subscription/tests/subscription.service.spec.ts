@@ -105,3 +105,72 @@ describe("SubscriptionService — offline payments", () => {
     expect(repo.clearSubscription).toHaveBeenCalledWith(ORG);
   });
 });
+
+describe("SubscriptionService — extra seats", () => {
+  const running = (extraSeats: number) => ({
+    organizationId: ORG,
+    planKey: "standard",
+    status: "active",
+    paidUntil: new Date(Date.now() + 10 * DAY),
+    trialEndsAt: null,
+    source: "offline_payment",
+    extraSeats,
+    note: null,
+  });
+
+  it("adds extra seats to the plan's own seats while the plan runs", async () => {
+    const plan = await new SubscriptionService(makeRepo(running(5)) as any).current(ORG);
+    expect(plan).toMatchObject({ includedSeats: DEFAULT_ENTITLEMENTS.standard.limits.full_seats, extraSeats: 5 });
+    expect(plan.limits.full_seats).toBe((DEFAULT_ENTITLEMENTS.standard.limits.full_seats as number) + 5);
+  });
+
+  it("drops them once the paid period has ended", async () => {
+    const lapsed = { ...running(5), paidUntil: new Date(Date.now() - DAY) };
+    const plan = await new SubscriptionService(makeRepo(lapsed) as any).current(ORG);
+    expect(plan).toMatchObject({ planKey: "free", extraSeats: 0 });
+    expect(plan.limits.full_seats).toBe(DEFAULT_ENTITLEMENTS.free.limits.full_seats);
+  });
+
+  it("adds seats without moving the end date when the payment covers 0 months", async () => {
+    const row = running(0);
+    const repo = makeRepo(row);
+    await new SubscriptionService(repo as any).recordPayment(actor, ORG, {
+      planKey: "standard",
+      amount: 600,
+      currency: "NGN",
+      method: "bank_transfer",
+      paidAt: new Date().toISOString(),
+      months: 0,
+      extraSeats: 8,
+    });
+    expect(repo.addPayment).toHaveBeenCalledWith(expect.objectContaining({ extraSeats: 8, periodEnd: row.paidUntil }));
+    expect(repo.saveSubscription).toHaveBeenCalledWith(expect.objectContaining({ extraSeats: 8, paidUntil: row.paidUntil }));
+  });
+
+  it("refuses a seats-only payment when no paid period of that plan is running", async () => {
+    await expect(
+      new SubscriptionService(makeRepo() as any).recordPayment(actor, ORG, {
+        planKey: "standard",
+        amount: 600,
+        currency: "NGN",
+        method: "cash",
+        paidAt: new Date().toISOString(),
+        months: 0,
+        extraSeats: 3,
+      })
+    ).rejects.toMatchObject({ statusCode: 422 });
+  });
+
+  it("keeps the existing extra seats when a renewal doesn't mention them", async () => {
+    const repo = makeRepo(running(4));
+    await new SubscriptionService(repo as any).recordPayment(actor, ORG, {
+      planKey: "standard",
+      amount: 9,
+      currency: "USD",
+      method: "cash",
+      paidAt: new Date().toISOString(),
+      months: 1,
+    });
+    expect(repo.saveSubscription).toHaveBeenCalledWith(expect.objectContaining({ extraSeats: 4 }));
+  });
+});

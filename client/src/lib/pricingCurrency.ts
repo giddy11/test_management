@@ -82,6 +82,8 @@ export interface PlanConversion {
   monthlyTo: number
   yearlyFrom: number
   yearlyTo: number
+  extraSeatFrom: number
+  extraSeatTo: number
 }
 
 /**
@@ -103,6 +105,8 @@ export function convertPlans(plans: PricingPlan[], rate: number, step: number): 
       monthlyTo,
       yearlyFrom: p.yearlyPrice,
       yearlyTo,
+      extraSeatFrom: p.extraSeatPrice ?? 0,
+      extraSeatTo: roundTo((p.extraSeatPrice ?? 0) * rate, step),
     }
   })
 }
@@ -121,7 +125,7 @@ export function withCurrency(
       ...next,
       plans: next.plans.map((p) => {
         const c = byId.get(p.id)
-        return c ? { ...p, monthlyPrice: c.monthlyTo, yearlyPrice: c.yearlyTo } : p
+        return c ? { ...p, monthlyPrice: c.monthlyTo, yearlyPrice: c.yearlyTo, extraSeatPrice: c.extraSeatTo } : p
       }),
     }
   }

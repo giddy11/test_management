@@ -16,7 +16,7 @@ export interface OrganizationSummary {
   userCount: number;
   projectCount: number;
   createdAt: string;
-  plan: Pick<EffectivePlan, "planKey" | "planName" | "status" | "assignedPlanKey" | "paidUntil" | "trialEndsAt" | "source">;
+  plan: Pick<EffectivePlan, "planKey" | "planName" | "status" | "assignedPlanKey" | "paidUntil" | "trialEndsAt" | "source" | "includedSeats" | "extraSeats">;
 }
 
 interface OrgRow {
@@ -79,5 +79,7 @@ function pickPlan(p: EffectivePlan | undefined): OrganizationSummary["plan"] {
     paidUntil: p?.paidUntil ?? null,
     trialEndsAt: p?.trialEndsAt ?? null,
     source: p?.source ?? null,
+    includedSeats: p?.includedSeats ?? null,
+    extraSeats: p?.extraSeats ?? 0,
   };
 }

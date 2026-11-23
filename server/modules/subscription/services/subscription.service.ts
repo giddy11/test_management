@@ -48,7 +48,12 @@ export interface EffectivePlan {
   paidUntil: string | null;
   source: OrganizationSubscription["source"] | null;
   note: string | null;
+  /** Full seats the plan itself includes (null = unlimited). */
+  includedSeats: number | null;
+  /** Seats bought on top. Zero once the paid plan has ended. */
+  extraSeats: number;
   features: FeatureSet;
+  /** limits.full_seats is the TOTAL: included plus extra. */
   limits: LimitSet;
 }
 
@@ -62,6 +67,8 @@ export interface SetPlanInput {
   status: SubscriptionStatus;
   trialEndsAt?: string | null;
   paidUntil?: string | null;
+  // Seats on top of the plan's own. Omitted = leave as they are. Free has none.
+  extraSeats?: number;
   note?: string | null;
 }
 
@@ -72,7 +79,11 @@ export interface RecordPaymentInput {
   method: PaymentMethod;
   reference?: string | null;
   paidAt: string;
+  // How many months this payment covers. 0 = extra seats only, for the rest of
+  // the paid period that is already running (needs extraSeats).
   months: number;
+  // The organisation's TOTAL extra seats from now on. Omitted = leave as they are.
+  extraSeats?: number;
   note?: string | null;
 }
 
@@ -177,6 +188,7 @@ export class SubscriptionService {
   /** Sets the plan by hand: a trial, a complimentary plan, a downgrade, or back to Free. */
   async setPlan(actor: Actor, organizationId: string, input: SetPlanInput) {
     await this.assertOrganization(organizationId);
+    const existing = await this.repo.findSubscription(organizationId);
     if (input.planKey === "free") {
       await this.repo.clearSubscription(organizationId);
     } else {
@@ -189,6 +201,7 @@ export class SubscriptionService {
         trialEndsAt,
         paidUntil: input.status === "active" && input.paidUntil ? new Date(input.paidUntil) : null,
         source: "manual",
+        extraSeats: input.extraSeats ?? existing?.extraSeats ?? 0,
         note: input.note?.trim() || null,
         updatedBy: actor.id,
       });
@@ -219,8 +232,16 @@ export class SubscriptionService {
       existing.planKey === input.planKey &&
       existing.paidUntil &&
       existing.paidUntil.getTime() > now.getTime();
-    const periodStart = extendsCurrent ? (existing!.paidUntil as Date) : now;
-    const periodEnd = addMonths(periodStart, input.months);
+    // Months 0: only add seats, to the paid period that is already running.
+    if (input.months === 0 && !extendsCurrent) {
+      throw new AppError(
+        "There's no running paid period of this plan to add seats to. Choose how many months the payment covers.",
+        422
+      );
+    }
+    const periodStart = input.months === 0 ? now : extendsCurrent ? (existing!.paidUntil as Date) : now;
+    const periodEnd = input.months === 0 ? (existing!.paidUntil as Date) : addMonths(periodStart, input.months);
+    const extraSeats = input.extraSeats ?? existing?.extraSeats ?? 0;
 
     await this.repo.addPayment({
       organizationId,
@@ -232,6 +253,7 @@ export class SubscriptionService {
       paidAt: new Date(input.paidAt),
       periodStart,
       periodEnd,
+      extraSeats,
       note: input.note?.trim() || null,
       recordedBy: actor.id,
     });
@@ -242,6 +264,7 @@ export class SubscriptionService {
       trialEndsAt: null,
       paidUntil: periodEnd,
       source: "offline_payment",
+      extraSeats,
       note: existing?.note ?? null,
       updatedBy: actor.id,
     });
@@ -249,7 +272,10 @@ export class SubscriptionService {
 
     ActivityService.Instance.log(actor, {
       action: "subscription.payment_recorded",
-      summary: `Recorded an offline payment of ${input.currency.toUpperCase()} ${input.amount.toFixed(2)} for ${PLAN_NAMES[input.planKey]}, ${input.months} month${input.months === 1 ? "" : "s"}`,
+      summary:
+        input.months === 0
+          ? `Recorded an offline payment of ${input.currency.toUpperCase()} ${input.amount.toFixed(2)} for ${extraSeats} extra seat${extraSeats === 1 ? "" : "s"} on ${PLAN_NAMES[input.planKey]}`
+          : `Recorded an offline payment of ${input.currency.toUpperCase()} ${input.amount.toFixed(2)} for ${PLAN_NAMES[input.planKey]}, ${input.months} month${input.months === 1 ? "" : "s"}${extraSeats ? ` with ${extraSeats} extra seat${extraSeats === 1 ? "" : "s"}` : ""}`,
       entityType: "organization",
       entityId: organizationId,
       metadata: { organizationId, ...input, periodStart, periodEnd },
@@ -277,6 +303,9 @@ export class SubscriptionService {
       planKey = running ? row.planKey : "free";
       status = running ? row.status : "expired";
     }
+    // Extra seats ride with the running paid plan: gone once it has lapsed.
+    const extraSeats = row && planKey !== "free" && planKey === row.planKey ? (row.extraSeats ?? 0) : 0;
+    const includedSeats = ent[planKey].limits.full_seats;
     return {
       planKey,
       planName: PLAN_NAMES[planKey],
@@ -286,8 +315,10 @@ export class SubscriptionService {
       paidUntil: row?.paidUntil?.toISOString() ?? null,
       source: row?.source ?? null,
       note: row?.note ?? null,
+      includedSeats,
+      extraSeats,
       features: ent[planKey].features,
-      limits: ent[planKey].limits,
+      limits: { ...ent[planKey].limits, full_seats: includedSeats === null ? null : includedSeats + extraSeats },
     };
   }
 }
@@ -304,6 +335,7 @@ function paymentView(p: SubscriptionPayment) {
     paidAt: p.paidAt.toISOString(),
     periodStart: p.periodStart.toISOString(),
     periodEnd: p.periodEnd.toISOString(),
+    extraSeats: p.extraSeats ?? 0,
     note: p.note,
     recordedBy: p.recordedBy,
     createdAt: p.createdAt.toISOString(),

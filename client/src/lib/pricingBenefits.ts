@@ -33,11 +33,31 @@ const SINGULAR: Record<string, string> = {
   companies: "company",
 }
 
+/**
+ * Days written the way people say them: 365 → 1 year, 730 → 2 years,
+ * 180 → 6 months, 30 → 30 days. Only whole years, or whole months from two
+ * months up, are rewritten; anything else stays in days.
+ */
+export function durationOf(days: number): { count: number; unit: "day" | "month" | "year" } {
+  if (days >= 365 && days % 365 === 0) return { count: days / 365, unit: "year" }
+  if (days >= 60 && days % 30 === 0) return { count: days / 30, unit: "month" }
+  return { count: days, unit: "day" }
+}
+
+/** "1 year", "6 months", "30 days": a number of days as people say it. */
+export function durationText(days: number): string {
+  const { count, unit } = durationOf(days)
+  return `${count.toLocaleString("en-US")} ${count === 1 ? unit : `${unit}s`}`
+}
+
 /** "Projects" (or "{n} projects") with 1000 → "1,000 projects", with 1 → "1 project"; no limit → the unlimited wording; 0 → nothing. */
 export function limitLine(benefit: PricingBenefit, value: number | null): string | null {
   if (value === null) return benefit.unlimitedLabel.trim() || null
   if (value <= 0) return null
-  const num = value.toLocaleString("en-US")
+  // The activity history limit is stored in days. When the wording says "days",
+  // show it as years or months instead: "1 year of activity history".
+  const duration = benefit.limit === "activity_log_days" && /\bdays?\b/i.test(benefit.label) ? durationOf(value) : null
+  const num = (duration ? duration.count : value).toLocaleString("en-US")
   const raw = benefit.label.trim()
   let line: string
   if (raw.includes("{n}")) {
@@ -49,6 +69,7 @@ export function limitLine(benefit: PricingBenefit, value: number | null): string
     const rest = /^(GB|AI)\b/.test(raw) ? raw : raw.charAt(0).toLowerCase() + raw.slice(1)
     line = `${num} ${rest}`
   }
+  if (duration) return line.replace(/\bdays?\b/i, duration.count === 1 ? duration.unit : `${duration.unit}s`)
   return value === 1 ? line.replace(/\b(projects|cases|credits|days|seats|companies)\b/gi, (w) => SINGULAR[w.toLowerCase()] ?? w) : line
 }
 

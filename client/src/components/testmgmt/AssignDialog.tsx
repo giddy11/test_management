@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
+import { DatePicker } from "@/components/ui/date-picker"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
@@ -228,12 +229,13 @@ export function AssignDialog({ open, onOpenChange, projectId, testCase, bulkCase
         {!isRemove && (
           <div className="space-y-1.5">
             <Label htmlFor="deadline">Deadline (optional)</Label>
-            <Input
+            <DatePicker
               id="deadline"
-              type="date"
               value={deadline}
-              onChange={(e) => setDeadline(e.target.value)}
+              onChange={setDeadline}
               min={new Date().toISOString().split("T")[0]}
+              clearable
+              placeholder="No deadline"
             />
           </div>
         )}

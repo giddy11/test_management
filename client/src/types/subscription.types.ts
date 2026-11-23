@@ -35,7 +35,12 @@ export interface EffectivePlan {
   paidUntil: string | null
   source: "manual" | "offline_payment" | null
   note: string | null
+  /** Full seats the plan itself includes (null = unlimited). */
+  includedSeats: number | null
+  /** Seats bought on top. Zero once the paid plan has ended. */
+  extraSeats: number
   features: FeatureSet
+  /** limits.full_seats is the TOTAL: included plus extra. */
   limits: LimitSet
 }
 
@@ -60,6 +65,8 @@ export interface SubscriptionPayment {
   paidAt: string
   periodStart: string
   periodEnd: string
+  /** The organisation's total extra seats as of this payment. */
+  extraSeats: number
   note: string | null
   recordedBy: string | null
   createdAt: string
@@ -75,6 +82,8 @@ export interface SetPlanPayload {
   status: "active" | "trial"
   trialEndsAt?: string | null
   paidUntil?: string | null
+  /** Seats on top of the plan's own. Omitted = leave as they are. */
+  extraSeats?: number
   note?: string | null
 }
 
@@ -85,7 +94,10 @@ export interface RecordPaymentPayload {
   method: PaymentMethod
   reference?: string | null
   paidAt: string
+  /** 0 = extra seats only, for the rest of the paid period already running. */
   months: number
+  /** The organisation's total extra seats from now on. Omitted = leave as they are. */
+  extraSeats?: number
   note?: string | null
 }
 

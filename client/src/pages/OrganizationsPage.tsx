@@ -115,6 +115,11 @@ export default function OrganizationsPage() {
                       {org.plan.status !== "free" && (
                         <div className="mt-1 text-xs whitespace-nowrap text-muted-foreground">{planStatusText(org.plan)}</div>
                       )}
+                      {org.plan.extraSeats > 0 && (
+                        <div className="text-xs whitespace-nowrap text-muted-foreground" data-cy="org-extra-seats">
+                          +{org.plan.extraSeats} extra seat{org.plan.extraSeats === 1 ? "" : "s"}
+                        </div>
+                      )}
                     </>
                   )}
                 </TableCell>

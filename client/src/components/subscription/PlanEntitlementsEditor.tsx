@@ -7,6 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { PlanBadge } from "@/components/subscription/PlanBadge"
+import { durationText } from "@/lib/pricingBenefits"
 import type { LimitKey, PlanCatalog, PlanEntitlements, PlanKey } from "@/types/subscription.types"
 
 interface Props {
@@ -18,10 +19,13 @@ interface Props {
 function PlanLimitCell({
   value,
   ariaLabel,
+  asDays = false,
   onChange,
 }: {
   value: number | null
   ariaLabel: string
+  /** The number is days: show what it means in years or months underneath. */
+  asDays?: boolean
   onChange: (value: number | null) => void
 }) {
   const unlimited = value === null
@@ -63,6 +67,11 @@ function PlanLimitCell({
         aria-label={ariaLabel}
         className="h-8"
       />
+      {asDays && value !== null && value > 0 && (
+        <p className="text-xs text-muted-foreground" data-cy="limit-days-hint">
+          = {durationText(value)}
+        </p>
+      )}
       <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
         <Checkbox checked={unlimited} onCheckedChange={(v) => onChange(v === true ? null : 0)} />
         Unlimited
@@ -104,6 +113,7 @@ export function PlanEntitlementsEditor({ catalog, draft, onLimitChange }: Props)
                   key={p.key}
                   value={draft[p.key].limits[l.key]}
                   ariaLabel={`${l.label} on ${p.name}`}
+                  asDays={l.key === "activity_log_days"}
                   onChange={(v) => onLimitChange(p.key, l.key, v)}
                 />
               ))}
