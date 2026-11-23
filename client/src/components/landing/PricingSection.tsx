@@ -173,8 +173,18 @@ export function PricingPlans({ content }: { content: PricingContent }) {
         ))}
       </div>
 
+      {/* Defines "full seat" for every plan's seat note. Kept out of the editable
+          content so the term is explained even when the owner rewrites the notes. */}
+      <p
+        data-cy="pricing-seat-definition"
+        className="mx-auto mt-8 max-w-3xl text-center text-sm text-pretty text-muted-foreground"
+      >
+        <span className="font-medium text-foreground">What is a full seat?</span> Anyone who works in ServiceDesk:
+        testers, developers, IT agents and admins. People who only submit requests or tickets don&apos;t need one.
+      </p>
+
       {content.footnote && (
-        <p className="mx-auto mt-10 max-w-3xl text-center text-sm text-pretty text-muted-foreground">
+        <p className="mx-auto mt-4 max-w-3xl text-center text-sm text-pretty text-muted-foreground">
           {content.footnote}
         </p>
       )}

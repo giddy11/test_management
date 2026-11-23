@@ -3,7 +3,7 @@
 // prices and the features each one lists. Nothing changes for visitors until
 // Save; Preview shows the cards exactly as the landing page renders them.
 import { useEffect, useMemo, useState, type ReactNode } from "react"
-import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Eye, Plus, RotateCcw, Save, Trash2, Undo2 } from "lucide-react"
+import { ArrowLeft, ArrowRight, Eye, Plus, RotateCcw, Save, Trash2, Undo2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -16,6 +16,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog"
 import { SectionHeading } from "@/components/landing/SectionHeading"
 import { CurrencyConvertDialog } from "@/components/pricing/CurrencyConvertDialog"
+import { SortableFeatureList } from "@/components/pricing/SortableFeatureList"
 import { CURRENCIES, withCurrency } from "@/lib/pricingCurrency"
 import { PricingPlans } from "@/components/landing/PricingSection"
 import { usePricingSettings, useResetPricing, useSavePricing, visiblePlans } from "@/hooks/usePricing"
@@ -197,8 +198,6 @@ function PlanEditor({
   onRemove: () => void
 }) {
   const fid = (name: string) => `plan-${plan.id}-${name}`
-  const setFeature = (i: number, value: string) =>
-    onChange({ features: plan.features.map((f, j) => (j === i ? value : f)) })
 
   return (
     <Card data-cy={`pricing-editor-plan-${index}`} className={plan.isVisible ? undefined : "bg-muted/40"}>
@@ -282,45 +281,7 @@ function PlanEditor({
           Highlight this plan (only one plan can be highlighted)
         </label>
 
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <Label>Features</Label>
-            <span className="text-xs text-muted-foreground">
-              {plan.features.length} / {MAX_FEATURES}
-            </span>
-          </div>
-          {plan.features.length === 0 && <p className="text-sm text-muted-foreground">No features listed.</p>}
-          <ul className="space-y-2">
-            {plan.features.map((feature, i) => (
-              <li key={i} className="flex items-center gap-1">
-                <Input
-                  value={feature}
-                  maxLength={120}
-                  aria-label={`Feature ${i + 1}`}
-                  onChange={(e) => setFeature(i, e.target.value)}
-                />
-                <Button type="button" variant="ghost" size="icon" disabled={i === 0} onClick={() => onChange({ features: move(plan.features, i, i - 1) })} aria-label="Move feature up">
-                  <ArrowUp className="size-4" />
-                </Button>
-                <Button type="button" variant="ghost" size="icon" disabled={i === plan.features.length - 1} onClick={() => onChange({ features: move(plan.features, i, i + 1) })} aria-label="Move feature down">
-                  <ArrowDown className="size-4" />
-                </Button>
-                <Button type="button" variant="ghost" size="icon" onClick={() => onChange({ features: plan.features.filter((_, j) => j !== i) })} aria-label="Remove feature">
-                  <Trash2 className="size-4" />
-                </Button>
-              </li>
-            ))}
-          </ul>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={plan.features.length >= MAX_FEATURES}
-            onClick={() => onChange({ features: [...plan.features, ""] })}
-          >
-            <Plus className="size-4" /> Add feature
-          </Button>
-        </div>
+        <SortableFeatureList features={plan.features} max={MAX_FEATURES} onChange={(features) => onChange({ features })} />
       </CardContent>
     </Card>
   )
