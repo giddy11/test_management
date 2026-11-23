@@ -18,10 +18,15 @@ import { SectionLink } from "@/components/landing/SectionLink"
 import { LANDING_NAV } from "@/components/landing/content"
 import { homePathFor } from "@/components/layout/nav"
 import { useAuth } from "@/contexts/AuthContext"
+import { usePublicPricing } from "@/hooks/usePricing"
 
 export function LandingHeader() {
   const { user, isLoading } = useAuth()
   const [menuOpen, setMenuOpen] = useState(false)
+  // Same query as the pricing section, so no second request. The link stays
+  // hidden until the section is known to be on the page.
+  const { data: pricing } = usePublicPricing()
+  const navLinks = LANDING_NAV.filter((item) => item.href !== "#pricing" || pricing?.isVisible)
 
   return (
     <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
@@ -30,7 +35,7 @@ export function LandingHeader() {
 
         <nav aria-label="Landing page sections" className="ml-8 hidden lg:block">
           <ul className="flex items-center gap-1">
-            {LANDING_NAV.map((item) => (
+            {navLinks.map((item) => (
               <li key={item.href}>
                 <SectionLink
                   href={item.href}
@@ -79,7 +84,7 @@ export function LandingHeader() {
               </SheetHeader>
               <nav aria-label="Landing page sections" className="px-4 pb-6">
                 <ul className="space-y-0.5">
-                  {LANDING_NAV.map((item) => (
+                  {navLinks.map((item) => (
                     <li key={item.href}>
                       <SectionLink
                         href={item.href}

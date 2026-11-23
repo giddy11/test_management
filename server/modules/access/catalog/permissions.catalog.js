@@ -112,6 +112,7 @@ const PERMISSIONS = [
   { code: "supportchat.manage", category: "conversations", label: "Manage support chat", description: "Close conversations, and turn the platform-wide support chat on or off." },
   { code: "announcement.manage", category: "conversations", label: "Manage announcements", description: "Write, publish and delete product announcements." },
   { code: "banner.publish", category: "conversations", label: "Broadcast site banner", description: "Show a banner to everyone on the platform.", warning: "Shown to every user on the platform" },
+  { code: "pricing.manage", category: "conversations", label: "Edit landing page pricing", description: "Change the plans, prices and features shown on the public landing page.", warning: "Shown to every visitor of the public website" },
 
   // ── Reporting & analytics ──────────────────────────────────────────────────
   { code: "dashboard.read", category: "analytics", label: "View dashboard", description: "See the dashboard overview and recent runs." },
@@ -160,6 +161,7 @@ const PLATFORM_ONLY = [
   "platform.read",
   "announcement.manage",
   "banner.publish",
+  "pricing.manage",
   "supportchat.read",
   "supportchat.send",
   "supportchat.manage",

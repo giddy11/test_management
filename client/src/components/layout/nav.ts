@@ -21,6 +21,7 @@ import {
   Inbox,
   Settings2,
   BarChart3,
+  Tags,
   type LucideIcon,
 } from "lucide-react"
 import { can, canAny } from "@/lib/can"
@@ -70,6 +71,7 @@ export const WORKSPACE_NAV_ITEMS: NavItem[] = [
   { title: "Team", to: "/team", icon: Users, permission: "user.create", tourId: "nav-team" },
   { title: "Organisations", to: "/platform", icon: Building2, permission: "platform.read" },
   { title: "Announcements", to: "/announcements", icon: Megaphone, permission: "announcement.manage" },
+  { title: "Pricing", to: "/pricing-settings", icon: Tags, permission: "pricing.manage" },
   { title: "Support inbox", to: "/support-inbox", icon: MessagesSquare, permission: "supportchat.read" },
 ]
 

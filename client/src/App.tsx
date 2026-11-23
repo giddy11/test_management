@@ -34,6 +34,7 @@ const PublicFeedbackPage = lazy(() => import("@/pages/public/PublicFeedbackPage"
 const MyTicketsPage = lazy(() => import("@/pages/public/MyTicketsPage"))
 const DocsPage = lazy(() => import("@/pages/docs/DocsPage"))
 const AnnouncementsPage = lazy(() => import("@/pages/AnnouncementsPage"))
+const PricingSettingsPage = lazy(() => import("@/pages/PricingSettingsPage"))
 const AllFeedbackPage = lazy(() => import("@/pages/feedback/AllFeedbackPage"))
 const SupportQueuePage = lazy(() => import("@/pages/support/SupportQueuePage"))
 const SupportActivityPage = lazy(() => import("@/pages/support/SupportActivityPage"))
@@ -164,6 +165,12 @@ export default function App() {
                   <Route element={<DashboardLayout />}>
                     <Route path="/team" element={<TeamPage />} />
                     <Route path="/activity" element={<ActivityPage />} />
+                  </Route>
+                </Route>
+
+                <Route element={<ProtectedRoute anyOf={["pricing.manage"]} />}>
+                  <Route element={<DashboardLayout />}>
+                    <Route path="/pricing-settings" element={<PricingSettingsPage />} />
                   </Route>
                 </Route>
 

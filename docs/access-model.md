@@ -49,7 +49,7 @@
 
 ---
 
-## 2. Permission catalog — 38 permissions in 8 categories
+## 2. Permission catalog — 39 permissions in 8 categories
 
 > Generated from `server/modules/access/catalog/permissions.catalog.js`, which is the
 > single source the seed, the resolver and the tests all read. If this table and the
@@ -114,7 +114,7 @@ lead's call — or a holder of `project.manageall`. `company.read`, `company.man
 `supporter.manage` were retired for that reason. What stays is the one thing that belongs to
 the company itself, how *its* queue is routed, which is why no product-team role holds it.
 
-### 2.5 Platform inbox & broadcasts — 5
+### 2.5 Platform inbox & broadcasts — 6
 *The in-app support inbox and messages sent to every user — the platform owner's, not any one organisation's.*
 
 | Code | Label | Description |
@@ -124,6 +124,7 @@ the company itself, how *its* queue is routed, which is why no product-team role
 | `supportchat.manage` | Manage support chat | Close conversations, and turn the platform-wide support chat on or off. |
 | `announcement.manage` | Manage announcements | Write, publish and delete product announcements. |
 | `banner.publish` ⚠ | Broadcast site banner | Show a banner to everyone on the platform. **Warning: shown to every user on the platform.** |
+| `pricing.manage` ⚠ | Edit landing page pricing | Change the plans, prices and features shown on the public landing page. **Warning: shown to every visitor of the public website.** |
 
 ### 2.6 Reporting & analytics — 5
 *Management reporting.*
@@ -221,8 +222,9 @@ This is **not** "every permission in the catalog". TestMate is multi-tenant, so
 "administrator" means two different principals, and the catalog keeps them apart:
 
 - **Platform-only** — `platform.read`, `announcement.manage`, `banner.publish`,
-  `supportchat.read` / `.send` / `.manage`: cross-organisation reporting, product
-  announcements, the site banner, and the in-app inbox customers write *to*. These
+  `pricing.manage`, `supportchat.read` / `.send` / `.manage`: cross-organisation
+  reporting, product announcements, the site banner, the landing page pricing, and
+  the in-app inbox customers write *to*. These
   belong to the vendor. They are reachable only through the locked super
   administrator's wildcard and are held by no assignable role.
 - **Support-desk-only** — `supportqueue.*` and `company.autoassign`: an external client

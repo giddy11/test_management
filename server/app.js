@@ -36,6 +36,8 @@ const bugRoutes = require("./modules/bug/routes/bug.routes");
 const bugAttachmentRoutes = require("./modules/bug/routes/bugAttachment.routes");
 const appUpdateRoutes = require("./modules/appUpdate/routes/appUpdate.routes");
 const siteBannerRoutes = require("./modules/siteBanner/routes/siteBanner.routes");
+const pricingRoutes = require("./modules/pricing/routes/pricing.routes");
+const publicPricingRoutes = require("./modules/pricing/routes/publicPricing.routes");
 const organizationRoutes = require("./modules/organization/routes/organization.routes");
 const feedbackRoutes = require("./modules/feedback/routes/feedback.routes");
 const publicFeedbackRoutes = require("./modules/feedback/routes/publicFeedback.routes");
@@ -118,6 +120,7 @@ function createApp() {
   api.use("/service-desk", serviceDeskRoutes); // IT requests — a module of its own, not project-level
   api.use("/app-updates", appUpdateRoutes);
   api.use("/site-banner", siteBannerRoutes);
+  api.use("/pricing", pricingRoutes); // platform owner edits the landing page pricing
   api.use("/organizations", organizationRoutes);
   api.use("/feedback", feedbackRoutes);
   api.use("/support/feedback", feedbackSupportRoutes); // it_support role only
@@ -126,6 +129,7 @@ function createApp() {
   api.use("/live-chat", liveChatRoutes); // operator inbox for the embeddable widget
   api.use("/public/feedback", publicFeedbackRoutes); // unauthenticated, token-gated
   api.use("/public/live-chat", publicLiveChatRoutes); // unauthenticated, token-gated (widget)
+  api.use("/public/pricing", publicPricingRoutes); // unauthenticated, read-only (landing page)
   api.use("/integrations/companies", integrationClientCompanyRoutes); // server-to-server, unauthenticated
   app.use("/api/v1", api);
 

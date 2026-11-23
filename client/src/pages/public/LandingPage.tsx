@@ -13,6 +13,7 @@ import { FeaturesSection } from "@/components/landing/FeaturesSection"
 import { HowItWorksSection } from "@/components/landing/HowItWorksSection"
 import { ShowcaseSection } from "@/components/landing/ShowcaseSection"
 import { BenefitsSection } from "@/components/landing/BenefitsSection"
+import { PricingSection } from "@/components/landing/PricingSection"
 import { FaqSection } from "@/components/landing/FaqSection"
 import { CtaSection } from "@/components/landing/CtaSection"
 import { LandingFooter } from "@/components/landing/LandingFooter"
@@ -63,6 +64,7 @@ export default function LandingPage() {
         <ShowcaseSection />
         <BenefitsSection />
         <SecuritySection />
+        <PricingSection />
         <FaqSection />
         <CtaSection />
       </main>

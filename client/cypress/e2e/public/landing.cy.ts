@@ -1,4 +1,7 @@
-// The marketing home page at "/" — public, no API calls, no login.
+import { ok } from "../../support/api"
+
+// The marketing home page at "/" — public, no login. Its only API call is the
+// pricing section, stubbed here like every other call.
 const SECTION_HEADINGS = [
   "hero-heading",
   "problem-heading",
@@ -8,6 +11,7 @@ const SECTION_HEADINGS = [
   "product-heading",
   "benefits-heading",
   "security-heading",
+  "pricing-heading",
   "faq-heading",
   "cta-heading",
 ]
@@ -15,6 +19,9 @@ const SECTION_HEADINGS = [
 describe("Landing page", () => {
   beforeEach(() => {
     cy.clearLocalStorage()
+    cy.fixture("pricing/public").then((pricing) => {
+      cy.interceptApi("GET", "/public/pricing", { body: ok(pricing) }, "pricing")
+    })
     cy.visit("/")
   })
 
@@ -84,5 +91,27 @@ describe("Landing page", () => {
         doc.documentElement.clientWidth + 1,
       )
     })
+  })
+  it("shows the plans and switches between monthly and yearly prices", () => {
+    cy.wait("@pricing")
+    cy.dataCy("landing-pricing").scrollIntoView()
+    cy.dataCy("pricing-plan-standard").should("contain.text", "$9").and("contain.text", "/ month")
+    cy.dataCy("pricing-plan-free").should("contain.text", "forever")
+
+    cy.dataCy("pricing-billing-toggle").contains("[role=radio]", "Yearly").click()
+    cy.dataCy("pricing-plan-standard").should("contain.text", "$90").and("contain.text", "/ year")
+    cy.dataCy("pricing-plan-standard").find(`a[href="/register"]`).should("exist")
+    cy.get(`header a[href="#pricing"]`).should("exist")
+  })
+
+  it("leaves pricing out when the platform owner hides it", () => {
+    cy.fixture("pricing/public").then((pricing) => {
+      cy.interceptApi("GET", "/public/pricing", { body: ok({ ...pricing, isVisible: false }) }, "hiddenPricing")
+    })
+    cy.visit("/")
+    cy.wait("@hiddenPricing")
+    cy.dataCy("landing-faq").should("exist")
+    cy.dataCy("landing-pricing").should("not.exist")
+    cy.get(`header a[href="#pricing"]`).should("not.exist")
   })
 })

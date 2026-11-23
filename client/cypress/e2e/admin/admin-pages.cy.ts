@@ -95,3 +95,38 @@ describe("Announcements (superadmin)", () => {
     cy.contains("h1", "Announcements").should("be.visible")
   })
 })
+
+describe("Pricing (superadmin)", () => {
+  beforeEach(() => {
+    cy.login("superadmin")
+    cy.fixture("pricing/public").then((content) => {
+      cy.interceptApi("GET", "/pricing", { body: ok({ content, isDefault: true, updatedAt: null }) }, "pricing")
+    })
+  })
+
+  it("edits a plan's feature, previews it and saves", () => {
+    cy.fixture("pricing/public").then((content) => {
+      cy.interceptApi(
+        "PUT",
+        "/pricing",
+        { body: ok({ content, isDefault: false, updatedAt: new Date().toISOString() }) },
+        "savePricing"
+      )
+    })
+
+    cy.visit("/pricing-settings")
+    cy.wait("@pricing")
+    cy.contains("h1", "Pricing").should("be.visible")
+    cy.dataCy("pricing-status").should("contain.text", "built-in defaults")
+    cy.dataCy("pricing-save").should("be.disabled")
+
+    cy.dataCy("pricing-editor-plan-1").find('input[aria-label="Feature 1"]').clear().type("Unlimited projects")
+    cy.dataCy("pricing-save").should("not.be.disabled")
+
+    cy.contains("[role=tab]", "Preview").click()
+    cy.dataCy("pricing-preview").should("contain.text", "Unlimited projects")
+
+    cy.dataCy("pricing-save").click()
+    cy.wait("@savePricing").its("request.body.plans.1.features.0").should("eq", "Unlimited projects")
+  })
+})

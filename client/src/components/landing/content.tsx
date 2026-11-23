@@ -53,6 +53,8 @@ export const LANDING_NAV: LandingNavLink[] = [
   { label: "How it works", href: "#how-it-works" },
   { label: "Product", href: "#product" },
   { label: "Security", href: "#security" },
+  // Shown only while the pricing section is (see LandingHeader).
+  { label: "Pricing", href: "#pricing" },
   { label: "FAQ", href: "#faq" },
 ]
 
