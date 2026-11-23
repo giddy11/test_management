@@ -104,6 +104,31 @@ describe("Landing page", () => {
     cy.get(`header a[href="#pricing"]`).should("exist")
   })
 
+  it("leaves out a plan the platform owner has switched off", () => {
+    cy.fixture("pricing/public").then((pricing) => {
+      const plans = pricing.plans.map((p: { id: string }) => (p.id === "free" ? { ...p, isVisible: false } : p))
+      cy.interceptApi("GET", "/public/pricing", { body: ok({ ...pricing, plans }) }, "oneHidden")
+    })
+    cy.visit("/")
+    cy.wait("@oneHidden")
+    cy.dataCy("landing-pricing").scrollIntoView()
+    cy.dataCy("pricing-plan-free").should("not.exist")
+    cy.dataCy("pricing-plan-standard").should("exist")
+    cy.dataCy("pricing-plan-enterprise").should("exist")
+  })
+
+  it("leaves pricing out when every plan is switched off", () => {
+    cy.fixture("pricing/public").then((pricing) => {
+      const plans = pricing.plans.map((p: object) => ({ ...p, isVisible: false }))
+      cy.interceptApi("GET", "/public/pricing", { body: ok({ ...pricing, plans }) }, "allHidden")
+    })
+    cy.visit("/")
+    cy.wait("@allHidden")
+    cy.dataCy("landing-faq").should("exist")
+    cy.dataCy("landing-pricing").should("not.exist")
+    cy.get(`header a[href="#pricing"]`).should("not.exist")
+  })
+
   it("leaves pricing out when the platform owner hides it", () => {
     cy.fixture("pricing/public").then((pricing) => {
       cy.interceptApi("GET", "/public/pricing", { body: ok({ ...pricing, isVisible: false }) }, "hiddenPricing")

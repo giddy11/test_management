@@ -22,6 +22,10 @@ superadmin account, e.g. one seeded with:
 SUPERADMIN_EMAIL=you@example.com SUPERADMIN_PASSWORD='ChangeMe123!' npm run seed:superadmin
 ```
 
+`SUPERADMIN_EMAIL` takes several addresses separated by commas
+(`you@example.com, teammate@example.com`). New accounts get `SUPERADMIN_PASSWORD`;
+existing accounts keep their own password and are promoted.
+
 ## Running it
 
 Requests are self-priming — run them top to bottom and each one feeds the next via collection

@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Reveal } from "@/components/landing/Reveal"
 import { SectionHeading } from "@/components/landing/SectionHeading"
-import { usePublicPricing } from "@/hooks/usePricing"
+import { usePublicPricing, visiblePlans } from "@/hooks/usePricing"
 import { cn } from "@/lib/utils"
 import type { BillingPeriod, PricingContent, PricingPlan } from "@/types/pricing.types"
 
@@ -144,8 +144,10 @@ function BillingToggle({
 /** The switch, the cards and the footnote — no heading, no fetching. */
 export function PricingPlans({ content }: { content: PricingContent }) {
   const [period, setPeriod] = useState<BillingPeriod>("monthly")
-  const hasPaidPlan = content.plans.some((p) => p.monthlyPrice > 0 || p.yearlyPrice > 0)
-  const cols = content.plans.length
+  // Plans switched off are left out, and the grid sizes itself to what is left.
+  const plans = visiblePlans(content)
+  const hasPaidPlan = plans.some((p) => p.monthlyPrice > 0 || p.yearlyPrice > 0)
+  const cols = plans.length
 
   return (
     <div>
@@ -164,7 +166,7 @@ export function PricingPlans({ content }: { content: PricingContent }) {
           cols >= 4 && "md:grid-cols-2 xl:grid-cols-4",
         )}
       >
-        {content.plans.map((plan, i) => (
+        {plans.map((plan, i) => (
           <Reveal key={plan.id} delay={i * 80} className="h-full">
             <PlanCard plan={plan} period={period} currencySymbol={content.currencySymbol} />
           </Reveal>
@@ -193,9 +195,9 @@ function PricingSkeleton() {
 export function PricingSection() {
   const { data, isLoading, isError } = usePublicPricing()
 
-  // Hidden by the platform owner, or the API is down: leave the section out
-  // rather than show prices that might be wrong.
-  if (isError || (data && !data.isVisible)) return null
+  // Hidden by the platform owner (or every plan is switched off), or the API is
+  // down: leave the section out rather than show prices that might be wrong.
+  if (isError || (data && (!data.isVisible || visiblePlans(data).length === 0))) return null
 
   return (
     <section

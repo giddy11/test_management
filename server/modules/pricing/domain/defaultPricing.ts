@@ -19,6 +19,8 @@ export interface PricingPlan {
   ctaLabel: string;
   // A path inside the app ("/register"), an https:// link or a mailto: link.
   ctaHref: string;
+  // Off keeps the plan saved but hides it from the landing page.
+  isVisible: boolean;
   highlighted: boolean;
   // Small label above the card, e.g. "Most popular". Empty means none.
   badge: string;
@@ -66,6 +68,7 @@ export const DEFAULT_PRICING: PricingContent = Object.freeze({
       ],
       ctaLabel: "Start for free",
       ctaHref: "/register",
+      isVisible: true,
       highlighted: false,
       badge: "",
     },
@@ -88,6 +91,7 @@ export const DEFAULT_PRICING: PricingContent = Object.freeze({
       ],
       ctaLabel: "Start 14-day trial",
       ctaHref: "/register",
+      isVisible: true,
       highlighted: true,
       badge: "Most popular",
     },
@@ -110,6 +114,7 @@ export const DEFAULT_PRICING: PricingContent = Object.freeze({
       ],
       ctaLabel: "Get started",
       ctaHref: "/register",
+      isVisible: true,
       highlighted: false,
       badge: "",
     },

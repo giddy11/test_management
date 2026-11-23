@@ -97,6 +97,20 @@ describe("Announcements (superadmin)", () => {
 })
 
 describe("Pricing (superadmin)", () => {
+  it("turns a plan off and drops it from the preview", () => {
+    cy.login("superadmin")
+    cy.fixture("pricing/public").then((content) => {
+      cy.interceptApi("GET", "/pricing", { body: ok({ content, isDefault: true, updatedAt: null }) }, "pricingOff")
+    })
+    cy.visit("/pricing-settings")
+    cy.wait("@pricingOff")
+    cy.dataCy("pricing-plan-visible-0").click()
+    cy.dataCy("pricing-editor-plan-0").should("contain.text", "Hidden")
+    cy.contains("[role=tab]", "Preview").click()
+    cy.dataCy("pricing-preview").find('[data-cy="pricing-plan-free"]').should("not.exist")
+    cy.dataCy("pricing-preview").find('[data-cy="pricing-plan-standard"]').should("exist")
+  })
+
   beforeEach(() => {
     cy.login("superadmin")
     cy.fixture("pricing/public").then((content) => {

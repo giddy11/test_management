@@ -26,7 +26,8 @@
       "ctaLabel": "Start for free",
       "ctaHref": "/register",
       "highlighted": false,
-      "badge": ""
+      "badge": "",
+      "isVisible": true
     },
     {
       "id": "standard",
@@ -48,7 +49,8 @@
       "ctaLabel": "Start 14-day trial",
       "ctaHref": "/register",
       "highlighted": true,
-      "badge": "Most popular"
+      "badge": "Most popular",
+      "isVisible": true
     },
     {
       "id": "enterprise",
@@ -70,7 +72,8 @@
       "ctaLabel": "Get started",
       "ctaHref": "/register",
       "highlighted": false,
-      "badge": ""
+      "badge": "",
+      "isVisible": true
     }
   ]
 }

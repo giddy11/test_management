@@ -4,10 +4,15 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { PricingEndpoints } from "@/endpoints/pricing.endpoints"
 import { ApiError } from "@/transport/http"
-import type { PricingContent, PricingView } from "@/types/pricing.types"
+import type { PricingContent, PricingPlan, PricingView } from "@/types/pricing.types"
 
 export const PUBLIC_PRICING_KEY = ["pricing", "public"]
 export const PRICING_KEY = ["pricing", "admin"]
+
+/** The plans switched on. Content saved before the switch existed has no value: shown. */
+export function visiblePlans(content: PricingContent): PricingPlan[] {
+  return content.plans.filter((p) => p.isVisible !== false)
+}
 
 /** What anonymous visitors see. Shared by the section and the header link. */
 export function usePublicPricing() {

@@ -16,6 +16,8 @@ export interface PricingPlan {
   ctaLabel: string
   /** A path inside the app ("/register"), an https:// link or a mailto: link. */
   ctaHref: string
+  /** Off hides the plan from the landing page without deleting it. */
+  isVisible: boolean
   highlighted: boolean
   /** Small label above the card, e.g. "Most popular". Empty means none. */
   badge: string

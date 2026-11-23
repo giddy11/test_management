@@ -8,14 +8,17 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog"
 import { SectionHeading } from "@/components/landing/SectionHeading"
+import { CurrencyConvertDialog } from "@/components/pricing/CurrencyConvertDialog"
+import { CURRENCIES, withCurrency } from "@/lib/pricingCurrency"
 import { PricingPlans } from "@/components/landing/PricingSection"
-import { usePricingSettings, useResetPricing, useSavePricing } from "@/hooks/usePricing"
+import { usePricingSettings, useResetPricing, useSavePricing, visiblePlans } from "@/hooks/usePricing"
 import { ApiError } from "@/transport/http"
 import type { PricingContent, PricingPlan } from "@/types/pricing.types"
 
@@ -33,6 +36,7 @@ function newPlan(): PricingPlan {
     features: ["A feature of this plan"],
     ctaLabel: "Get started",
     ctaHref: "/register",
+    isVisible: true,
     highlighted: false,
     badge: "",
   }
@@ -89,7 +93,16 @@ function Field({ label, hint, htmlFor, children }: { label: string; hint?: strin
   )
 }
 
-function SectionSettings({ draft, onChange }: { draft: PricingContent; onChange: (patch: Partial<PricingContent>) => void }) {
+function SectionSettings({
+  draft,
+  onChange,
+  onCurrencyChange,
+}: {
+  draft: PricingContent
+  onChange: (patch: Partial<PricingContent>) => void
+  /** Asks the page to change currency, which opens the convert dialog. */
+  onCurrencyChange: (symbol: string) => void
+}) {
   return (
     <Card>
       <CardHeader>
@@ -116,8 +129,23 @@ function SectionSettings({ draft, onChange }: { draft: PricingContent; onChange:
           <Field label="Small label" htmlFor="pricing-eyebrow" hint="The pill above the heading.">
             <Input id="pricing-eyebrow" value={draft.eyebrow} maxLength={40} onChange={(e) => onChange({ eyebrow: e.target.value })} />
           </Field>
-          <Field label="Currency symbol" htmlFor="pricing-currency" hint="For example $, €, £ or ₦.">
-            <Input id="pricing-currency" value={draft.currencySymbol} maxLength={5} onChange={(e) => onChange({ currencySymbol: e.target.value })} />
+          <Field label="Currency" htmlFor="pricing-currency" hint="Shown in front of every price. Changing it offers to convert the prices for you.">
+            <Select value={draft.currencySymbol} onValueChange={onCurrencyChange}>
+              <SelectTrigger id="pricing-currency" className="w-full" data-cy="pricing-currency">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {/* A symbol saved earlier that isn't in the list stays selectable. */}
+                {!CURRENCIES.some((c) => c.symbol === draft.currencySymbol) && (
+                  <SelectItem value={draft.currencySymbol}>{draft.currencySymbol}</SelectItem>
+                )}
+                {CURRENCIES.map((c) => (
+                  <SelectItem key={c.code} value={c.symbol}>
+                    {c.symbol} — {c.name} ({c.code})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </Field>
         </div>
         <Field label="Heading" htmlFor="pricing-heading">
@@ -173,10 +201,11 @@ function PlanEditor({
     onChange({ features: plan.features.map((f, j) => (j === i ? value : f)) })
 
   return (
-    <Card data-cy={`pricing-editor-plan-${index}`}>
+    <Card data-cy={`pricing-editor-plan-${index}`} className={plan.isVisible ? undefined : "bg-muted/40"}>
       <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 space-y-0">
         <div className="flex min-w-0 items-center gap-2">
           <CardTitle className="truncate text-base">{plan.name.trim() || `Plan ${index + 1}`}</CardTitle>
+          {!plan.isVisible && <Badge variant="secondary">Hidden</Badge>}
           {plan.highlighted && <Badge variant="outline">Highlighted</Badge>}
         </div>
         <div className="flex items-center gap-1">
@@ -192,6 +221,20 @@ function PlanEditor({
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
+        <label className="flex items-start gap-3 rounded-lg border p-3">
+          <Checkbox
+            checked={plan.isVisible}
+            onCheckedChange={(v) => onChange({ isVisible: v === true })}
+            className="mt-0.5"
+            data-cy={`pricing-plan-visible-${index}`}
+          />
+          <span>
+            <span className="block text-sm font-medium">Show this plan on the landing page</span>
+            <span className="block text-xs text-muted-foreground">
+              Turn off to hide it from visitors. Everything you entered here is kept.
+            </span>
+          </span>
+        </label>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Name" htmlFor={fid("name")}>
             <Input id={fid("name")} value={plan.name} maxLength={40} onChange={(e) => onChange({ name: e.target.value })} />
@@ -290,6 +333,8 @@ export default function PricingSettingsPage() {
   const [draft, setDraft] = useState<PricingContent | null>(null)
   const [tab, setTab] = useState("edit")
   const [confirmReset, setConfirmReset] = useState(false)
+  // The currency the owner picked, while the convert dialog is open.
+  const [pendingCurrency, setPendingCurrency] = useState<string | null>(null)
 
   // Start from what's saved, and again after every save or reset.
   useEffect(() => {
@@ -324,6 +369,8 @@ export default function PricingSettingsPage() {
       return { ...d, plans }
     })
 
+  const shownCount = visiblePlans(draft).length
+
   const saveError = save.error instanceof ApiError && save.error.errors.length > 0 ? save.error.errors : null
 
   return (
@@ -339,6 +386,7 @@ export default function PricingSettingsPage() {
               ? "Showing the built-in defaults. Nothing has been saved yet."
               : `Last saved ${new Date(data.updatedAt ?? "").toLocaleString()}.`}
             {!draft.isVisible && " The section is hidden from visitors."}
+            {draft.isVisible && shownCount === 0 && " Every plan is hidden, so the section is hidden too."}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -369,6 +417,14 @@ export default function PricingSettingsPage() {
         </Card>
       )}
 
+      {draft.isVisible && shownCount === 0 && (
+        <Card className="border-amber-500/50 bg-amber-500/5" data-cy="pricing-none-visible">
+          <CardContent className="py-4 text-sm">
+            Every plan is turned off, so visitors won&apos;t see a pricing section at all. Turn on at least one plan to show it.
+          </CardContent>
+        </Card>
+      )}
+
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList>
           <TabsTrigger value="edit">Edit</TabsTrigger>
@@ -378,12 +434,24 @@ export default function PricingSettingsPage() {
         </TabsList>
 
         <TabsContent value="edit" className="space-y-6">
-          <SectionSettings draft={draft} onChange={patch} />
+          <SectionSettings
+            draft={draft}
+            onChange={patch}
+            onCurrencyChange={(symbol) => {
+              if (symbol === draft.currencySymbol) return
+              // With nothing to convert (every price is 0), there is nothing to ask.
+              const hasPaidPlan = draft.plans.some((p) => p.monthlyPrice > 0 || p.yearlyPrice > 0)
+              if (hasPaidPlan) setPendingCurrency(symbol)
+              else setDraft(withCurrency(draft, symbol))
+            }}
+          />
 
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
               <h2 className="text-lg font-semibold">Plans</h2>
-              <p className="text-sm text-muted-foreground">Shown left to right in this order. Up to {MAX_PLANS} plans.</p>
+              <p className="text-sm text-muted-foreground">
+                Shown left to right in this order. {shownCount} of {draft.plans.length} shown. Up to {MAX_PLANS} plans.
+              </p>
             </div>
             <Button
               variant="outline"
@@ -413,9 +481,9 @@ export default function PricingSettingsPage() {
 
         <TabsContent value="preview">
           <div className="rounded-2xl border bg-background px-4 py-12 sm:px-8" data-cy="pricing-preview">
-            {!draft.isVisible && (
+            {(!draft.isVisible || shownCount === 0) && (
               <p className="mb-6 text-center text-sm text-muted-foreground">
-                The section is turned off, so visitors won't see this.
+                {draft.isVisible ? "Every plan is turned off, so visitors won't see this." : "The section is turned off, so visitors won't see this."}
               </p>
             )}
             <SectionHeading
@@ -430,6 +498,19 @@ export default function PricingSettingsPage() {
           </div>
         </TabsContent>
       </Tabs>
+
+      {pendingCurrency && (
+        <CurrencyConvertDialog
+          key={pendingCurrency}
+          content={draft}
+          toSymbol={pendingCurrency}
+          onCancel={() => setPendingCurrency(null)}
+          onApply={(next) => {
+            setDraft(next)
+            setPendingCurrency(null)
+          }}
+        />
+      )}
 
       <ConfirmDialog
         open={confirmReset}

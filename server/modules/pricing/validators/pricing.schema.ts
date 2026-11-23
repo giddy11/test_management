@@ -31,6 +31,8 @@ const planSchema = z.object({
   features: z.array(required(120)).max(15, "At most 15 features"),
   ctaLabel: required(40),
   ctaHref,
+  // Plans saved before this switch existed have no value, which means shown.
+  isVisible: z.boolean().default(true),
   highlighted: z.boolean(),
   badge: text(30),
 });

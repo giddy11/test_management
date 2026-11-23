@@ -18,7 +18,7 @@ import { SectionLink } from "@/components/landing/SectionLink"
 import { LANDING_NAV } from "@/components/landing/content"
 import { homePathFor } from "@/components/layout/nav"
 import { useAuth } from "@/contexts/AuthContext"
-import { usePublicPricing } from "@/hooks/usePricing"
+import { usePublicPricing, visiblePlans } from "@/hooks/usePricing"
 
 export function LandingHeader() {
   const { user, isLoading } = useAuth()
@@ -26,7 +26,7 @@ export function LandingHeader() {
   // Same query as the pricing section, so no second request. The link stays
   // hidden until the section is known to be on the page.
   const { data: pricing } = usePublicPricing()
-  const navLinks = LANDING_NAV.filter((item) => item.href !== "#pricing" || pricing?.isVisible)
+  const navLinks = LANDING_NAV.filter((item) => item.href !== "#pricing" || (pricing?.isVisible && visiblePlans(pricing).length > 0))
 
   return (
     <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">

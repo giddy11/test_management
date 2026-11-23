@@ -13,6 +13,11 @@ export interface PricingView {
   updatedAt: string | null;
 }
 
+// Content saved before plans had an on/off switch has no isVisible: shown.
+function withVisibility(content: PricingContent): PricingContent {
+  return { ...content, plans: content.plans.map((p) => ({ ...p, isVisible: p.isVisible !== false })) };
+}
+
 export class PricingService {
   static Instance = new PricingService();
 
@@ -21,7 +26,7 @@ export class PricingService {
   async get(): Promise<PricingView> {
     const row = await this.repo.find();
     if (!row) return { content: DEFAULT_PRICING, isDefault: true, updatedAt: null };
-    return { content: row.content, isDefault: false, updatedAt: row.updatedAt.toISOString() };
+    return { content: withVisibility(row.content), isDefault: false, updatedAt: row.updatedAt.toISOString() };
   }
 
   // What the public landing page needs: nothing about who edited it or when.
@@ -38,10 +43,10 @@ export class PricingService {
       entityId: null,
       metadata: {
         isVisible: content.isVisible,
-        plans: content.plans.map((p) => ({ id: p.id, name: p.name, monthlyPrice: p.monthlyPrice, yearlyPrice: p.yearlyPrice })),
+        plans: content.plans.map((p) => ({ id: p.id, name: p.name, isVisible: p.isVisible, monthlyPrice: p.monthlyPrice, yearlyPrice: p.yearlyPrice })),
       },
     });
-    return { content: row.content, isDefault: false, updatedAt: row.updatedAt.toISOString() };
+    return { content: withVisibility(row.content), isDefault: false, updatedAt: row.updatedAt.toISOString() };
   }
 
   async reset(actor: { id: string }): Promise<PricingView> {
