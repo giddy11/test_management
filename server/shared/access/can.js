@@ -24,7 +24,7 @@ const { WILDCARD } = require("../../modules/access/catalog/permissions.catalog")
 
 // Marks a handler as the deny-by-default guard so the boot-time audit can tell
 // a declared route from an undeclared one.
-const GUARD_TAG = Symbol.for("testmate.access.guard");
+const GUARD_TAG = Symbol.for("servicedesk4u.access.guard");
 
 function permissionSetOf(actor) {
   if (!actor) return null;

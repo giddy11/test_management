@@ -13,7 +13,7 @@ class TestCaseImportController {
         "Content-Type",
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
       );
-      res.setHeader("Content-Disposition", "attachment; filename=testmate-template.xlsx");
+      res.setHeader("Content-Disposition", "attachment; filename=servicedesk4u-template.xlsx");
       res.status(200).send(Buffer.from(buffer));
     } catch (err) {
       next(err);

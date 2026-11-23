@@ -61,7 +61,7 @@ const FeedbackType = Object.freeze({
 });
 
 // Where a ticket came in from. WHATSAPP = logged by a WhatsApp widget (the
-// embeddable one or TestMate's own in-app one) just before it handed the
+// embeddable one or ServiceDesk4u's own in-app one) just before it handed the
 // person off to WhatsApp — the conversation itself continues there.
 const FeedbackChannel = Object.freeze({
   WEB_FORM: "web_form",

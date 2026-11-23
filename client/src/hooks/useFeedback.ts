@@ -39,13 +39,13 @@ export function useManageFeedback() {
   })
 }
 
-// TestMate's own in-app WhatsApp widget logs a ticket just before its wa.me
+// ServiceDesk4u's own in-app WhatsApp widget logs a ticket just before its wa.me
 // hand-off (see WhatsAppTicketPanel).
-export function useCreateTestMateSupportTicket() {
+export function useCreateServiceDesk4uSupportTicket() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (payload: WhatsAppTicketPayload) => {
-      const res = await FeedbackEndpoints.createTestMateSupportTicket(payload)
+      const res = await FeedbackEndpoints.createServiceDesk4uSupportTicket(payload)
       if (!res.success || !res.data) throw new ApiError(res.message, res.statusCode, res.errors)
       return res.data
     },

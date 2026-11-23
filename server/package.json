@@ -1,7 +1,7 @@
 {
-  "name": "testmate-server",
+  "name": "servicedesk4u-server",
   "version": "1.0.0",
-  "description": "TestMate — Test Case Management API (PERN)",
+  "description": "ServiceDesk4u — Test Case Management API (PERN)",
   "main": "server.js",
   "scripts": {
     "start": "tsx server.js",
@@ -43,7 +43,7 @@
     }
   },
   "keywords": [
-    "testmate",
+    "servicedesk4u",
     "test-management",
     "pern"
   ],

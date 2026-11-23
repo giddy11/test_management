@@ -73,7 +73,7 @@ export function toFeedbackResponse(fb: Feedback | null) {
 // same collapsed status as toMyTicketResponse (internal triage stays
 // internal), but includes submitter identity since this is an aggregate view
 // across many submitters, not one already-known submitter's own history.
-// Never includes assignee/escalation identities — those are TestMate-internal
+// Never includes assignee/escalation identities — those are ServiceDesk4u-internal
 // staff, not the partner's business.
 export function toCompanyTicketResponse(fb: Feedback) {
   return {

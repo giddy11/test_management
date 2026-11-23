@@ -88,7 +88,7 @@ const env = {
     provider: emailProvider,
     user: process.env.EMAIL_USER || "",
     password: process.env.EMAIL_PASSWORD || "",
-    from: process.env.EMAIL_FROM || "TestMate <no-reply@testmate.app>",
+    from: process.env.EMAIL_FROM || "ServiceDesk4u <no-reply@testmate.app>",
     // Google Apps Script web-app /exec URL. Treat as a secret: anyone who has
     // it can send mail as the script owner. Ignored unless provider is "script".
     scriptUrl: process.env.EMAIL_SCRIPT_URL || "",

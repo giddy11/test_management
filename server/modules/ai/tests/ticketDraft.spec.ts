@@ -95,10 +95,10 @@ describe("bug report draft", () => {
 
 const featureReply = (overrides: Partial<FeatureRequestReply> = {}): FeatureRequestReply => ({
   title: "Export test runs to PDF",
-  problemStatement: "Results can't be shared with clients outside TestMate.",
+  problemStatement: "Results can't be shared with clients outside ServiceDesk4u.",
   proposedSolution: "Add an Export to PDF button on a test run.",
   businessJustification: "",
-  expectedOutcome: "Clients receive results without a TestMate account.",
+  expectedOutcome: "Clients receive results without a ServiceDesk4u account.",
   acceptanceCriteria: ["- A run can be exported as PDF", "2. The PDF lists every result"],
   category: "Reporting",
   evidenceSuggestion: "",
@@ -112,9 +112,9 @@ describe("feature request draft", () => {
     const draft = finishFeatureRequest(featureReply());
     expect(draft.description).toBe(
       [
-        "Problem statement\nResults can't be shared with clients outside TestMate.",
+        "Problem statement\nResults can't be shared with clients outside ServiceDesk4u.",
         "Proposed solution\nAdd an Export to PDF button on a test run.",
-        `Expected outcome ${TO_CONFIRM}\nClients receive results without a TestMate account.`,
+        `Expected outcome ${TO_CONFIRM}\nClients receive results without a ServiceDesk4u account.`,
         "Acceptance criteria\n- A run can be exported as PDF\n- The PDF lists every result",
       ].join("\n\n")
     );

@@ -1,6 +1,6 @@
 {
   "info": {
-    "name": "TestMate API",
+    "name": "ServiceDesk4u API",
     "description": "Scoped to testing POST /api/v1/integrations/companies (create/provision a client company). Includes just enough of Auth and Projects to obtain a bearer token and a projectId to provision into. Extend with more module folders as needed — this is not yet a complete mirror of the API.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },

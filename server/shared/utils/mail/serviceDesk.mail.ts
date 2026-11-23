@@ -38,7 +38,7 @@ export async function sendServiceRequestEmail(opts: {
     ${ctaButton(opts.url, opts.ctaLabel)}`;
   return send({
     to: opts.to,
-    subject: `${opts.subject} — TestMate`,
+    subject: `${opts.subject} — ServiceDesk4u`,
     html: emailLayout(body, await resolveFooterEmail(opts.organizationId)),
     text: `Hi ${opts.firstName || "there"}, ${opts.message}${opts.note ? `\n\n${opts.noteLabel ?? "Note"}: ${opts.note}` : ""}\n\n${opts.url}`,
   });

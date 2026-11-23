@@ -79,7 +79,7 @@ const User = new EntitySchema({
       default: false,
     },
     // At most one per client company. Peer leads can manage each other freely,
-    // but only a TestMate admin can change the primary lead's status or
+    // but only a ServiceDesk4u admin can change the primary lead's status or
     // remove them — see ClientCompanyService.
     isPrimarySupportLead: {
       name: "is_primary_support_lead",

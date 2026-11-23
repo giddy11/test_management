@@ -1,13 +1,13 @@
 # Partner Ticket Integration Guide
 
-This is the handoff doc for integrating **your own product** with TestMate's ticketing
+This is the handoff doc for integrating **your own product** with ServiceDesk4u's ticketing
 system: your users raise bugs, feature requests, and complaints **without ever leaving
-your platform** — no redirect to a TestMate-hosted page. You build the form UI; these
+your platform** — no redirect to a ServiceDesk4u-hosted page. You build the form UI; these
 APIs are what it calls.
 
 There are three steps, done once (step 1) and then repeatedly (steps 2–3):
 
-1. **Provision your company** in TestMate — one-time setup, done server-to-server.
+1. **Provision your company** in ServiceDesk4u — one-time setup, done server-to-server.
 2. **Submit tickets** from your own form — called every time a user raises one.
 3. **List your tickets** — called by your own dashboard to show what's been raised.
 
@@ -30,7 +30,7 @@ field.
 
 ## Step 1 — Provision your company
 
-Call this **once** when your customer/company first needs a TestMate ticket form (e.g.
+Call this **once** when your customer/company first needs a ServiceDesk4u ticket form (e.g.
 the moment they sign up on your side). It creates the client company record **and** its
 first IT support account together.
 
@@ -40,7 +40,7 @@ Content-Type: application/json
 ```
 
 **Auth:** none. This endpoint takes no API key — the request identifies its target
-project directly with `projectId`. Get the `projectId` from a TestMate admin: it's shown
+project directly with `projectId`. Get the `projectId` from a ServiceDesk4u admin: it's shown
 in the small "Project ID" row under the project name at the top of the project page.
 
 **Rate limit:** 20 requests / 60 seconds.
@@ -49,12 +49,12 @@ in the small "Project ID" row under the project name at the top of the project p
 
 | Field | Type | Required | Notes |
 |---|---|---|---|
-| `projectId` | string (uuid) | yes | Which TestMate project to provision into |
+| `projectId` | string (uuid) | yes | Which ServiceDesk4u project to provision into |
 | `name` | string | yes | 1–200 characters |
-| `contactEmail` | string | no | Must be unique across every client company in TestMate |
+| `contactEmail` | string | no | Must be unique across every client company in ServiceDesk4u |
 | `supporter.firstName` | string | yes | 1–100 characters |
 | `supporter.lastName` | string | yes | 1–100 characters |
-| `supporter.email` | string | yes | Becomes the company's first IT support login. **No password field** — TestMate generates one and emails it to this address via the standard invite |
+| `supporter.email` | string | yes | Becomes the company's first IT support login. **No password field** — ServiceDesk4u generates one and emails it to this address via the standard invite |
 
 ```json
 {
@@ -105,8 +105,8 @@ in the small "Project ID" row under the project name at the top of the project p
 |---|---|---|
 | 404 | `Project not found` | Bad or deleted `projectId` |
 | 409 | `A client company with this contact email already exists` | `contactEmail` already belongs to another company. **If that company is under the same `projectId` you sent**, `data.company` is that existing company (full shape above) — recover its `feedbackUrl` from there instead of treating this as a dead end. Different project → `data` is `null` |
-| 409 | `This email already belongs to a user account` | `contactEmail` matches an existing TestMate user. Same same-project recovery rule as above |
-| 409 | `An account with this email already exists` | `supporter.email` already belongs to a TestMate user. Same same-project recovery rule as above |
+| 409 | `This email already belongs to a user account` | `contactEmail` matches an existing ServiceDesk4u user. Same same-project recovery rule as above |
+| 409 | `An account with this email already exists` | `supporter.email` already belongs to a ServiceDesk4u user. Same same-project recovery rule as above |
 | 422 | `Validation failed` | A field is missing/malformed — see `errors` |
 | 429 | `Too many requests — please slow down` | More than 20 calls/minute |
 | 500 | `Internal server error` | Unexpected failure. If the supporter account failed to create, the half-made company is rolled back — a retry is safe |
@@ -123,7 +123,7 @@ in the small "Project ID" row under the project name at the top of the project p
 
 ### Backfilling customers who signed up before you integrated
 
-There's no separate "existing account" endpoint — TestMate has no notion of when a
+There's no separate "existing account" endpoint — ServiceDesk4u has no notion of when a
 customer signed up on *your* side, so the same call above is also how you provision
 customers who already existed before you wired this up. Run it as a one-time backfill
 (or lazily, e.g. the first time such a customer opens their ticket form) instead of only
@@ -132,7 +132,7 @@ from your live signup flow:
 1. Loop over your customers that don't yet have a `feedbackToken` saved.
 2. Call `POST /api/v1/integrations/companies` for each, same as Step 1.
 3. Persist the returned `feedbackToken` exactly as you would for a new signup.
-4. If a customer was already provisioned by an earlier partial run (or by a TestMate
+4. If a customer was already provisioned by an earlier partial run (or by a ServiceDesk4u
    admin manually), you'll get the documented `409` with `data.company` populated —
    treat that as success and just read the token off it, not as a failure.
 
@@ -141,7 +141,7 @@ from your live signup flow:
 ## Step 2 — Submit a ticket (your own form)
 
 This is what your custom-built "Raise a ticket" form calls. It's the **same endpoint**
-that powers TestMate's own hosted `/feedback/<token>` page — you're just rendering the
+that powers ServiceDesk4u's own hosted `/feedback/<token>` page — you're just rendering the
 fields yourself instead of sending users to that page.
 
 ```
@@ -164,7 +164,7 @@ submitting IP.
 | `submitterName` | string | yes | 1–120 characters |
 | `submitterEmail` | string | yes | Where lifecycle updates and the "My tickets" lookup code are sent |
 | `submitterPhone` | string | no | E.164 format, e.g. `+2348012345678` |
-| `images` | file[] | no | **The actual image file bytes** (multipart), not a URL — up to 5 files, PNG/JPEG/WebP only, 5 MB each. Repeat the `images` field once per file. If your users' screenshots start out hosted elsewhere, fetch the bytes and attach them here; you can't just pass a link. TestMate uploads them to its own storage and hands back a URL in the [ticket list](#step-3--list-your-tickets-dashboard) response |
+| `images` | file[] | no | **The actual image file bytes** (multipart), not a URL — up to 5 files, PNG/JPEG/WebP only, 5 MB each. Repeat the `images` field once per file. If your users' screenshots start out hosted elsewhere, fetch the bytes and attach them here; you can't just pass a link. ServiceDesk4u uploads them to its own storage and hands back a URL in the [ticket list](#step-3--list-your-tickets-dashboard) response |
 
 ```bash
 curl -X POST https://<your-domain>/api/v1/public/feedback/ae4bc9af-7baa-4890-927c-28af7df9ce00 \
@@ -190,7 +190,7 @@ curl -X POST https://<your-domain>/api/v1/public/feedback/ae4bc9af-7baa-4890-927
 ```
 
 That's the ticket's internal `id`, not a human-readable reference code (e.g.
-`TKT-20260915-007`) — TestMate's own hosted form doesn't show that either. It just
+`TKT-20260915-007`) — ServiceDesk4u's own hosted form doesn't show that either. It just
 confirms submission; the reference code goes out in the confirmation email, and shows up
 in the [ticket list](#step-3--list-your-tickets-dashboard) response below.
 
@@ -205,7 +205,7 @@ in the [ticket list](#step-3--list-your-tickets-dashboard) response below.
 
 ### CORS
 
-Unlike the rest of TestMate's API, everything under `/api/v1/public/feedback/*`
+Unlike the rest of ServiceDesk4u's API, everything under `/api/v1/public/feedback/*`
 (including step 3 below) sends permissive CORS headers — call it **directly from your
 own frontend's JavaScript**, on whatever domain your product runs on. No backend proxy
 required. This is safe because the token is already meant to be shared in a plain URL,
@@ -213,7 +213,7 @@ these routes never use cookies, and every write is separately rate-limited.
 
 > There's also a `GET /api/v1/public/feedback/<feedbackToken>` on the same token, which
 > returns the project's test suites — only useful if you want `suiteName` to mirror
-> TestMate's actual suite list instead of your own categories. Not needed for a normal
+> ServiceDesk4u's actual suite list instead of your own categories. Not needed for a normal
 > integration; see the full docs page in the app if you want it.
 
 ---
@@ -278,7 +278,7 @@ curl "https://<your-domain>/api/v1/public/feedback/ae4bc9af-7baa-4890-927c-28af7
 
 | Field | Notes |
 |---|---|
-| `status` | Collapsed to three values: `received`, `in_progress`, `resolved`. TestMate's internal triage stages (acknowledged/assigned/investigating/escalated/etc.) are deliberately hidden — same simplified view your end users get on TestMate's own "My tickets" page |
+| `status` | Collapsed to three values: `received`, `in_progress`, `resolved`. ServiceDesk4u's internal triage stages (acknowledged/assigned/investigating/escalated/etc.) are deliberately hidden — same simplified view your end users get on ServiceDesk4u's own "My tickets" page |
 | `id` | Internal row id — not the same as `ticketCode` |
 | `attachments` | Screenshots submitted with the ticket, if any |
 
@@ -295,7 +295,7 @@ curl "https://<your-domain>/api/v1/public/feedback/ae4bc9af-7baa-4890-927c-28af7
 > ticket raised against it — names, emails, phone numbers, and descriptions — not just
 > write access to create new ones. Treat it accordingly: don't log it anywhere a
 > browser extension or third-party script could scrape it from, and if it ever leaks,
-> have a TestMate admin rotate it via `POST /api/v1/client-companies/:id/link` with
+> have a ServiceDesk4u admin rotate it via `POST /api/v1/client-companies/:id/link` with
 > `{ "enabled": true }` — note that this generates a brand-new token and permanently
 > invalidates the old one, so only use it for an actual leak, not to "recover" a token
 > you simply forgot to save.

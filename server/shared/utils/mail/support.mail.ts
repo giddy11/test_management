@@ -21,7 +21,7 @@ export async function sendSupporterInviteEmail(
 ) {
   const body = `
     <h1 style="margin:0 0 12px;font-size:22px;font-weight:700;color:#0f172a">Your support account is ready</h1>
-    <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.65">Hi ${firstName}, a TestMate support account has been created for you as an IT supporter at <strong>${companyName}</strong>. You'll triage feedback from your users about <strong>${productName}</strong> — resolve what you can locally, and escalate the rest to the product team.</p>
+    <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.65">Hi ${firstName}, a ServiceDesk4u support account has been created for you as an IT supporter at <strong>${companyName}</strong>. You'll triage feedback from your users about <strong>${productName}</strong> — resolve what you can locally, and escalate the rest to the product team.</p>
     <table role="presentation" cellpadding="0" cellspacing="0" style="background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:10px;padding:20px 24px;margin:0 0 24px;width:100%">
       <tr><td style="font-size:13px;color:#6b7280;padding-bottom:6px">Email</td></tr>
       <tr><td style="font-size:15px;font-weight:600;color:#0f172a;padding-bottom:14px">${to}</td></tr>
@@ -32,9 +32,9 @@ export async function sendSupporterInviteEmail(
     <p style="margin:0;font-size:13px;color:#9ca3af">Please change your password after your first sign-in.</p>`;
   return send({
     to,
-    subject: "Your support account is ready — TestMate",
+    subject: "Your support account is ready — ServiceDesk4u",
     html: emailLayout(body, await resolveFooterEmail(organizationId)),
-    text: `Hi ${firstName}, your TestMate support account for ${companyName} (product: ${productName}) has been created.\nEmail: ${to}\nTemporary password: ${password}\nSign in at: ${loginUrl}`,
+    text: `Hi ${firstName}, your ServiceDesk4u support account for ${companyName} (product: ${productName}) has been created.\nEmail: ${to}\nTemporary password: ${password}\nSign in at: ${loginUrl}`,
   });
 }
 
@@ -55,7 +55,7 @@ export async function sendSupportQueueAlertEmail(
     ${ctaButton(url, "Open support queue")}`;
   return send({
     to,
-    subject: `New ${typeLabel} in your queue — ${productName} — TestMate`,
+    subject: `New ${typeLabel} in your queue — ${productName} — ServiceDesk4u`,
     html: emailLayout(body, await resolveFooterEmail(organizationId)),
     text: `${submitterName} submitted "${title}" (${typeLabel}) about ${productName}. It's waiting in your support queue.`,
   });
@@ -144,7 +144,7 @@ export async function sendSupportItemAssignedEmail(
     ${ctaButton(url, "Open support queue")}`;
   return send({
     to,
-    subject: `Ticket assigned to you — ${title} — TestMate`,
+    subject: `Ticket assigned to you — ${title} — ServiceDesk4u`,
     html: emailLayout(body, await resolveFooterEmail(organizationId)),
     text: `${assignedByName} assigned you "${title}" (about ${productName}) in ${companyName}'s support queue.`,
   });
@@ -168,7 +168,7 @@ export async function sendSupportChatOfflineAlertEmail(
     ${ctaButton(url, "Open support inbox")}`;
   return send({
     to,
-    subject: `New support message from ${senderName} — TestMate`,
+    subject: `New support message from ${senderName} — ServiceDesk4u`,
     html: emailLayout(body, await resolveFooterEmail(organizationId)),
     text: `${senderName} sent a message in the in-app support chat while no admin was online: "${preview}". Reply at: ${url}`,
   });

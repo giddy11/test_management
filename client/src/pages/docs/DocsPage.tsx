@@ -203,7 +203,7 @@ export default function DocsPage() {
             </div>
             <div className="leading-tight">
               <span className="block text-base font-semibold">
-                Test<span className="text-primary">Mate</span>
+                ServiceDesk<span className="text-primary">4u</span>
               </span>
               <span className="hidden text-xs text-muted-foreground sm:block">
                 Documentation &amp; user guide
@@ -229,7 +229,7 @@ export default function DocsPage() {
 
         <main className="min-w-0 max-w-3xl flex-1 py-10">
           <div className="mb-12">
-            <h1 className="text-3xl font-bold tracking-tight">TestMate Documentation</h1>
+            <h1 className="text-3xl font-bold tracking-tight">ServiceDesk4u Documentation</h1>
             <p className="mt-2 text-lg text-muted-foreground">
               Everything you need to plan tests, execute runs, and track bugs, feature requests,
               and tickets with your team.
@@ -263,7 +263,7 @@ export default function DocsPage() {
           </div>
 
           <footer className="mt-16 border-t pt-6 pb-10 text-sm text-muted-foreground">
-            TestMate — Simplified test planning, execution, and tracking.
+            ServiceDesk4u — Simplified test planning, execution, and tracking.
           </footer>
         </main>
 

@@ -32,8 +32,8 @@ export const FeedbackEndpoints = {
   fetchAll: (params: FetchFeedbackParams) =>
     wrapCall<Feedback[]>("GET", "/api/v1/feedback", params as unknown as Record<string, unknown>),
 
-  // TestMate's own in-app WhatsApp widget, just before its wa.me hand-off.
-  createTestMateSupportTicket: (payload: WhatsAppTicketPayload) =>
+  // ServiceDesk4u's own in-app WhatsApp widget, just before its wa.me hand-off.
+  createServiceDesk4uSupportTicket: (payload: WhatsAppTicketPayload) =>
     wrapCall<WhatsAppTicketResult>(
       "POST",
       "/api/v1/feedback/testmate-support",

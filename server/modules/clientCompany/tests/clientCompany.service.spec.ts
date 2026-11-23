@@ -272,7 +272,7 @@ describe("ClientCompanyService", () => {
       expect(companyRepo.update).not.toHaveBeenCalled();
     });
 
-    it("403s a TestMate admin — no admin fallback for this setting", async () => {
+    it("403s a ServiceDesk4u admin — no admin fallback for this setting", async () => {
       await expect(service.setAutoAssign(admin, "cc-1", true)).rejects.toMatchObject({
         statusCode: 403,
       });

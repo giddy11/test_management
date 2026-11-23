@@ -1,6 +1,6 @@
 // components/contact-support/WhatsAppTicketPanel.tsx
 // WhatsAppChatPanel plus a hand-off that also logs a ticket — shared by
-// TestMate's own in-app widget (ContactSupportWidget) and the embeddable one
+// ServiceDesk4u's own in-app widget (ContactSupportWidget) and the embeddable one
 // (WhatsAppWidgetPage). Collects who's writing (name and email, unless the
 // caller already knows them), an optional phone number, a topic and the full
 // message. On send it logs the ticket first, then opens WhatsApp with the
@@ -26,7 +26,7 @@ import {
   type WhatsAppTicketResult,
 } from "@/types/feedback.types"
 
-// Matches the server's message limit (whatsAppTicketSchema / testMateSupportTicketSchema).
+// Matches the server's message limit (whatsAppTicketSchema / serviceDesk4uSupportTicketSchema).
 const MAX_MESSAGE_LEN = 4000
 const MAX_PAGE_URL_LEN = 500
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/

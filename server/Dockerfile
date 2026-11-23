@@ -1,4 +1,4 @@
-# TestMate API — Cloud Run container
+# ServiceDesk4u API — Cloud Run container
 FROM node:22-slim
 
 ENV NODE_ENV=production

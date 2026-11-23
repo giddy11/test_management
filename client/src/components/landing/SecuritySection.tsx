@@ -1,4 +1,4 @@
-// components/landing/SecuritySection.tsx — from the TestMate overview deck
+// components/landing/SecuritySection.tsx — from the ServiceDesk4u overview deck
 // ("Security and Major Platform Reliability"). The four supporting points are
 // the controls the application actually implements.
 import { Card, CardContent } from "@/components/ui/card"

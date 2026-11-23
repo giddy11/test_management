@@ -1,8 +1,8 @@
 /*!
- * TestMate live-chat embed loader.
+ * ServiceDesk4u live-chat embed loader.
  *
  * Usage:
- *   <script async src="https://<your-testmate-domain>/live-chat-widget.js" data-token="YOUR_WIDGET_TOKEN"></script>
+ *   <script async src="https://<your-servicedesk4u-domain>/live-chat-widget.js" data-token="YOUR_WIDGET_TOKEN"></script>
  *
  * This file intentionally stays framework-free vanilla JS — it's the one
  * piece of the widget that runs directly in the host page's own document, so
@@ -15,13 +15,13 @@
 (function () {
   "use strict";
 
-  if (window.__testmateLiveChatLoaded) return; // idempotent — a page can only include this once
-  window.__testmateLiveChatLoaded = true;
+  if (window.__servicedesk4uLiveChatLoaded) return; // idempotent — a page can only include this once
+  window.__servicedesk4uLiveChatLoaded = true;
 
   var currentScript = document.currentScript;
   var token = currentScript && currentScript.getAttribute("data-token");
   if (!token) {
-    console.error("[TestMate Live Chat] Missing data-token attribute on the embed <script> tag.");
+    console.error("[ServiceDesk4u Live Chat] Missing data-token attribute on the embed <script> tag.");
     return;
   }
 

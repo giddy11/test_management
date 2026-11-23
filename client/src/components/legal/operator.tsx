@@ -15,7 +15,7 @@
 import { Placeholder } from "@/components/legal/prose"
 
 /** Product name, as used throughout both documents. */
-export const PRODUCT_NAME = "TestMate"
+export const PRODUCT_NAME = "ServiceDesk4u"
 
 /** Kept in sync manually — shown in both documents' title bands. */
 export const LAST_UPDATED = "25 August 2026"

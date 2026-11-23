@@ -35,7 +35,7 @@ export const DASHBOARD_GUIDE: TourGuide = {
   icon: Compass,
   roles: [UserRole.ADMIN],
   steps: [
-    { id: "welcome", title: "Welcome to TestMate 👋", description: "Let's take a 60-second tour of your new workspace." },
+    { id: "welcome", title: "Welcome to ServiceDesk4u 👋", description: "Let's take a 60-second tour of your new workspace." },
     { id: "nav-dashboard", target: '[data-tour="nav-dashboard"]', side: "right", align: "center",
       title: "Your Dashboard", description: "A live snapshot of testing activity across your whole organisation." },
     { id: "nav-projects", target: '[data-tour="nav-projects"]', side: "right", align: "center",
@@ -46,7 +46,7 @@ export const DASHBOARD_GUIDE: TourGuide = {
       title: "Key metrics", description: "Track projects, suites, cases, and runs at a glance." },
     { id: "nav-settings", target: '[data-tour="nav-settings"]', side: "right", align: "center",
       title: "Settings", description: "Manage your profile and security — and replay any guide anytime from Settings → Help." },
-    { id: "done", title: "You're all set!", description: "Explore TestMate at your own pace. Happy testing!" },
+    { id: "done", title: "You're all set!", description: "Explore ServiceDesk4u at your own pace. Happy testing!" },
   ],
 }
 
@@ -119,13 +119,13 @@ export const ADD_TEAM_MEMBER_GUIDE: TourGuide = {
 export const SHARE_FEEDBACK_LINK_GUIDE: TourGuide = {
   id: "share-feedback-link",
   title: "Share a ticket link",
-  description: "Let people outside your company submit bugs and feature requests without a TestMate account.",
+  description: "Let people outside your company submit bugs and feature requests without a ServiceDesk4u account.",
   icon: MessageSquareHeart,
   roles: [UserRole.ADMIN, UserRole.SUPERADMIN],
   requiresProject: true,
   steps: [
     { id: "sf-welcome", title: "Share a ticket link",
-      description: "Every project has a public link you can share with people outside your company — end users, clients, testers — so they can report bugs and feature requests without signing up for TestMate." },
+      description: "Every project has a public link you can share with people outside your company — end users, clients, testers — so they can report bugs and feature requests without signing up for ServiceDesk4u." },
     { id: "sf-feedback-tab", target: '[data-tour="feedback-tab-trigger"]', side: "bottom", align: "center",
       advanceOnClick: true, title: "Open the Tickets tab", description: "Click \"Tickets\" to manage your project's public link." },
     { id: "sf-link-card", target: '[data-tour="feedback-link-card"]', side: "top", align: "start",

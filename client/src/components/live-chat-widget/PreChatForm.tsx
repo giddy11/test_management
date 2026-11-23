@@ -32,7 +32,7 @@ export function PreChatForm({ pending, onSubmit }: Props) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-3 p-4">
-      <p className="text-right text-[0.7rem] text-muted-foreground">Live chat by TestMate</p>
+      <p className="text-right text-[0.7rem] text-muted-foreground">Live chat by ServiceDesk4u</p>
       <div className="space-y-1.5">
         <Label htmlFor="pcf-name">Your name</Label>
         <Input id="pcf-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" />

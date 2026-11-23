@@ -31,7 +31,7 @@ function generateOtp(digits = 6) {
   return String(n).padStart(digits, "0");
 }
 
-// One-off password for an account TestMate creates on someone else's behalf
+// One-off password for an account ServiceDesk4u creates on someone else's behalf
 // (e.g. a provisioned IT support lead) — emailed once via the invite, never
 // shown in any UI. Satisfies createSupporterSchema's policy (8+ chars, an
 // uppercase letter, a digit) so it'd also pass if ever submitted through that

@@ -1,10 +1,10 @@
-# TestMate E2E Testing (Cypress)
+# ServiceDesk4u E2E Testing (Cypress)
 
-End-to-end tests for the TestMate client, written in TypeScript with Cypress.
+End-to-end tests for the ServiceDesk4u client, written in TypeScript with Cypress.
 
 ## The one rule that shapes everything
 
-**TestMate's dev and prod environments share one database.** E2E tests must
+**ServiceDesk4u's dev and prod environments share one database.** E2E tests must
 never create, edit, or delete real data. The suite is therefore **fully
 network-stubbed by default**: every API call is intercepted with
 `cy.intercept()` and answered with fixtures shaped like the backend's

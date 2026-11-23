@@ -102,7 +102,7 @@ export default function RegisterPage() {
         <CardHeader className="text-center">
           <CardTitle className="text-2xl">Create your organisation</CardTitle>
           <CardDescription>
-            Register your company on Test<span className="text-primary">Mate</span>
+            Register your company on ServiceDesk<span className="text-primary">4u</span>
           </CardDescription>
         </CardHeader>
         <CardContent>

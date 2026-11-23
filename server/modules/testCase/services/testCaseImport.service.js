@@ -98,7 +98,7 @@ function assertTemplateColumns(headers) {
   const unexpected = [...new Set(headers.filter((h) => !TEMPLATE_HEADERS.includes(h)))];
   if (unexpected.length) {
     throw new AppError(
-      `These columns aren't part of the TestMate template: ${unexpected.join(", ")}. Please download the template and import that.`,
+      `These columns aren't part of the ServiceDesk4u template: ${unexpected.join(", ")}. Please download the template and import that.`,
       422
     );
   }

@@ -1,4 +1,4 @@
-# Access audit — TestMate
+# Access audit — ServiceDesk4u
 
 **Status:** Phase 1 deliverable (read-only audit). No code was changed to produce this.
 **Date:** 2026-09-20
@@ -6,7 +6,7 @@
 deliberately left as the "before" picture rather than updated in place.
 **Scope:** `server/` (Express + TypeORM + PostgreSQL API) and `client/` (React 19 + Vite + React Router 7 SPA).
 
-This document inventories who can currently do what in TestMate, how that is enforced,
+This document inventories who can currently do what in ServiceDesk4u, how that is enforced,
 and where the enforcement has gaps. It is the input to `docs/access-model.md`, which
 designs the permission catalog that replaces the current role checks.
 
@@ -50,7 +50,7 @@ permission model has to account for them:
 |---|---|---|
 | **Project team lead** | `project_members.role` = `team_lead` or `member` (`ProjectMemberRole`) | A `user` who is a team lead sees every suite and case in that project and may manage it (`ProjectService.canManageProject`). A plain `member` only sees what they are assigned. Purely per-project. |
 | **Support lead** | `users.is_support_lead` (boolean) | An `it_support` account that may assign queue items to teammates and manage the company's supporter roster. |
-| **Primary support lead** | `users.is_primary_support_lead` (boolean) | At most one per client company. Peer leads cannot demote or remove them — only a TestMate admin can. |
+| **Primary support lead** | `users.is_primary_support_lead` (boolean) | At most one per client company. Peer leads cannot demote or remove them — only a ServiceDesk4u admin can. |
 | **Org owner** | derived (`UserService.isOrgOwner`) | The registering admin. Cannot be edited or deleted by peers. Surfaced to the client as `User.isOrgOwner`. |
 
 ### 1.3 Unauthenticated principals
@@ -385,7 +385,7 @@ carrying `role` for one release as a fallback.
 
 ## 7. Summary
 
-TestMate has a **four-value role enum checked by name in two places** — a route-level
+ServiceDesk4u has a **four-value role enum checked by name in two places** — a route-level
 allowlist and roughly seventy inline service comparisons — with a third, parallel set of
 checks in the client. Roles are code, not data: they cannot be created, edited, or
 inspected by an administrator, and their member counts are unknowable without a query.

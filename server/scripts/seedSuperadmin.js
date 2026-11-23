@@ -99,7 +99,7 @@ async function run() {
         users.create({
           firstName: process.env.SUPERADMIN_FIRST_NAME || "Super",
           lastName: process.env.SUPERADMIN_LAST_NAME || "Admin",
-          companyName: "TestMate",
+          companyName: "ServiceDesk4u",
           email,
           password: passwordHash,
           role: UserRole.SUPERADMIN,

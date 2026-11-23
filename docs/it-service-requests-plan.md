@@ -37,7 +37,7 @@ IT Requests is **not** a testing feature. It serves a different buyer (the IT ma
 different audience (every employee) and a different question ("can I get what I need to do my
 job?"). It is built as **its own module** that shares only the platform underneath.
 
-| Shared with the rest of TestMate (built once) | Owned by IT Requests alone |
+| Shared with the rest of ServiceDesk4u (built once) | Owned by IT Requests alone |
 |---|---|
 | Sign-in and the organisation | Its tables: `service_desk_settings`, `service_catalog_*`, `service_request*` |
 | **Team**: one list of people per organisation | Its pages, under its own **IT requests** sidebar section |
@@ -141,7 +141,7 @@ brochure's pitch is simple: **"one place for every request, so nothing depends o
 someone's memory, and the answer is already there when an auditor asks."** The features behind that
 pitch fall into four groups.
 
-| ALVAO capability | What it really means | Business value | TestMate today |
+| ALVAO capability | What it really means | Business value | ServiceDesk4u today |
 |---|---|---|---|
 | **Service catalog and self-service portal** | Employees pick from a tiled menu of services ("Request a laptop", "Access to Salesforce"), each with its own form. | Requests arrive complete and already categorised, so nobody has to triage them by hand. This is the single biggest saving. | ❌ Only one generic ticket form per project or client company. |
 | **Smart workflows that categorise, prioritise and route** | Rules route each request to the right approver or team. | Removes manual routing. Requests stop sitting in the wrong queue. | 🟡 Client-company auto-assign exists (`company.autoassign`), but it is round-robin, not rule-based. |
@@ -154,7 +154,7 @@ pitch fall into four groups.
 | **Asset management / CMDB / Autopilot** | Knows which devices and software exist, who has them, and their dependencies. Discovery via Intune and Entra ID. | Answers "what do we own and where is it". Up to 95% of asset updates automated. | ❌ A separate product line. Out of scope here (§11). |
 | **Integrations** (Teams, Entra ID, Intune, Power Automate, Jira, REST API, MCP) | Meets users where they already work, and lets other tools do the provisioning. | Adoption, plus automation without building every connector. | 🟡 Partner integration API for client companies. No outbound webhooks. |
 
-**The lesson for TestMate:** TestMate already has about 40% of an ITSM product: a ticket lifecycle,
+**The lesson for ServiceDesk4u:** ServiceDesk4u already has about 40% of an ITSM product: a ticket lifecycle,
 a client-company IT support tier, SLA, notifications, audit and AI. What it lacks is the part that
 turns *tickets* into *service requests*:
 
@@ -165,7 +165,7 @@ turns *tickets* into *service requests*:
 
 The user stories ask for exactly those four things. ALVAO's own pitch also shows how to deliver
 them without building dozens of integrations: **let Power Automate, Logic Apps or a webhook do the
-provisioning.** TestMate's job is to decide *whether* something may happen and to record *that* it
+provisioning.** ServiceDesk4u's job is to decide *whether* something may happen and to record *that* it
 happened.
 
 ---
@@ -173,8 +173,8 @@ happened.
 ## 2. Reading the user stories
 
 - **"DOMS"** appears in stories 1 and 3 ("submit IT service requests through DOMS", "integration
-  with DOMS approval workflows"). Story 2 says "I want **TestMate** to configure…". This plan
-  assumes DOMS is the customer's name for the platform, so the module is built inside TestMate.
+  with DOMS approval workflows"). Story 2 says "I want **ServiceDesk4u** to configure…". This plan
+  assumes DOMS is the customer's name for the platform, so the module is built inside ServiceDesk4u.
   **Confirm this (Q1).**
 - Story 2's "configure automation rules" and "AI-assisted workflow engine" are two different
   things. The business rules settle it: **AI recommends, rules decide** (BR 2.1: "AI
@@ -200,7 +200,7 @@ happened.
 | D4 | Approval authority ("not beyond their assigned authority", story 3 BR 2) | **Approver groups carry a maximum risk level** (`low`, `medium`, `high`, `critical`). A step for a *high* risk request can only be decided by a group whose limit is *high* or above. Enforced in the service and recorded on the decision. |
 | D5 | Auto-approval | Off by default. Only possible on a catalog item whose admin has ticked **auto-approve**, *and* whose rule conditions pass, *and* whose risk level is `low`. Never for items marked **privileged**. The rule is checked at decision time, not configuration time. |
 | D6 | Automated fulfilment | A **connector** interface. v1 ships `manual` (a task for a person), `webhook` (signed HTTP POST to Power Automate, Logic Apps, n8n and similar, with a callback URL to report the result) and `deflect` (send the requester to a self-service link). Native Entra ID or Intune connectors come in Phase 4. |
-| D7 | Escalation timer | TestMate has **no job runner** (SLA breach is computed at query time). Escalation must *act*, so add one in-process **sweeper** (`setInterval`, every 5 min) guarded by a Postgres advisory lock so that only one instance runs it. It is idempotent: each escalation level is recorded once. |
+| D7 | Escalation timer | ServiceDesk4u has **no job runner** (SLA breach is computed at query time). Escalation must *act*, so add one in-process **sweeper** (`setInterval`, every 5 min) guarded by a Postgres advisory lock so that only one instance runs it. It is idempotent: each escalation level is recorded once. |
 | D8 | Reference numbers | `SR-000123` from a dedicated sequence, so the existing ticket numbers are untouched. |
 | D9 | Configurable form fields | A **JSON field schema** per catalog item (text, textarea, select, multi-select, date, user-picker, number, checkbox, attachment), validated on the server by building a Zod schema from it. No form-builder library. |
 | D10 | AI | Two features on the existing AI layer: `service_request_intake` (turns free text into a suggested catalog item, priority and missing fields) and `service_request_triage` (a risk and routing *recommendation* shown to approvers). Both are advisory. |
@@ -349,7 +349,7 @@ automation run with the reason.
 
 ### 6.2 Webhook connector (the high-leverage one)
 
-When a request is approved, TestMate POSTs a signed payload (HMAC-SHA256 header, timestamp,
+When a request is approved, ServiceDesk4u POSTs a signed payload (HMAC-SHA256 header, timestamp,
 idempotency key = the run id) to the configured endpoint. The payload holds the request, the form
 values and a one-time **callback URL**. Power Automate or Logic Apps does the real provisioning:
 it adds the user to an Entra ID group, assigns a licence, or creates a cloud resource. It then
@@ -359,8 +359,8 @@ calls back with `succeeded` or `failed` and details.
   goes to the fulfilment team as a manual task, and the team lead is notified (AC 2.11).
 - Every attempt is a row in `service_automation_runs` (AC 2.9). The system identity is recorded
   as `automation:<rule or connector id>`, and the initiating user as `initiated_by_id` (BR 2.6).
-- **No credentials for the target systems are ever stored in TestMate.** They stay in the
-  customer's Power Automate tenant. TestMate holds only the webhook signing secret, sealed with
+- **No credentials for the target systems are ever stored in ServiceDesk4u.** They stay in the
+  customer's Power Automate tenant. ServiceDesk4u holds only the webhook signing secret, sealed with
   `secretBox`. This is least privilege (tech note 2.5), and it is also why D6 defers native
   connectors.
 
@@ -375,11 +375,11 @@ queue.
 Two configurations, chosen per organisation on the *password reset* catalog item:
 
 - **Deflect (recommended):** the item shows the identity provider's self-service reset link
-  (Entra SSPR, Google, Okta). Nothing is sent to TestMate, and the request is recorded as
+  (Entra SSPR, Google, Okta). Nothing is sent to ServiceDesk4u, and the request is recorded as
   *fulfilled by deflection* for reporting.
 - **Assisted:** the service desk agent must complete a **verification checklist** before fulfilment
   can start (method used, for example a manager call-back or ID check, plus who verified it and
-  when). `preflight` refuses without it. **TestMate never stores or transmits the new password.**
+  when). `preflight` refuses without it. **ServiceDesk4u never stores or transmits the new password.**
   The agent resets it in the identity provider and marks the request fulfilled.
 
 ---
@@ -513,8 +513,8 @@ covers the *where is it, who has it* question auditors ask without building disc
 
 ## 13. Open questions (answers change the build)
 
-1. **Q1. What is DOMS?** Is it the customer's name for TestMate (the assumption here), or a separate
-   system TestMate must integrate with for approvals and notifications?
+1. **Q1. What is DOMS?** Is it the customer's name for ServiceDesk4u (the assumption here), or a separate
+   system ServiceDesk4u must integrate with for approvals and notifications?
 2. **Q2. Requesters:** only the organisation's own staff (D2), or also client-company end users from day one?
 3. **Q3. Identity provider:** does the target customer use Entra ID? If so, a native Entra connector
    (Phase 4) may be worth promoting, and SSPR deflection for passwords is a given.

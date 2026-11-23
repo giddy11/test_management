@@ -244,7 +244,7 @@ export class ClientCompanyService {
 
   // ── Server-to-server company provisioning (no auth — see route comment) ────
   // A partner's own backend calls this the moment one of their customers signs
-  // up, so no TestMate admin has to add the client company (or its first
+  // up, so no ServiceDesk4u admin has to add the client company (or its first
   // supporter) by hand — same all-or-nothing pairing as createCompany, just
   // with no human actor to attribute it to (ActivityService.log tolerates a
   // null actor) and a server-generated password in place of one a human
@@ -424,7 +424,7 @@ export class ClientCompanyService {
     const existingSupporters = await this.userRepo.findByClientCompany(company.id);
 
     // Adding supporters is the company's own call, not the product team's —
-    // a TestMate admin can only step in to bootstrap a company that
+    // a ServiceDesk4u admin can only step in to bootstrap a company that
     // currently has none (its automatic first supporter — see createCompany
     // — never got created, or its last one was since removed).
     if (!isExternalSupporter(actor) && existingSupporters.length > 0) {
@@ -443,7 +443,7 @@ export class ClientCompanyService {
   }
 
   // A company's roster must never end up non-empty with zero leads — that
-  // would strand it until a TestMate admin steps in to re-promote someone
+  // would strand it until a ServiceDesk4u admin steps in to re-promote someone
   // (see setSupporterLead / removeSupporter). Dropping to zero supporters
   // entirely is fine — that's the normal path to deleting the company.
   private async assertLeadRemovalSafe(companyId: string, excludingUserId: string): Promise<void> {
@@ -479,7 +479,7 @@ export class ClientCompanyService {
       );
     }
     // Peer leads can manage each other freely, but the primary lead is
-    // protected from anyone but a TestMate admin.
+    // protected from anyone but a ServiceDesk4u admin.
     if (user.isPrimarySupportLead && isExternalSupporter(actor)) {
       throw new AppError("Only the product team can remove the primary lead", 403);
     }
@@ -519,7 +519,7 @@ export class ClientCompanyService {
       );
     }
     // Peer leads can promote/demote each other freely, but the primary lead
-    // is protected from anyone but a TestMate admin.
+    // is protected from anyone but a ServiceDesk4u admin.
     if (user.isPrimarySupportLead && isExternalSupporter(actor)) {
       throw new AppError("Only the product team can change the primary lead's status", 403);
     }

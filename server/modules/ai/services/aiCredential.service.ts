@@ -172,7 +172,7 @@ export class AiCredentialService {
     const owner = this.ownerFor(actor, scope);
     if (!this.secret.configured) {
       throw new AppError(
-        "AI keys can't be saved yet: the server has no AI_KEYS_SECRET set. Ask whoever runs TestMate to add it.",
+        "AI keys can't be saved yet: the server has no AI_KEYS_SECRET set. Ask whoever runs ServiceDesk4u to add it.",
         503
       );
     }

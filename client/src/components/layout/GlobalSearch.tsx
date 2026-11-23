@@ -127,7 +127,7 @@ export function GlobalSearch() {
         }}
         onFocus={() => setOpen(true)}
         onKeyDown={onKeyDown}
-        placeholder="Search TestMate…"
+        placeholder="Search ServiceDesk4u…"
         aria-label="Search projects, suites, cases, runs and tickets"
         role="combobox"
         aria-expanded={showPanel}

@@ -88,7 +88,7 @@ export function AiKeysCard({ scope, title, description }: AiKeysCardProps) {
             <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-600" />
             <p>
               Keys can't be saved yet: the server has no <code>AI_KEYS_SECRET</code> set, which is used to
-              encrypt them. Ask whoever runs TestMate to add it.
+              encrypt them. Ask whoever runs ServiceDesk4u to add it.
             </p>
           </div>
         )}
@@ -156,7 +156,7 @@ export function AiKeysCard({ scope, title, description }: AiKeysCardProps) {
         description={
           removing?.isActive
             ? "This is the key in use. AI will switch to another saved key if there is one, otherwise AI stops until a key is added."
-            : "The key is deleted from TestMate. You can add it again later."
+            : "The key is deleted from ServiceDesk4u. You can add it again later."
         }
         confirmLabel="Remove key"
         loading={remove.isPending}

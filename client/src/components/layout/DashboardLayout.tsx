@@ -17,9 +17,9 @@ import { PresenceProvider } from "@/contexts/PresenceContext"
 import { useAuth } from "@/contexts/AuthContext"
 import { PageLoader } from "@/components/shared/PageLoader"
 import { InstallAppButton } from "@/components/pwa/InstallAppButton"
-// The old in-app support chat stays commented out, not deleted. TestMate's own
+// The old in-app support chat stays commented out, not deleted. ServiceDesk4u's own
 // support goes through WhatsApp instead: ContactSupportWidget hands the message
-// off to TestMate's support number. (A project's own number is separate — it
+// off to ServiceDesk4u's support number. (A project's own number is separate — it
 // only powers the embeddable widget on that project's external site, see
 // WhatsAppWidgetPage.)
 // import { SupportChatWidget } from "@/components/support-chat/SupportChatWidget"
@@ -44,7 +44,7 @@ export function DashboardLayout() {
           <header className="sticky top-0 z-10 flex h-14 shrink-0 items-center gap-2 border-b bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/60">
             <SidebarTrigger className="-ml-1" />
             <Separator orientation="vertical" className="mr-2 h-4" />
-            <span className="hidden text-sm font-medium sm:inline">TestMate</span>
+            <span className="hidden text-sm font-medium sm:inline">ServiceDesk4u</span>
             <div className="ml-auto flex min-w-0 flex-1 items-center justify-end gap-1 sm:flex-initial">
               <InstallAppButton className="mr-1" />
               {can("project.read") && <GlobalSearch />}

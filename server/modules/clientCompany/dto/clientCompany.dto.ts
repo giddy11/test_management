@@ -25,7 +25,7 @@ export interface SupporterResponseDTO {
   name: string;
   email: string;
   isSupportLead: boolean;
-  // At most one true per company. Only a TestMate admin can change this
+  // At most one true per company. Only a ServiceDesk4u admin can change this
   // person's lead status or remove them — peer leads can't.
   isPrimarySupportLead: boolean;
   createdAt: Date;

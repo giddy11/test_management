@@ -143,7 +143,7 @@ const ALL_CODES = PERMISSIONS.map((p) => p.code);
 
 // ── The two boundaries the catalog has to respect ────────────────────────────
 //
-// TestMate is multi-tenant, so "administrator" means two different principals
+// ServiceDesk4u is multi-tenant, so "administrator" means two different principals
 // and they must not be conflated:
 //
 //   - the PLATFORM OWNER (the vendor) runs the platform: cross-organisation

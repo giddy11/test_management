@@ -115,7 +115,7 @@ export const ResultEndpoints = {
 
 export const ImportEndpoints = {
   downloadTemplate: () =>
-    downloadFile("/api/v1/test-cases/template", "testmate-template.xlsx"),
+    downloadFile("/api/v1/test-cases/template", "servicedesk4u-template.xlsx"),
   upload: (suiteId: string, file: File) =>
     uploadWithFields<ImportPreview>("/api/v1/test-cases/import", file, { suiteId }),
   preview: (importId: string) =>

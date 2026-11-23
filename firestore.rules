@@ -24,7 +24,7 @@ service cloud.firestore {
     }
     // Ticket comment threads. Unlike the two collections above, one of the
     // legitimate readers here is a genuinely anonymous member of the public
-    // (a ticket submitter with no TestMate account) — not just an
+    // (a ticket submitter with no ServiceDesk4u account) — not just an
     // already-logged-in app user taking a secondary read path. Their only
     // credential is the ticket's id (an unguessable uuid), the same bearer-
     // credential trust model already used by the public confirmation page

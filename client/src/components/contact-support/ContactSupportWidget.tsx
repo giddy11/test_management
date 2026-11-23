@@ -1,11 +1,11 @@
 // components/contact-support/ContactSupportWidget.tsx
 // Floating "Contact support" button (bottom-right by default) for every
 // signed-in user. Opens a small WhatsApp-styled chat panel that logs a ticket
-// in the "TestMate Support" project (created automatically server-side), then
-// hands the message — with the ticket's reference — off to TestMate's own
+// in the "ServiceDesk4u Support" project (created automatically server-side), then
+// hands the message — with the ticket's reference — off to ServiceDesk4u's own
 // support WhatsApp number via a wa.me deep link. See WhatsAppTicketPanel.
 //
-// This is TestMate's own support line, not a project's: the per-project
+// This is ServiceDesk4u's own support line, not a project's: the per-project
 // numbers (see ProjectSupportNumberField) only power the embeddable widget on
 // a project's external site (see WhatsAppWidgetPage).
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react"
@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/contexts/AuthContext"
-import { useCreateTestMateSupportTicket } from "@/hooks/useFeedback"
+import { useCreateServiceDesk4uSupportTicket } from "@/hooks/useFeedback"
 import { PageLoader } from "@/components/shared/PageLoader"
 
 // The button is on every page, but the panel (and the Firestore client its
@@ -27,12 +27,12 @@ const WhatsAppTicketPanel = lazy(() =>
 // Separates a drag from a click — a release after moving less than this never
 // opens the dialog.
 const DRAG_THRESHOLD = 5
-// TestMate's own support WhatsApp number, in international format.
+// ServiceDesk4u's own support WhatsApp number, in international format.
 const SUPPORT_WHATSAPP_NUMBER = "+2347031170092"
 
 export function ContactSupportWidget() {
   const { user } = useAuth()
-  const createTicket = useCreateTestMateSupportTicket()
+  const createTicket = useCreateServiceDesk4uSupportTicket()
 
   const [open, setOpen] = useState(false)
 
@@ -146,14 +146,14 @@ export function ContactSupportWidget() {
           {/* Mounted only while open (Radix unmounts closed content), so every open starts fresh. */}
           <Suspense fallback={<PageLoader className="min-h-0 h-full rounded-xl bg-background" />}>
             <WhatsAppTicketPanel
-              title="TestMate support"
+              title="ServiceDesk4u support"
               phoneNumber={SUPPORT_WHATSAPP_NUMBER}
               onClose={() => setOpen(false)}
               createTicket={createTicket.mutateAsync}
               knownSender={user ? { name: user.name || user.email, email: user.email, phone: user.phoneNumber } : undefined}
-              // Context so TestMate's support knows who's messaging and from where.
+              // Context so ServiceDesk4u's support knows who's messaging and from where.
               describeSender={(s) =>
-                [`${s.name} (${s.email})`, user?.companyName, "Sent from the TestMate app"].filter(Boolean).join(" — ")
+                [`${s.name} (${s.email})`, user?.companyName, "Sent from the ServiceDesk4u app"].filter(Boolean).join(" — ")
               }
               pageUrl={window.location.href}
             />

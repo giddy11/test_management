@@ -6,7 +6,7 @@
 // A Tester holds result.read exactly as an administrator does — what stops them
 // reading someone else's results is the scoping layer, not the permission. The
 // reference model's "a parent cannot read another family's data" is this test
-// in TestMate's own terms:
+// in ServiceDesk4u's own terms:
 //
 //   a Tester cannot reach a project they are not on,
 //   a Tester cannot touch a result for a case not assigned to them,

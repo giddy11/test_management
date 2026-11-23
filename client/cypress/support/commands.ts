@@ -1,4 +1,4 @@
-// cypress/support/commands.ts — reusable commands for the TestMate E2E suite.
+// cypress/support/commands.ts — reusable commands for the ServiceDesk4u E2E suite.
 //
 // The default strategy is fully network-stubbed: dev and prod share one
 // database, so tests must never hit a real API. cy.login() seeds fake tokens

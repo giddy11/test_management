@@ -1,5 +1,5 @@
 // components/landing/ProblemSection.tsx — the case for consolidating, from the
-// TestMate overview deck ("The Core Problem Stats").
+// ServiceDesk4u overview deck ("The Core Problem Stats").
 import { Card, CardContent } from "@/components/ui/card"
 import { Reveal } from "@/components/landing/Reveal"
 import { SectionHeading } from "@/components/landing/SectionHeading"

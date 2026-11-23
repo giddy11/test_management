@@ -1,5 +1,5 @@
 // Migration: distinguishes one "primary" support lead per client company from
-// regular leads. Peer leads can manage each other freely, but only a TestMate
+// regular leads. Peer leads can manage each other freely, but only a ServiceDesk4u
 // admin can change the primary lead's status or remove them — see
 // ClientCompanyService.setSupporterLead/removeSupporter/setPrimarySupportLead.
 import type { MigrationInterface, QueryRunner } from "typeorm";

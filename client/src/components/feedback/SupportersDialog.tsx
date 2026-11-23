@@ -1,5 +1,5 @@
 // Manage a client company's IT supporter accounts: list, add (creates a real
-// TestMate it_support login and emails them credentials), remove.
+// ServiceDesk4u it_support login and emails them credentials), remove.
 import { useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -89,7 +89,7 @@ export function SupportersDialog({ company, onOpenChange }: Props) {
   const initials = (name: string) =>
     name.split(" ").map((p) => p[0]).slice(0, 2).join("").toUpperCase() || "?"
 
-  // Adding supporters is the company's own call — a TestMate admin can only
+  // Adding supporters is the company's own call — a ServiceDesk4u admin can only
   // step in to bootstrap a company that currently has none (mirrors the
   // service-side check in ClientCompanyService.createSupporter).
   const canAdd = !isAdmin || (!isLoading && supporters.length === 0)
@@ -117,7 +117,7 @@ export function SupportersDialog({ company, onOpenChange }: Props) {
         <DialogHeader>
           <DialogTitle>IT supporters — {company?.name}</DialogTitle>
           <DialogDescription>
-            Supporter accounts sign in to TestMate and see only this company's ticket queue —
+            Supporter accounts sign in to ServiceDesk4u and see only this company's ticket queue —
             they resolve what they can and escalate the rest to your team.
           </DialogDescription>
         </DialogHeader>
@@ -163,7 +163,7 @@ export function SupportersDialog({ company, onOpenChange }: Props) {
         <div className="space-y-1">
           {supporters.map((s) => {
             const isSelf = s.id === user?.id
-            // Peer leads can manage each other freely, but only a TestMate
+            // Peer leads can manage each other freely, but only a ServiceDesk4u
             // admin can change the primary lead's status or remove them.
             const primaryLockedForActor = s.isPrimarySupportLead && !isAdmin
             return (

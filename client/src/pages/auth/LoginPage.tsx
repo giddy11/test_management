@@ -41,7 +41,7 @@ export default function LoginPage() {
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl">
-            Test<span className="text-primary">Mate</span>
+            ServiceDesk<span className="text-primary">4u</span>
           </CardTitle>
           <CardDescription>Sign in to your account</CardDescription>
         </CardHeader>

@@ -65,7 +65,7 @@ export const HERO = {
   /** Rendered in the brand gradient, so keep it to the closing clause. */
   headlineAccent: "More efficient IT services.",
   subhead:
-    "TestMate is an all-in-one platform for managing software testing, defects, service requests, and IT operations — so your teams stop stitching four tools together.",
+    "ServiceDesk4u is an all-in-one platform for managing software testing, defects, service requests, and IT operations — so your teams stop stitching four tools together.",
   primaryCta: { label: "Start your free trial", to: "/register" },
   secondaryCta: { label: "Read the docs", to: "/docs" },
   note: "Free to set up · Verify your email · No credit card",
@@ -212,7 +212,7 @@ export const FEATURES: Feature[] = [
     icon: MessageCircle,
     title: "Live chat widget",
     description:
-      "Embed a chat widget on your own website and answer visitors from inside TestMate, without leaving the app.",
+      "Embed a chat widget on your own website and answer visitors from inside ServiceDesk4u, without leaving the app.",
   },
   {
     icon: Webhook,
@@ -391,7 +391,7 @@ export const DASHBOARD_BENEFITS: DashboardBenefit[] = [
 export const SECURITY = {
   eyebrow: "Security & reliability",
   title: "Built for secure, reliable IT service delivery",
-  lead: "TestMate is designed to support organisations that require secure access, reliable service management, controlled workflows, and continuous availability across their IT operations.",
+  lead: "ServiceDesk4u is designed to support organisations that require secure access, reliable service management, controlled workflows, and continuous availability across their IT operations.",
 } as const
 
 export interface SecurityPoint {
@@ -579,7 +579,7 @@ export interface SocialLink {
 }
 export const SOCIAL_LINKS: SocialLink[] = []
 
-/** Contact details, from the TestMate overview deck. */
+/** Contact details, from the ServiceDesk4u overview deck. */
 export const CONTACT = {
   email: "support@thegrowthplug.com",
   phone: "+234 916 381 8000",

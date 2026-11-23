@@ -1,6 +1,6 @@
 // components/live-chat-widget/LiveChatAuthForm.tsx
 // The opt-in alternative to PreChatForm: shown when the project requires a
-// real TestMate account for this widget (LiveChatWidgetConfig.requireAccount)
+// real ServiceDesk4u account for this widget (LiveChatWidgetConfig.requireAccount)
 // instead of a free-form name/email/phone. Toggles between login and signup
 // in place rather than being two separate views.
 import { useState, type FormEvent } from "react"
@@ -42,7 +42,7 @@ export function LiveChatAuthForm({ pending, error, onLogin, onRegister }: Props)
 
   return (
     <div className="space-y-3 p-4">
-      <p className="text-right text-[0.7rem] text-muted-foreground">Live chat by TestMate</p>
+      <p className="text-right text-[0.7rem] text-muted-foreground">Live chat by ServiceDesk4u</p>
       <div>
         <h3 className="text-sm font-semibold">{mode === "login" ? "Log in to chat" : "Create an account"}</h3>
         <p className="text-xs text-muted-foreground">

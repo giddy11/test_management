@@ -327,7 +327,7 @@ export default function LiveChatWidgetPage() {
               <div className="border-t p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
                 <WidgetComposer pending={sendMessage.isPending} onSend={handleSend} />
                 <p className="mt-1.5 text-right text-[0.65rem] text-muted-foreground">
-                  Live chat by TestMate
+                  Live chat by ServiceDesk4u
                 </p>
               </div>
             </>

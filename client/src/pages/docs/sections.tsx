@@ -220,15 +220,15 @@ const ALL_SECTIONS: DocSection[] = [
     id: "introduction",
     title: "Introduction",
     icon: BookOpen,
-    summary: "What TestMate is and how it is organised.",
+    summary: "What ServiceDesk4u is and how it is organised.",
     body: (
       <div className="space-y-4">
         <P>
-          <Strong>TestMate</Strong> is a test management platform for software teams. It gives your
+          <Strong>ServiceDesk4u</Strong> is a test management platform for software teams. It gives your
           organisation one place to plan testing work, execute it, and track everything that falls
           out of it — bugs, feature requests, and tickets from the people using your product.
         </P>
-        <P>Everything in TestMate lives inside your organisation and is organised as:</P>
+        <P>Everything in ServiceDesk4u lives inside your organisation and is organised as:</P>
         <UL>
           <li>
             <Strong>Projects</Strong> — the top-level container, usually one per product or product
@@ -248,7 +248,7 @@ const ALL_SECTIONS: DocSection[] = [
           </li>
         </UL>
         <P>
-          Around that core, TestMate adds bug tracking, feature requests with voting and comments, a
+          Around that core, ServiceDesk4u adds bug tracking, feature requests with voting and comments, a
           public ticket portal for external users, a live chat widget you can embed on your own
           website, a two-tier support model for client companies with their own IT desk, team
           management, an activity log, and a dashboard that rolls all of it up.
@@ -269,7 +269,7 @@ const ALL_SECTIONS: DocSection[] = [
             <a href="#it-requests" className="font-medium text-primary hover:underline">IT requests</a>.
           </li>
         </UL>
-        <Screenshot caption="TestMate at a glance — the dashboard after signing in" src={shotDashboard} />
+        <Screenshot caption="ServiceDesk4u at a glance — the dashboard after signing in" src={shotDashboard} />
       </div>
     ),
   },
@@ -542,7 +542,7 @@ const ALL_SECTIONS: DocSection[] = [
 
         <H3>The import template</H3>
         <P>
-          TestMate only imports <Strong>.xlsx</Strong> files that follow its own template. Open a
+          ServiceDesk4u only imports <Strong>.xlsx</Strong> files that follow its own template. Open a
           suite, click <Strong>Import</Strong>, then <Strong>Download template</Strong> to get the
           pre-formatted sheet. Fill it in using these columns, in the order the template lays them
           out (<Strong>*</Strong> marks a required column):
@@ -560,7 +560,7 @@ const ALL_SECTIONS: DocSection[] = [
                 <td className="whitespace-nowrap px-3 py-2 font-medium">ID *</td>
                 <td className="px-3 py-2 text-muted-foreground">
                   A unique value for each row — numbers, codes, or IDs from your own tracker all
-                  work. TestMate uses it to skip duplicates, both within the file and against cases
+                  work. ServiceDesk4u uses it to skip duplicates, both within the file and against cases
                   already imported into the suite. Every row must have one.
                 </td>
               </tr>
@@ -828,7 +828,7 @@ const ALL_SECTIONS: DocSection[] = [
         </P>
         <H3>Has this been raised before?</H3>
         <P>
-          As you type the title of a new bug or feature request, TestMate looks through the
+          As you type the title of a new bug or feature request, ServiceDesk4u looks through the
           project’s earlier bugs, feature requests and tickets — including ones that are already
           fixed or closed — for titles that read alike. Anything close appears under the title as{" "}
           <Strong>This may have been raised before</Strong>, with its status and date. Nothing is
@@ -929,7 +929,7 @@ const ALL_SECTIONS: DocSection[] = [
         <P>
           Every project can have a <Strong>public ticket link</Strong> — a token-gated form that
           external users (customers, stakeholders, beta testers) can open{" "}
-          <Strong>without a TestMate account</Strong>. Share the link from the project’s{" "}
+          <Strong>without a ServiceDesk4u account</Strong>. Share the link from the project’s{" "}
           <Strong>Tickets</Strong> tab.
         </P>
         <H3>What submitters see</H3>
@@ -1037,7 +1037,7 @@ const ALL_SECTIONS: DocSection[] = [
           guardrails apply:
         </P>
         <UL>
-          <li>A company with supporters must always have at least one lead — demote or remove the last one and TestMate asks you to promote someone first.</li>
+          <li>A company with supporters must always have at least one lead — demote or remove the last one and ServiceDesk4u asks you to promote someone first.</li>
           <li>Leads can’t remove themselves or change their own lead status — that’s how someone locks themselves out.</li>
           <li>The <Strong>primary lead</Strong> can only be changed or removed by the product team, not by a peer lead.</li>
           <li>A company must have zero supporters before it can be deleted.</li>
@@ -1100,7 +1100,7 @@ const ALL_SECTIONS: DocSection[] = [
     id: "live-chat",
     title: "Live chat widget",
     icon: MessageCircle,
-    summary: "Embed a chat widget on your own site and answer from inside TestMate.",
+    summary: "Embed a chat widget on your own site and answer from inside ServiceDesk4u.",
     body: (
       <div className="space-y-4">
         <P>
@@ -1141,7 +1141,7 @@ const ALL_SECTIONS: DocSection[] = [
           <li><Strong>Greeting message</Strong> — the first thing a visitor reads.</li>
           <li><Strong>Offline message</Strong> — shown when nobody is around to answer.</li>
           <li>
-            <Strong>Require a TestMate account to chat</Strong> — off by default. When off, visitors
+            <Strong>Require a ServiceDesk4u account to chat</Strong> — off by default. When off, visitors
             fill in a short pre-chat form (email required; name and phone optional) and start
             typing. When on, they log in or sign up first, which lets them pick their conversation
             back up from any device.
@@ -1181,7 +1181,7 @@ const ALL_SECTIONS: DocSection[] = [
         <P>
           Setting up a new client company by hand is fine for a handful of companies, but doesn't
           scale if your own product signs up new customers on its own. This{" "}
-          <Strong>server-to-server</Strong> endpoint lets your backend call TestMate the moment
+          <Strong>server-to-server</Strong> endpoint lets your backend call ServiceDesk4u the moment
           one of your customers registers, creating the{" "}
           <a href="#client-companies" className="font-medium text-primary hover:underline">
             client company
@@ -1212,7 +1212,7 @@ const ALL_SECTIONS: DocSection[] = [
           "Add client company" flow, the company's first IT support account (its primary lead) is
           created in the same call, so there's no window where the company's tickets sit in a queue
           nobody can see. There's no <Code>password</Code> field: your backend isn't a human
-          choosing one, so TestMate generates one and emails it to <Code>supporter.email</Code> via
+          choosing one, so ServiceDesk4u generates one and emails it to <Code>supporter.email</Code> via
           the usual invite.
         </P>
         <H3>Response — <Code>201 Created</Code></H3>
@@ -1261,7 +1261,7 @@ const ALL_SECTIONS: DocSection[] = [
                 <td className="whitespace-nowrap px-3 py-2 font-medium">data.company.id</td>
                 <td className="whitespace-nowrap px-3 py-2 text-muted-foreground">string (uuid)</td>
                 <td className="px-3 py-2 text-muted-foreground">
-                  TestMate's id for the new client company. Use it for the authenticated{" "}
+                  ServiceDesk4u's id for the new client company. Use it for the authenticated{" "}
                   <Code>/api/v1/client-companies/:id/*</Code> endpoints.
                 </td>
               </tr>
@@ -1297,7 +1297,7 @@ const ALL_SECTIONS: DocSection[] = [
                 <td className="whitespace-nowrap px-3 py-2 font-medium">data.company.feedbackUrl</td>
                 <td className="whitespace-nowrap px-3 py-2 text-muted-foreground">string | null</td>
                 <td className="px-3 py-2 text-muted-foreground">
-                  The full ticket-form URL — TestMate's app origin plus{" "}
+                  The full ticket-form URL — ServiceDesk4u's app origin plus{" "}
                   <Code>/feedback/&lt;feedbackToken&gt;</Code>. Share this with the company's users.{" "}
                   <Code>null</Code> whenever <Code>feedbackToken</Code> is.
                 </td>
@@ -1402,7 +1402,7 @@ const ALL_SECTIONS: DocSection[] = [
                 <td className="whitespace-nowrap px-3 py-2 font-medium">409</td>
                 <td className="px-3 py-2 text-muted-foreground">An account with this email already exists</td>
                 <td className="px-3 py-2 text-muted-foreground">
-                  <Code>supporter.email</Code> already belongs to a TestMate user. If that user
+                  <Code>supporter.email</Code> already belongs to a ServiceDesk4u user. If that user
                   supports a company under this same <Code>projectId</Code>,{" "}
                   <Code>data.company</Code> is that company.
                 </td>
@@ -1456,17 +1456,17 @@ const ALL_SECTIONS: DocSection[] = [
     id: "ticket-form-api",
     title: "Ticket submission API",
     icon: Webhook,
-    summary: "Build your own ticket form and post straight into TestMate.",
+    summary: "Build your own ticket form and post straight into ServiceDesk4u.",
     body: (
       <div className="space-y-4">
         <P>
           The <a href="#feedback-portal" className="font-medium text-primary hover:underline">
             public ticket portal
           </a>{" "}
-          works by sending people to TestMate's own hosted <Code>/feedback/&lt;token&gt;</Code> page.
+          works by sending people to ServiceDesk4u's own hosted <Code>/feedback/&lt;token&gt;</Code> page.
           If you'd rather keep them on your own product entirely — your own layout, your own fields
           arranged your way — build that form yourself and call the same two endpoints it uses
-          under the hood. No page navigation, no TestMate branding.
+          under the hood. No page navigation, no ServiceDesk4u branding.
         </P>
         <P>
           These take the project's (or client company's) <Code>feedbackToken</Code> — the same one
@@ -1566,7 +1566,7 @@ const ALL_SECTIONS: DocSection[] = [
                 <td className="px-3 py-2 text-muted-foreground">
                   <Strong>The actual image file bytes</Strong> (multipart), not a URL — up to 5
                   files, PNG/JPEG/WebP only, 5&nbsp;MB each. Repeat the{" "}
-                  <Code>images</Code> field once per file. TestMate uploads them to its own
+                  <Code>images</Code> field once per file. ServiceDesk4u uploads them to its own
                   storage and hands back a URL in the ticket's <Code>attachments</Code>.
                 </td>
               </tr>
@@ -1705,7 +1705,7 @@ const ALL_SECTIONS: DocSection[] = [
 }`}</CodeBlock>
         <P>
           <Code>status</Code> is collapsed to <Code>received</Code> / <Code>in_progress</Code> /{" "}
-          <Code>resolved</Code> — the same simplified view your end users get on TestMate's own "My
+          <Code>resolved</Code> — the same simplified view your end users get on ServiceDesk4u's own "My
           tickets" page. Internal triage detail (acknowledged/assigned/investigating/escalated/etc.)
           is deliberately hidden here too.
         </P>
@@ -1748,7 +1748,7 @@ const ALL_SECTIONS: DocSection[] = [
         </div>
         <H3>Cross-origin calls</H3>
         <P>
-          Unlike the rest of TestMate's API, everything under{" "}
+          Unlike the rest of ServiceDesk4u's API, everything under{" "}
           <Code>/api/v1/public/feedback/*</Code> sends permissive CORS headers — call it directly
           from your own frontend's JavaScript, from whatever domain your product runs on, no server
           proxy required. It's safe to open up because the token is already meant to be shared in a
@@ -1756,7 +1756,7 @@ const ALL_SECTIONS: DocSection[] = [
         </P>
         <H3>Security notes</H3>
         <UL>
-          <li>Treat the <Code>feedbackToken</Code> the same way you'd treat the hosted link — anyone who has it can submit tickets under that project or company, <Strong>and read every ticket raised against it</Strong> (names, emails, phone numbers, descriptions). Don't log it in a place a browser extension or third-party script could scrape it from, and rotate it (via a TestMate admin) if it ever leaks.</li>
+          <li>Treat the <Code>feedbackToken</Code> the same way you'd treat the hosted link — anyone who has it can submit tickets under that project or company, <Strong>and read every ticket raised against it</Strong> (names, emails, phone numbers, descriptions). Don't log it in a place a browser extension or third-party script could scrape it from, and rotate it (via a ServiceDesk4u admin) if it ever leaks.</li>
           <li>There's no per-submitter identity check beyond the email they type in — <Code>submitterEmail</Code> is trusted as given, the same as the hosted form.</li>
         </UL>
       </div>
@@ -1796,7 +1796,7 @@ const ALL_SECTIONS: DocSection[] = [
     body: (
       <div className="space-y-4">
         <P>
-          TestMate ships release notes and product updates as <Strong>announcements</Strong>. When
+          ServiceDesk4u ships release notes and product updates as <Strong>announcements</Strong>. When
           there’s something you haven’t seen yet, a <Strong>What’s New</Strong> dialog pops up after
           you sign in, so the whole team hears about changes without leaving the app.
         </P>
@@ -1863,7 +1863,7 @@ const ALL_SECTIONS: DocSection[] = [
           The <Strong>theme toggle</Strong> in the top-right corner of the app (and of this page)
           switches between light, dark, and system themes. Notifications arrive under the{" "}
           <Strong>bell icon</Strong> in the header, and the floating <Strong>support chat</Strong>{" "}
-          button lets you message the TestMate team without leaving the app.
+          button lets you message the ServiceDesk4u team without leaving the app.
         </P>
         <Screenshot caption="Settings — profile, security, and help tabs" src={shotSettings} />
       </div>
@@ -1996,7 +1996,7 @@ const ALL_SECTIONS: DocSection[] = [
     body: (
       <div className="space-y-4">
         <P>
-          TestMate’s AI turns what you write in your own words into a properly filled-in form, and
+          ServiceDesk4u’s AI turns what you write in your own words into a properly filled-in form, and
           asks about anything that’s missing. It <Strong>never submits or changes anything on its
           own</Strong>: you read the result, edit it, and press the form’s usual button.
         </P>
@@ -2100,7 +2100,7 @@ const ALL_SECTIONS: DocSection[] = [
             rules” into a bug doesn’t change what the AI does.
           </li>
           <li>
-            TestMate records that a request happened (feature, model, time, success, tokens) for the
+            ServiceDesk4u records that a request happened (feature, model, time, success, tokens) for the
             usage report — not the words you wrote or the reply.
           </li>
         </UL>

@@ -7,7 +7,7 @@ export type FeedbackType = "feature_request" | "bug" | "complaint"
 export type FeedbackChannel = "web_form" | "whatsapp"
 
 // Logged by a WhatsApp widget just before its wa.me hand-off (see
-// WhatsAppTicketPanel). TestMate's own in-app widget leaves out name and
+// WhatsAppTicketPanel). ServiceDesk4u's own in-app widget leaves out name and
 // email — the server takes them from the signed-in account.
 export interface WhatsAppTicketPayload {
   type: FeedbackType

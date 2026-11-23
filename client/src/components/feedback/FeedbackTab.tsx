@@ -170,7 +170,7 @@ export function FeedbackTab({ projectId, canManage }: Props) {
             </CardTitle>
             <CardDescription>
               Share (or embed) this link in your application so end users — even those not on
-              TestMate — can raise feature requests, bugs and complaints. They'll receive email
+              ServiceDesk4u — can raise feature requests, bugs and complaints. They'll receive email
               updates as you progress each item.
             </CardDescription>
           </CardHeader>

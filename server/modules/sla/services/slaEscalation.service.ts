@@ -10,7 +10,7 @@
 //            configured, whoever holds sla.configure)
 //   level 3  the same again, marked critical
 //
-// TestMate has no job runner, so this runs in-process: on a timer, and on demand
+// ServiceDesk4u has no job runner, so this runs in-process: on a timer, and on demand
 // when someone opens the SLA dashboard. A Postgres advisory lock means only one
 // server sweeps at a time, and the unique (issue, target, level) row means a
 // level is never sent twice — so running it too often is harmless.

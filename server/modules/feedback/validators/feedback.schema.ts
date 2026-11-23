@@ -25,10 +25,10 @@ export const submitFeedbackSchema = z.object({
   }),
 });
 
-// TestMate's own in-app WhatsApp widget logs a ticket just before handing
+// ServiceDesk4u's own in-app WhatsApp widget logs a ticket just before handing
 // the user off to wa.me. Name, email and company come from their account
 // server-side, so only the message and its context are posted.
-export const testMateSupportTicketSchema = z.object({
+export const serviceDesk4uSupportTicketSchema = z.object({
   body: z.object({
     type: z.enum(feedbackTypes),
     message: z.string().trim().min(1).max(4000),

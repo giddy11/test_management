@@ -37,7 +37,7 @@ export default function OrganizationsPage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Organisations</h1>
         <p className="text-sm text-muted-foreground">
-          Every company using TestMate, across all accounts.
+          Every company using ServiceDesk4u, across all accounts.
         </p>
       </div>
 

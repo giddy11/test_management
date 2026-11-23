@@ -73,7 +73,7 @@ export function WhatsNewDialog() {
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Sparkles className="size-4 text-primary" /> What's new in TestMate
+            <Sparkles className="size-4 text-primary" /> What's new in ServiceDesk4u
           </DialogTitle>
           <DialogDescription>
             {updates.length === 1

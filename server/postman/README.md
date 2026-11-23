@@ -1,4 +1,4 @@
-# TestMate Postman collection
+# ServiceDesk4u Postman collection
 
 Scoped to testing `POST /api/v1/integrations/companies` — the endpoint that provisions a new
 client company. It is **not** a complete mirror of the
@@ -7,9 +7,9 @@ get a bearer token and a `projectId`) plus the Integrations — Companies folder
 
 ## Import
 
-1. Postman → Import → select both `TestMate.postman_collection.json` and
-   `TestMate.postman_environment.json`.
-2. Select the **TestMate — Local** environment in the top-right environment picker.
+1. Postman → Import → select both `ServiceDesk4u.postman_collection.json` and
+   `ServiceDesk4u.postman_environment.json`.
+2. Select the **ServiceDesk4u — Local** environment in the top-right environment picker.
 3. If your server runs on a different port/host, edit the environment's `baseUrl`.
 
 ## Getting a working login

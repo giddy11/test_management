@@ -33,7 +33,7 @@ beforeEach(() => {
     provider: "nodemailer",
     user: "sender@gmail.com",
     password: "app-password",
-    from: "TestMate <sender@gmail.com>",
+    from: "ServiceDesk4u <sender@gmail.com>",
     scriptUrl: SCRIPT_URL,
   });
   mockSendMail.mockResolvedValue({ messageId: "m1" });
@@ -49,7 +49,7 @@ describe("send() — provider: nodemailer", () => {
     await send(message);
 
     expect(mockSendMail).toHaveBeenCalledWith({
-      from: "TestMate <sender@gmail.com>",
+      from: "ServiceDesk4u <sender@gmail.com>",
       to: message.to,
       subject: message.subject,
       html: message.html,

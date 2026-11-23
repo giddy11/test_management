@@ -356,7 +356,7 @@ export default function AnnouncementsPage() {
         <h1 className="text-2xl font-semibold tracking-tight">Announcements</h1>
         <p className="text-sm text-muted-foreground">
           Publish an update for all users, all admins, or a hand-picked list of people — each
-          recipient sees it once, in a modal, the next time they open TestMate.
+          recipient sees it once, in a modal, the next time they open ServiceDesk4u.
         </p>
       </div>
 

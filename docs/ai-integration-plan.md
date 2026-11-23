@@ -4,14 +4,14 @@ Source brief: [`ai-integration-prompt.md`](../ai-integration-prompt.md). This is
 what the codebase looks like, the design decisions (with defaults), and the structure to build.
 **No code has been written yet. Phase 1 starts once this plan is approved.**
 
-Target app: **TestMate** — multi-tenant test-case management (projects → suites → cases → runs),
+Target app: **ServiceDesk4u** — multi-tenant test-case management (projects → suites → cases → runs),
 plus bugs, feature requests, external feedback tickets with a client-company IT support tier, SLA reporting and live chat.
 
 ---
 
 ## 1. Discovery: how this repo works (the conventions the AI layer must follow)
 
-| Area | What TestMate does | Consequence for the AI layer |
+| Area | What ServiceDesk4u does | Consequence for the AI layer |
 |---|---|---|
 | Language / runtime | Node ≥20, Express 4, run with `tsx`. JS → TS incremental migration (`allowJs`, `checkJs:false`, `strict` for `.ts`). **All new files are `.ts`.** Existing `.js` keeps `require`/`module.exports`; new `.ts` files mix `import` (TS) with `require` (JS deps). | Every AI file is `.ts`. `tsc --noEmit` (`npm run typecheck`) must pass. |
 | Modules | `server/modules/<name>/{controllers,dto,entities,repositories,routes,services,tests,validators}` (+ `catalog`, `domain` where needed). Services/repos are classes with `static Instance = new X()` and constructor-injected deps (defaults to the other `Instance`s). | New `modules/ai/` with the same folders plus `domain/`. Services take a `providerFor` resolver + repos in the constructor so tests inject fakes. |
@@ -37,7 +37,7 @@ Existing `ai_agent_flow_*.md` files are coding-standard guides for agents, not a
 
 | # | Question | Decision (default) |
 |---|---|---|
-| D1 | Who owns AI keys? | **User's own key wins, else the organisation's key.** The brief's "platform key" maps to an **organisation key** set by an org admin (`ai.managekeys`). TestMate's super admin is the vendor; a vendor-wide fallback key across all orgs is **not** built unless you want it. |
+| D1 | Who owns AI keys? | **User's own key wins, else the organisation's key.** The brief's "platform key" maps to an **organisation key** set by an org admin (`ai.managekeys`). ServiceDesk4u's super admin is the vendor; a vendor-wide fallback key across all orgs is **not** built unless you want it. |
 | D2 | Credits? | **Yes, behind a flag (Phase 2)**, spent only on the organisation's key, prices default to 0 = free. Granted by the org admin. |
 | D3 | A payer other than the clicker? | **No.** The org key already covers members. (Project team-lead-pays delegation can be added later.) |
 | D4 | First features | **`bug_report_draft`** and **`feature_request_draft`** (see §8). `test_case_draft` was planned and then dropped; optional later: **`test_suite_plan`** (plan then create). **Added later, for IT requests:** `service_request_intake` (portal: suggest the catalog item and pre-fill its form) and `service_request_triage` (advisory summary for approvers and IT, never acted on) — see [`it-service-requests-plan.md`](it-service-requests-plan.md), Phase 3. |
@@ -196,7 +196,7 @@ These also go into `env.example.yaml` and `render.yaml`.
 
 ---
 
-## 5. First features (TestMate's equivalents of the MentorPath drafts)
+## 5. First features (ServiceDesk4u's equivalents of the MentorPath drafts)
 
 | Feature id | Fills | Input sent to the model | Not sent |
 |---|---|---|---|

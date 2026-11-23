@@ -208,7 +208,7 @@ export function FeatureRequestFormDialog({ open, onOpenChange, projectId, reques
           <DialogDescription>
             {isEdit
               ? "Correct the write-up — title, description, category, module, or reference links."
-              : "Tell us what you'd like to see in TestMate."}
+              : "Tell us what you'd like to see in ServiceDesk4u."}
           </DialogDescription>
         </DialogHeader>
         <form className="grid min-w-0 gap-4" onSubmit={handleSubmit(onSubmit)}>

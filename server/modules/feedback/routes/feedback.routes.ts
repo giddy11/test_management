@@ -8,7 +8,7 @@ import {
   feedbackLinkSchema,
   fetchFeedbackCommentsSchema,
   addFeedbackCommentSchema,
-  testMateSupportTicketSchema,
+  serviceDesk4uSupportTicketSchema,
 } from "../validators/feedback.schema";
 
 const router = require("express").Router();
@@ -72,15 +72,15 @@ router.post(
   FeedbackCommentController.create
 );
 
-// TestMate's own in-app WhatsApp widget — any signed-in user (including
-// external IT supporters) can contact TestMate support, so no permission
+// ServiceDesk4u's own in-app WhatsApp widget — any signed-in user (including
+// external IT supporters) can contact ServiceDesk4u support, so no permission
 // beyond being authenticated.
 router.post(
   "/testmate-support",
   authMiddleware,
-  requireAuthenticatedOnly("Contact TestMate support — own ticket, details from own account"),
-  validate(testMateSupportTicketSchema),
-  FeedbackController.testMateSupport
+  requireAuthenticatedOnly("Contact ServiceDesk4u support — own ticket, details from own account"),
+  validate(serviceDesk4uSupportTicketSchema),
+  FeedbackController.serviceDesk4uSupport
 );
 
 // Enabling/rotating/disabling a project's public form link — admins only.

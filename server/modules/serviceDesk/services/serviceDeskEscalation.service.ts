@@ -9,7 +9,7 @@
 //            are configured, the servicedesk.manage holders)
 //   level 3  the same again, marked critical
 //
-// TestMate has no job runner, so this runs in-process: on a timer, and on
+// ServiceDesk4u has no job runner, so this runs in-process: on a timer, and on
 // demand when someone loads their IT-request counts (a server that sleeps
 // between requests still escalates as soon as anyone looks). A Postgres
 // advisory lock means only one server sweeps at a time, and the unique

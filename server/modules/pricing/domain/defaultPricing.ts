@@ -63,7 +63,7 @@ export const DEFAULT_PRICING: PricingContent = Object.freeze({
         "Bug tracking and feature requests with voting",
         "Spreadsheet import and export",
         "Public ticket portal (1 project)",
-        "Live chat widget with TestMate branding",
+        "Live chat widget with ServiceDesk4u branding",
         "AI with your own key, plus 50 trial credits",
       ],
       ctaLabel: "Start for free",

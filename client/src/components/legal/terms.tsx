@@ -28,7 +28,7 @@ export const TERMS_AND_CONDITIONS: LegalDocument = {
   eyebrow: "Legal",
   title: "Terms & Conditions",
   intro:
-    "The agreement between your organisation and us: what you may do with TestMate, what we owe you, and what happens if either side wants out.",
+    "The agreement between your organisation and us: what you may do with ServiceDesk4u, what we owe you, and what happens if either side wants out.",
   lastUpdated: LAST_UPDATED,
   effective: EFFECTIVE_DATE,
   sections: [

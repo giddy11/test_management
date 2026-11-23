@@ -119,7 +119,7 @@ export function LandingFooter() {
 
         <div className="mt-12 flex flex-col items-center justify-between gap-3 border-t pt-6 sm:flex-row">
           <p className="text-xs text-muted-foreground">
-            © {new Date().getFullYear()} TestMate. All rights reserved.
+            © {new Date().getFullYear()} ServiceDesk4u. All rights reserved.
           </p>
           <nav aria-label="Legal">
             <ul className="flex items-center gap-x-4 text-xs">

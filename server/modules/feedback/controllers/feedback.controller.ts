@@ -108,10 +108,10 @@ export class FeedbackController {
     }
   }
 
-  // TestMate's own in-app WhatsApp widget, just before its wa.me hand-off.
-  static async testMateSupport(req: any, res: any, next: any) {
+  // ServiceDesk4u's own in-app WhatsApp widget, just before its wa.me hand-off.
+  static async serviceDesk4uSupport(req: any, res: any, next: any) {
     try {
-      const result = await FeedbackService.Instance.submitTestMateSupport(req.user, req.validated.body);
+      const result = await FeedbackService.Instance.submitServiceDesk4uSupport(req.user, req.validated.body);
       res.status(201).json(ApiResponse.created("Ticket logged", result));
     } catch (err) {
       next(err);

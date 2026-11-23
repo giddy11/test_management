@@ -1,6 +1,6 @@
 // modules/feedback/services/feedback.service.ts
 // External feedback: submitted unauthenticated through a project's public form
-// (looked up by projects.feedback_token), then triaged in TestMate. The
+// (looked up by projects.feedback_token), then triaged in ServiceDesk4u. The
 // submitter is emailed at every lifecycle stage.
 import { randomUUID } from "crypto";
 import { FeedbackRepository } from "../repositories/feedback.repository";
@@ -106,9 +106,9 @@ export interface WhatsAppTicketInput {
 // guessing any of them stays hopeless (6 digits, rate-limited attempts).
 const MAX_LIVE_LOOKUP_CODES = 5;
 
-// Fixed id of the auto-created "TestMate Support" project — see
-// FeedbackService.resolveTestMateSupportProject.
-const TESTMATE_SUPPORT_PROJECT_ID = "7e570a7e-5a99-4c0b-8d1e-5e1f0a2c3d4e";
+// Fixed id of the auto-created "ServiceDesk4u Support" project — see
+// FeedbackService.resolveServiceDesk4uSupportProject.
+const SERVICEDESK4U_SUPPORT_PROJECT_ID = "7e570a7e-5a99-4c0b-8d1e-5e1f0a2c3d4e";
 
 // A WhatsApp-widget ticket has no separate subject field — its title is the
 // message's first line, cut to fit.
@@ -338,7 +338,7 @@ export class FeedbackService {
 
   // ── WhatsApp widgets ────────────────────────────────────────────────────────
   // Both WhatsApp widgets (the embeddable one on a project's own site, and
-  // TestMate's own in-app one) log a ticket the moment the person presses
+  // ServiceDesk4u's own in-app one) log a ticket the moment the person presses
   // send, just before handing them off to wa.me — so whatever follows on
   // WhatsApp already has a ticket here, a reference to quote, and the usual
   // "received" email. We never see whether the WhatsApp message itself goes
@@ -375,15 +375,15 @@ export class FeedbackService {
     return { id: fb.id, ticketCode: ticketCode(fb) };
   }
 
-  // TestMate's own in-app widget: a signed-in user contacting TestMate itself
-  // rather than one of their projects. Tickets land in the "TestMate Support"
-  // project (see resolveTestMateSupportProject). Name, email and company come
+  // ServiceDesk4u's own in-app widget: a signed-in user contacting ServiceDesk4u itself
+  // rather than one of their projects. Tickets land in the "ServiceDesk4u Support"
+  // project (see resolveServiceDesk4uSupportProject). Name, email and company come
   // from the account, never the request.
-  async submitTestMateSupport(
+  async submitServiceDesk4uSupport(
     actor: Actor,
     data: { type: string; message: string; submitterPhone?: string; pageUrl?: string }
   ): Promise<{ id: string; ticketCode: string }> {
-    const project = await this.resolveTestMateSupportProject();
+    const project = await this.resolveServiceDesk4uSupportProject();
     const user = await this.authRepo.findUserById(actor.id);
     if (!user) throw new AppError("User not found", 404);
 
@@ -401,14 +401,14 @@ export class FeedbackService {
     );
   }
 
-  // The "TestMate Support" project — nothing to configure: created on the
+  // The "ServiceDesk4u Support" project — nothing to configure: created on the
   // first in-app ticket under a fixed id, owned and led by the platform's
-  // superadmin, in their organisation. So TestMate's own team sees it in the
+  // superadmin, in their organisation. So ServiceDesk4u's own team sees it in the
   // project list like any other project and is notified of new tickets the
   // usual way, while other organisations' admins never see it (projects are
   // org-scoped). If someone deletes it, the next ticket brings it back.
-  private async resolveTestMateSupportProject(): Promise<Project> {
-    const existing = await this.projectRepo.findById(TESTMATE_SUPPORT_PROJECT_ID);
+  private async resolveServiceDesk4uSupportProject(): Promise<Project> {
+    const existing = await this.projectRepo.findById(SERVICEDESK4U_SUPPORT_PROJECT_ID);
     if (existing) return existing;
 
     const [owner] = await this.authRepo.findByRole(UserRole.SUPERADMIN);
@@ -416,9 +416,9 @@ export class FeedbackService {
 
     try {
       const project = await this.projectRepo.create({
-        id: TESTMATE_SUPPORT_PROJECT_ID,
-        name: "TestMate Support",
-        description: "Tickets from TestMate's in-app WhatsApp support widget. Created automatically.",
+        id: SERVICEDESK4U_SUPPORT_PROJECT_ID,
+        name: "ServiceDesk4u Support",
+        description: "Tickets from ServiceDesk4u's in-app WhatsApp support widget. Created automatically.",
         ownerId: owner.id,
         organizationId: owner.organizationId ?? null,
       });
@@ -429,8 +429,8 @@ export class FeedbackService {
     } catch {
       // The row exists already — a concurrent first ticket created it a moment
       // ago, or it was soft-deleted. Either way, bring it back and use it.
-      await this.projectRepo.restore(TESTMATE_SUPPORT_PROJECT_ID);
-      const project = await this.projectRepo.findById(TESTMATE_SUPPORT_PROJECT_ID);
+      await this.projectRepo.restore(SERVICEDESK4U_SUPPORT_PROJECT_ID);
+      const project = await this.projectRepo.findById(SERVICEDESK4U_SUPPORT_PROJECT_ID);
       if (!project) throw new AppError("Support tickets aren't available right now", 503);
       return project;
     }

@@ -17,7 +17,7 @@ export function FeaturesSection() {
           id="features-heading"
           eyebrow="Features"
           title="Everything testing produces, tracked in one place"
-          lead="Test plans and their fallout normally live in different tools. In TestMate they share a project, so nothing has to be exported, matched up, or chased."
+          lead="Test plans and their fallout normally live in different tools. In ServiceDesk4u they share a project, so nothing has to be exported, matched up, or chased."
         />
 
         <ul className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">

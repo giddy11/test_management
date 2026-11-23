@@ -33,7 +33,7 @@ async function verifyTransport() {
 // The footer used to show the app's own SMTP sending mailbox. It now shows the
 // recipient's organisation's owner (the account that created it — see
 // UserRepository.findOrgOwner) so every branded email points to a real,
-// stable contact at the company instead of TestMate's relay address.
+// stable contact at the company instead of ServiceDesk4u's relay address.
 const DEFAULT_FOOTER_EMAIL = env.email.from.replace(/.*<|>.*/g, "");
 
 // Cached per organisationId for the process lifetime — ownership rarely
@@ -64,13 +64,13 @@ function emailLayout(body, footerEmail = DEFAULT_FOOTER_EMAIL) {
     <tr><td align="center">
       <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%">
         <tr><td style="background:#0f172a;border-radius:12px 12px 0 0;padding:22px 40px">
-          <span style="font-size:22px;font-weight:800;color:#ffffff">Test<span style="color:#6366f1">Mate</span></span>
+          <span style="font-size:22px;font-weight:800;color:#ffffff">ServiceDesk<span style="color:#6366f1">4u</span></span>
         </td></tr>
         <tr><td style="background:#ffffff;padding:40px;border:1px solid #e2e8f0;border-top:none">
           ${body}
         </td></tr>
         <tr><td style="background:#f8fafc;border:1px solid #e2e8f0;border-top:none;border-radius:0 0 12px 12px;padding:18px 40px;text-align:center">
-          <p style="margin:0;font-size:12px;color:#94a3b8">&copy; ${year} TestMate &middot; ${footerEmail}</p>
+          <p style="margin:0;font-size:12px;color:#94a3b8">&copy; ${year} ServiceDesk4u &middot; ${footerEmail}</p>
         </td></tr>
       </table>
     </td></tr>
@@ -142,14 +142,14 @@ async function send(message) {
 async function sendVerificationEmail(to, code, firstName = "there", organizationId) {
   const body = `
     <h1 style="margin:0 0 12px;font-size:22px;font-weight:700;color:#0f172a">Verify your email</h1>
-    <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.65">Hi ${firstName}, welcome to TestMate. Use the code below to verify the email address for your organisation account.</p>
+    <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.65">Hi ${firstName}, welcome to ServiceDesk4u. Use the code below to verify the email address for your organisation account.</p>
     ${otpBox(code)}
     <p style="margin:0 0 0;font-size:13px;color:#9ca3af">This code expires in ${env.otpTtlMinutes} minutes. If you didn't create an account, you can ignore this email.</p>`;
   return send({
     to,
-    subject: "Verify your email — TestMate",
+    subject: "Verify your email — ServiceDesk4u",
     html: emailLayout(body, await resolveFooterEmail(organizationId)),
-    text: `Hi ${firstName}, your TestMate verification code is ${code}. It expires in ${env.otpTtlMinutes} minutes.`,
+    text: `Hi ${firstName}, your ServiceDesk4u verification code is ${code}. It expires in ${env.otpTtlMinutes} minutes.`,
   });
 }
 
@@ -157,14 +157,14 @@ async function sendVerificationEmail(to, code, firstName = "there", organization
 async function sendPasswordResetEmail(to, code, firstName = "there", organizationId) {
   const body = `
     <h1 style="margin:0 0 12px;font-size:22px;font-weight:700;color:#0f172a">Reset your password</h1>
-    <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.65">Hi ${firstName}, use the code below to reset your TestMate password.</p>
+    <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.65">Hi ${firstName}, use the code below to reset your ServiceDesk4u password.</p>
     ${otpBox(code)}
     <p style="margin:0 0 0;font-size:13px;color:#9ca3af">This code expires in ${env.otpTtlMinutes} minutes. If you didn't request a reset, your account is still safe — ignore this email.</p>`;
   return send({
     to,
-    subject: "Reset your password — TestMate",
+    subject: "Reset your password — ServiceDesk4u",
     html: emailLayout(body, await resolveFooterEmail(organizationId)),
-    text: `Hi ${firstName}, your TestMate password reset code is ${code}. It expires in ${env.otpTtlMinutes} minutes.`,
+    text: `Hi ${firstName}, your ServiceDesk4u password reset code is ${code}. It expires in ${env.otpTtlMinutes} minutes.`,
   });
 }
 
@@ -193,9 +193,9 @@ async function sendTicketLookupCodeEmail(to, code) {
     <p style="margin:0 0 0;font-size:13px;color:#9ca3af">This code expires in ${ttl}. If you didn't request this, you can ignore this email.</p>`;
   return send({
     to,
-    subject: "Your ticket lookup code — TestMate",
+    subject: "Your ticket lookup code — ServiceDesk4u",
     html: emailLayout(body),
-    text: `Your TestMate ticket lookup code is ${code}. It expires in ${ttl}.`,
+    text: `Your ServiceDesk4u ticket lookup code is ${code}. It expires in ${ttl}.`,
   });
 }
 
@@ -227,13 +227,13 @@ async function sendTestAssignedEmail(to, firstName, caseTitle, assignedByName, u
     ${ctaButton(url, "View test case")}`;
   return send({
     to,
-    subject: "You've been assigned a test — TestMate",
+    subject: "You've been assigned a test — ServiceDesk4u",
     html: emailLayout(body, await resolveFooterEmail(organizationId)),
     text: `${assignedByName} assigned you to the test case "${caseTitle}".`,
   });
 }
 
-// ── External feedback (public form submitters — not TestMate users) ───────────
+// ── External feedback (public form submitters — not ServiceDesk4u users) ───────────
 async function sendFeedbackReceivedEmail(to, name, projectName, title, organizationId) {
   const body = `
     <h1 style="margin:0 0 12px;font-size:20px;font-weight:700;color:#0f172a">We've received your feedback</h1>
@@ -286,7 +286,7 @@ async function sendFeedbackCommentEmail(to, name, title, commenterName, url, org
     ${ctaButton(url, "View conversation")}`;
   return send({
     to,
-    subject: `New message — ${title} — TestMate`,
+    subject: `New message — ${title} — ServiceDesk4u`,
     html: emailLayout(body, await resolveFooterEmail(organizationId)),
     text: `${commenterName} posted a new message on ticket "${title}".`,
   });
@@ -300,7 +300,7 @@ async function sendFeedbackMentionEmail(to, firstName, title, mentionerName, url
     ${ctaButton(url, "View comment")}`;
   return send({
     to,
-    subject: `You were mentioned — ${title} — TestMate`,
+    subject: `You were mentioned — ${title} — ServiceDesk4u`,
     html: emailLayout(body, await resolveFooterEmail(organizationId)),
     text: `${mentionerName} mentioned you in a comment on ticket "${title}".`,
   });
@@ -314,7 +314,7 @@ async function sendNewFeedbackAlertEmail(to, firstName, title, typeLabel, projec
     ${ctaButton(url, "Open project")}`;
   return send({
     to,
-    subject: `New external ${typeLabel} — ${projectName} — TestMate`,
+    subject: `New external ${typeLabel} — ${projectName} — ServiceDesk4u`,
     html: emailLayout(body, await resolveFooterEmail(organizationId)),
     text: `${submitterName} submitted "${title}" (${typeLabel}) on ${projectName} via the public feedback form.`,
   });
@@ -328,7 +328,7 @@ async function sendFeedbackAssignedEmail(to, firstName, title, projectName, assi
     ${ctaButton(url, "View feedback")}`;
   return send({
     to,
-    subject: `Feedback assigned — ${title} — TestMate`,
+    subject: `Feedback assigned — ${title} — ServiceDesk4u`,
     html: emailLayout(body, await resolveFooterEmail(organizationId)),
     text: `${assignedByName} assigned you to the feedback "${title}" on ${projectName}.`,
   });
@@ -341,7 +341,7 @@ async function sendProjectMemberAddedEmail(to, firstName, projectName, roleLabel
     ${ctaButton(url, "Open project")}`;
   return send({
     to,
-    subject: `You've been added to ${projectName} — TestMate`,
+    subject: `You've been added to ${projectName} — ServiceDesk4u`,
     html: emailLayout(body, await resolveFooterEmail(organizationId)),
     text: `${addedByName} added you to the project "${projectName}" as a ${roleLabel}.`,
   });
@@ -356,7 +356,7 @@ async function sendRunCompletedEmail(to, firstName, runName, summary, url, organ
     ${ctaButton(url, "View run")}`;
   return send({
     to,
-    subject: `Run completed — ${runName} — TestMate`,
+    subject: `Run completed — ${runName} — ServiceDesk4u`,
     html: emailLayout(body, await resolveFooterEmail(organizationId)),
     text: `The run "${runName}" was completed. ${line}`,
   });
@@ -365,21 +365,21 @@ async function sendRunCompletedEmail(to, firstName, runName, summary, url, organ
 // ── Admin-created account welcome ──────────────────────────────────────────────
 async function sendWelcomeEmail(to, firstName, password, loginUrl, organizationId) {
   const body = `
-    <h1 style="margin:0 0 12px;font-size:22px;font-weight:700;color:#0f172a">Welcome to TestMate</h1>
-    <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.65">Hi ${firstName}, an admin has created a TestMate account for you. Use the credentials below to sign in.</p>
+    <h1 style="margin:0 0 12px;font-size:22px;font-weight:700;color:#0f172a">Welcome to ServiceDesk4u</h1>
+    <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.65">Hi ${firstName}, an admin has created a ServiceDesk4u account for you. Use the credentials below to sign in.</p>
     <table role="presentation" cellpadding="0" cellspacing="0" style="background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:10px;padding:20px 24px;margin:0 0 24px;width:100%">
       <tr><td style="font-size:13px;color:#6b7280;padding-bottom:6px">Email</td></tr>
       <tr><td style="font-size:15px;font-weight:600;color:#0f172a;padding-bottom:14px">${to}</td></tr>
       <tr><td style="font-size:13px;color:#6b7280;padding-bottom:6px">Temporary password</td></tr>
       <tr><td style="font-size:15px;font-weight:600;color:#0f172a;font-family:'Courier New',Courier,monospace">${password}</td></tr>
     </table>
-    ${ctaButton(loginUrl, "Sign in to TestMate")}
+    ${ctaButton(loginUrl, "Sign in to ServiceDesk4u")}
     <p style="margin:0;font-size:13px;color:#9ca3af">Please change your password after your first sign-in.</p>`;
   return send({
     to,
-    subject: "Your TestMate account is ready",
+    subject: "Your ServiceDesk4u account is ready",
     html: emailLayout(body, await resolveFooterEmail(organizationId)),
-    text: `Hi ${firstName}, your TestMate account has been created.\nEmail: ${to}\nTemporary password: ${password}\nSign in at: ${loginUrl}\nPlease change your password after your first sign-in.`,
+    text: `Hi ${firstName}, your ServiceDesk4u account has been created.\nEmail: ${to}\nTemporary password: ${password}\nSign in at: ${loginUrl}\nPlease change your password after your first sign-in.`,
   });
 }
 
@@ -391,7 +391,7 @@ async function sendNewFeatureRequestEmail(to, firstName, title, submittedByName,
     ${ctaButton(url, "Review request")}`;
   return send({
     to,
-    subject: `New feature request — ${title} — TestMate`,
+    subject: `New feature request — ${title} — ServiceDesk4u`,
     html: emailLayout(body, await resolveFooterEmail(organizationId)),
     text: `${submittedByName} submitted a new feature request: "${title}".`,
   });
@@ -413,7 +413,7 @@ async function sendFeatureRequestStatusEmail(to, firstName, title, status, admin
     ${ctaButton(url, "View request")}`;
   return send({
     to,
-    subject: `Feature request update — ${title} — TestMate`,
+    subject: `Feature request update — ${title} — ServiceDesk4u`,
     html: emailLayout(body, await resolveFooterEmail(organizationId)),
     text: `${isOwner ? "Your" : "The"} feature request "${title}" is now ${label}.${adminResponse ? ` Response: ${adminResponse}` : ""}`,
   });
@@ -426,7 +426,7 @@ async function sendFeatureRequestAssignedEmail(to, firstName, title, url, organi
     ${ctaButton(url, "View request")}`;
   return send({
     to,
-    subject: `Feature request assigned — ${title} — TestMate`,
+    subject: `Feature request assigned — ${title} — ServiceDesk4u`,
     html: emailLayout(body, await resolveFooterEmail(organizationId)),
     text: `You've been assigned to the feature request "${title}".`,
   });
@@ -439,7 +439,7 @@ async function sendFeatureRequestCommentEmail(to, firstName, title, commenterNam
     ${ctaButton(url, "View comment")}`;
   return send({
     to,
-    subject: `New comment — ${title} — TestMate`,
+    subject: `New comment — ${title} — ServiceDesk4u`,
     html: emailLayout(body, await resolveFooterEmail(organizationId)),
     text: `${commenterName} commented on your feature request "${title}".`,
   });
@@ -452,7 +452,7 @@ async function sendFeatureRequestMentionEmail(to, firstName, title, mentionerNam
     ${ctaButton(url, "View comment")}`;
   return send({
     to,
-    subject: `You were mentioned — ${title} — TestMate`,
+    subject: `You were mentioned — ${title} — ServiceDesk4u`,
     html: emailLayout(body, await resolveFooterEmail(organizationId)),
     text: `${mentionerName} mentioned you in a comment on the feature request "${title}".`,
   });
@@ -466,7 +466,7 @@ async function sendNewBugEmail(to, firstName, title, reportedByName, url, organi
     ${ctaButton(url, "Review bug")}`;
   return send({
     to,
-    subject: `New bug — ${title} — TestMate`,
+    subject: `New bug — ${title} — ServiceDesk4u`,
     html: emailLayout(body, await resolveFooterEmail(organizationId)),
     text: `${reportedByName} reported a new bug: "${title}".`,
   });
@@ -480,7 +480,7 @@ async function sendBugStatusEmail(to, firstName, title, status, url, isOwner = t
     ${ctaButton(url, "View bug")}`;
   return send({
     to,
-    subject: `Bug update — ${title} — TestMate`,
+    subject: `Bug update — ${title} — ServiceDesk4u`,
     html: emailLayout(body, await resolveFooterEmail(organizationId)),
     text: `${isOwner ? "Your bug report" : "The bug"} "${title}" is now ${status}.`,
   });
@@ -493,7 +493,7 @@ async function sendBugCommentEmail(to, firstName, title, commenterName, url, org
     ${ctaButton(url, "View comment")}`;
   return send({
     to,
-    subject: `New comment — ${title} — TestMate`,
+    subject: `New comment — ${title} — ServiceDesk4u`,
     html: emailLayout(body, await resolveFooterEmail(organizationId)),
     text: `${commenterName} commented on the bug "${title}".`,
   });
@@ -506,7 +506,7 @@ async function sendBugMentionEmail(to, firstName, title, mentionerName, url, org
     ${ctaButton(url, "View comment")}`;
   return send({
     to,
-    subject: `You were mentioned — ${title} — TestMate`,
+    subject: `You were mentioned — ${title} — ServiceDesk4u`,
     html: emailLayout(body, await resolveFooterEmail(organizationId)),
     text: `${mentionerName} mentioned you in a comment on the bug "${title}".`,
   });
@@ -519,7 +519,7 @@ async function sendBugAssignedEmail(to, firstName, title, url, organizationId) {
     ${ctaButton(url, "View bug")}`;
   return send({
     to,
-    subject: `Bug assigned — ${title} — TestMate`,
+    subject: `Bug assigned — ${title} — ServiceDesk4u`,
     html: emailLayout(body, await resolveFooterEmail(organizationId)),
     text: `You've been assigned to fix the bug "${title}".`,
   });

@@ -26,7 +26,7 @@ export interface Supporter {
   // Leads can assign incoming queue items to other supporters in the company.
   isSupportLead: boolean
   // At most one per company. Peer leads can manage each other freely, but
-  // only a TestMate admin can change the primary lead's status or remove them.
+  // only a ServiceDesk4u admin can change the primary lead's status or remove them.
   isPrimarySupportLead: boolean
   createdAt: string
   lastSeenAt: string | null

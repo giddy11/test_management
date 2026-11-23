@@ -337,7 +337,7 @@ class AuthService {
 
     if (!user) {
       throw new AppError(
-        "No TestMate account is linked to this Google account. Please sign up first.",
+        "No ServiceDesk4u account is linked to this Google account. Please sign up first.",
         404
       );
     }

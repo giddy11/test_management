@@ -3,7 +3,7 @@ name: verify
 description: Verify client (React/Vite) changes by driving the app in a real browser via Cypress against the stubbed dev server.
 ---
 
-# Verifying TestMate client changes
+# Verifying ServiceDesk4u client changes
 
 ## Launch (safe, stubbed — never touches the shared dev/prod Aiven DB)
 

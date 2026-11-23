@@ -1,5 +1,5 @@
 // components/landing/SolutionSection.tsx — the two halves of the platform and
-// what consolidating them buys you. From the TestMate overview deck
+// what consolidating them buys you. From the ServiceDesk4u overview deck
 // ("The Solution & Value Proposition").
 import { Card, CardContent } from "@/components/ui/card"
 import { Reveal } from "@/components/landing/Reveal"
@@ -18,7 +18,7 @@ export function SolutionSection() {
           id="solution-heading"
           eyebrow="The solution"
           title="One platform, two disciplines"
-          lead="Software quality and IT service delivery run on the same work — a failed test becomes a defect, a defect becomes a ticket. TestMate keeps both in one system."
+          lead="Software quality and IT service delivery run on the same work — a failed test becomes a defect, a defect becomes a ticket. ServiceDesk4u keeps both in one system."
         />
 
         <div className="mx-auto mt-14 grid max-w-5xl gap-6 lg:grid-cols-2">

@@ -167,7 +167,7 @@ export function LiveChatSettingsCard({ projectId }: Props) {
 
             <div className="flex items-center justify-between gap-3 rounded-lg border p-3 sm:col-span-2">
               <div>
-                <p className="text-sm font-medium">Require a TestMate account to chat</p>
+                <p className="text-sm font-medium">Require a ServiceDesk4u account to chat</p>
                 <p className="text-xs text-muted-foreground">
                   Visitors log in or sign up instead of filling out a contact form — lets them pick up
                   their conversation from any device.

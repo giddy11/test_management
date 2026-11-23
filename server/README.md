@@ -1,4 +1,4 @@
-# TestMate — Server
+# ServiceDesk4u — Server
 
 Test Case Management API. PERN stack — **Express · TypeORM · PostgreSQL · Node.js** (JavaScript / CommonJS).
 

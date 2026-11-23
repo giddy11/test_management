@@ -45,7 +45,7 @@ export interface NavItem {
 // module of its own — see docs/it-service-requests-plan.md), and the workspace
 // things both share. Each is filtered by permission; an empty group is hidden.
 
-// Testing — what TestMate has always been.
+// Testing — what ServiceDesk4u has always been.
 export const NAV_ITEMS: NavItem[] = [
   { title: "Dashboard", to: "/dashboard", icon: LayoutDashboard, permission: "dashboard.read", tourId: "nav-dashboard" },
   { title: "Projects", to: "/projects", icon: FolderKanban, permission: "project.read", tourId: "nav-projects" },

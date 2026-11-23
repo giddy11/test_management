@@ -1,4 +1,4 @@
-# Render Blueprint — TestMate API (server/).
+# Render Blueprint — ServiceDesk4u API (server/).
 #
 # The API lives in server/, so rootDir points there. The client is deployed
 # separately on Vercel (client/vercel.json) and is not part of this blueprint.

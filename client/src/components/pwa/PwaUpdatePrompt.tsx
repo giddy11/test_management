@@ -34,7 +34,7 @@ export function PwaUpdatePrompt() {
 
   useEffect(() => {
     if (!needRefresh) return
-    toast("A new version of TestMate is available", {
+    toast("A new version of ServiceDesk4u is available", {
       id: UPDATE_TOAST_ID,
       description: "Reload to get the latest changes.",
       duration: Infinity,

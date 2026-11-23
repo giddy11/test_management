@@ -1,4 +1,4 @@
-# Access model — TestMate
+# Access model — ServiceDesk4u
 
 **Status:** Phase 2 deliverable (design, for review before implementation).
 **Date:** 2026-09-20
@@ -218,7 +218,7 @@ cloning or assigning it by id returns 404, as for another organisation's role.
 ### 3.2 Organisation administrator — 25
 Everything inside one customer's workspace, and nothing outside it.
 
-This is **not** "every permission in the catalog". TestMate is multi-tenant, so
+This is **not** "every permission in the catalog". ServiceDesk4u is multi-tenant, so
 "administrator" means two different principals, and the catalog keeps them apart:
 
 - **Platform-only** — `platform.read`, `announcement.manage`, `banner.publish`,
@@ -701,7 +701,7 @@ show impact before an edit.
    `publicRoute("...UNAUTHENTICATED, see audit gap G1")` so it is visible rather than
    forgotten, and no `integration.manage` permission exists, because a permission nothing
    checks would be a lie in the role editor. The options when it is picked up: a per-project
-   API key stored hashed and sent as `X-TestMate-Key` (recommended), an HMAC signature over
+   API key stored hashed and sent as `X-ServiceDesk4u-Key` (recommended), an HMAC signature over
    the body, or an allowlist of partner IPs. **Whichever is chosen, existing partners must be
    issued credentials before it ships.**
 

@@ -156,7 +156,7 @@ class TestCaseExportService {
     ]);
 
     const wb = new ExcelJS.Workbook();
-    wb.creator = "TestMate";
+    wb.creator = "ServiceDesk4u";
     this.addSuiteSheet(wb, suite, cases, attachmentsByCase, new Set(), latestResults);
 
     return {
@@ -194,7 +194,7 @@ class TestCaseExportService {
     }
 
     const wb = new ExcelJS.Workbook();
-    wb.creator = "TestMate";
+    wb.creator = "ServiceDesk4u";
     const usedNames = new Set();
     let totalRows = 0;
 

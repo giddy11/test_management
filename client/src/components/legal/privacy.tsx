@@ -31,7 +31,7 @@ export const PRIVACY_POLICY: LegalDocument = {
   eyebrow: "Privacy",
   title: "Privacy Policy",
   intro:
-    "What TestMate collects, why we hold it, who else touches it, and how you get it back or have it erased.",
+    "What ServiceDesk4u collects, why we hold it, who else touches it, and how you get it back or have it erased.",
   lastUpdated: LAST_UPDATED,
   effective: EFFECTIVE_DATE,
   sections: [

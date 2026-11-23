@@ -124,7 +124,7 @@ export function HeroSection() {
                 width={HERO_SHOT.width}
                 height={HERO_SHOT.height}
                 eager
-                alt="The TestMate dashboard, showing test run activity across projects"
+                alt="The ServiceDesk4u dashboard, showing test run activity across projects"
               />
             </BrowserFrame>
           </div>

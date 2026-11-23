@@ -1,5 +1,5 @@
 // modules/feedback/entities/feedback.entity.ts
-// External feedback submitted by non-TestMate users via a project's public
+// External feedback submitted by non-ServiceDesk4u users via a project's public
 // form (projects.feedback_token). Tracked through a support-style lifecycle;
 // the submitter is emailed at every stage transition.
 import { EntitySchema } from "typeorm";

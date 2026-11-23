@@ -18,7 +18,7 @@ class TestCaseTemplateService {
 
   async buildTemplate() {
     const wb = new ExcelJS.Workbook();
-    wb.creator = "TestMate";
+    wb.creator = "ServiceDesk4u";
     const ws = wb.addWorksheet("Test Cases");
     ws.columns = COLUMNS;
 

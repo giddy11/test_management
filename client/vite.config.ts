@@ -24,8 +24,8 @@ export default defineConfig({
       pwaAssets: { config: true, includeHtmlHeadLinks: false, injectThemeColor: false },
       manifest: {
         id: "/",
-        name: "TestMate",
-        short_name: "TestMate",
+        name: "ServiceDesk4u",
+        short_name: "ServiceDesk4u",
         description: "Test case management — suites, runs, bugs, feature requests and support tickets in one place.",
         start_url: "/dashboard",
         scope: "/",
