@@ -24,10 +24,13 @@ function formatPrice(symbol: string, amount: number): string {
 function PlanCta({ plan }: { plan: PricingPlan }) {
   const variant = plan.highlighted ? "brand" : "outline"
   const isInternal = plan.ctaHref.startsWith("/") && !plan.ctaHref.startsWith("//")
+  // Signing up from a plan's card starts that plan: Free, or a trial of it.
+  const href =
+    isInternal && plan.planKey && /^\/register\/?$/.test(plan.ctaHref) ? `/register?plan=${plan.planKey}` : plan.ctaHref
   return (
     <Button asChild variant={variant} size="lg" className="w-full">
       {isInternal ? (
-        <Link to={plan.ctaHref}>{plan.ctaLabel}</Link>
+        <Link to={href}>{plan.ctaLabel}</Link>
       ) : (
         <a
           href={plan.ctaHref}

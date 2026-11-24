@@ -1,7 +1,7 @@
 import { useMemo } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { Link } from "react-router-dom"
+import { Link, useSearchParams } from "react-router-dom"
 import { toast } from "sonner"
 import Country from "country-state-city/lib/country"
 import State from "country-state-city/lib/state"
@@ -73,6 +73,12 @@ export default function RegisterPage() {
   }
   const handleCityChange = (name: string) => setValue("city", name, { shouldDirty: true })
 
+  // ?plan=free|standard|enterprise from the pricing card they clicked.
+  const [params] = useSearchParams()
+  const planParam = params.get("plan")
+  const chosenPlan: RegisterPayload["plan"] =
+    planParam === "free" || planParam === "standard" || planParam === "enterprise" ? planParam : undefined
+
   const onSubmit = (values: RegisterForm) => {
     // Drop empty optional strings before sending.
     const payload: RegisterPayload = {
@@ -85,6 +91,7 @@ export default function RegisterPage() {
       city: values.city || undefined,
       state: values.state || undefined,
       country: values.country || undefined,
+      plan: chosenPlan,
     }
     registerMut.mutate(payload, {
       onError: (err) =>

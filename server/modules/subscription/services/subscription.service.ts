@@ -35,6 +35,9 @@ const { ActivityService } = require("../../activity/services/activity.service");
 // server instance catches up within this window.
 const CACHE_MS = 30_000;
 
+// How long the trial a new organisation starts with lasts.
+export const TRIAL_DAYS = 14;
+
 // none: no subscription on record at all (never set up). expired: a trial or
 // paid period has ended. Both block the organisation (see "blocked") until the
 // platform owner sets a plan, Free included.
@@ -236,6 +239,29 @@ export class SubscriptionService {
       metadata: { organizationId, ...input },
     });
     return this.detail(organizationId);
+  }
+
+  /**
+   * The subscription a brand-new organisation starts with, from the plan
+   * picked on the pricing page: Free if they chose Free, otherwise a
+   * TRIAL_DAYS trial of the paid plan they picked (Standard when they came in
+   * without picking one). Never overwrites a subscription already there.
+   */
+  async startForNewOrganization(organizationId: string, chosen?: PlanKey | null) {
+    if (await this.repo.findSubscription(organizationId)) return;
+    const isFree = chosen === "free";
+    await this.repo.saveSubscription({
+      organizationId,
+      planKey: isFree ? "free" : (chosen ?? "standard"),
+      status: isFree ? "active" : "trial",
+      trialEndsAt: isFree ? null : new Date(Date.now() + TRIAL_DAYS * 86_400_000),
+      paidUntil: null,
+      source: "signup",
+      extraSeats: 0,
+      note: null,
+      updatedBy: null,
+    });
+    this.planCache.delete(organizationId);
   }
 
   /**

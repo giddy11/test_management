@@ -10,6 +10,7 @@ const { AppError } = require("../../../shared/errors/AppError");
 const {
   provisionOrganizationAccess,
 } = require("../../access/services/provisionOrganization");
+const { SubscriptionService } = require("../../subscription/services/subscription.service");
 const { env } = require("../../../config/env");
 const { AuthProvider, UserRole, OtpType } = require("../../../config/constants");
 const {
@@ -134,6 +135,15 @@ class AuthService {
     // anyone can be given one. The registering admin becomes its Organisation
     // administrator — without this they would hold no permissions at all.
     await provisionOrganizationAccess(user);
+
+    // Their trial (or Free) starts now; without a subscription the app is
+    // locked. A failure here must not lose the registration: the platform
+    // owner can still set the plan by hand. Logged loudly.
+    try {
+      await SubscriptionService.Instance.startForNewOrganization(user.organizationId, data.plan ?? null);
+    } catch (err) {
+      console.error(`[plans] Couldn't start the subscription for organisation ${user.organizationId}:`, err.message);
+    }
 
     await this.issueOtp(user, OtpType.VERIFY_EMAIL);
     const tokens = await this.issueTokens(user);

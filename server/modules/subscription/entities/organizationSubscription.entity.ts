@@ -8,7 +8,7 @@ import type { PlanKey } from "../domain/planCatalog";
 export type SubscriptionStatus = "active" | "trial";
 // How the plan was set: by hand on the Organisations page, or by recording an
 // offline payment. A payment provider would add its own value later.
-export type SubscriptionSource = "manual" | "offline_payment";
+export type SubscriptionSource = "manual" | "offline_payment" | "signup";
 
 export interface OrganizationSubscription {
   organizationId: string;

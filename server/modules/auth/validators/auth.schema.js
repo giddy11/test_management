@@ -21,6 +21,9 @@ const registerSchema = z.object({
     city: z.string().max(120).optional(),
     state: z.string().max(120).optional(),
     country: z.string().max(120).optional(),
+    // The plan picked on the pricing page. Free starts on Free; a paid plan
+    // (or none) starts a 14-day trial of it.
+    plan: z.enum(["free", "standard", "enterprise"]).optional(),
   }),
 });
 

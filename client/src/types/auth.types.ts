@@ -89,6 +89,8 @@ export interface RegisterPayload {
   city?: string
   state?: string
   country?: string
+  /** The plan picked on the pricing page: Free, or a 14-day trial of a paid plan. */
+  plan?: "free" | "standard" | "enterprise"
 }
 
 export interface LoginPayload {
