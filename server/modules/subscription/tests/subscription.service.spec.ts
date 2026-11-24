@@ -176,3 +176,42 @@ describe("SubscriptionService — extra seats", () => {
     expect(repo.saveSubscription).toHaveBeenCalledWith(expect.objectContaining({ extraSeats: 4 }));
   });
 });
+
+describe("SubscriptionService — paying during a trial", () => {
+  const trial = (planKey: string, daysLeft: number) => ({
+    organizationId: ORG,
+    planKey,
+    status: "trial",
+    trialEndsAt: new Date(Date.now() + daysLeft * DAY),
+    paidUntil: null,
+    source: "signup",
+    extraSeats: 0,
+    note: null,
+  });
+  const pay = (planKey: "standard" | "enterprise") => ({
+    planKey,
+    amount: 9,
+    currency: "USD",
+    method: "bank_transfer" as const,
+    paidAt: new Date().toISOString(),
+    months: 1,
+  });
+
+  it("starts the paid period when the trial of the same plan ends, keeping its days", async () => {
+    const row = trial("standard", 2);
+    const repo = makeRepo(row);
+    await new SubscriptionService(repo as any).recordPayment(actor, ORG, pay("standard"));
+    const payment = repo.addPayment.mock.calls[0][0] as any;
+    expect(payment.periodStart.getTime()).toBe(row.trialEndsAt.getTime());
+    expect(repo.saveSubscription).toHaveBeenCalledWith(expect.objectContaining({ status: "active", planKey: "standard" }));
+  });
+
+  it("starts a different plan today", async () => {
+    const repo = makeRepo(trial("standard", 2));
+    const before = Date.now();
+    await new SubscriptionService(repo as any).recordPayment(actor, ORG, pay("enterprise"));
+    const payment = repo.addPayment.mock.calls[0][0] as any;
+    expect(payment.periodStart.getTime()).toBeGreaterThanOrEqual(before);
+    expect(payment.periodStart.getTime()).toBeLessThan(before + 60_000);
+  });
+});

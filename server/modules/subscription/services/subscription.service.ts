@@ -268,6 +268,9 @@ export class SubscriptionService {
    * Records a payment made outside the app and moves the organisation onto the
    * paid plan for the months it covers. Paying again for the same plan before
    * it runs out extends it from the current end date, so no days are lost.
+   * Paying for the plan a running trial is of starts the paid period when the
+   * trial ends, so the trial days already promised are kept too. Paying for a
+   * different plan starts it today.
    */
   async recordPayment(actor: Actor, organizationId: string, input: RecordPaymentInput) {
     await this.assertOrganization(organizationId);
@@ -286,7 +289,20 @@ export class SubscriptionService {
         422
       );
     }
-    const periodStart = input.months === 0 ? now : extendsCurrent ? (existing!.paidUntil as Date) : now;
+    const keepsTrial =
+      !!existing &&
+      existing.status === "trial" &&
+      existing.planKey === input.planKey &&
+      !!existing.trialEndsAt &&
+      existing.trialEndsAt.getTime() > now.getTime();
+    const periodStart =
+      input.months === 0
+        ? now
+        : extendsCurrent
+          ? (existing!.paidUntil as Date)
+          : keepsTrial
+            ? (existing!.trialEndsAt as Date)
+            : now;
     const periodEnd = input.months === 0 ? (existing!.paidUntil as Date) : addMonths(periodStart, input.months);
     const extraSeats = input.extraSeats ?? existing?.extraSeats ?? 0;
 

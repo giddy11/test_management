@@ -103,7 +103,27 @@ function RecordPaymentForm({ organizationId, current }: { organizationId: string
   // 0 months = extra seats only, for the rest of the period already running.
   const seatsOnly = months === 0 && extendsCurrent
   const monthsValue = months === 0 && !extendsCurrent ? 1 : months
-  const start = seatsOnly ? new Date() : extendsCurrent ? new Date(current.paidUntil as string) : new Date()
+  // Paying for the plan a running trial is of starts after the trial, so its days are kept.
+  const keepsTrial =
+    current.status === "trial" &&
+    current.assignedPlanKey === planKey &&
+    !!current.trialEndsAt &&
+    new Date(current.trialEndsAt) > new Date()
+  // Switching from another paid plan mid-period: it starts today, and the
+  // suggestion takes off what was left of the old one.
+  const switchesPaidPlan =
+    current.status === "active" &&
+    current.planKey !== "free" &&
+    current.assignedPlanKey !== planKey &&
+    !!current.paidUntil &&
+    new Date(current.paidUntil) > new Date()
+  const start = seatsOnly
+    ? new Date()
+    : extendsCurrent
+      ? new Date(current.paidUntil as string)
+      : keepsTrial
+        ? new Date(current.trialEndsAt as string)
+        : new Date()
   const end = seatsOnly ? new Date(current.paidUntil as string) : addMonths(start, monthsValue)
 
   // Seats only make sense when the plan has a seat limit to go beyond.
@@ -146,13 +166,37 @@ function RecordPaymentForm({ organizationId, current }: { organizationId: string
         })
       }
     }
-    const value = Math.round(parts.reduce((sum, p) => sum + p.value, 0) * 100) / 100
-    if (!value) return null
+    // What was left of the plan being replaced, at its own price-list prices
+    // (plan plus its extra seats), comes off.
+    if (switchesPaidPlan && !seatsOnly) {
+      const old =
+        content.plans.find((p) => p.planKey === current.assignedPlanKey) ??
+        content.plans.find((p) => p.id === current.assignedPlanKey)
+      const monthsLeft = Math.round(((new Date(current.paidUntil as string).getTime() - Date.now()) / (30 * 86_400_000)) * 10) / 10
+      if (old && monthsLeft > 0) {
+        const credit =
+          Math.round(((old.monthlyPrice ?? 0) + current.extraSeats * (old.extraSeatPrice ?? 0)) * monthsLeft * 100) / 100
+        if (credit > 0) {
+          parts.push({
+            text: `Unused ${PLAN_NAMES[current.assignedPlanKey]} (${monthsLeft} month${monthsLeft === 1 ? "" : "s"} left)`,
+            value: -credit,
+          })
+        }
+      }
+    }
+    // Never below nothing: a big credit just makes the switch free.
+    const value = Math.max(0, Math.round(parts.reduce((sum, p) => sum + p.value, 0) * 100) / 100)
+    if (!value && !parts.some((p) => p.value < 0)) return null
     return {
       value,
       code: currencyFor(sym)?.code ?? null,
       label: formatAmount(sym, value),
-      breakdown: parts.length > 1 || seatsOnly ? parts.map((p) => `${p.text}: ${formatAmount(sym, p.value)}`).join(" + ") : "",
+      breakdown:
+        parts.length > 1 || seatsOnly
+          ? parts
+              .map((p, i) => `${i === 0 ? "" : p.value < 0 ? " − " : " + "}${p.text}: ${formatAmount(sym, Math.abs(p.value))}`)
+              .join("")
+          : "",
     }
   })()
 
@@ -332,9 +376,16 @@ function RecordPaymentForm({ organizationId, current }: { organizationId: string
         <span className="font-medium">{end.toLocaleDateString()}</span>
         {seatsOnly && <span className="text-muted-foreground"> (the plan itself is not extended)</span>}
         {extendsCurrent && !seatsOnly && <span className="text-muted-foreground"> (added on to the current paid period)</span>}
+        {keepsTrial && <span className="text-muted-foreground"> (starts when the trial ends, so its remaining days are kept)</span>}
+        {current.status === "trial" && !keepsTrial && current.assignedPlanKey !== planKey && (
+          <span className="text-muted-foreground"> (ends the {PLAN_NAMES[current.assignedPlanKey]} trial today)</span>
+        )}
         {seatText && <div className="mt-1 text-muted-foreground">{seatText}</div>}
         {!extendsCurrent && current.status === "active" && current.assignedPlanKey !== planKey && (
-          <span className="text-muted-foreground"> (replaces {PLAN_NAMES[current.assignedPlanKey]} from today)</span>
+          <span className="text-muted-foreground">
+            {" "}
+            (replaces {PLAN_NAMES[current.assignedPlanKey]} from today{switchesPaidPlan ? "; the suggested amount takes off its unused time" : ""})
+          </span>
         )}
       </div>
 
