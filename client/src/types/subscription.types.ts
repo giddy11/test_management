@@ -21,14 +21,16 @@ export interface PlanEntitlements {
   limits: LimitSet
 }
 
-/** free: never had a paid plan. expired: a trial or paid period has ended (now on Free). */
-export type PlanStatus = "free" | "active" | "trial" | "expired"
+/** none: no subscription at all. expired: a trial or paid period has ended. Both block the organisation. */
+export type PlanStatus = "none" | "active" | "trial" | "expired"
 
 export interface EffectivePlan {
   /** The plan the organisation gets right now. */
   planKey: PlanKey
   planName: string
   status: PlanStatus
+  /** Locked out until it subscribes: no subscription, or it has ended. Data is kept. */
+  blocked: boolean
   /** The plan on record; differs from planKey once it has expired. */
   assignedPlanKey: PlanKey
   trialEndsAt: string | null
@@ -42,6 +44,17 @@ export interface EffectivePlan {
   features: FeatureSet
   /** limits.full_seats is the TOTAL: included plus extra. */
   limits: LimitSet
+}
+
+/** The limits that are counted (activity history is a time window, not a count). */
+export type CountedLimit = Exclude<LimitKey, "activity_log_days">
+
+/** How much of each limit the organisation uses. Storage in GB. */
+export type PlanUsage = Record<CountedLimit, number>
+
+/** The signed-in person's own organisation: its plan plus what it uses. */
+export interface MyPlan extends EffectivePlan {
+  usage: PlanUsage
 }
 
 export type PaymentMethod = "bank_transfer" | "cash" | "cheque" | "pos" | "mobile_money" | "other"

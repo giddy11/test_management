@@ -15,6 +15,7 @@
 //   servicedesk.work     the queue: assign, start, fulfil, ask a question,
 //                        cancel with a reason, internal notes
 // A requester never approves their own request, nor one raised for them.
+import { PlanLimitsService } from "../../subscription/services/planLimits.service";
 import type { EntityManager } from "typeorm";
 import { ServiceRequestRepository, type CommentRow, type RequestRow } from "../repositories/serviceRequest.repository";
 import { ServiceDeskRepository, type PersonRow } from "../repositories/serviceDesk.repository";
@@ -914,7 +915,7 @@ export class ServiceRequestService {
     const pool = mentionPool(await this.mentionable(r, viewer.isAgent, agents), internal);
     const mentions = resolveMentions(input.mentionIds, pool, actor.id);
 
-    const uploaded = await this.storeFiles(files);
+    const uploaded = await this.storeFiles(actor, organizationId, files);
     let saved: ServiceRequestComment;
     try {
       saved = await this.repo.run(async (m) => {
@@ -1121,7 +1122,10 @@ export class ServiceRequestService {
   }
 
   // Puts files in storage. If one fails, the ones already stored are removed.
-  private async storeFiles(files: UploadedFile[]): Promise<StoredFile[]> {
+  private async storeFiles(actor: DeskActor, organizationId: string, files: UploadedFile[]): Promise<StoredFile[]> {
+    if (files.length) {
+      await PlanLimitsService.Instance.assertCanAdd(actor, organizationId, "storage_gb", files.reduce((n, f) => n + (f.size || 0), 0));
+    }
     const stored: StoredFile[] = [];
     try {
       for (const file of files) {
@@ -1172,7 +1176,7 @@ export class ServiceRequestService {
       throw new AppError(`A request can have at most ${MAX_ATTACHMENTS} files`, 422);
     }
 
-    const stored = await this.storeFiles(files);
+    const stored = await this.storeFiles(actor, organizationId, files);
     const rows = stored.map((f) => ({ ...f, requestId: id, uploadedById: actor.id }));
     try {
       await this.repo.addAttachments(rows);

@@ -8,7 +8,7 @@ export interface OrganizationSummary {
   userCount: number
   projectCount: number
   createdAt: string
-  plan: Pick<EffectivePlan, "planKey" | "planName" | "status" | "assignedPlanKey" | "paidUntil" | "trialEndsAt" | "source" | "includedSeats" | "extraSeats">
+  plan: Pick<EffectivePlan, "planKey" | "planName" | "status" | "blocked" | "assignedPlanKey" | "paidUntil" | "trialEndsAt" | "source" | "includedSeats" | "extraSeats">
 }
 
 export interface FetchOrganizationsParams {

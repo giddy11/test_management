@@ -12,6 +12,8 @@ import { NotificationBell } from "@/components/layout/NotificationBell"
 import { GlobalSearch } from "@/components/layout/GlobalSearch"
 import { WhatsNewDialog } from "@/components/layout/WhatsNewDialog"
 import { SiteBannerBar } from "@/components/layout/SiteBannerBar"
+import { PlanLimitBanner } from "@/components/subscription/PlanLimitBanner"
+import { SubscriptionRequiredModal } from "@/components/subscription/SubscriptionRequiredModal"
 import { PreviewBanner } from "@/components/layout/PreviewBanner"
 import { PresenceProvider } from "@/contexts/PresenceContext"
 import { useAuth } from "@/contexts/AuthContext"
@@ -41,6 +43,8 @@ export function DashboardLayout() {
         <SidebarInset className="min-w-0 overflow-x-clip">
           <PreviewBanner />
           <SiteBannerBar />
+          <PlanLimitBanner />
+          <SubscriptionRequiredModal />
           <header className="sticky top-0 z-10 flex h-14 shrink-0 items-center gap-2 border-b bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/60">
             <SidebarTrigger className="-ml-1" />
             <Separator orientation="vertical" className="mr-2 h-4" />

@@ -12,6 +12,7 @@ const { hasWildcard, can } = require("../../../shared/access/can");
 const cache = require("../../../shared/access/permissionCache");
 const { WILDCARD, BUILTIN_ROLES, ROLE_KEYS } = require("../catalog/permissions.catalog");
 const { SubscriptionService } = require("../../subscription/services/subscription.service");
+const { PlanLimitsService } = require("../../subscription/services/planLimits.service");
 
 // The permission that can grant every other one. Losing the last holder of it
 // locks an organisation out of its own access control permanently.
@@ -434,6 +435,8 @@ class AccessService {
 
     const beforeRoles = await this.repo.rolesForUser(userId);
     await this.assertLockoutOnAssignment(actor, userId, granted, beforeRoles);
+    // Any role but Employee takes a full seat; the plan decides how many there are.
+    await PlanLimitsService.Instance.assertSeatForRoles(actor, actor.organizationId, userId, beforeRoles, roles);
 
     // Stored on the entry, like the actor's name, so it still says who this was
     // about after they are renamed or removed.

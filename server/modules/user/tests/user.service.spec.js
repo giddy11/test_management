@@ -40,6 +40,8 @@ function makeAccessRepo() {
   return {
     rolesForUser: jest.fn().mockResolvedValue([]),
     findRoleByKey: jest.fn().mockResolvedValue({ id: "role-qa" }),
+    // createUser looks the roles up first, to check the plan has a seat for them.
+    findRoleById: jest.fn().mockResolvedValue({ id: "role-qa", key: "qa_engineer" }),
   };
 }
 

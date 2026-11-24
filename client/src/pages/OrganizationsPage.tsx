@@ -21,6 +21,7 @@ import { useDebounce } from "@/hooks/useDebounce"
 import { useAuth } from "@/contexts/AuthContext"
 import { can } from "@/lib/can"
 import { planStatusText } from "@/lib/planStatus"
+import { cn } from "@/lib/utils"
 import { PlanBadge } from "@/components/subscription/PlanBadge"
 import { OrganizationPlanDialog } from "@/components/subscription/OrganizationPlanDialog"
 import type { OrganizationSummary } from "@/types/organization.types"
@@ -111,9 +112,20 @@ export default function OrganizationsPage() {
                 <TableCell data-cy="org-plan">
                   {org.plan && (
                     <>
-                      <PlanBadge planKey={org.plan.planKey} name={org.plan.planName} />
-                      {org.plan.status !== "free" && (
-                        <div className="mt-1 text-xs whitespace-nowrap text-muted-foreground">{planStatusText(org.plan)}</div>
+                      {org.plan.status === "none" ? (
+                        <span className="text-xs font-medium whitespace-nowrap text-destructive">No subscription</span>
+                      ) : (
+                        <PlanBadge planKey={org.plan.planKey} name={org.plan.planName} />
+                      )}
+                      {org.plan.status !== "none" && (
+                        <div
+                          className={cn(
+                            "mt-1 text-xs whitespace-nowrap",
+                            org.plan.blocked ? "font-medium text-destructive" : "text-muted-foreground",
+                          )}
+                        >
+                          {planStatusText(org.plan)}
+                        </div>
                       )}
                       {org.plan.extraSeats > 0 && (
                         <div className="text-xs whitespace-nowrap text-muted-foreground" data-cy="org-extra-seats">

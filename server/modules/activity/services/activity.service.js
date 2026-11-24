@@ -16,6 +16,8 @@ function actorNameOf(actor) {
   return actor.name?.trim() || full || actor.email || null;
 }
 
+const { hasWildcard } = require("../../../shared/access/can");
+
 class ActivityService {
   static Instance = new ActivityService();
 
@@ -88,6 +90,15 @@ class ActivityService {
     return { organizationId: actor.organizationId };
   }
 
+  // How far back the organisation's plan lets it see. The platform owner sees
+  // everything. Required here, not at the top: the plan service logs activity
+  // itself, so loading it with this module would be circular.
+  async historySince(actor, scope) {
+    if (hasWildcard(actor) || !scope.organizationId) return null;
+    const { PlanLimitsService } = require("../../subscription/services/planLimits.service");
+    return PlanLimitsService.Instance.activitySince(scope.organizationId);
+  }
+
   async fetch(actor, params) {
     const scope = this.scopeFor(actor);
     if (!scope) {
@@ -96,14 +107,14 @@ class ActivityService {
         meta: buildMetaFromTotal(params.page ?? 1, params.limit ?? 20, 0),
       };
     }
-    return this.repo.fetchPaginated({ ...params, ...scope });
+    return this.repo.fetchPaginated({ ...params, ...scope, since: await this.historySince(actor, scope) });
   }
 
   // The export's rows — same scope, same filters, no pagination.
   async fetchForExport(actor, params) {
     const scope = this.scopeFor(actor);
     if (!scope) return [];
-    return this.repo.fetchForExport({ ...params, ...scope });
+    return this.repo.fetchForExport({ ...params, ...scope, since: await this.historySince(actor, scope) });
   }
 }
 

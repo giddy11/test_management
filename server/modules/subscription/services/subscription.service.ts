@@ -35,13 +35,22 @@ const { ActivityService } = require("../../activity/services/activity.service");
 // server instance catches up within this window.
 const CACHE_MS = 30_000;
 
-export type EffectiveStatus = "free" | "active" | "trial" | "expired";
+// none: no subscription on record at all (never set up). expired: a trial or
+// paid period has ended. Both block the organisation (see "blocked") until the
+// platform owner sets a plan, Free included.
+export type EffectiveStatus = "none" | "active" | "trial" | "expired";
 
 export interface EffectivePlan {
   /** The plan the organisation gets right now. */
   planKey: PlanKey;
   planName: string;
   status: EffectiveStatus;
+  /**
+   * The organisation can't use the app until it subscribes: it has no
+   * subscription, or its trial or paid period has ended. Its data is kept and
+   * Free's limits still apply on the server.
+   */
+  blocked: boolean;
   /** The plan on record, which differs from planKey once a trial or paid period has ended. */
   assignedPlanKey: PlanKey;
   trialEndsAt: string | null;
@@ -190,7 +199,19 @@ export class SubscriptionService {
     await this.assertOrganization(organizationId);
     const existing = await this.repo.findSubscription(organizationId);
     if (input.planKey === "free") {
-      await this.repo.clearSubscription(organizationId);
+      // Kept as a record, not "no subscription": an organisation put on Free
+      // can use the app within Free's limits; one with no record can't.
+      await this.repo.saveSubscription({
+        organizationId,
+        planKey: "free",
+        status: "active",
+        trialEndsAt: null,
+        paidUntil: null,
+        source: "manual",
+        extraSeats: 0,
+        note: input.note?.trim() || null,
+        updatedBy: actor.id,
+      });
     } else {
       const trialEndsAt = input.status === "trial" && input.trialEndsAt ? new Date(input.trialEndsAt) : null;
       if (input.status === "trial" && !trialEndsAt) throw new AppError("A trial needs an end date", 422);
@@ -296,7 +317,7 @@ export class SubscriptionService {
   private effective(row: OrganizationSubscription | null, ent: Record<PlanKey, PlanEntitlements>): EffectivePlan {
     const now = Date.now();
     let planKey: PlanKey = "free";
-    let status: EffectiveStatus = "free";
+    let status: EffectiveStatus = "none";
     if (row) {
       const end = row.status === "trial" ? row.trialEndsAt : row.paidUntil;
       const running = end === null ? row.status === "active" : end.getTime() > now;
@@ -310,6 +331,7 @@ export class SubscriptionService {
       planKey,
       planName: PLAN_NAMES[planKey],
       status,
+      blocked: status === "none" || status === "expired",
       assignedPlanKey: row?.planKey ?? "free",
       trialEndsAt: row?.trialEndsAt?.toISOString() ?? null,
       paidUntil: row?.paidUntil?.toISOString() ?? null,

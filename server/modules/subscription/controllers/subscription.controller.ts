@@ -1,16 +1,20 @@
 // modules/subscription/controllers/subscription.controller.ts
 import { SubscriptionService } from "../services/subscription.service";
+import { PlanLimitsService } from "../services/planLimits.service";
 
 const { ApiResponse } = require("../../../shared/response/apiResponse");
 
 const S = () => SubscriptionService.Instance;
 
 export class SubscriptionController {
-  // The signed-in person's own organisation: which plan, and what it unlocks.
+  // The signed-in person's own organisation: which plan, what it unlocks, and
+  // how much of each limit is used (so the app can say when it's full).
   static async mine(req: any, res: any, next: any) {
     try {
       const orgId: string | null = req.user.organizationId ?? null;
-      const data = orgId ? await S().current(orgId) : null;
+      const data = orgId
+        ? { ...(await S().current(orgId)), usage: await PlanLimitsService.Instance.usage(orgId) }
+        : null;
       res.status(200).json(ApiResponse.ok("Your plan", data));
     } catch (err) {
       next(err);

@@ -24,6 +24,7 @@ export type NotificationType =
   | "service_request_update"
   | "service_request_escalated"
   | "sla_escalated"
+  | "plan_reminder"
 
 export interface AppNotification {
   id: string
@@ -45,6 +46,8 @@ export interface AppNotification {
     support?: boolean
     // IT requests (/requests/:id) — not to be confused with requestId, a feature request.
     serviceRequestId?: string
+    /** An in-app path to open, for notifications that aren't about a record (plan reminders). */
+    link?: string
   } | null
   read: boolean
   createdAt: string

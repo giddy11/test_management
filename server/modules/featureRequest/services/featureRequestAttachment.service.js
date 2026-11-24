@@ -5,6 +5,7 @@ const {
 const { FeatureRequestService } = require("./featureRequest.service");
 const { StorageService } = require("../../../shared/services/storage.service");
 const { AppError } = require("../../../shared/errors/AppError");
+const { PlanLimitsService } = require("../../subscription/services/planLimits.service");
 
 const MAX_ATTACHMENTS_PER_REQUEST = 10;
 const CLOUDINARY_FOLDER = "testmate/feature-requests";
@@ -44,6 +45,7 @@ class FeatureRequestAttachmentService {
       );
     }
 
+    await PlanLimitsService.Instance.assertCanAdd(actor, actor.organizationId, "storage_gb", files.reduce((n, f) => n + (f.size || 0), 0));
     const uploaded = [];
     for (const file of files) {
       const result = await this.storage.uploadImage(file.buffer, {

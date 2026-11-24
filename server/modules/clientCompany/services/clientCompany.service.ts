@@ -4,6 +4,7 @@
 // link, its IT supporter accounts (users with role it_support scoped to the
 // company) — is the project's team lead's call, or project.manageall's. Reading
 // needs only access to the project.
+import { PlanLimitsService } from "../../subscription/services/planLimits.service";
 import { randomUUID } from "crypto";
 import { ClientCompanyRepository } from "../repositories/clientCompany.repository";
 import { ProjectRepository } from "../../project/repositories/project.repository";
@@ -131,6 +132,7 @@ export class ClientCompanyService {
   ) {
     const project = await this.projectService.getProject(actor, projectId);
     await this.projectService.assertCanManageProject(actor, projectId);
+    await PlanLimitsService.Instance.assertCanAdd(actor, project.organizationId ?? actor.organizationId, "client_companies");
     if (data.contactEmail) {
       await this.assertContactEmailAvailable(data.contactEmail);
     }
@@ -257,6 +259,8 @@ export class ClientCompanyService {
   }) {
     const project = await this.projectRepo.findById(data.projectId);
     if (!project || project.deletedAt) throw new AppError("Project not found", 404);
+    // A server-to-server call: there is no signed-in person, only the plan.
+    await PlanLimitsService.Instance.assertCanAdd(null, project.organizationId, "client_companies");
 
     if (data.contactEmail) {
       const conflictingCompany = await this.companyRepo.findByEmail(data.contactEmail);

@@ -7,6 +7,7 @@ const { env } = require("./config/env");
 const { ServiceDeskEscalationService } = require("./modules/serviceDesk/services/serviceDeskEscalation.service");
 const { SlaEscalationService } = require("./modules/sla/services/slaEscalation.service");
 const { EmailLogRetentionService } = require("./modules/emailLog/services/emailLogRetention.service");
+const { SubscriptionReminderService } = require("./modules/subscription/services/subscriptionReminder.service");
 
 async function bootstrap() {
   try {
@@ -28,6 +29,9 @@ async function bootstrap() {
     SlaEscalationService.Instance.start();
     // Email log: drop entries older than the retention window (90 days).
     EmailLogRetentionService.Instance.start();
+    // Plans: remind organisations (and the platform owner) before a paid plan
+    // or trial ends, and when it has. Same lock-and-claim safety as above.
+    SubscriptionReminderService.Instance.start();
   } catch (err) {
     console.error("[Startup] Failed to start server:", err);
     process.exit(1);

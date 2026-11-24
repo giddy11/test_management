@@ -149,6 +149,8 @@ const NotificationType = Object.freeze({
   SERVICE_REQUEST_ESCALATED: "service_request_escalated",
   // A ticket, bug or feature request ran past its SLA target (modules/sla sweeper).
   SLA_ESCALATED: "sla_escalated",
+  // A paid plan or trial is about to end, or has (modules/subscription).
+  PLAN_REMINDER: "plan_reminder",
 });
 
 // Lifecycle of an in-app support-chat conversation.

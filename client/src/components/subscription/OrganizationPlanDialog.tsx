@@ -492,8 +492,11 @@ export function OrganizationPlanDialog({ organization, onClose }: Props) {
             <div className="flex flex-wrap items-center gap-2">
               {current ? (
                 <>
-                  <PlanBadge planKey={current.planKey} name={current.planName} />
-                  <span>{planStatusText(current)}</span>
+                  {current.status !== "none" && <PlanBadge planKey={current.planKey} name={current.planName} />}
+                  <span className={current.blocked ? "font-medium text-destructive" : undefined}>
+                    {planStatusText(current)}
+                    {current.blocked && " · locked until a plan is set"}
+                  </span>
                   {current.extraSeats > 0 && current.includedSeats !== null && (
                     <span data-cy="org-plan-seats">
                       · {(current.includedSeats + current.extraSeats).toLocaleString()} full seats ({current.includedSeats.toLocaleString()} + {current.extraSeats.toLocaleString()} extra)

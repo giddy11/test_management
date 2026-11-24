@@ -3,6 +3,7 @@ const { BugAttachmentRepository } = require("../repositories/bugAttachment.repos
 const { BugService } = require("./bug.service");
 const { StorageService } = require("../../../shared/services/storage.service");
 const { AppError } = require("../../../shared/errors/AppError");
+const { PlanLimitsService } = require("../../subscription/services/planLimits.service");
 
 const MAX_ATTACHMENTS_PER_BUG = 10;
 const CLOUDINARY_FOLDER = "testmate/bugs";
@@ -39,6 +40,7 @@ class BugAttachmentService {
       throw new AppError(`A bug can have at most ${MAX_ATTACHMENTS_PER_BUG} attachments`, 422);
     }
 
+    await PlanLimitsService.Instance.assertCanAdd(actor, actor.organizationId, "storage_gb", files.reduce((n, f) => n + (f.size || 0), 0));
     const uploaded = [];
     for (const file of files) {
       const result = await this.storage.uploadImage(file.buffer, {

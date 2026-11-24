@@ -36,6 +36,8 @@ export function useMyPlan() {
     queryFn: () => unwrap(SubscriptionEndpoints.fetchMine()),
     enabled: !!user,
     staleTime: 60_000,
+    // While locked out, check every minute so the app opens up soon after a plan is set.
+    refetchInterval: (query) => (query.state.data?.blocked ? 60_000 : false),
   })
 }
 

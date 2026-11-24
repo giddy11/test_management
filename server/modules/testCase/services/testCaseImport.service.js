@@ -6,6 +6,7 @@ const { importStore } = require("../../../shared/utils/importStore");
 const { ActivityService } = require("../../activity/services/activity.service");
 const { AppError } = require("../../../shared/errors/AppError");
 const { importRowSchema } = require("../validators/testCaseImport.schema");
+const { PlanLimitsService } = require("../../subscription/services/planLimits.service");
 const {
   TestCaseStatus,
   TestCasePriority,
@@ -307,6 +308,8 @@ class TestCaseImportService {
       importStore.delete(importId);
       return { created: 0, duplicatesSkipped };
     }
+    // The whole import, or none of it: a half-imported suite is harder to fix.
+    await PlanLimitsService.Instance.assertCanAdd(actor, actor.organizationId, "test_cases", toCreate.length);
 
     const created = await this.tcRepo.createMany(
       toCreate.map((r) => ({

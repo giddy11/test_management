@@ -7,6 +7,7 @@ const { StorageService } = require("../../../shared/services/storage.service");
 const { AppError } = require("../../../shared/errors/AppError");
 const { TestRunResultRepository } = require("../../testRunResult/repositories/testRunResult.repository");
 const { TestRunResultService } = require("../../testRunResult/services/testRunResult.service");
+const { PlanLimitsService } = require("../../subscription/services/planLimits.service");
 
 const MAX_ATTACHMENTS_PER_CASE = 10;
 const MAX_ATTACHMENTS_PER_RESULT = 10;
@@ -51,6 +52,7 @@ class TestCaseAttachmentService {
       );
     }
 
+    await PlanLimitsService.Instance.assertCanAdd(actor, actor.organizationId, "storage_gb", files.reduce((n, f) => n + (f.size || 0), 0));
     const uploaded = [];
     for (const file of files) {
       const result = await this.storage.uploadImage(file.buffer, {
@@ -90,6 +92,7 @@ class TestCaseAttachmentService {
       throw new AppError(`A test run result can have at most ${MAX_ATTACHMENTS_PER_RESULT} attachments`, 422);
     }
 
+    await PlanLimitsService.Instance.assertCanAdd(actor, actor.organizationId, "storage_gb", files.reduce((n, f) => n + (f.size || 0), 0));
     const uploaded = [];
     for (const file of files) {
       const res = await this.storage.uploadImage(file.buffer, { folder: CLOUDINARY_FOLDER });

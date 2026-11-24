@@ -8,6 +8,7 @@ const { ActivityService } = require("../../activity/services/activity.service");
 const { AppError } = require("../../../shared/errors/AppError");
 const { seesAllProjects } = require("../../../shared/access/scope");
 const { TestCaseStatus } = require("../../../config/constants");
+const { PlanLimitsService } = require("../../subscription/services/planLimits.service");
 
 // Human-readable label for an activity summary: names up to 3 users, else a count.
 function userLabel(users) {
@@ -110,6 +111,7 @@ class TestCaseService {
   async createTestCase(actor, data) {
     const suite = await this.suiteService.getTestSuite(actor, data.suite);
     await this.suiteService.projectService.assertCanManageProject(actor, suite.projectId);
+    await PlanLimitsService.Instance.assertCanAdd(actor, actor.organizationId, "test_cases");
     const tc = await this.tcRepo.create({
       title: data.title,
       description: data.description ?? null,

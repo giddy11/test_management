@@ -30,7 +30,11 @@ class ActivityRepository {
   // Applies the scoping and the filter bar to a query builder. Shared by the
   // paginated read and the export so the export can never return rows the
   // on-screen view would have filtered out.
-  applyFilters(qb, { organizationId, clientCompanyId, search, action, entityType, actorId, severity }) {
+  applyFilters(qb, { organizationId, clientCompanyId, search, action, entityType, actorId, severity, since }) {
+    // The plan's history window. Older rows are kept, just not shown.
+    if (since) {
+      qb.andWhere("a.created_at >= :since", { since });
+    }
     if (organizationId) {
       qb.andWhere("a.organization_id = :organizationId", { organizationId });
     }

@@ -11,6 +11,7 @@ const { AccessRepository } = require("../../access/repositories/access.repositor
 const { roleKeyForLegacyUser } = require("../../access/catalog/permissions.catalog");
 const { hasWildcard } = require("../../../shared/access/can");
 const { env } = require("../../../config/env");
+const { PlanLimitsService } = require("../../subscription/services/planLimits.service");
 
 class UserService {
   static Instance = new UserService();
@@ -86,6 +87,16 @@ class UserService {
     if (existing) throw new AppError("An account with this email already exists", 409);
 
     const organizationId = stored.organizationId ?? crypto.randomUUID();
+
+    // Which roles they'll get, worked out first: if those take a full seat and
+    // the plan has none left, refuse before the account exists rather than
+    // leave it behind with no role.
+    const roleIds = data.roleIds?.length
+      ? data.roleIds
+      : await this.defaultRoleIdsFor(organizationId, data.role ?? UserRole.USER);
+    const newRoles = (await Promise.all(roleIds.map((id) => this.accessRepo.findRoleById(id)))).filter(Boolean);
+    await PlanLimitsService.Instance.assertSeatForRoles(actor, organizationId, null, [], newRoles);
+
     const user = await this.userRepo.create({
       firstName: data.firstName,
       lastName: data.lastName,
@@ -101,9 +112,6 @@ class UserService {
     // Give the new account a role straight away. An explicit roleIds wins;
     // otherwise fall back to the built-in role their legacy role maps to, so a
     // client that hasn't been updated yet still produces a usable account.
-    const roleIds = data.roleIds?.length
-      ? data.roleIds
-      : await this.defaultRoleIdsFor(organizationId, user.role);
     if (roleIds.length) {
       await this.accessService.setUserRoles({ ...actor, organizationId }, user.id, roleIds);
     }

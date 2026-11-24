@@ -1,4 +1,5 @@
 // modules/project/services/project.service.ts
+import { PlanLimitsService } from "../../subscription/services/planLimits.service";
 import { Project } from "../entities/project.entity";
 import { ProjectRepository } from "../repositories/project.repository";
 import {
@@ -173,6 +174,7 @@ export class ProjectService {
     // The one project action that cannot be project-level: there is no project
     // yet to hold a role in. Also enforced at the route; this is the second layer.
     assertPermission(actor, "project.manageall");
+    await PlanLimitsService.Instance.assertCanAdd(actor, actor.organizationId, "projects");
     const members = await this.resolveMembers(actor, data.members);
     const project = await this.projectRepo.create({
       name: data.name,

@@ -31,9 +31,9 @@ function makeRepo(subscription: any = null) {
 }
 
 describe("SubscriptionService — which plan an organisation gets", () => {
-  it("puts an organisation with no subscription on Free", async () => {
+  it("treats an organisation with no subscription as blocked, with Free's limits", async () => {
     const plan = await new SubscriptionService(makeRepo() as any).current(ORG);
-    expect(plan).toMatchObject({ planKey: "free", status: "free" });
+    expect(plan).toMatchObject({ planKey: "free", status: "none", blocked: true });
     expect(plan.features).toEqual(DEFAULT_ENTITLEMENTS.free.features);
   });
 
@@ -42,7 +42,7 @@ describe("SubscriptionService — which plan an organisation gets", () => {
     expect((await new SubscriptionService(paid as any).current(ORG)).planKey).toBe("standard");
 
     const lapsed = makeRepo({ organizationId: ORG, planKey: "standard", status: "active", paidUntil: new Date(Date.now() - DAY), trialEndsAt: null, source: "offline_payment", note: null });
-    expect(await new SubscriptionService(lapsed as any).current(ORG)).toMatchObject({ planKey: "free", status: "expired", assignedPlanKey: "standard" });
+    expect(await new SubscriptionService(lapsed as any).current(ORG)).toMatchObject({ planKey: "free", status: "expired", assignedPlanKey: "standard", blocked: true });
   });
 
   it("keeps an active plan with no end date (complimentary)", async () => {
@@ -99,10 +99,12 @@ describe("SubscriptionService — offline payments", () => {
     expect(payment.periodEnd.getUTCFullYear()).toBe(paidUntil.getUTCFullYear() + 1);
   });
 
-  it("sends an organisation back to Free by clearing its subscription", async () => {
+  it("puts an organisation on Free as a subscription of its own, so it isn't blocked", async () => {
     const repo = makeRepo({ organizationId: ORG, planKey: "enterprise", status: "active", paidUntil: null, trialEndsAt: null, source: "manual", note: null });
-    await new SubscriptionService(repo as any).setPlan(actor, ORG, { planKey: "free", status: "active" });
-    expect(repo.clearSubscription).toHaveBeenCalledWith(ORG);
+    const service = new SubscriptionService(repo as any);
+    await service.setPlan(actor, ORG, { planKey: "free", status: "active" });
+    expect(repo.saveSubscription).toHaveBeenCalledWith(expect.objectContaining({ planKey: "free", status: "active", paidUntil: null }));
+    expect(await service.current(ORG)).toMatchObject({ planKey: "free", status: "active", blocked: false });
   });
 });
 

@@ -16,7 +16,7 @@ export interface OrganizationSummary {
   userCount: number;
   projectCount: number;
   createdAt: string;
-  plan: Pick<EffectivePlan, "planKey" | "planName" | "status" | "assignedPlanKey" | "paidUntil" | "trialEndsAt" | "source" | "includedSeats" | "extraSeats">;
+  plan: Pick<EffectivePlan, "planKey" | "planName" | "status" | "blocked" | "assignedPlanKey" | "paidUntil" | "trialEndsAt" | "source" | "includedSeats" | "extraSeats">;
 }
 
 interface OrgRow {
@@ -74,7 +74,8 @@ function pickPlan(p: EffectivePlan | undefined): OrganizationSummary["plan"] {
   return {
     planKey: p?.planKey ?? "free",
     planName: p?.planName ?? "Free",
-    status: p?.status ?? "free",
+    status: p?.status ?? "none",
+    blocked: p?.blocked ?? true,
     assignedPlanKey: p?.assignedPlanKey ?? "free",
     paidUntil: p?.paidUntil ?? null,
     trialEndsAt: p?.trialEndsAt ?? null,

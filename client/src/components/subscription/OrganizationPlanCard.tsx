@@ -8,8 +8,10 @@ import { InlineLoader } from "@/components/shared/PageLoader"
 import { PlanBadge } from "@/components/subscription/PlanBadge"
 import { CONTACT } from "@/components/landing/content"
 import { useMyPlan } from "@/hooks/useSubscription"
-import { planStatusText } from "@/lib/planStatus"
-import type { FeatureKey, LimitKey } from "@/types/subscription.types"
+import { limitsReached, planStatusText } from "@/lib/planStatus"
+import { durationText } from "@/lib/pricingBenefits"
+import { cn } from "@/lib/utils"
+import type { CountedLimit, FeatureKey, LimitKey } from "@/types/subscription.types"
 
 const FEATURE_LABELS: Record<FeatureKey, string> = {
   it_requests: "IT requests (portal, catalog, approvals, IT queue)",
@@ -25,7 +27,7 @@ const LIMIT_LABELS: Record<LimitKey, string> = {
   client_companies: "Client companies",
   storage_gb: "Attachment storage (GB)",
   ai_credits_monthly: "AI credits each month",
-  activity_log_days: "Activity log history (days)",
+  activity_log_days: "Activity log history",
 }
 
 export function OrganizationPlanCard() {
@@ -39,6 +41,7 @@ export function OrganizationPlanCard() {
       ? new Date((plan.status === "trial" ? plan.trialEndsAt : plan.paidUntil) as string).getTime() - Date.now()
       : null
   const endsSoon = ending !== null && ending < 14 * 86_400_000
+  const reached = new Map(limitsReached(plan).map((l) => [l.key, l.state]))
 
   return (
     <div className="space-y-4" data-cy="organization-plan">
@@ -74,12 +77,31 @@ export function OrganizationPlanCard() {
           </div>
           <div>
             <h3 className="mb-2 text-sm font-semibold">Limits</h3>
+            <p className="mb-2 text-xs text-muted-foreground">Used / included. At a limit, adding more is blocked until you upgrade or remove some.</p>
             <dl className="space-y-2 text-sm">
-              {(Object.keys(LIMIT_LABELS) as LimitKey[]).map((key) => (
-                <div key={key} className="flex justify-between gap-4">
+              {(Object.keys(LIMIT_LABELS) as LimitKey[]).map((key) => {
+                const max = plan.limits[key]
+                const counted = key !== "activity_log_days"
+                const used = counted ? plan.usage?.[key as CountedLimit] : undefined
+                const state = counted ? reached.get(key as CountedLimit) : undefined
+                return (
+                <div key={key} className="flex justify-between gap-4" data-cy={`plan-limit-${key}`}>
                   <dt className="text-muted-foreground">{LIMIT_LABELS[key]}</dt>
-                  <dd className="font-medium tabular-nums">
-                    {plan.limits[key] === null ? "Unlimited" : plan.limits[key]?.toLocaleString()}
+                  <dd
+                    className={cn(
+                      "text-right font-medium tabular-nums",
+                      state === "full" && "text-amber-600 dark:text-amber-400",
+                      state === "over" && "text-destructive",
+                    )}
+                  >
+                    {used !== undefined && <span>{used.toLocaleString()} / </span>}
+                    {max === null
+                      ? "Unlimited"
+                      : key === "activity_log_days"
+                        ? durationText(max)
+                        : max.toLocaleString()}
+                    {state === "over" && <span className="ml-1 text-xs">over</span>}
+                    {state === "full" && <span className="ml-1 text-xs">full</span>}
                     {key === "full_seats" && plan.extraSeats > 0 && plan.includedSeats !== null && (
                       <span className="ml-1 text-xs font-normal text-muted-foreground" data-cy="plan-seat-breakdown">
                         ({plan.includedSeats.toLocaleString()} + {plan.extraSeats.toLocaleString()} extra)
@@ -87,7 +109,8 @@ export function OrganizationPlanCard() {
                     )}
                   </dd>
                 </div>
-              ))}
+                )
+              })}
             </dl>
           </div>
         </CardContent>

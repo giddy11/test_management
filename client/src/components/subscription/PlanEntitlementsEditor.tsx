@@ -89,7 +89,8 @@ export function PlanEntitlementsEditor({ catalog, draft, onLimitChange }: Props)
         <CardTitle className="text-base">Limits</CardTitle>
         <CardDescription>
           The numbers the pricing cards show through the # benefits on the Edit tab, so change a number here and the
-          cards follow. Not checked in the app yet: enforcing them is the next step. Tick Unlimited for no limit.
+          cards follow. They are enforced: at a limit, an organisation can't add more until it upgrades or removes
+          some, and activity history older than its window is hidden. Tick Unlimited for no limit.
           Features are ticked in the Benefits list on the Edit tab.
         </CardDescription>
       </CardHeader>

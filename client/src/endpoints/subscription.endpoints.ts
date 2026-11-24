@@ -1,7 +1,7 @@
 // endpoints/subscription.endpoints.ts
 import { wrapCall } from "@/transport/http"
 import type {
-  EffectivePlan,
+  MyPlan,
   OrganizationPlanDetail,
   PlanCatalog,
   PlanEntitlements,
@@ -14,7 +14,7 @@ type Body = Record<string, unknown>
 
 export const SubscriptionEndpoints = {
   /** The signed-in person's own organisation. null when they have none. */
-  fetchMine: () => wrapCall<EffectivePlan | null>("GET", "/api/v1/subscription/me"),
+  fetchMine: () => wrapCall<MyPlan | null>("GET", "/api/v1/subscription/me"),
 
   // Platform owner (subscription.manage).
   fetchCatalog: () => wrapCall<PlanCatalog>("GET", "/api/v1/subscription/catalog"),

@@ -41,6 +41,8 @@ function timeAgo(iso: string) {
 
 function linkFor(n: AppNotification): string {
   const d = n.data ?? {}
+  // Notifications that know exactly where they belong (plan reminders) say so.
+  if (typeof d.link === "string" && d.link.startsWith("/")) return d.link
   // A user message to the admins opens the inbox; a reply to a user has no page
   // (they read it in the floater) so it falls through to the dashboard.
   if (n.type === "support_chat_message") return "/support-inbox"

@@ -6,6 +6,7 @@
 // metering at all.
 //
 // Balances move only through AiCreditRepository.applyDelta (atomic, ledgered).
+import { PlanLimitsService } from "../../subscription/services/planLimits.service";
 import { AI_FEATURES, type AiFeature } from "../domain/features";
 import { AiRequestError } from "../domain/aiErrors";
 import {
@@ -132,6 +133,10 @@ export class AiCreditService implements AiCreditCharger {
     const organizationId = orgOf(admin);
     if (!(await this.repo.isMemberOf(input.userId, organizationId))) {
       throw new AppError("That person isn't on your team", 404);
+    }
+    // Giving credits counts against the plan's monthly allowance; taking them back doesn't.
+    if (input.amount > 0) {
+      await PlanLimitsService.Instance.assertCanAdd(admin, organizationId, "ai_credits_monthly", input.amount);
     }
     const note = input.note?.trim() || null;
     const audit = this.activity.buildEntry(admin, {
