@@ -14,6 +14,7 @@ import { WhatsNewDialog } from "@/components/layout/WhatsNewDialog"
 import { SiteBannerBar } from "@/components/layout/SiteBannerBar"
 import { PlanLimitBanner } from "@/components/subscription/PlanLimitBanner"
 import { SubscriptionRequiredModal } from "@/components/subscription/SubscriptionRequiredModal"
+import { PlanExpiryIndicator } from "@/components/subscription/PlanExpiryIndicator"
 import { PreviewBanner } from "@/components/layout/PreviewBanner"
 import { PresenceProvider } from "@/contexts/PresenceContext"
 import { useAuth } from "@/contexts/AuthContext"
@@ -50,6 +51,7 @@ export function DashboardLayout() {
             <Separator orientation="vertical" className="mr-2 h-4" />
             <span className="hidden text-sm font-medium sm:inline">ServiceDesk4u</span>
             <div className="ml-auto flex min-w-0 flex-1 items-center justify-end gap-1 sm:flex-initial">
+              <PlanExpiryIndicator />
               <InstallAppButton className="mr-1" />
               {can("project.read") && <GlobalSearch />}
               <NotificationBell />
