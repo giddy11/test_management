@@ -67,7 +67,7 @@ const fetchFeatureRequestsSchema = z.object({
 const commentSchema = z.object({
   params: z.object({ id: z.string().uuid() }),
   body: z.object({
-    body: z.string().min(1).max(1000),
+    body: z.string().min(1),
     // Firestore doc id of the comment being replied to — omitted/undefined for
     // a top-level comment.
     parentId: z.string().min(1).optional(),
@@ -80,7 +80,7 @@ const commentSchema = z.object({
 const editCommentSchema = z.object({
   params: z.object({ id: z.string().uuid(), commentId: z.string().min(1) }),
   body: z.object({
-    body: z.string().min(1).max(1000),
+    body: z.string().min(1),
   }),
 });
 
