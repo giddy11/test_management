@@ -81,13 +81,7 @@ export class FeedbackRepository {
     submitterEmail,
   }: FetchFeedbackParams) {
     const offset = getOffset(page, limit);
-    const qb = this.repo
-      .createQueryBuilder("fb")
-      .leftJoinAndSelect("fb.assignees", "assignee")
-      .leftJoinAndSelect("fb.attachments", "attachment")
-      .leftJoinAndSelect("fb.clientCompany", "clientCompany")
-      .leftJoinAndSelect("fb.escalatedBy", "escalatedBy")
-      .leftJoinAndSelect("fb.assignedSupporter", "assignedSupporter")
+    const qb = this.withPeople()
       .where("fb.deleted_at IS NULL")
       .orderBy("fb.createdAt", "DESC")
       .skip(offset)
@@ -110,7 +104,11 @@ export class FeedbackRepository {
       qb.andWhere("fb.project_id = :projectId", { projectId }); // indexed
     } else if (!clientCompanyId) {
       // Global (cross-project) mode — join the project for name + org scoping.
-      qb.leftJoinAndSelect("fb.project", "project").andWhere("project.deleted_at IS NULL");
+      // The join condition is what withPeople()'s withDeleted() would otherwise
+      // drop; without it this filter would also change which tickets are listed.
+      qb.leftJoinAndSelect("fb.project", "project", "project.deletedAt IS NULL").andWhere(
+        "project.deleted_at IS NULL"
+      );
       if (organizationId) {
         qb.andWhere("project.organization_id = :organizationId", { organizationId }); // indexed
       }
@@ -166,16 +164,22 @@ export class FeedbackRepository {
   }
 
   async findById(id: string): Promise<Feedback | null> {
-    return this.repo.findOne({
-      where: { id },
-      relations: {
-        assignees: true,
-        attachments: true,
-        clientCompany: true,
-        escalatedBy: true,
-        assignedSupporter: true,
-      },
-    });
+    return this.withPeople().where("fb.id = :id", { id }).andWhere("fb.deletedAt IS NULL").getOne();
+  }
+
+  // A ticket with everything a response needs. Deactivated people are included
+  // so they're still named: withDeleted() only reaches the joins after it, so
+  // the other relations keep hiding deleted rows. It also lifts the filter on
+  // the ticket itself, which every caller must therefore add back.
+  private withPeople() {
+    return this.repo
+      .createQueryBuilder("fb")
+      .leftJoinAndSelect("fb.attachments", "attachment")
+      .leftJoinAndSelect("fb.clientCompany", "clientCompany")
+      .withDeleted()
+      .leftJoinAndSelect("fb.assignees", "assignee")
+      .leftJoinAndSelect("fb.escalatedBy", "escalatedBy")
+      .leftJoinAndSelect("fb.assignedSupporter", "assignedSupporter");
   }
 
   async create(data: Partial<Feedback>): Promise<Feedback> {

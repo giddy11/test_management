@@ -247,6 +247,14 @@ export function SupportItemDialog({ feedback, onOpenChange }: Props) {
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="unassigned">Unassigned</SelectItem>
+                    {/* A removed supporter can still hold a ticket; without an
+                        item for them the control would render blank. */}
+                    {feedback.assignedSupporterId &&
+                      !teammates.some((t) => t.id === feedback.assignedSupporterId) && (
+                        <SelectItem value={feedback.assignedSupporterId} disabled>
+                          {feedback.assignedSupporterName}
+                        </SelectItem>
+                      )}
                     {teammates.map((t) => (
                       <SelectItem key={t.id} value={t.id}>
                         {t.name}

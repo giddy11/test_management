@@ -1,4 +1,5 @@
 // modules/supportChat/dto/supportChat.dto.js
+const { markDeactivated } = require("../../../shared/utils/deactivatedUser");
 
 function toConversationResponse(c) {
   if (!c) return null;
@@ -8,7 +9,10 @@ function toConversationResponse(c) {
     user: user
       ? {
           id: user.id,
-          name: [user.firstName, user.lastName].filter(Boolean).join(" ") || user.email,
+          name: markDeactivated(
+            [user.firstName, user.lastName].filter(Boolean).join(" ") || user.email,
+            user
+          ),
           email: user.email,
         }
       : null,

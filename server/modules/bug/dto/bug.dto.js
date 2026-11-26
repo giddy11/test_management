@@ -1,9 +1,11 @@
 // modules/bug/dto/bug.dto.js
 const { formatReferenceCode } = require("../../../shared/utils/referenceCode");
+const { markDeactivated, deactivatedFlag } = require("../../../shared/utils/deactivatedUser");
 
 function userSummary(user) {
   if (!user) return null;
-  return { id: user.id, name: [user.firstName, user.lastName].filter(Boolean).join(" ") };
+  const name = [user.firstName, user.lastName].filter(Boolean).join(" ");
+  return { id: user.id, name: markDeactivated(name, user), ...deactivatedFlag(user) };
 }
 
 function toBugResponse(bug) {

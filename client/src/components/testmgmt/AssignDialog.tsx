@@ -37,6 +37,12 @@ export function AssignDialog({ open, onOpenChange, projectId, testCase, bulkCase
   const isBulk = Boolean(bulkCases && bulkCases.length > 0)
   const { data: project, isError, error } = useProject(projectId)
   const users = project?.members ?? []
+  // Current assignees outside the member list (deactivated, or since removed from
+  // the project) are still sent on save, so they're listed too and can be unticked.
+  const unlisted = isBulk
+    ? []
+    : (testCase?.assignees ?? []).filter((a) => !users.some((u) => u.id === a.id))
+  const options = [...users, ...unlisted]
   const assign = useAssignCase()
   const bulkAssign = useBulkAssignCases()
 
@@ -76,7 +82,7 @@ export function AssignDialog({ open, onOpenChange, projectId, testCase, bulkCase
   // can be removed in bulk "remove" mode.
   const assignedIds = new Set((bulkCases ?? []).flatMap((c) => c.existingAssigneeIds))
   const isRemove = isBulk && mode === "remove"
-  const pool = isRemove ? users.filter((u) => assignedIds.has(u.id)) : users
+  const pool = isRemove ? users.filter((u) => assignedIds.has(u.id)) : options
   const filtered = pool.filter((u) =>
     `${u.name} ${u.email}`.toLowerCase().includes(search.toLowerCase())
   )
@@ -209,7 +215,7 @@ export function AssignDialog({ open, onOpenChange, projectId, testCase, bulkCase
         {selected.size > 0 && (
           <div className="flex flex-wrap gap-1">
             {[...selected].map((id) => {
-              const u = users.find((u) => u.id === id)
+              const u = options.find((u) => u.id === id)
               if (!u) return null
               return (
                 <Badge key={id} variant="secondary" className="gap-1 text-xs">

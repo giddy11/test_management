@@ -5,6 +5,7 @@ import type { FeedbackComment } from "../repositories/feedbackComment.repository
 
 const { FeedbackStatus, SupportStatus } = require("../../../config/constants");
 const { formatReferenceCode } = require("../../../shared/utils/referenceCode");
+const { markDeactivated } = require("../../../shared/utils/deactivatedUser");
 
 // Human-readable code shown instead of the raw ticketNumber (e.g.
 // "TKT-20260728-042") — same idea as a bug/feature request's referenceCode.
@@ -36,11 +37,17 @@ export function toFeedbackResponse(fb: Feedback | null) {
     supportResolvedAt: fb.supportResolvedAt ?? null,
     escalatedAt: fb.escalatedAt ?? null,
     escalatedByName: fb.escalatedBy
-      ? [fb.escalatedBy.firstName, fb.escalatedBy.lastName].filter(Boolean).join(" ")
+      ? markDeactivated(
+          [fb.escalatedBy.firstName, fb.escalatedBy.lastName].filter(Boolean).join(" "),
+          fb.escalatedBy
+        )
       : null,
     assignedSupporterId: fb.assignedSupporterId ?? null,
     assignedSupporterName: fb.assignedSupporter
-      ? [fb.assignedSupporter.firstName, fb.assignedSupporter.lastName].filter(Boolean).join(" ")
+      ? markDeactivated(
+          [fb.assignedSupporter.firstName, fb.assignedSupporter.lastName].filter(Boolean).join(" "),
+          fb.assignedSupporter
+        )
       : null,
     severity: fb.severity ?? null,
     submitterNotifiedAt: fb.submitterNotifiedAt ?? null,
@@ -55,7 +62,7 @@ export function toFeedbackResponse(fb: Feedback | null) {
     status: fb.status,
     assignees: (fb.assignees ?? []).map((u) => ({
       id: u.id,
-      name: [u.firstName, u.lastName].filter(Boolean).join(" "),
+      name: markDeactivated([u.firstName, u.lastName].filter(Boolean).join(" "), u),
     })),
     adminResponse: fb.adminResponse ?? null,
     reopenReason: fb.reopenReason ?? null,

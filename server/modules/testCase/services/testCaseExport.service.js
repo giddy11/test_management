@@ -9,6 +9,7 @@ const { TestSuiteRepository } = require("../../testSuite/repositories/testSuite.
 const { TestSuiteService } = require("../../testSuite/services/testSuite.service");
 const { ProjectService } = require("../../project/services/project.service");
 const { AppError } = require("../../../shared/errors/AppError");
+const { markDeactivated } = require("../../../shared/utils/deactivatedUser");
 const {
   restrictToOwnWorkOrNull,
 } = require("../../../shared/access/scope");
@@ -52,7 +53,7 @@ function formatRow(tc, attachments, latest) {
     status: tc.status,
     tags: (tc.tags ?? []).join(", "),
     assignees: (tc.assignees ?? [])
-      .map((a) => `${[a.firstName, a.lastName].filter(Boolean).join(" ")} <${a.email}>`)
+      .map((a) => `${markDeactivated([a.firstName, a.lastName].filter(Boolean).join(" "), a)} <${a.email}>`)
       .join(", "),
     deadline: tc.deadline ? new Date(tc.deadline).toISOString().slice(0, 10) : "",
     latestResultStatus:

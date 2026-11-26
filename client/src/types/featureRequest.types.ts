@@ -13,7 +13,7 @@ export interface FeatureRequest {
   module: string | null
   referenceLinks: string[]
   submittedBy: { id: string; name: string } | null
-  assignedTo: { id: string; name: string } | null
+  assignedTo: { id: string; name: string; deactivated?: boolean } | null
   upvoteCount: number
   hasVoted: boolean
   commentCount: number

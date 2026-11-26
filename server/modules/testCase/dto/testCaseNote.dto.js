@@ -1,10 +1,11 @@
 // modules/testCase/dto/testCaseNote.dto.js
+const { markDeactivated } = require("../../../shared/utils/deactivatedUser");
 
 // A display name for a joined user row, falling back to their email.
 function personName(user) {
   if (!user) return null;
   const name = [user.firstName, user.lastName].filter(Boolean).join(" ").trim();
-  return name || user.email || null;
+  return markDeactivated(name || user.email || null, user);
 }
 
 function toNoteResponse(note) {

@@ -1,9 +1,15 @@
 // modules/featureRequest/dto/featureRequest.dto.js
 const { formatReferenceCode } = require("../../../shared/utils/referenceCode");
+const { markDeactivated, deactivatedFlag } = require("../../../shared/utils/deactivatedUser");
+
+function userSummary(user) {
+  if (!user) return null;
+  const name = [user.firstName, user.lastName].filter(Boolean).join(" ");
+  return { id: user.id, name: markDeactivated(name, user), ...deactivatedFlag(user) };
+}
 
 function toFeatureRequestResponse(fr, extra = {}) {
   if (!fr) return null;
-  const submitter = fr.submittedBy;
   return {
     id: fr.id,
     referenceCode: formatReferenceCode("FR", fr.requestNumber, fr.createdAt),
@@ -14,18 +20,8 @@ function toFeatureRequestResponse(fr, extra = {}) {
     category: fr.category ?? null,
     module: fr.module ?? null,
     referenceLinks: fr.referenceLinks ?? [],
-    submittedBy: submitter
-      ? {
-          id: submitter.id,
-          name: [submitter.firstName, submitter.lastName].filter(Boolean).join(" "),
-        }
-      : null,
-    assignedTo: fr.assignedTo
-      ? {
-          id: fr.assignedTo.id,
-          name: [fr.assignedTo.firstName, fr.assignedTo.lastName].filter(Boolean).join(" "),
-        }
-      : null,
+    submittedBy: userSummary(fr.submittedBy),
+    assignedTo: userSummary(fr.assignedTo),
     upvoteCount: fr.upvoteCount ?? 0,
     hasVoted: extra.hasVoted ?? false,
     commentCount: extra.commentCount ?? 0,
@@ -69,9 +65,7 @@ function toStatusTimelineResponse(rows) {
   return rows.map((r) => ({
     status: r.status,
     enteredAt: r.enteredAt,
-    actor: r.actor
-      ? { id: r.actor.id, name: [r.actor.firstName, r.actor.lastName].filter(Boolean).join(" ") }
-      : null,
+    actor: userSummary(r.actor),
   }));
 }
 

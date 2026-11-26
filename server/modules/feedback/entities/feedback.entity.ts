@@ -78,10 +78,11 @@ export interface Feedback {
   deletedAt: Date | null;
   project?: unknown;
   clientCompany?: { id: string; name: string; feedbackToken?: string | null } | null;
-  escalatedBy?: { id: string; firstName: string; lastName: string | null; email: string } | null;
-  assignedSupporter?: { id: string; firstName: string; lastName: string | null; email: string } | null;
+  // The user relations include deactivated accounts, marked by deletedAt.
+  escalatedBy?: { id: string; firstName: string; lastName: string | null; email: string; deletedAt?: Date | null } | null;
+  assignedSupporter?: { id: string; firstName: string; lastName: string | null; email: string; deletedAt?: Date | null } | null;
   // A feedback item can be assigned to several project members at once.
-  assignees?: { id: string; firstName: string; lastName: string | null; email: string }[];
+  assignees?: { id: string; firstName: string; lastName: string | null; email: string; deletedAt?: Date | null }[];
   attachments?: { id: string; url: string; publicId: string }[];
   // Transient, never persisted: whether the viewer requesting this list is an
   // admin/superadmin or this item's project's team lead. Only set by

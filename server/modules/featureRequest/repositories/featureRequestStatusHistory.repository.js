@@ -20,11 +20,12 @@ class FeatureRequestStatusHistoryRepository {
       where: { featureRequestId },
       order: { enteredAt: "ASC" },
       relations: { actor: true },
+      withDeleted: true, // keeps a deactivated (soft-deleted) actor's name
       select: {
         id: true,
         status: true,
         enteredAt: true,
-        actor: { id: true, firstName: true, lastName: true },
+        actor: { id: true, firstName: true, lastName: true, deletedAt: true },
       },
     });
   }

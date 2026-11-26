@@ -15,6 +15,9 @@ class TestCaseRepository {
     const offset = getOffset(page, limit);
     const qb = this.repo
       .createQueryBuilder("tc")
+      // Must precede the join: keeps deactivated assignees. It also lifts the
+      // filter on the case itself, hence the deleted_at check below.
+      .withDeleted()
       .leftJoinAndSelect("tc.assignees", "assignee")
       .where("tc.suite_id = :suiteId", { suiteId }) // indexed FK
       .andWhere("tc.deleted_at IS NULL")
@@ -131,6 +134,7 @@ class TestCaseRepository {
   async findAllForExport(suiteId, assigneeId = null) {
     const qb = this.repo
       .createQueryBuilder("tc")
+      .withDeleted() // see fetchPaginated
       .leftJoinAndSelect("tc.assignees", "assignee")
       .where("tc.suite_id = :suiteId", { suiteId })
       .andWhere("tc.deleted_at IS NULL")
@@ -148,8 +152,15 @@ class TestCaseRepository {
     return data;
   }
 
+  // A deleted case is still not found; deactivated assignees are included.
   async findById(id) {
-    return this.repo.findOne({ where: { id }, relations: { assignees: true } });
+    return this.repo
+      .createQueryBuilder("tc")
+      .withDeleted()
+      .leftJoinAndSelect("tc.assignees", "assignee")
+      .where("tc.id = :id", { id })
+      .andWhere("tc.deletedAt IS NULL")
+      .getOne();
   }
 
   // Existence check used to scope project-level visibility to the 'user' role —

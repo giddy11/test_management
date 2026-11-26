@@ -40,6 +40,12 @@ class FeatureRequestRepository {
     const offset = getOffset(page, limit);
     const qb = this.repo
       .createQueryBuilder("fr")
+      // Deactivating a user soft-deletes their row, and TypeORM leaves
+      // soft-deleted rows out of a join by default, which would blank the
+      // submitter/assignee. withDeleted() turns that off, but only for joins
+      // added AFTER it, so it must stay above them. It also lifts the filter
+      // on the request itself, hence the explicit deleted check below.
+      .withDeleted()
       .leftJoinAndSelect("fr.submittedBy", "submittedBy")
       .leftJoinAndSelect("fr.assignedTo", "assignedTo")
       .where("fr.project_id = :projectId", { projectId }) // indexed FK
@@ -80,13 +86,22 @@ class FeatureRequestRepository {
   }
 
   async findById(id) {
-    return this.repo.findOne({ where: { id }, relations: { submittedBy: true, assignedTo: true } });
+    return this.repo.findOne({
+      where: { id },
+      relations: { submittedBy: true, assignedTo: true },
+      // See fetchPaginated's withDeleted() comment — a deactivated
+      // submitter/assignee must still show, not vanish. The request itself is
+      // separately re-checked for deletedAt by the service (getAccessible),
+      // so this doesn't let a deleted request slip through.
+      withDeleted: true,
+    });
   }
 
   async findByNumber(requestNumber) {
     return this.repo.findOne({
       where: { requestNumber },
       relations: { submittedBy: true, assignedTo: true },
+      withDeleted: true,
     });
   }
 

@@ -34,6 +34,13 @@ class BugRepository {
     const offset = getOffset(page, limit);
     const qb = this.repo
       .createQueryBuilder("bug")
+      // Deactivating a user soft-deletes their row, and TypeORM leaves
+      // soft-deleted rows out of a join by default, which would blank the
+      // reporter/assignee. withDeleted() turns that off, but only for joins
+      // added AFTER it, so it must stay above them. It also lifts the filter
+      // on the bug itself and on any later join, hence the explicit
+      // deleted checks below.
+      .withDeleted()
       .leftJoinAndSelect("bug.reportedBy", "reportedBy")
       .leftJoinAndSelect("bug.assignedTo", "assignedTo")
       .where("bug.project_id = :projectId", { projectId }) // indexed FK
@@ -59,8 +66,8 @@ class BugRepository {
       } else if (searchBy === "suite") {
         // A bug reaches its suite through the test case it was raised against;
         // bugs with no linked test case have no suite and never match.
-        qb.innerJoin("bug.testCase", "testCase")
-          .innerJoin("testCase.suite", "suite")
+        qb.innerJoin("bug.testCase", "testCase", "testCase.deletedAt IS NULL")
+          .innerJoin("testCase.suite", "suite", "suite.deletedAt IS NULL")
           .andWhere("suite.name ILIKE :search", { search: `%${search}%` });
       } else {
         qb.andWhere("bug.title ILIKE :search", { search: `%${search}%` });
@@ -80,6 +87,11 @@ class BugRepository {
     return this.repo.findOne({
       where: { id },
       relations: { reportedBy: true, assignedTo: true },
+      // See fetchPaginated's withDeleted() comment — a deactivated
+      // reporter/assignee must still show, not vanish. The bug itself is
+      // separately re-checked for deletedAt by the service (getAccessible),
+      // so this doesn't let a deleted bug slip through.
+      withDeleted: true,
     });
   }
 
@@ -87,6 +99,7 @@ class BugRepository {
     return this.repo.findOne({
       where: { bugNumber },
       relations: { reportedBy: true, assignedTo: true },
+      withDeleted: true,
     });
   }
 

@@ -14,7 +14,8 @@ class SupportChatConversationRepository {
   }
 
   findById(id) {
-    return this.repo.findOne({ where: { id }, relations: { user: true } });
+    // withDeleted: the inbox still names a user who has since been deactivated.
+    return this.repo.findOne({ where: { id }, relations: { user: true }, withDeleted: true });
   }
 
   // A user has at most one open conversation — that's the one the floater binds to.
@@ -40,6 +41,7 @@ class SupportChatConversationRepository {
     const offset = getOffset(page, limit);
     const qb = this.repo
       .createQueryBuilder("c")
+      .withDeleted() // see findById
       .leftJoinAndSelect("c.user", "user")
       .skip(offset)
       .take(limit)

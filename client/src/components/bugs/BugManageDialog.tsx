@@ -149,7 +149,11 @@ export function BugManageDialog({ open, onOpenChange, bug, members }: Props) {
                 {/* Carries over a previously valid assignee who has since left the
                     project, so the save button isn't silently stuck on them. */}
                 {bug?.assignedTo && !members.some((m) => m.id === bug.assignedTo!.id) && (
-                  <SelectItem value={bug.assignedTo.id}>{bug.assignedTo.name} (no longer on this project)</SelectItem>
+                  <SelectItem value={bug.assignedTo.id}>
+                    {bug.assignedTo.name}
+                    {/* A deactivated name already carries its own marker. */}
+                    {!bug.assignedTo.deactivated && " (no longer on this project)"}
+                  </SelectItem>
                 )}
                 {members.map((m) => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
               </SelectContent>

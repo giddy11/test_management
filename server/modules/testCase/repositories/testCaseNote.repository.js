@@ -11,12 +11,25 @@ class TestCaseNoteRepository {
     this.resultRepo = AppDataSource.getRepository(TestRunResult);
   }
 
-  // Newest first — the thread reads top-down like a comment feed.
-  async findByTestCase(testCaseId) {
+  // A note joined to its author. withDeleted() must precede the join so a
+  // deactivated author is still named.
+  withAuthor() {
     return this.repo
       .createQueryBuilder("note")
+      .withDeleted()
       .leftJoin("note.author", "author")
-      .addSelect(["author.id", "author.firstName", "author.lastName", "author.email"])
+      .addSelect([
+        "author.id",
+        "author.firstName",
+        "author.lastName",
+        "author.email",
+        "author.deletedAt",
+      ]);
+  }
+
+  // Newest first — the thread reads top-down like a comment feed.
+  async findByTestCase(testCaseId) {
+    return this.withAuthor()
       .where("note.test_case_id = :testCaseId", { testCaseId }) // indexed FK
       .orderBy("note.createdAt", "DESC")
       .getMany();
@@ -34,12 +47,7 @@ class TestCaseNoteRepository {
     const saved = await this.repo.save(this.repo.create(data));
     // Re-read through the author join so the response carries the same shape
     // as the list endpoint (the client renders the new note straight away).
-    return this.repo
-      .createQueryBuilder("note")
-      .leftJoin("note.author", "author")
-      .addSelect(["author.id", "author.firstName", "author.lastName", "author.email"])
-      .where("note.id = :id", { id: saved.id })
-      .getOne();
+    return this.withAuthor().where("note.id = :id", { id: saved.id }).getOne();
   }
 
   async delete(id) {
@@ -51,6 +59,7 @@ class TestCaseNoteRepository {
   async findRunNotes(testCaseId) {
     return this.resultRepo
       .createQueryBuilder("result")
+      .withDeleted() // keeps a deactivated executor's name
       .leftJoin("result.run", "run")
       .leftJoin("result.executedBy", "executedBy")
       .select([
@@ -64,6 +73,7 @@ class TestCaseNoteRepository {
         "executedBy.firstName AS \"firstName\"",
         "executedBy.lastName AS \"lastName\"",
         "executedBy.email AS email",
+        "executedBy.deletedAt AS \"deletedAt\"",
       ])
       .where("result.test_case_id = :testCaseId", { testCaseId })
       .andWhere("result.notes IS NOT NULL")

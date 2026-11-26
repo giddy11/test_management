@@ -18,7 +18,7 @@ export interface Bug {
   testCaseId: string | null
   testRunId: string | null
   reportedBy: { id: string; name: string } | null
-  assignedTo: { id: string; name: string } | null
+  assignedTo: { id: string; name: string; deactivated?: boolean } | null
   resolvedAt: string | null
   closedAt: string | null
   statusUpdatedAt: string | null

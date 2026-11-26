@@ -15,8 +15,9 @@ class TestRunRepository {
     const offset = getOffset(page, limit);
     const qb = this.repo
       .createQueryBuilder("run")
+      .withDeleted() // must precede the join: keeps a deactivated creator's name
       .leftJoin("run.createdBy", "creator")
-      .addSelect(["creator.id", "creator.firstName", "creator.lastName"])
+      .addSelect(["creator.id", "creator.firstName", "creator.lastName", "creator.deletedAt"])
       .where("run.project_id = :projectId", { projectId })
       .orderBy("run.createdAt", "DESC")
       .skip(offset)

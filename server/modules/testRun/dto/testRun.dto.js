@@ -1,10 +1,11 @@
 // modules/testRun/dto/testRun.dto.js
+const { markDeactivated } = require("../../../shared/utils/deactivatedUser");
 
 function toTestRunResponse(run, summary) {
   if (!run) return null;
   const cb = run.createdBy;
   const createdByName = cb
-    ? [cb.firstName, cb.lastName].filter(Boolean).join(" ")
+    ? markDeactivated([cb.firstName, cb.lastName].filter(Boolean).join(" "), cb)
     : null;
   return {
     id: run.id,

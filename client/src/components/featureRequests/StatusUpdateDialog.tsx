@@ -130,7 +130,9 @@ export function StatusUpdateDialog({ open, onOpenChange, request, members }: Pro
                       the project, so the save button isn't silently stuck on them. */}
                   {request?.assignedTo && !members.some((m) => m.id === request.assignedTo!.id) && (
                     <SelectItem value={request.assignedTo.id}>
-                      {request.assignedTo.name} (no longer on this project)
+                      {request.assignedTo.name}
+                      {/* A deactivated name already carries its own marker. */}
+                      {!request.assignedTo.deactivated && " (no longer on this project)"}
                     </SelectItem>
                   )}
                   {members.map((m) => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}

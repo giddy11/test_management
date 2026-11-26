@@ -503,13 +503,20 @@ export class FeedbackService {
     }
   }
 
+  // The escalating IT supporter, only while their account is active. The loaded
+  // relation includes a deactivated one (so it can be named), and they must not
+  // be contacted; findUserById already leaves them out.
+  private async activeEscalator(fb: Feedback) {
+    if (fb.escalatedBy?.deletedAt) return null;
+    return fb.escalatedBy ?? (await this.authRepo.findUserById(fb.escalatedById));
+  }
+
   // Post-escalation, the escalating IT supporter is the contact for all
   // lifecycle emails (they relay to their end users). Direct submissions keep
   // emailing the original submitter.
   private async resolveEmailRecipient(fb: Feedback): Promise<{ email: string; name: string }> {
     if (fb.escalatedById) {
-      const supporter =
-        fb.escalatedBy ?? (await this.authRepo.findUserById(fb.escalatedById));
+      const supporter = await this.activeEscalator(fb);
       if (supporter) {
         return {
           email: supporter.email,
@@ -552,9 +559,16 @@ export class FeedbackService {
       // Restricted to this project's members — nobody outside the project can be assigned.
       const projectMembers = await this.memberRepo.findMemberUsers(fb.projectId);
       const memberMap = new Map(projectMembers.map((m) => [m.id, m]));
+      // The dialog sends the whole list back, so an assignee deactivated since
+      // may stay. They aren't in projectMembers, so can't be newly assigned.
+      const deactivated = new Map(
+        (fb.assignees ?? [])
+          .filter((u) => u.deletedAt)
+          .map((u) => [u.id, u])
+      );
       const users: typeof projectMembers = [];
       for (const uid of uniqueIds) {
-        const member = memberMap.get(uid);
+        const member = memberMap.get(uid) ?? deactivated.get(uid);
         if (!member) throw new AppError("You can only assign members of this project", 422);
         users.push(member);
       }
@@ -634,8 +648,7 @@ export class FeedbackService {
     // notified (in-app + email) since they're the one who has to relay the
     // fix to their end user; the end user never sees this transition directly.
     if (updated && isEscalatedClose && patch.status !== fb.status) {
-      const supporter =
-        fb.escalatedBy ?? (await this.authRepo.findUserById(fb.escalatedById));
+      const supporter = await this.activeEscalator(fb);
       this.notificationService
         .notifyFeedbackClosedForSupporter(supporter, {
           feedbackId: fb.id,

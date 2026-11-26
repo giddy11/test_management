@@ -165,9 +165,15 @@ class TestCaseService {
     await this.suiteService.projectService.assertCanManageProject(actor, suite.projectId);
 
     const before = new Set((tc.assignees ?? []).map((u) => u.id));
+    // The dialog sends the whole list back, so someone already on the case who
+    // has since been deactivated may stay. findUserById doesn't return them, so
+    // they still can't be newly assigned anywhere.
+    const deactivated = new Map(
+      (tc.assignees ?? []).filter((u) => u.deletedAt).map((u) => [u.id, u])
+    );
     const users = [];
     for (const uid of userIds) {
-      const user = await this.authRepo.findUserById(uid);
+      const user = deactivated.get(uid) ?? (await this.authRepo.findUserById(uid));
       if (!user) throw new AppError(`User not found: ${uid}`, 404);
       if (user.organizationId !== actor.organizationId) {
         throw new AppError("You can only assign users from your organisation", 403);

@@ -72,6 +72,15 @@ export function FeedbackManageDialog({
     setIncludeNote(Boolean(feedback.adminResponse))
   }
 
+  // Current assignees outside the member list (deactivated, or since removed from
+  // the project) are still sent on save, so they're listed too and can be unticked.
+  const assigneeOptions = [
+    ...members,
+    ...(feedback?.assignees ?? [])
+      .filter((a) => !members.some((m) => m.id === a.id))
+      .map((a) => ({ ...a, email: "" })),
+  ]
+
   const toggleAssignee = (id: string) =>
     setAssigneeIds((prev) => {
       const next = new Set(prev)
@@ -270,7 +279,7 @@ export function FeedbackManageDialog({
                     </label>
                   )}
                   <div className="max-h-40 space-y-1 overflow-y-auto rounded-md border p-1">
-                    {members.map((m) => {
+                    {assigneeOptions.map((m) => {
                       const initials = m.name
                         .split(" ")
                         .map((p) => p[0])
@@ -300,7 +309,7 @@ export function FeedbackManageDialog({
                   {assigneeIds.size > 0 && (
                     <div className="flex flex-wrap gap-1">
                       {[...assigneeIds].map((id) => {
-                        const m = members.find((m) => m.id === id)
+                        const m = assigneeOptions.find((m) => m.id === id)
                         if (!m) return null
                         return (
                           <Badge key={id} variant="secondary" className="gap-1 text-xs">

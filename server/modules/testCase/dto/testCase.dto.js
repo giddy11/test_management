@@ -1,4 +1,5 @@
 // modules/testCase/dto/testCase.dto.js
+const { markDeactivated } = require("../../../shared/utils/deactivatedUser");
 
 function toTestCaseResponse(tc) {
   if (!tc) return null;
@@ -14,7 +15,7 @@ function toTestCaseResponse(tc) {
     assignees: Array.isArray(tc.assignees)
       ? tc.assignees.map((u) => ({
           id: u.id,
-          name: [u.firstName, u.lastName].filter(Boolean).join(" "),
+          name: markDeactivated([u.firstName, u.lastName].filter(Boolean).join(" "), u),
           email: u.email,
         }))
       : [],
