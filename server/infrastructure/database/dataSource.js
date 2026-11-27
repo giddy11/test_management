@@ -60,6 +60,10 @@ const {
 const { BugAttachment } = require("../../modules/bug/entities/bugAttachment.entity");
 const { SiteBanner } = require("../../modules/siteBanner/entities/siteBanner.entity");
 const { PricingSettings } = require("../../modules/pricing/entities/pricingSettings.entity");
+const {
+  ReviewPromptSettings,
+  ReviewPromptState,
+} = require("../../modules/reviewPrompt/entities/reviewPrompt.entity");
 const { PlanEntitlement } = require("../../modules/subscription/entities/planEntitlement.entity");
 const { OrganizationSubscription } = require("../../modules/subscription/entities/organizationSubscription.entity");
 const { SubscriptionPayment } = require("../../modules/subscription/entities/subscriptionPayment.entity");
@@ -165,6 +169,8 @@ const AppDataSource = new DataSource({
     FeedbackLookupCode,
     SiteBanner,
     PricingSettings,
+    ReviewPromptSettings,
+    ReviewPromptState,
     PlanEntitlement,
     OrganizationSubscription,
     SubscriptionPayment,

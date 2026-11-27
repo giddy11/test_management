@@ -130,6 +130,14 @@ const CONTENT_FIELDS = ["title", "description", "category", "module", "reference
 // their work read as something it wasn't. Status/response/assignee still move
 // freely; only the write-up locks. Mirrored on the client in
 // isFeatureRequestEditable (lib/enums.ts).
+// Still the assignee's to work on.
+const AWAITING_WORK_STATUSES = new Set([
+  FeatureRequestStatus.NEW,
+  FeatureRequestStatus.UNDER_REVIEW,
+  FeatureRequestStatus.PLANNED,
+  FeatureRequestStatus.IN_PROGRESS,
+]);
+
 const LOCKED_FEATURE_REQUEST_CONTENT_STATUSES = new Set([
   FeatureRequestStatus.IN_PROGRESS,
   FeatureRequestStatus.READY_FOR_REVIEW,
@@ -323,12 +331,59 @@ class FeatureRequestService {
     if (CONTENT_FIELDS.some((f) => data[f] !== undefined)) {
       assertFeatureRequestContentEditable(fr.status);
     }
+    if (data.status !== undefined) assertValidStatusTransition(fr.status, data.status);
 
+    return this._applyUpdate(actor, fr, data);
+  }
+
+  // The assignee saying their work is done, from the reminder. Open to them
+  // without leading the project: only on their own request, and only to Ready
+  // For Review, which hands it to the submitter to confirm.
+  async submitForReview(actor, id) {
+    const fr = await this.getAccessible(actor, id);
+    await this.projectService.assertCanContribute(actor, fr.projectId);
+    if (fr.assignedToId !== actor.id) {
+      throw new AppError("Only the person this request is assigned to can mark it Ready For Review here.", 403);
+    }
+    if (!AWAITING_WORK_STATUSES.has(fr.status)) {
+      throw new AppError(
+        `This request is no longer waiting on you — it is now "${FEATURE_REQUEST_STATUS_LABELS[fr.status]}".`,
+        409
+      );
+    }
+    return this._applyUpdate(actor, fr, { status: FeatureRequestStatus.READY_FOR_REVIEW });
+  }
+
+  // The submitter's verdict, from the review reminder. Open to a submitter who
+  // doesn't lead the project: only from Ready For Review, and only to Done or
+  // back to In Progress. That step back is the single exception to the
+  // forward-only rule in assertValidStatusTransition.
+  async answerReview(actor, id, { approved, reason }) {
+    const fr = await this.getAccessible(actor, id);
+    await this.projectService.assertCanContribute(actor, fr.projectId);
+    if (fr.submittedById !== actor.id) {
+      throw new AppError("Only the person who submitted this request can answer its review.", 403);
+    }
+    if (fr.status !== FeatureRequestStatus.READY_FOR_REVIEW) {
+      throw new AppError(
+        `This request is no longer waiting for your review — it is now "${FEATURE_REQUEST_STATUS_LABELS[fr.status]}".`,
+        409
+      );
+    }
+    const status = approved ? FeatureRequestStatus.DONE : FeatureRequestStatus.IN_PROGRESS;
+    // Checked before the comment, so a refused change leaves nothing behind.
+    assertFeatureRequestHasAssignee(status, fr.assignedToId);
+    if (!approved) await this.addComment(actor, id, `Not done yet: ${reason}`);
+    return this._applyUpdate(actor, fr, { status });
+  }
+
+  // Saves a change the caller has already been cleared to make, with everything
+  // that goes with it: timestamps, history, activity log and notifications.
+  async _applyUpdate(actor, fr, data) {
     const patch = {};
     for (const field of CONTENT_FIELDS) {
       if (data[field] !== undefined) patch[field] = data[field];
     }
-    if (data.status !== undefined) assertValidStatusTransition(fr.status, data.status);
     // Only a real move counts as a transition — resending the current status
     // alongside a reply must not stamp a first response or reset statusUpdatedAt.
     const statusChanged = data.status !== undefined && data.status !== fr.status;
@@ -375,7 +430,7 @@ class FeatureRequestService {
       );
     }
 
-    const updated = await this.frRepo.update(id, patch);
+    const updated = await this.frRepo.update(fr.id, patch);
     const project = await this.projectService.getProject(actor, fr.projectId);
 
     // One history row per status entered — powers the SLA "paused time"

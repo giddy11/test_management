@@ -11,6 +11,7 @@ import { ThemeToggle } from "@/components/shared/ThemeToggle"
 import { NotificationBell } from "@/components/layout/NotificationBell"
 import { GlobalSearch } from "@/components/layout/GlobalSearch"
 import { WhatsNewDialog } from "@/components/layout/WhatsNewDialog"
+import { ReviewPromptDialog } from "@/components/review/ReviewPromptDialog"
 import { SiteBannerBar } from "@/components/layout/SiteBannerBar"
 import { PlanLimitBanner } from "@/components/subscription/PlanLimitBanner"
 import { SubscriptionRequiredModal } from "@/components/subscription/SubscriptionRequiredModal"
@@ -69,6 +70,7 @@ export function DashboardLayout() {
             </Suspense>
           </div>
           <WhatsNewDialog />
+          <ReviewPromptDialog />
           {/* <SupportChatWidget /> */}
           <ContactSupportWidget />
         </SidebarInset>

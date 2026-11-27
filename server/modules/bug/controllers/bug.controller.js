@@ -64,6 +64,28 @@ class BugController {
     }
   }
 
+  static async submitForReview(req, res, next) {
+    try {
+      const bug = await BugService.Instance.submitForReview(req.user, req.validated.params.id);
+      res.status(200).json(ApiResponse.ok("Bug updated", toBugResponse(bug)));
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  static async answerReview(req, res, next) {
+    try {
+      const bug = await BugService.Instance.answerReview(
+        req.user,
+        req.validated.params.id,
+        req.validated.body
+      );
+      res.status(200).json(ApiResponse.ok("Bug updated", toBugResponse(bug)));
+    } catch (err) {
+      next(err);
+    }
+  }
+
   static async remove(req, res, next) {
     try {
       await BugService.Instance.deleteBug(req.user, req.validated.params.id);

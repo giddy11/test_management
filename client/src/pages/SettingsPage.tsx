@@ -41,6 +41,7 @@ import {
 } from "@/types/auth.types"
 import { useSupportChatSettings, useSetSupportChatEnabled } from "@/hooks/useSupportChat"
 import { RolesAccessTab } from "@/components/access/RolesAccessTab"
+import { ReviewReminderSettingsCard } from "@/components/review/ReviewReminderSettingsCard"
 import { AiSettingsTab } from "@/components/ai/AiSettingsTab"
 
 // ── Profile tab ───────────────────────────────────────────────────────────────
@@ -685,9 +686,11 @@ function AdminTab() {
 
 export default function SettingsPage() {
   const { can } = useAuth()
-  // The Admin tab holds the platform-wide support-chat toggle, which is the
-  // vendor's control rather than any one organisation's.
-  const canManagePlatform = can("supportchat.manage")
+  // The Admin tab holds the platform-wide controls (support chat, review
+  // reminder), which are the vendor's rather than any one organisation's.
+  const canManageSupportChat = can("supportchat.manage")
+  const canSetReminder = can("reviewprompt.manage")
+  const canManagePlatform = canManageSupportChat || canSetReminder
   // Reading roles is its own permission; managing them is another. The tab
   // shows for anyone who may look, and the editor stays read-only without
   // role.manage. The API enforces both regardless.
@@ -791,8 +794,9 @@ export default function SettingsPage() {
         )}
 
         {canManagePlatform && (
-          <TabsContent value="admin" className="mt-4">
-            <AdminTab />
+          <TabsContent value="admin" className="mt-4 space-y-6">
+            {canManageSupportChat && <AdminTab />}
+            {canSetReminder && <ReviewReminderSettingsCard />}
           </TabsContent>
         )}
       </Tabs>

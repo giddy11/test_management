@@ -16,6 +16,7 @@ const {
   commentIdParamSchema,
 } = require("../validators/bug.schema");
 const { BugController } = require("../controllers/bug.controller");
+const { reviewAnswerSchema } = require("../../reviewPrompt/validators/reviewPrompt.schema");
 
 router.get("/", authMiddleware, requireProjectAccess("Defects and feature requests — decided by role in the project"), validate(fetchBugsSchema), BugController.fetchAll);
 router.get(
@@ -40,6 +41,22 @@ router.patch(
   requireProjectAccess("Defects and feature requests — decided by role in the project"),
   validate(manageBugSchema),
   BugController.manage
+);
+// The assignee marking their work done from the reminder — assignee-only, in the service.
+router.post(
+  "/:id/submit-for-review",
+  authMiddleware,
+  requireProjectAccess("Defects and feature requests — decided by role in the project"),
+  validate(idParamSchema),
+  BugController.submitForReview
+);
+// The reporter's answer to a review reminder — reporter-only, in the service.
+router.post(
+  "/:id/review",
+  authMiddleware,
+  requireProjectAccess("Defects and feature requests — decided by role in the project"),
+  validate(reviewAnswerSchema),
+  BugController.answerReview
 );
 router.delete(
   "/:id",

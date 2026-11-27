@@ -58,6 +58,8 @@ const bugRank = (status) => (status === BugStatus.REOPENED ? 0.5 : BUG_STAGES.in
 // stages that count as "resolved" for the SLA.
 const RESOLVED_BUG_STATUSES = new Set([BugStatus.FIXED, BugStatus.VERIFIED, BugStatus.CLOSED]);
 const REOPENABLE_BUG_STATUSES = RESOLVED_BUG_STATUSES;
+// Still the assignee's to fix.
+const AWAITING_FIX_STATUSES = new Set([BugStatus.OPEN, BugStatus.IN_PROGRESS, BugStatus.REOPENED]);
 
 // A bug only moves forward — it can't return to an earlier status. The one way
 // back is Reopened (a fixed bug resurfaces), after which it works forward again
@@ -284,6 +286,47 @@ class BugService {
 
     if (data.status !== undefined) assertValidStatusTransition(bug.status, data.status);
 
+    return this._applyUpdate(actor, bug, data);
+  }
+
+  // The assignee saying their work is done, from the reminder. Open to them
+  // without leading the project: only on their own bug, and only to Fixed, which
+  // hands it to the reporter to confirm.
+  async submitForReview(actor, id) {
+    const bug = await this.getAccessible(actor, id);
+    await this.projectService.assertCanContribute(actor, bug.projectId);
+    if (bug.assignedToId !== actor.id) {
+      throw new AppError("Only the person this bug is assigned to can mark it Fixed here.", 403);
+    }
+    if (!AWAITING_FIX_STATUSES.has(bug.status)) {
+      throw new AppError(`This bug is no longer waiting on you — it is now "${bug.status}".`, 409);
+    }
+    return this._applyUpdate(actor, bug, { status: BugStatus.FIXED });
+  }
+
+  // The reporter's verdict on a fix, from the review reminder. Open to a
+  // reporter who doesn't lead the project: only from Fixed, and only to Closed
+  // or Reopened. Apart from these two actions, status is manageBug's.
+  async answerReview(actor, id, { approved, reason }) {
+    const bug = await this.getAccessible(actor, id);
+    await this.projectService.assertCanContribute(actor, bug.projectId);
+    if (bug.reportedById !== actor.id) {
+      throw new AppError("Only the person who reported this bug can answer its review.", 403);
+    }
+    if (bug.status !== BugStatus.FIXED) {
+      throw new AppError(`This bug is no longer waiting for your review — it is now "${bug.status}".`, 409);
+    }
+    // The reason goes first: if it can't be saved, the bug isn't sent back
+    // without the team being told why.
+    if (!approved) await this.addComment(actor, id, `Not fixed: ${reason}`);
+    return this._applyUpdate(actor, bug, {
+      status: approved ? BugStatus.CLOSED : BugStatus.REOPENED,
+    });
+  }
+
+  // Saves a change the caller has already been cleared to make, with everything
+  // that goes with it: timestamps, history, activity log and notifications.
+  async _applyUpdate(actor, bug, data) {
     const patch = {};
     if (data.severity !== undefined) patch.severity = data.severity;
     if (data.priority !== undefined) patch.priority = data.priority;
@@ -328,7 +371,7 @@ class BugService {
       );
     }
 
-    const updated = await this.bugRepo.update(id, patch);
+    const updated = await this.bugRepo.update(bug.id, patch);
     const project = await this.projectService.getProject(actor, bug.projectId);
 
     // One history row per status entered — powers the SLA "paused time"

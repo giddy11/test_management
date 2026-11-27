@@ -105,6 +105,34 @@ class FeatureRequestRepository {
     });
   }
 
+  // Requests this person submitted that are Ready For Review and await their
+  // verdict, longest-waiting first.
+  async findAwaitingReview(submittedById, limit = 20) {
+    return this.repo
+      .createQueryBuilder("fr")
+      .withDeleted() // keeps a deactivated assignee's name; see fetchPaginated
+      .leftJoinAndSelect("fr.assignedTo", "assignedTo")
+      .where("fr.submitted_by_id = :submittedById", { submittedById })
+      .andWhere("fr.status = :status", { status: FeatureRequestStatus.READY_FOR_REVIEW })
+      .andWhere("fr.deleted_at IS NULL")
+      .orderBy("fr.statusUpdatedAt", "ASC", "NULLS FIRST")
+      .take(limit)
+      .getMany();
+  }
+
+  // Requests assigned to this person that still need work, in the lead's order.
+  async findAssignedOpen(assignedToId, limit = 50) {
+    return this.repo
+      .createQueryBuilder("fr")
+      .where("fr.assigned_to_id = :assignedToId", { assignedToId })
+      .andWhere("fr.status IN (:...openStatuses)", { openStatuses: OPEN_FEATURE_REQUEST_STATUSES })
+      .andWhere("fr.deleted_at IS NULL")
+      .orderBy("fr.priority", "ASC", "NULLS LAST")
+      .addOrderBy("fr.createdAt", "ASC")
+      .take(limit)
+      .getMany();
+  }
+
   async create(data) {
     return this.repo.save(this.repo.create(data));
   }

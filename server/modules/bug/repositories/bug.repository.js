@@ -103,6 +103,34 @@ class BugRepository {
     });
   }
 
+  // Bugs this person reported that are marked Fixed and await their verdict,
+  // longest-waiting first.
+  async findAwaitingReview(reportedById, limit = 20) {
+    return this.repo
+      .createQueryBuilder("bug")
+      .withDeleted() // keeps a deactivated assignee's name; see fetchPaginated
+      .leftJoinAndSelect("bug.assignedTo", "assignedTo")
+      .where("bug.reported_by_id = :reportedById", { reportedById })
+      .andWhere("bug.status = :status", { status: BugStatus.FIXED })
+      .andWhere("bug.deleted_at IS NULL")
+      .orderBy("bug.statusUpdatedAt", "ASC", "NULLS FIRST")
+      .take(limit)
+      .getMany();
+  }
+
+  // Bugs assigned to this person that still need work, in the lead's fix order.
+  async findAssignedOpen(assignedToId, limit = 50) {
+    return this.repo
+      .createQueryBuilder("bug")
+      .where("bug.assigned_to_id = :assignedToId", { assignedToId })
+      .andWhere("bug.status IN (:...openStatuses)", { openStatuses: OPEN_BUG_STATUSES })
+      .andWhere("bug.deleted_at IS NULL")
+      .orderBy("bug.fixOrder", "ASC", "NULLS LAST")
+      .addOrderBy("bug.createdAt", "ASC")
+      .take(limit)
+      .getMany();
+  }
+
   async create(data) {
     return this.repo.save(this.repo.create(data));
   }

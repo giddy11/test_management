@@ -95,6 +95,28 @@ class FeatureRequestController {
     }
   }
 
+  static async submitForReview(req, res, next) {
+    try {
+      const fr = await FeatureRequestService.Instance.submitForReview(req.user, req.validated.params.id);
+      res.status(200).json(ApiResponse.ok("Feature request updated", toFeatureRequestResponse(fr)));
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  static async answerReview(req, res, next) {
+    try {
+      const fr = await FeatureRequestService.Instance.answerReview(
+        req.user,
+        req.validated.params.id,
+        req.validated.body
+      );
+      res.status(200).json(ApiResponse.ok("Feature request updated", toFeatureRequestResponse(fr)));
+    } catch (err) {
+      next(err);
+    }
+  }
+
   static async remove(req, res, next) {
     try {
       await FeatureRequestService.Instance.deleteFeatureRequest(req.user, req.validated.params.id);

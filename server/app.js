@@ -39,6 +39,7 @@ const siteBannerRoutes = require("./modules/siteBanner/routes/siteBanner.routes"
 const pricingRoutes = require("./modules/pricing/routes/pricing.routes");
 const publicPricingRoutes = require("./modules/pricing/routes/publicPricing.routes");
 const subscriptionRoutes = require("./modules/subscription/routes/subscription.routes");
+const reviewPromptRoutes = require("./modules/reviewPrompt/routes/reviewPrompt.routes");
 const organizationRoutes = require("./modules/organization/routes/organization.routes");
 const emailLogRoutes = require("./modules/emailLog/routes/emailLog.routes");
 const feedbackRoutes = require("./modules/feedback/routes/feedback.routes");
@@ -123,6 +124,7 @@ function createApp() {
   api.use("/app-updates", appUpdateRoutes);
   api.use("/site-banner", siteBannerRoutes);
   api.use("/pricing", pricingRoutes); // platform owner edits the landing page pricing
+  api.use("/review-prompts", reviewPromptRoutes); // reminds reporters to confirm finished work
   api.use("/subscription", subscriptionRoutes); // plans per organisation, offline payments
   api.use("/organizations", organizationRoutes);
   api.use("/email-logs", emailLogRoutes); // platform owner: every email sent, and through which provider

@@ -16,6 +16,7 @@ const {
   commentIdParamSchema,
 } = require("../validators/featureRequest.schema");
 const { FeatureRequestController } = require("../controllers/featureRequest.controller");
+const { reviewAnswerSchema } = require("../../reviewPrompt/validators/reviewPrompt.schema");
 
 router.get(
   "/",
@@ -45,6 +46,22 @@ router.patch(
   requireProjectAccess("Defects and feature requests — decided by role in the project"),
   validate(updateStatusSchema),
   FeatureRequestController.updateStatus
+);
+// The assignee marking their work done from the reminder — assignee-only, in the service.
+router.post(
+  "/:id/submit-for-review",
+  authMiddleware,
+  requireProjectAccess("Defects and feature requests — decided by role in the project"),
+  validate(idParamSchema),
+  FeatureRequestController.submitForReview
+);
+// The submitter's answer to a review reminder — submitter-only, in the service.
+router.post(
+  "/:id/review",
+  authMiddleware,
+  requireProjectAccess("Defects and feature requests — decided by role in the project"),
+  validate(reviewAnswerSchema),
+  FeatureRequestController.answerReview
 );
 router.delete(
   "/:id",
