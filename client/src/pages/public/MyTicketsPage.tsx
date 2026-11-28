@@ -29,6 +29,7 @@ import { RatingStars } from "@/components/feedback/RatingStars"
 import { FeedbackEndpoints } from "@/endpoints/feedback.endpoints"
 import { ApiError } from "@/transport/http"
 import { FEEDBACK_TYPE_LABELS, MY_TICKET_STATUS_LABELS, type MyTicket } from "@/types/feedback.types"
+import { LinkedText } from "@/components/shared/LinkedText"
 
 const STATUS_VARIANT: Record<MyTicket["status"], "default" | "secondary" | "outline" | "destructive"> = {
   received: "destructive",
@@ -352,7 +353,7 @@ export default function MyTicketsPage() {
                   {t.note && (
                     <div className="mt-2 rounded-md border-l-2 border-primary bg-muted/60 px-2.5 py-1.5">
                       <p className="text-xs font-medium text-muted-foreground">Note from support</p>
-                      <p className="whitespace-pre-line break-words text-sm">{t.note}</p>
+                      <p className="whitespace-pre-line break-words text-sm"><LinkedText text={t.note} /></p>
                     </div>
                   )}
                   <div className="mt-2 flex flex-wrap items-center gap-3">

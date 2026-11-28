@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import type { FormField, FormValue, FormValues } from "@/types/serviceDesk.types"
+import { LinkedText } from "@/components/shared/LinkedText"
 
 interface Props {
   fields: FormField[]
@@ -165,7 +166,7 @@ export function FormAnswers({ fields, values }: { fields: FormField[]; values: F
       {rows.map((f) => (
         <div key={f.key} className="min-w-0">
           <dt className="text-xs text-muted-foreground">{f.label}</dt>
-          <dd className="whitespace-pre-wrap break-words text-sm">{show(f, values[f.key])}</dd>
+          <dd className="whitespace-pre-wrap break-words text-sm"><LinkedText text={show(f, values[f.key])} /></dd>
         </div>
       ))}
     </dl>

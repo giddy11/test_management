@@ -21,6 +21,7 @@ import { useCanManageProject, useProject } from "@/hooks/useProjects"
 import { useAuth } from "@/contexts/AuthContext"
 import { BUG_STATUS_META, isBugReportEditable, type BugStatus } from "@/lib/enums"
 import { ApiError } from "@/transport/http"
+import { LinkedText } from "@/components/shared/LinkedText"
 
 // A closed bug can still be reopened, but at rest it shows no running clock.
 const FINAL_STATUSES = ["Closed"]
@@ -136,13 +137,13 @@ export default function BugDetailPage() {
         </div>
       </div>
 
-      <p className="whitespace-pre-wrap text-sm leading-relaxed">{bug.description}</p>
+      <p className="whitespace-pre-wrap text-sm leading-relaxed"><LinkedText text={bug.description} /></p>
 
       {bug.stepsToReproduce.length > 0 && (
         <div className="space-y-1">
           <p className="text-xs font-medium text-muted-foreground">Steps to reproduce</p>
           <ol className="list-decimal space-y-1 pl-5 text-sm">
-            {bug.stepsToReproduce.map((step, i) => <li key={i}>{step}</li>)}
+            {bug.stepsToReproduce.map((step, i) => <li key={i}><LinkedText text={step} /></li>)}
           </ol>
         </div>
       )}
@@ -152,13 +153,13 @@ export default function BugDetailPage() {
           {bug.expectedBehavior && (
             <div className="space-y-1">
               <p className="text-xs font-medium text-muted-foreground">Expected behavior</p>
-              <p className="whitespace-pre-wrap text-sm">{bug.expectedBehavior}</p>
+              <p className="whitespace-pre-wrap text-sm"><LinkedText text={bug.expectedBehavior} /></p>
             </div>
           )}
           {bug.actualBehavior && (
             <div className="space-y-1">
               <p className="text-xs font-medium text-muted-foreground">Actual behavior</p>
-              <p className="whitespace-pre-wrap text-sm">{bug.actualBehavior}</p>
+              <p className="whitespace-pre-wrap text-sm"><LinkedText text={bug.actualBehavior} /></p>
             </div>
           )}
         </div>
@@ -167,7 +168,7 @@ export default function BugDetailPage() {
       {bug.environment && (
         <div className="space-y-1">
           <p className="text-xs font-medium text-muted-foreground">Environment</p>
-          <p className="text-sm">{bug.environment}</p>
+          <p className="text-sm"><LinkedText text={bug.environment} /></p>
         </div>
       )}
 

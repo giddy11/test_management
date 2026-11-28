@@ -20,6 +20,7 @@ import { ApiError } from "@/transport/http"
 import { useFeedbackCommentThread } from "@/hooks/useFeedbackComments"
 import { cn } from "@/lib/utils"
 import { MY_TICKET_STATUS_LABELS, type MyTicket } from "@/types/feedback.types"
+import { LinkedText } from "@/components/shared/LinkedText"
 
 // Matches the server's publicAddCommentSchema.
 const MAX_REPLY_LEN = 3000
@@ -317,7 +318,7 @@ export function WhatsAppTicketLookup({ title, onClose, onBack, initialEmail }: P
             >
               {/* Individual staff names stay internal — same as the My Tickets page. */}
               {!mine && <p className="mb-0.5 text-xs font-medium text-[#075e54]">Support team</p>}
-              {c.body && <p className="whitespace-pre-wrap wrap-break-word">{c.body}</p>}
+              {c.body && <p className="whitespace-pre-wrap wrap-break-word"><LinkedText text={c.body} /></p>}
               {c.attachments.length > 0 && (
                 <div className="mt-1.5 flex flex-wrap gap-1.5">
                   {c.attachments.map((a, i) =>

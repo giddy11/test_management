@@ -17,6 +17,7 @@ import {
 import { useAuth } from "@/contexts/AuthContext"
 import { timeAgo } from "@/lib/timeAgo"
 import { ApiError } from "@/transport/http"
+import { LinkedText } from "@/components/shared/LinkedText"
 
 const initials = (name: string) =>
   name.split(" ").map((p) => p[0]).slice(0, 2).join("").toUpperCase() || "?"
@@ -103,7 +104,7 @@ export function CaseNotesSection({
                     )}
                   </div>
                 </div>
-                <p className="whitespace-pre-wrap text-sm text-muted-foreground">{n.body}</p>
+                <p className="whitespace-pre-wrap text-sm text-muted-foreground"><LinkedText text={n.body} /></p>
               </div>
             </div>
           )
@@ -165,7 +166,7 @@ export function RunNotesSection({ caseId, projectId }: { caseId: string; project
                 {n.executedAt ? timeAgo(n.executedAt) : "not executed"}
               </span>
             </div>
-            <p className="mt-1.5 whitespace-pre-wrap text-sm text-muted-foreground">{n.notes}</p>
+            <p className="mt-1.5 whitespace-pre-wrap text-sm text-muted-foreground"><LinkedText text={n.notes} /></p>
           </div>
         ))}
       </div>

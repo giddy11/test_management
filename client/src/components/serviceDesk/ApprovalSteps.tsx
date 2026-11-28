@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { DueText, When } from "@/components/serviceDesk/RequestBits"
 import { cn } from "@/lib/utils"
 import type { RequestApproval, ServiceRequest } from "@/types/serviceDesk.types"
+import { LinkedText } from "@/components/shared/LinkedText"
 
 function stepStatus(rows: RequestApproval[]): "waiting" | "live" | "approved" | "rejected" | "skipped" {
   if (rows.some((r) => r.decision === "rejected")) return "rejected"
@@ -90,7 +91,7 @@ export function ApprovalSteps({ approvals, request }: { approvals: RequestApprov
                       {a.decision === "waiting" && status === "live" && (
                         <p className="text-xs text-muted-foreground">Waiting for their turn</p>
                       )}
-                      {a.comment && <p className="text-xs whitespace-pre-wrap text-muted-foreground">“{a.comment}”</p>}
+                      {a.comment && <p className="text-xs whitespace-pre-wrap text-muted-foreground">“<LinkedText text={a.comment} />”</p>}
                     </div>
                   </li>
                 ))}

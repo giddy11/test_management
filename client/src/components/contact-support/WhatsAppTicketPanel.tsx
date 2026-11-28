@@ -25,6 +25,7 @@ import {
   type WhatsAppTicketPayload,
   type WhatsAppTicketResult,
 } from "@/types/feedback.types"
+import { LinkedText } from "@/components/shared/LinkedText"
 
 // Matches the server's message limit (whatsAppTicketSchema / serviceDesk4uSupportTicketSchema).
 const MAX_MESSAGE_LEN = 4000
@@ -213,7 +214,7 @@ export function WhatsAppTicketPanel({
         }
       >
         <div className="ml-auto max-w-[80%] rounded-lg rounded-tr-sm bg-[#dcf8c6] px-3 py-2 text-sm whitespace-pre-wrap break-words text-neutral-800 shadow-sm">
-          {sent.message}
+          <LinkedText text={sent.message} />
         </div>
         <div className="max-w-[85%] rounded-lg rounded-tl-sm bg-white px-3 py-2 text-sm text-neutral-800 shadow-sm">
           {sent.ticketCode ? (

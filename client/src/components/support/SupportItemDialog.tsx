@@ -52,6 +52,7 @@ import {
   type FeedbackSeverity,
   type SupportStatus,
 } from "@/types/feedback.types"
+import { LinkedText } from "@/components/shared/LinkedText"
 
 interface Props {
   feedback: Feedback | null
@@ -215,7 +216,7 @@ export function SupportItemDialog({ feedback, onOpenChange }: Props) {
           <div className="grid gap-6 md:grid-cols-[1.15fr_1fr]">
           <div className="min-w-0 grid gap-4 overflow-x-hidden md:max-h-[65vh] md:overflow-y-auto md:pr-6">
             <p className="mt-2 whitespace-pre-line break-words rounded-md bg-muted p-3 text-sm">
-              {feedback.description}
+              <LinkedText text={feedback.description} />
             </p>
 
             {feedback.suiteName && (
@@ -292,7 +293,7 @@ export function SupportItemDialog({ feedback, onOpenChange }: Props) {
                   )}
                 </p>
                 {feedback.supportResponse && (
-                  <p className="mt-0.5 whitespace-pre-line break-words text-sm">{feedback.supportResponse}</p>
+                  <p className="mt-0.5 whitespace-pre-line break-words text-sm"><LinkedText text={feedback.supportResponse} /></p>
                 )}
                 {feedback.rating != null && (
                   <div className="mt-1.5 flex items-center gap-1.5">

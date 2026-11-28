@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { useFeedbackCommentThread } from "@/hooks/useFeedbackComments"
 import type { ApiResponse } from "@/types/api.types"
 import type { FeedbackCommentAttachment } from "@/types/feedback.types"
+import { LinkedText } from "@/components/shared/LinkedText"
 
 const MAX_ATTACHMENTS = 5
 const MAX_FILE_MB = 10
@@ -126,7 +127,7 @@ export function PublicCommentThread({ feedbackId, onSubmit }: Props) {
                     {new Date(c.createdAt).toLocaleString()}
                   </span>
                 </div>
-                <p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">{c.body}</p>
+                <p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground"><LinkedText text={c.body} /></p>
                 {c.attachments.length > 0 && (
                   <div className="mt-2 flex flex-wrap gap-2">
                     {c.attachments.map((a, i) => (

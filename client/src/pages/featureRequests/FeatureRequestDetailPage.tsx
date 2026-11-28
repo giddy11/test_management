@@ -26,6 +26,7 @@ import { useCanManageProject, useProject } from "@/hooks/useProjects"
 import { useAuth } from "@/contexts/AuthContext"
 import { FEATURE_REQUEST_STATUS_META, isFeatureRequestEditable, type FeatureRequestStatus } from "@/lib/enums"
 import { ApiError } from "@/transport/http"
+import { LinkedText } from "@/components/shared/LinkedText"
 
 // Done and rejected are final, so their timeline row shows no running clock.
 const FINAL_STATUSES = ["done", "rejected"]
@@ -131,7 +132,7 @@ export default function FeatureRequestDetailPage() {
         </div>
       </div>
 
-      <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">{request.description}</p>
+      <p className="whitespace-pre-wrap break-words text-sm leading-relaxed"><LinkedText text={request.description} /></p>
 
       {request.referenceLinks.length > 0 && (
         <div className="space-y-1">
@@ -156,7 +157,7 @@ export default function FeatureRequestDetailPage() {
       {request.adminResponse && (
         <div className="rounded-lg border-l-2 border-primary bg-muted/30 p-4">
           <p className="mb-1 text-xs font-medium text-muted-foreground">Team response</p>
-          <p className="whitespace-pre-wrap break-words text-sm">{request.adminResponse}</p>
+          <p className="whitespace-pre-wrap break-words text-sm"><LinkedText text={request.adminResponse} /></p>
         </div>
       )}
 

@@ -44,6 +44,7 @@ import { cn } from "@/lib/utils"
 import { NEEDED_BY_WARNING_TEXT, formatNeededBy } from "@/lib/serviceDesk"
 import { ApiError } from "@/transport/http"
 import { STATUS_META, type RequestDetail } from "@/types/serviceDesk.types"
+import { LinkedText } from "@/components/shared/LinkedText"
 
 const fail = (e: unknown) => toast.error(e instanceof ApiError ? e.message : "Something went wrong")
 
@@ -173,7 +174,7 @@ function RequestView({ detail }: { detail: RequestDetail }) {
               <CardHeader>
                 <CardTitle className="flex items-center gap-1.5 text-sm"><Lock className="size-3.5" /> How IT fulfils this</CardTitle>
               </CardHeader>
-              <CardContent className="text-sm whitespace-pre-wrap">{detail.fulfilmentNotes}</CardContent>
+              <CardContent className="text-sm whitespace-pre-wrap"><LinkedText text={detail.fulfilmentNotes} /></CardContent>
             </Card>
           )}
           {detail.approvals.length > 0 && <ApprovalSteps approvals={detail.approvals} request={r} />}
@@ -203,7 +204,7 @@ function Prose({ label, text, tone }: { label: string; text: string; tone?: "suc
       )}
     >
       <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="text-sm whitespace-pre-wrap break-words">{text}</p>
+      <p className="text-sm whitespace-pre-wrap break-words"><LinkedText text={text} /></p>
     </div>
   )
 }
@@ -261,7 +262,7 @@ function Actions({ detail }: { detail: RequestDetail }) {
         {viewer.canProvideInfo && (
           <div className="space-y-2 rounded-md border border-yellow-300 bg-yellow-50/70 p-3 dark:border-yellow-900 dark:bg-yellow-950/30">
             <p className="flex items-center gap-1.5 text-sm font-medium"><HelpCircle className="size-4" /> {lastQuestion?.actorName ?? "IT"} asked</p>
-            {lastQuestion?.note && <p className="text-sm whitespace-pre-wrap">{lastQuestion.note}</p>}
+            {lastQuestion?.note && <p className="text-sm whitespace-pre-wrap"><LinkedText text={lastQuestion.note} /></p>}
             <Textarea rows={3} placeholder="Your answer" value={answer} onChange={(e) => setAnswer(e.target.value)} data-cy="provide-info" />
             <Button
               size="sm"
@@ -495,7 +496,7 @@ function Timeline({ detail }: { detail: RequestDetail }) {
                 {h.actorName && <span className="text-muted-foreground"> · {h.actorName}</span>}
               </p>
               <p className="text-xs text-muted-foreground"><When at={h.createdAt} /></p>
-              {h.note && <p className="mt-0.5 text-xs whitespace-pre-wrap text-muted-foreground">{h.note}</p>}
+              {h.note && <p className="mt-0.5 text-xs whitespace-pre-wrap text-muted-foreground"><LinkedText text={h.note} /></p>}
             </li>
           ))}
         </ol>

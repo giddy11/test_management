@@ -1,4 +1,5 @@
 import type { CommentMention } from "@/lib/commentThreads"
+import { LinkedText } from "@/components/shared/LinkedText"
 
 const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
 
@@ -8,7 +9,7 @@ const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
 // stray "@" text a user typed without picking a suggestion just renders as
 // plain text.
 export function MentionText({ body, mentions }: { body: string; mentions: CommentMention[] }) {
-  if (mentions.length === 0) return <>{body}</>
+  if (mentions.length === 0) return <LinkedText text={body} />
 
   // Longest names first, so "Jane" can't shadow a match for "Jane Doe".
   const names = [...new Set(mentions.map((m) => m.name))].sort((a, b) => b.length - a.length)
@@ -23,7 +24,7 @@ export function MentionText({ body, mentions }: { body: string; mentions: Commen
             {part}
           </span>
         ) : (
-          <span key={i}>{part}</span>
+          <LinkedText key={i} text={part} />
         )
       )}
     </>

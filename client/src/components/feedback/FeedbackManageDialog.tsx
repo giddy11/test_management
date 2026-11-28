@@ -37,6 +37,7 @@ import {
   type Feedback,
   type FeedbackStatus,
 } from "@/types/feedback.types"
+import { LinkedText } from "@/components/shared/LinkedText"
 
 export function FeedbackManageDialog({
   feedback,
@@ -156,7 +157,7 @@ export function FeedbackManageDialog({
                   )}
                 </p>
                 {feedback.supportResponse && (
-                  <p className="mt-0.5 whitespace-pre-line break-words text-sm">{feedback.supportResponse}</p>
+                  <p className="mt-0.5 whitespace-pre-line break-words text-sm"><LinkedText text={feedback.supportResponse} /></p>
                 )}
                 <p className="mt-1 text-xs text-muted-foreground">
                   Stage emails go to the IT supporter — they relay to their end user.
@@ -165,7 +166,7 @@ export function FeedbackManageDialog({
             )}
 
             <p className="mt-2 min-w-0 whitespace-pre-line break-words rounded-md bg-muted p-3 text-sm">
-              {feedback.description}
+              <LinkedText text={feedback.description} />
             </p>
 
             {feedback.attachments.length > 0 && (
@@ -187,7 +188,7 @@ export function FeedbackManageDialog({
                 <p className="text-xs font-medium text-amber-600 dark:text-amber-400">
                   Submitter said this isn't fixed:
                 </p>
-                <p className="mt-0.5 whitespace-pre-line break-words text-sm">{feedback.reopenReason}</p>
+                <p className="mt-0.5 whitespace-pre-line break-words text-sm"><LinkedText text={feedback.reopenReason} /></p>
               </div>
             )}
 

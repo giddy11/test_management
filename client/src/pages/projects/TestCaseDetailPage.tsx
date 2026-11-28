@@ -9,6 +9,7 @@ import { CaseNotesSection, RunNotesSection } from "@/components/testmgmt/CaseNot
 import { PageLoader } from "@/components/shared/PageLoader"
 import { useCase } from "@/hooks/useCases"
 import { useCanManageProject } from "@/hooks/useProjects"
+import { LinkedText } from "@/components/shared/LinkedText"
 export default function TestCaseDetailPage() {
   const { projectId = "", suiteId = "", caseId = "" } = useParams()
   const canManageProject = useCanManageProject(projectId)
@@ -28,7 +29,7 @@ export default function TestCaseDetailPage() {
           <PriorityBadge value={tc.priority} />
           <CaseStatusBadge value={tc.status} />
         </div>
-        {tc.description && <p className="mt-1 text-sm text-muted-foreground">{tc.description}</p>}
+        {tc.description && <p className="mt-1 text-sm text-muted-foreground"><LinkedText text={tc.description} /></p>}
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
@@ -37,7 +38,7 @@ export default function TestCaseDetailPage() {
           <CardContent>
             {tc.steps.length ? (
               <ol className="list-decimal space-y-2 pl-5 text-sm">
-                {tc.steps.map((s, i) => <li key={i}>{s}</li>)}
+                {tc.steps.map((s, i) => <li key={i}><LinkedText text={s} /></li>)}
               </ol>
             ) : (
               <p className="text-sm text-muted-foreground">No steps recorded.</p>
@@ -48,7 +49,7 @@ export default function TestCaseDetailPage() {
         <Card>
           <CardHeader><CardTitle className="text-base">Expected result</CardTitle></CardHeader>
           <CardContent>
-            <p className="whitespace-pre-wrap text-sm">{tc.expectedResult}</p>
+            <p className="whitespace-pre-wrap text-sm"><LinkedText text={tc.expectedResult} /></p>
             {tc.tags?.length > 0 && (
               <>
                 <Separator className="my-4" />

@@ -17,6 +17,7 @@ import { useAuth } from "@/contexts/AuthContext"
 import { can } from "@/lib/can"
 import { ApiError } from "@/transport/http"
 import { PRIORITY_META, type RequestDetail } from "@/types/serviceDesk.types"
+import { LinkedText } from "@/components/shared/LinkedText"
 
 const fail = (e: unknown) => toast.error(e instanceof ApiError ? e.message : "Something went wrong")
 
@@ -50,7 +51,7 @@ export function IdentityCard({ detail }: { detail: RequestDetail }) {
         {identityCheck ? (
           <>
             <p><span className="text-muted-foreground">How:</span> {identityCheck.method}</p>
-            {identityCheck.note && <p className="whitespace-pre-wrap text-muted-foreground">{identityCheck.note}</p>}
+            {identityCheck.note && <p className="whitespace-pre-wrap text-muted-foreground"><LinkedText text={identityCheck.note} /></p>}
             <p className="text-xs text-muted-foreground"><When at={identityCheck.verifiedAt} /></p>
           </>
         ) : viewer.canRecordIdentity ? (
