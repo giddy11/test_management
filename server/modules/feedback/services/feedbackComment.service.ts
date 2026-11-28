@@ -355,6 +355,7 @@ export class FeedbackCommentService {
             projectName: project?.name ?? "",
             title: ticketLabel(fb),
             commenterName: authorName,
+            mentionedUserIds: mentions.map((m) => m.userId),
             support: !posterIsSupport,
             organizationId: project?.organizationId ?? null,
           })

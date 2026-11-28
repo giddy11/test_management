@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { Bell, Bug, CheckCheck, ClipboardCheck, FlaskConical, Headset, Lightbulb, Store, UserPlus } from "lucide-react"
+import { Bell, Bug, CheckCheck, ClipboardCheck, FlaskConical, Headset, Lightbulb, Maximize2, Minimize2, Store, UserPlus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -29,6 +29,25 @@ const EMPTY_MESSAGE: Record<Filter, string> = {
   all: "You're all caught up.",
   unread: "No unread notifications.",
   read: "No read notifications yet.",
+}
+
+// Whether the panel is shown large, kept per browser.
+const EXPANDED_KEY = "tm_notifications_expanded"
+
+function loadExpanded(): boolean {
+  try {
+    return localStorage.getItem(EXPANDED_KEY) === "1"
+  } catch {
+    return false
+  }
+}
+
+function saveExpanded(expanded: boolean) {
+  try {
+    localStorage.setItem(EXPANDED_KEY, expanded ? "1" : "0")
+  } catch {
+    // Private mode or blocked storage: the panel still expands, just not across visits.
+  }
 }
 
 function timeAgo(iso: string) {
@@ -61,6 +80,7 @@ function linkFor(n: AppNotification): string {
 export function NotificationBell() {
   const [open, setOpen] = useState(false)
   const [filter, setFilter] = useState<Filter>("all")
+  const [expanded, setExpanded] = useState(loadExpanded)
   const navigate = useNavigate()
   const { data: count = 0 } = useUnreadCount()
   const { data: items = [], isLoading } = useNotifications(open)
@@ -75,6 +95,11 @@ export function NotificationBell() {
     setOpen(next)
     // Start on "All" every time the dropdown is reopened.
     if (!next) setFilter("all")
+  }
+
+  const toggleExpanded = () => {
+    saveExpanded(!expanded)
+    setExpanded(!expanded)
   }
 
   const onItem = (n: AppNotification) => {
@@ -96,14 +121,30 @@ export function NotificationBell() {
           )}
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-80 p-0">
-        <div className="flex items-center justify-between border-b px-3 py-2">
+      <DropdownMenuContent
+        align="end"
+        className={cn("p-0", expanded ? "w-[min(40rem,calc(100vw-1rem))]" : "w-80")}
+      >
+        <div className="flex items-center justify-between gap-2 border-b px-3 py-2">
           <span className="text-sm font-medium">Notifications</span>
-          {count > 0 && (
-            <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => markAll.mutate()}>
-              <CheckCheck className="mr-1 size-3.5" /> Mark all read
+          <div className="flex items-center gap-1">
+            {count > 0 && (
+              <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => markAll.mutate()}>
+                <CheckCheck className="mr-1 size-3.5" /> Mark all read
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-7"
+              onClick={toggleExpanded}
+              aria-label={expanded ? "Collapse notifications" : "Expand notifications"}
+              title={expanded ? "Collapse" : "Expand"}
+              data-cy="notification-expand"
+            >
+              {expanded ? <Minimize2 className="size-3.5" /> : <Maximize2 className="size-3.5" />}
             </Button>
-          )}
+          </div>
         </div>
 
         <div role="tablist" aria-label="Filter notifications" className="flex gap-1 border-b px-2 py-1.5">
@@ -132,7 +173,7 @@ export function NotificationBell() {
           ))}
         </div>
 
-        <div className="max-h-96 overflow-y-auto">
+        <div className={cn("overflow-y-auto", expanded ? "max-h-[70vh]" : "max-h-96")}>
           {isLoading && <InlineLoader className="py-6" />}
           {!isLoading && visible.length === 0 && (
             <p className="px-3 py-8 text-center text-sm text-muted-foreground" data-cy="notification-empty">
@@ -167,8 +208,17 @@ export function NotificationBell() {
                   <Icon className="size-3.5" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium">{n.title}</p>
-                  {n.body && <p className="truncate text-xs text-muted-foreground">{n.body}</p>}
+                  <p className={cn("text-sm font-medium", expanded ? "break-words" : "truncate")}>{n.title}</p>
+                  {n.body && (
+                    <p
+                      className={cn(
+                        "text-muted-foreground",
+                        expanded ? "mt-0.5 whitespace-pre-line break-words text-sm" : "truncate text-xs"
+                      )}
+                    >
+                      {n.body}
+                    </p>
+                  )}
                   <p className="mt-0.5 text-[11px] text-muted-foreground">{timeAgo(n.createdAt)}</p>
                 </div>
                 {!n.read && <span className="mt-1.5 size-2 shrink-0 rounded-full bg-primary" />}

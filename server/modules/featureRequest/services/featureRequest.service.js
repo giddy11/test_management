@@ -387,6 +387,8 @@ class FeatureRequestService {
     // Only a real move counts as a transition — resending the current status
     // alongside a reply must not stamp a first response or reset statusUpdatedAt.
     const statusChanged = data.status !== undefined && data.status !== fr.status;
+    // The status dialog resends the stored reply too; only new wording is news.
+    const replyChanged = Boolean(data.adminResponse?.trim()) && data.adminResponse !== fr.adminResponse;
     if (statusChanged) {
       patch.status = data.status;
       patch.statusUpdatedAt = new Date();
@@ -454,9 +456,10 @@ class FeatureRequestService {
       metadata: { projectId: fr.projectId },
     });
 
-    // Status changes fan out to the submitter + every project member (in-app +
-    // email), excluding whoever made the change.
-    if (data.status !== undefined) {
+    // Status changes and new replies fan out to the submitter + every project
+    // member (in-app + email), excluding whoever made the change. A save that
+    // moves neither (assignee, priority) stays quiet here.
+    if (statusChanged || replyChanged) {
       Promise.all([
         fr.submittedById ? this.authRepo.findUserById(fr.submittedById) : Promise.resolve(null),
         this.memberRepo.findMemberUsers(fr.projectId),
@@ -473,6 +476,7 @@ class FeatureRequestService {
               projectId: fr.projectId,
               title: fr.title,
               status: updated.status,
+              statusChanged,
               adminResponse: updated.adminResponse,
               submittedById: fr.submittedById,
               organizationId: project.organizationId,
@@ -601,6 +605,7 @@ class FeatureRequestService {
     }
 
     if (fr.submittedById && fr.submittedById !== actor.id) {
+      const mentionedUserIds = mentions.map((m) => m.userId);
       this.authRepo
         .findUserById(fr.submittedById)
         .then((submitter) => {
@@ -610,6 +615,7 @@ class FeatureRequestService {
               projectId: fr.projectId,
               title: fr.title,
               commenterName: commenterName || "Someone",
+              mentionedUserIds,
             });
           }
         })

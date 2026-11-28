@@ -65,11 +65,16 @@ class NotificationService {
 
   // Splits recipients into those who still want this category in-app and by
   // email (Settings → Notifications). Everyone is opted in until they say no.
-  async audience(users, category) {
+  // mentionedUserIds: people @mentioned in the same comment. Where their
+  // Mentions are on they've already been told, so they're left out here.
+  async audience(users, category, mentionedUserIds = []) {
     const people = users.filter(Boolean);
     if (!people.length) return { inApp: [], email: [] };
     const prefs = await this.repo.findPreferences(people.map((u) => u.id));
-    const on = (u, channel) => wants(prefs.get(u.id), category, channel);
+    const mentioned = new Set(mentionedUserIds);
+    const on = (u, channel) =>
+      wants(prefs.get(u.id), category, channel) &&
+      !(mentioned.has(u.id) && wants(prefs.get(u.id), Category.MENTIONS, channel));
     return {
       inApp: people.filter((u) => on(u, NotificationChannel.IN_APP)),
       email: people.filter((u) => on(u, NotificationChannel.EMAIL)),
@@ -309,7 +314,8 @@ class NotificationService {
     const url = ctx.support ? `${env.appUrl}/support` : `${env.appUrl}/projects/${ctx.projectId}?tab=feedback`;
     const { inApp, email } = await this.audience(
       recipients,
-      ctx.support ? Category.SUPPORT_QUEUE : Category.FEEDBACK
+      ctx.support ? Category.SUPPORT_QUEUE : Category.FEEDBACK,
+      ctx.mentionedUserIds
     );
     await this.repo.createMany(
       inApp.map((u) => ({
@@ -402,7 +408,7 @@ class NotificationService {
   }
 
   // recipients: the submitter + the project's members (deduped by the caller).
-  // ctx: { requestId, projectId, title, status, adminResponse, submittedById }
+  // ctx: { requestId, projectId, title, status, statusChanged, adminResponse, submittedById }
   async notifyFeatureRequestStatusChanged(recipients, ctx) {
     const users = Array.isArray(recipients) ? recipients : [recipients];
     if (!users.length) return;
@@ -412,11 +418,13 @@ class NotificationService {
       inApp.map((u) => ({
         userId: u.id,
         type: NotificationType.FEATURE_REQUEST_STATUS_CHANGED,
-        title:
-          u.id === ctx.submittedById
-            ? `Your feature request status changed: ${ctx.title}`
-            : `Feature request status changed: ${ctx.title}`,
-        body: `"${ctx.title}" is now ${ctx.status.replace(/_/g, " ")}`,
+        title: `${u.id === ctx.submittedById ? "Your feature request" : "Feature request"} ${
+          ctx.statusChanged === false ? "has a new response" : "status changed"
+        }: ${ctx.title}`,
+        body:
+          ctx.statusChanged === false
+            ? ctx.adminResponse
+            : `"${ctx.title}" is now ${ctx.status.replace(/_/g, " ")}`,
         data: { requestId: ctx.requestId, projectId: ctx.projectId, status: ctx.status },
       }))
     );
@@ -434,10 +442,10 @@ class NotificationService {
     }
   }
 
-  // ctx: { requestId, projectId, title, commenterName }
+  // ctx: { requestId, projectId, title, commenterName, mentionedUserIds }
   async notifyFeatureRequestComment(user, ctx) {
     const url = `${env.appUrl}/projects/${ctx.projectId}/feature-requests/${ctx.requestId}`;
-    const { inApp, email } = await this.audience([user], Category.FEATURE_REQUESTS);
+    const { inApp, email } = await this.audience([user], Category.FEATURE_REQUESTS, ctx.mentionedUserIds);
     await this.repo.createMany(
       inApp.map((u) => ({
         userId: u.id,
@@ -600,7 +608,7 @@ class NotificationService {
   // ctx: { bugId, projectId, title, commenterName }
   async notifyBugComment(user, ctx) {
     const url = `${env.appUrl}/projects/${ctx.projectId}/bugs/${ctx.bugId}`;
-    const { inApp, email } = await this.audience([user], Category.BUGS);
+    const { inApp, email } = await this.audience([user], Category.BUGS, ctx.mentionedUserIds);
     await this.repo.createMany(
       inApp.map((u) => ({
         userId: u.id,

@@ -136,7 +136,7 @@ export class ServiceDeskEscalationService {
       kind: "escalated",
       requestId: r.id,
       organizationId: r.organizationId,
-      title: `${level >= 3 ? "Critical — " : ""}Overdue ${phaseLabel}: ${ref} ${r.title}`,
+      title: `${level >= 3 ? "Critical — " : level === 2 ? "Escalated — " : ""}Overdue ${phaseLabel}: ${ref} ${r.title}`,
       heading: row.phase === "approval" ? "An IT request is waiting too long for approval" : "An IT request is overdue",
       body:
         row.phase === "approval"

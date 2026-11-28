@@ -187,7 +187,8 @@ export class SlaEscalationService {
           ? ` (with ${holders.map((p) => p.name).join(", ")})`
           : " and nobody has picked it up";
     this.notify(recipients, issue, {
-      title: `${level >= 3 ? "Critical — " : ""}SLA breached (${target}): ${ref} ${issue.title}`,
+      // Each level is named, or a later one reads in the bell as a repeat.
+      title: `${level >= 3 ? "Critical — " : level === 2 ? "Escalated — " : ""}SLA breached (${target}): ${ref} ${issue.title}`,
       heading: `A ${noun} has run past its SLA`,
       body: `"${issue.title}" (${ref}) on ${issue.projectName} is ${late} past its ${target} target${withWho}.`,
       note: level >= 2 ? `Escalation level ${level} of 3.` : null,

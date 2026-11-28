@@ -1862,7 +1862,8 @@ const ALL_SECTIONS: DocSection[] = [
         <P>
           The <Strong>theme toggle</Strong> in the top-right corner of the app (and of this page)
           switches between light, dark, and system themes. Notifications arrive under the{" "}
-          <Strong>bell icon</Strong> in the header, and the floating <Strong>support chat</Strong>{" "}
+          <Strong>bell icon</Strong> in the header — use the <Strong>expand</Strong> button at the top
+          of that panel to widen it and read each one in full. The floating <Strong>support chat</Strong>{" "}
           button lets you message the ServiceDesk4u team without leaving the app.
         </P>
         <Screenshot caption="Settings — profile, security, and help tabs" src={shotSettings} />

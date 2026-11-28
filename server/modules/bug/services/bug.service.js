@@ -530,6 +530,7 @@ class BugService {
     }
 
     if (bug.reportedById && bug.reportedById !== actor.id) {
+      const mentionedUserIds = mentions.map((m) => m.userId);
       this.authRepo
         .findUserById(bug.reportedById)
         .then((reporter) => {
@@ -539,6 +540,7 @@ class BugService {
               projectId: bug.projectId,
               title: bug.title,
               commenterName: commenterName || "Someone",
+              mentionedUserIds,
             });
           }
         })
